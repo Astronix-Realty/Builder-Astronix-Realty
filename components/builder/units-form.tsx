@@ -1,0 +1,222 @@
+"use client"
+
+import { useState } from "react"
+import { UnitFlowForm } from "./forms/unit-flow-form"
+import { Layers, Building, Building2, CheckCircle2, AlertCircle } from "lucide-react"
+import { type GeneratedTower, type UnitTemplate, type TowerUnitConfig } from "@/lib/builder-types"
+
+interface UnitsFormProps {
+    towers: GeneratedTower[]
+    data: UnitTemplate
+    onChange: (data: UnitTemplate) => void
+    towerConfigs: TowerUnitConfig[]
+    onTowerConfigsChange: (configs: TowerUnitConfig[]) => void
+    activeTowerId: string
+    setActiveTowerId: (id: string) => void
+    activeProjectId: string
+    setActiveProjectId: (id: string) => void
+}
+
+export function UnitsForm({
+    towers, data, onChange, towerConfigs, onTowerConfigsChange,
+    activeTowerId, setActiveTowerId, activeProjectId, setActiveProjectId
+}: UnitsFormProps) {
+    // ── Derive unique projects from towers ──────────────────────────────────
+    const projectIds = Array.from(new Set(towers.map(t => t.projectId).filter(Boolean)))
+
+    // Towers filtered by active project
+    const visibleTowers = activeProjectId === "all"
+        ? towers
+        : towers.filter(t => t.projectId === activeProjectId)
+
+    const getTowerConfig = (towerId: string): UnitTemplate => {
+        const config = (towerConfigs || []).find(c => c.towerId === towerId)
+        const tower = towers.find(t => t.id === towerId)
+        const reraNumber = tower?.reraNumber || data.reraNumber || ""
+
+        if (config) {
+            return {
+                ...data, // Include any missing global inherited fields like posessionDate
+                towerId: config.towerId,
+                baseRatePerSqft: config.ratePerSqft,
+                floorRisePerFloor: 0,
+                gstPercentage: "5",
+                stampDutyPercentage: "5",
+                registrationCharges: "0",
+                parkingCharges: "0",
+                maintenancePerSqft: "0",
+                maintenanceType: "monthly",
+                facingPremiums: config.facingPremiums,
+                configurations: config.configurations,
+                floorGroups: config.floorGroups || [],
+                approvedBanks: [],
+                floorPlan2DUrl: "",
+                floorPlan3DUrl: "",
+                galleryImages: [],
+                videoGallery: [],
+                heroImage: "",
+                reraNumber
+            }
+        }
+        return { ...data, towerId, reraNumber, floorGroups: data.floorGroups || [] }
+    }
+
+    const isTowerConfigured = (towerId: string) => {
+        const config = towerConfigs.find(c => c.towerId === towerId)
+        return !!(config && config.configurations.length > 0)
+    }
+
+    const totalConfigured = towers.filter(t => isTowerConfigured(t.id)).length
+
+    // Project name lookup (e.g. "Project 1") — generatedTowers only have projectId
+    const getProjectLabel = (pid: string) => {
+        const idx = projectIds.indexOf(pid)
+        return idx >= 0 ? `Project ${idx + 1}` : "Project"
+    }
+
+    return (
+        <div className="space-y-0">
+            {/* ── TOP STATS BANNER ─────────────────────────── */}
+            <div className="flex items-center gap-4 px-5 py-3 mb-6 bg-gradient-to-r from-amber-50 via-orange-50 to-transparent rounded-2xl border border-amber-100">
+                <div className="flex items-center gap-2">
+                    <Layers className="w-5 h-5 text-amber-600" />
+                    <span className="font-bold text-amber-700 text-sm">Units Configuration</span>
+                </div>
+                <div className="ml-auto flex items-center gap-6">
+                    <div className="flex items-center gap-2">
+                        <span className="text-xl font-black text-amber-700">{towers.length}</span>
+                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Towers</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-xl font-black text-emerald-600 font-black">{totalConfigured}</span>
+                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Configured</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Entity Tabs are now handled in the Main Sticky Header in page.tsx */}
+
+            {/* ── FORM CONTENT ─────────────────────────────── */}
+            <div className="pt-16">
+                {activeTowerId === "global" ? (
+                    <>
+                        {/* Header */}
+                        <div className="flex items-center gap-3 mb-4 px-1">
+                            <div className="w-8 h-8 rounded-xl bg-amber-500 flex items-center justify-center text-white shrink-0">
+                                <Layers className="w-4 h-4" />
+                            </div>
+                            <div>
+                                <p className="font-bold text-gray-900 text-base leading-none">Global Settings</p>
+                                <p className="text-xs text-gray-400 mt-0.5">
+                                    Yeh settings sabhi towers pe apply hongi jab tak override na karo
+                                </p>
+                            </div>
+                        </div>
+                        <UnitFlowForm data={data} onChange={onChange} />
+                    </>
+                ) : (
+                    (() => {
+                        const tower = towers.find(t => t.id === activeTowerId)
+                        const configured = isTowerConfigured(activeTowerId)
+                        if (!tower) return null
+                        return (
+                            <>
+                                {/* Tower header */}
+                                <div className="flex items-center gap-3 mb-4 px-1">
+                                    <div className="w-8 h-8 rounded-xl bg-[#1A3C8C] flex items-center justify-center text-white shrink-0">
+                                        <Building2 className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-gray-900 text-base leading-none">
+                                            {tower.name}
+                                        </p>
+                                        <p className="text-xs text-gray-400 mt-0.5">
+                                            {getProjectLabel(tower.projectId || "")} ·{" "}
+                                            {tower.totalFloors} Floors · {tower.unitsPerFloor} Units/Floor ·{" "}
+                                            Total {tower.totalUnits} units
+                                            {" · "}{configured ? "✅ Configured" : "⚠️ Using Global Settings"}
+                                        </p>
+                                    </div>
+                                    {configured
+                                        ? <CheckCircle2 className="w-5 h-5 text-emerald-500 ml-auto" />
+                                        : <AlertCircle className="w-5 h-5 text-orange-400 ml-auto" />
+                                    }
+                                </div>
+
+                                <UnitFlowForm
+                                    data={getTowerConfig(activeTowerId)}
+                                    towerName={tower.name}
+                                    totalFloors={Number(tower.totalFloors || 0)}
+                                    unitsPerFloor={Number(tower.unitsPerFloor || 0)}
+                                    onChange={(updated) => {
+                                        const next = [...(towerConfigs || [])]
+                                        const idx = next.findIndex(c => c.towerId === activeTowerId)
+                                        const newTowerConfig: TowerUnitConfig = {
+                                            towerId: activeTowerId,
+                                            configurations: updated.configurations,
+                                            floorGroups: updated.floorGroups || [],
+                                            basePrice: (updated.configurations[0]?.basePrice || 0).toString(),
+                                            ratePerSqft: updated.baseRatePerSqft,
+                                            facingPremiums: updated.facingPremiums
+                                        }
+                                        if (idx >= 0) next[idx] = newTowerConfig
+                                        else next.push(newTowerConfig)
+                                        onTowerConfigsChange(next)
+                                    }}
+                                />
+
+
+                                {/* Navigate prev / next tower */}
+                                <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const idx = visibleTowers.findIndex(t => t.id === activeTowerId)
+                                            if (idx > 0) setActiveTowerId(visibleTowers[idx - 1].id)
+                                            else setActiveTowerId("global")
+                                        }}
+                                        className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-all"
+                                    >
+                                        ← Previous
+                                    </button>
+                                    <span className="text-xs text-gray-400 font-medium">
+                                        Tower {visibleTowers.findIndex(t => t.id === activeTowerId) + 1} / {visibleTowers.length}
+                                    </span>
+                                    {visibleTowers.findIndex(t => t.id === activeTowerId) < visibleTowers.length - 1 ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const idx = visibleTowers.findIndex(t => t.id === activeTowerId)
+                                                if (idx < visibleTowers.length - 1) setActiveTowerId(visibleTowers[idx + 1].id)
+                                            }}
+                                            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#1A3C8C] text-sm font-medium text-[#1A3C8C] hover:bg-blue-50 transition-all"
+                                        >
+                                            Next Tower →
+                                        </button>
+                                    ) : (
+                                        <span className="text-xs text-emerald-600 font-medium px-4 py-2">
+                                            ✅ Saare towers configured!
+                                        </span>
+                                    )}
+                                </div>
+                            </>
+                        )
+                    })()
+                )}
+            </div>
+
+            {/* Info box */}
+            <div className="p-6 bg-blue-50/50 border border-blue-100/50 rounded-3xl flex items-start gap-4 mt-32 shadow-sm">
+                <div className="w-10 h-10 rounded-2xl bg-blue-100 flex items-center justify-center shrink-0 shadow-sm ring-4 ring-blue-50">
+                    <AlertCircle className="w-5 h-5 text-blue-600" />
+                </div>
+                <div className="text-[13px] text-blue-700 leading-relaxed font-medium">
+                    <p className="font-black text-blue-900 mb-1.5 uppercase tracking-wider text-[11px]">Pricing kaise kaam karta hai:</p>
+                    <p className="mb-1">1. <span className="font-black text-[#1A3C8C]">Global Settings</span> → Sabhi towers ke liye default pricing/configs inherit honge.</p>
+                    <p className="mb-1">2. <span className="font-black text-[#1A3C8C]">Tower Override</span> → Specific tower ki alag pricing ya unit types override kar sakte hain.</p>
+                    <p>3. <span className="font-black text-[#1A3C8C]">Floor rise (0.5% after 5th floor) + Facing premiums</span> → Final summary mein auto-calculate honge.</p>
+                </div>
+            </div>
+        </div>
+    )
+}
