@@ -174,3 +174,24 @@ Import trace:
 [00:08:10.596] Server  LOG     ○ Compiling /builder ...
 [00:08:14.273] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
 [00:11:55.395] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:22:23.531] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:22:30.387] Browser ERROR   Each child in a list should have a unique "key" prop.%s%s See https://react.dev/link/warning-keys for more information. 
+
+Check the render method of `div`.  It was passed a child from InventoryView.
+[00:22:39.794] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:34:28.803] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:35:35.800] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:35:38.915] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:39:49.725] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:40:08.392] Server  ERROR   ⨯ Error: Please define the MONGODB_URI environment variable inside .env.local
+[00:40:15.954] Server  ERROR   ⨯ Error: Please define the MONGODB_URI environment variable inside .env.local
+[00:40:39.457] Server  ERROR   ⨯ Error: Please define the MONGODB_URI environment variable inside .env.local
+[00:40:45.569] Browser LOG     Populating default configs for: ["tower-project-1773296071349-1-0"]
+[00:41:03.962] Server  ERROR   ⨯ Error: Please define the MONGODB_URI environment variable inside .env.local
+[00:41:19.471] Browser ERROR   A component is changing a controlled input to be uncontrolled. This is likely caused by the value changing from a defined to undefined, which should not happen. Decide between using a controlled or uncontrolled input element for the lifetime of the component. More info: https://react.dev/link/controlled-components
+[00:43:43.311] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:43:47.792] Browser LOG     Populating default configs for: ["tower-project-1773296272308-1-0"]
+[00:44:00.378] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:44:01.118] Browser LOG     Populating default configs for: ["tower-standalone-1"]
+[00:44:14.404] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:49:54.890] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
