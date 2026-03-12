@@ -195,3 +195,321 @@ Check the render method of `div`.  It was passed a child from InventoryView.
 [00:44:01.118] Browser LOG     Populating default configs for: ["tower-standalone-1"]
 [00:44:14.404] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
 [00:49:54.890] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[01:27:45.356] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[01:31:59.191] Server  LOG     ✓ Compiled in 2.2s
+[01:32:02.290] Browser ERROR   uncaughtError: ReferenceError: React is not defined
+[01:34:44.630] Server  LOG     ✓ Compiled in 750ms
+[01:34:45.061] Server  WARN    ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[01:34:48.577] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[01:36:36.234] Server  LOG     ✓ Compiled in 1006ms
+[01:39:21.235] Server  LOG     ✓ Compiled in 907ms
+[01:40:12.161] Server  LOG     ✓ Compiled in 907ms
+[01:43:39.569] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[01:43:48.068] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[01:43:48.866] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[01:43:49.518] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[01:43:50.059] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[01:43:50.583] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[01:43:51.138] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[01:43:52.773] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[01:43:53.383] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[01:43:54.262] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[01:43:54.799] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[01:44:05.982] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[01:44:06.681] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[01:44:07.313] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[01:44:54.205] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[01:45:06.342] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[01:45:07.160] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[01:45:08.150] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[01:45:09.661] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[01:45:10.457] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[01:45:10.986] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[01:45:11.433] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[01:45:19.649] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[01:45:22.512] Browser ERROR   Error uploading image: {}
+[01:45:28.733] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[01:45:31.209] Browser ERROR   Error uploading image: {}
+[01:48:33.914] Server  LOG     ✓ Compiled in 713ms
+[01:48:36.746] Server  LOG     ✓ Compiled in 1412ms
+[01:48:39.582] Browser ERROR   uncaughtError: ReferenceError: Film is not defined
+[01:49:26.142] Server  WARN    ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[01:49:28.212] Server  LOG     ✓ Compiled in 455ms
+[01:49:31.175] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[01:50:19.661] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[01:50:21.981] Browser ERROR   Error uploading image: {}
+[01:50:30.442] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[01:50:32.339] Browser ERROR   Error uploading image: {}
+[01:50:39.210] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[03:53:24.515] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[03:53:34.731] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[03:53:37.222] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[03:53:40.346] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[03:53:45.329] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[03:53:46.132] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[03:53:46.833] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[03:53:47.790] Server  WARN    Error: Failed to find Server Action. This request might be from an older or newer deployment.
+Read more: https://nextjs.org/docs/messages/failed-to-find-server-action
+[04:31:23.221] Server  LOG     ✓ Compiled in 781ms
+[04:32:17.549] Server  WARN    ⚠ ./app/api/upload/route.ts:72:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  70 |
+  71 | // Increase the body size limit for this route
+> 72 | export const config = {
+     |              ^^^^^^
+  73 |   api: {
+  74 |     bodyParser: false,
+  75 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[04:32:27.641] Server  WARN    ⚠ ./app/api/upload/route.ts:72:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  70 |
+  71 | // Increase the body size limit for this route
+> 72 | export const config = {
+     |              ^^^^^^
+  73 |   api: {
+  74 |     bodyParser: false,
+  75 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[04:32:41.410] Server  WARN    ⚠ ./app/api/upload/route.ts:72:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  70 |
+  71 | // Increase the body size limit for this route
+> 72 | export const config = {
+     |              ^^^^^^
+  73 |   api: {
+  74 |     bodyParser: false,
+  75 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[04:33:00.188] Server  WARN    ⚠ ./app/api/upload/route.ts:72:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  70 |
+  71 | // Increase the body size limit for this route
+> 72 | export const config = {
+     |              ^^^^^^
+  73 |   api: {
+  74 |     bodyParser: false,
+  75 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[04:33:00.778] Server  WARN    ⚠ ./app/api/upload/route.ts:72:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  70 |
+  71 | // Increase the body size limit for this route
+> 72 | export const config = {
+     |              ^^^^^^
+  73 |   api: {
+  74 |     bodyParser: false,
+  75 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[04:33:00.901] Server  WARN    ⚠ ./app/api/upload/route.ts:72:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  70 |
+  71 | // Increase the body size limit for this route
+> 72 | export const config = {
+     |              ^^^^^^
+  73 |   api: {
+  74 |     bodyParser: false,
+  75 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[04:33:01.277] Server  WARN    ⚠ ./app/api/upload/route.ts:72:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  70 |
+  71 | // Increase the body size limit for this route
+> 72 | export const config = {
+     |              ^^^^^^
+  73 |   api: {
+  74 |     bodyParser: false,
+  75 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[04:33:01.401] Server  WARN    ⚠ ./app/api/upload/route.ts:72:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  70 |
+  71 | // Increase the body size limit for this route
+> 72 | export const config = {
+     |              ^^^^^^
+  73 |   api: {
+  74 |     bodyParser: false,
+  75 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[04:33:01.884] Server  WARN    ⚠ ./app/api/upload/route.ts:72:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  70 |
+  71 | // Increase the body size limit for this route
+> 72 | export const config = {
+     |              ^^^^^^
+  73 |   api: {
+  74 |     bodyParser: false,
+  75 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[04:33:02.047] Server  WARN    ⚠ ./app/api/upload/route.ts:72:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  70 |
+  71 | // Increase the body size limit for this route
+> 72 | export const config = {
+     |              ^^^^^^
+  73 |   api: {
+  74 |     bodyParser: false,
+  75 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[04:33:02.232] Server  WARN    ⚠ ./app/api/upload/route.ts:72:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  70 |
+  71 | // Increase the body size limit for this route
+> 72 | export const config = {
+     |              ^^^^^^
+  73 |   api: {
+  74 |     bodyParser: false,
+  75 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[04:33:02.352] Server  WARN    ⚠ ./app/api/upload/route.ts:72:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  70 |
+  71 | // Increase the body size limit for this route
+> 72 | export const config = {
+     |              ^^^^^^
+  73 |   api: {
+  74 |     bodyParser: false,
+  75 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[04:33:02.503] Server  WARN    ⚠ ./app/api/upload/route.ts:72:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  70 |
+  71 | // Increase the body size limit for this route
+> 72 | export const config = {
+     |              ^^^^^^
+  73 |   api: {
+  74 |     bodyParser: false,
+  75 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[04:36:45.008] Server  LOG     ✓ Compiled in 1626ms
+[04:40:12.632] Server  LOG     ✓ Compiled in 800ms
+[04:42:20.618] Server  LOG     ✓ Compiled in 1185ms
+[04:42:29.280] Server  WARN    ⚠ ./app/api/upload/route.ts:72:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  70 |
+  71 | // Increase the body size limit for this route
+> 72 | export const config = {
+     |              ^^^^^^
+  73 |   api: {
+  74 |     bodyParser: false,
+  75 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[04:43:35.604] Server  LOG     ✓ Compiled in 556ms
+[04:49:39.417] Server  WARN    ⚠ ./app/api/upload/route.ts:72:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  70 |
+  71 | // Increase the body size limit for this route
+> 72 | export const config = {
+     |              ^^^^^^
+  73 |   api: {
+  74 |     bodyParser: false,
+  75 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
