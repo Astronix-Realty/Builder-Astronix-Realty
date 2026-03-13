@@ -1,7 +1,4 @@
 {
-  "/_not-found/page": "app/_not-found/page.js",
-  "/api/projects/[id]/route": "app/api/projects/[id]/route.js",
-  "/api/towers/[id]/route": "app/api/towers/[id]/route.js",
   "/api/upload/route": "app/api/upload/route.js",
   "/builder-dashboard/page": "app/builder-dashboard/page.js",
   "/builder/page": "app/builder/page.js",

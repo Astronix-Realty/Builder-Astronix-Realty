@@ -20,7 +20,7 @@ import type {
   VideoGalleryItem, ReraPhase, MasterPlanHighlight, DevelopmentPhase,
   FaqItem, TestimonialItem, ApfDetail,
 } from "@/lib/builder-types"
-import { BannerUpload, GalleryUpload, VideoUpload } from "@/components/ui/media-uploads"
+import { BannerUpload, GalleryUpload, VideoUpload, MasterPlanMapUpload, DocumentUpload } from "@/components/ui/media-uploads"
 
 // ─────────────────────────────────────────
 // PROPS
@@ -774,42 +774,73 @@ export function TownshipFlowForm({ data, onChange }: TownshipFlowFormProps) {
       </Section>
 
       {/* ── 12. MASTER PLAN ─────────────────────── */}
-      <Section id="masterplan" title="Master Plan" description="Master plan image + legend/highlights" icon={MapIcon} openIds={openIds} setOpenIds={setOpenIds}>
-        <Grid cols={2}>
-          <Field label="Master Plan Image URL" required>
-            <Input value={data.masterplanImage} onChange={e => update("masterplanImage", e.target.value)} placeholder="https://...master-plan.jpg" />
-          </Field>
-          <Field label="Scale" hint="Eg: 1:500">
-            <Input value={data.masterPlanScale} onChange={e => update("masterPlanScale", e.target.value)} placeholder="1:500" />
-          </Field>
-        </Grid>
-        <div className="mt-3">
-          <Field label="Short Description" hint="Brief explanation of the layout">
-            <Textarea value={data.masterPlanDescription || ""} onChange={e => update("masterPlanDescription", e.target.value)} rows={2} placeholder="The master plan offers a holistic approach to urban living..." />
-          </Field>
-        </div>
-        {
-          data.masterplanImage && (
-            <div className="relative w-full h-40 mt-3 bg-gray-50 border rounded-lg">
-              <Image src={data.masterplanImage} alt="Master Plan Preview" fill className="object-contain" unoptimized />
-            </div>
-          )
-        }
+      <Section id="masterplan" title="Master Plan" description="Architectural layout & highlights" icon={MapIcon} openIds={openIds} setOpenIds={setOpenIds}>
+        <div className="flex flex-col md:flex-row gap-8">
+          {/* Left: Master Plan Image */}
+          <div className="flex-1">
+            <MasterPlanMapUpload 
+              value={data.masterplanImage} 
+              onChange={v => update("masterplanImage", v)} 
+            />
+          </div>
+          
+          {/* Right: Description & Brochure */}
+          <div className="flex-1 space-y-6">
+            <Field label="Short Description" hint="Brief explanation of the layout">
+              <Textarea value={data.masterPlanDescription || ""} onChange={e => update("masterPlanDescription", e.target.value)} rows={3} placeholder="Brief description for listings..." className="bg-white/50" />
+            </Field>
 
-        <SectionTitle title="Master Plan Legend / Highlights" />
-        <p className="text-xs text-gray-500 mb-2">Map ke upar labels jo dikhte hain (Clubhouse, Garden area etc.)</p>
-        {
-          data.masterPlanHighlights.map(item => (
-            <div key={item.id} className="flex gap-2 mb-2">
-              <Input value={item.label} onChange={e => update("masterPlanHighlights", data.masterPlanHighlights.map(x => x.id === item.id ? { ...x, label: e.target.value } : x))} placeholder="Club House" className="text-xs" />
-              <button type="button" onClick={() => removeHighlight(item.id)} className="text-red-400 shrink-0"><X className="w-4 h-4" /></button>
+            <div className="pt-2">
+              {/* Township Master Brochure heading */}
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-9 h-9 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
+                  <FileText className="w-4 h-4 text-red-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Township Master Brochure</p>
+                  <p className="text-xs text-[#2BB673]">Upload your comprehensive township brochure</p>
+                </div>
+              </div>
+              <DocumentUpload
+                value={data.brochureLink || ""}
+                onChange={v => update("brochureLink", v)}
+              />
             </div>
-          ))
-        }
-        <Button type="button" variant="outline" size="sm" onClick={addHighlight} className="w-full border-dashed mt-1">
-          <Plus className="w-3 h-3 mr-1" /> Add Highlight
-        </Button>
-      </Section >
+
+            <div className="pt-6 border-t border-gray-100 mt-6">
+              <SectionTitle title="Master Plan Legend / Highlights" />
+              <p className="text-xs text-gray-500 mb-3">Map labels (Clubhouse, Garden area etc.)</p>
+              
+              <div className="space-y-2 max-h-[160px] overflow-y-auto pr-2 custom-scrollbar">
+                {data.masterPlanHighlights.map(item => (
+                  <div key={item.id} className="flex gap-2 group relative">
+                    <Input 
+                      value={item.label} 
+                      onChange={e => update("masterPlanHighlights", data.masterPlanHighlights.map(x => x.id === item.id ? { ...x, label: e.target.value } : x))} 
+                      placeholder="e.g. Club House" 
+                      className="text-xs bg-white/50 pr-8" 
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => removeHighlight(item.id)} 
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+                {data.masterPlanHighlights.length === 0 && (
+                  <p className="text-[11px] text-gray-400 italic text-center py-2 bg-gray-50 rounded-lg">No highlights added</p>
+                )}
+              </div>
+              
+              <Button type="button" variant="outline" size="sm" onClick={addHighlight} className="w-full border-dashed mt-3 text-blue-600 hover:text-blue-700 hover:bg-blue-50">
+                <Plus className="w-3 h-3 mr-1" /> Add Highlight
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Section>
 
       {/* ── 13. LEGAL (RERA & CC) ────────────────── */}
       <Section id="legal-township" title="Township Legal / RERA" description="RERA, CC, OC — Township-specific legal documents" icon={ShieldCheck} openIds={openIds} setOpenIds={setOpenIds}>
@@ -862,10 +893,7 @@ export function TownshipFlowForm({ data, onChange }: TownshipFlowFormProps) {
           </>
         )}
 
-        <SectionTitle title="E-Brochure" />
-        <Field label="Brochure Link" hint="Direct link to PDF brochure">
-          <Input value={data.brochureLink || ""} onChange={e => update("brochureLink", e.target.value)} placeholder="https://...brochure.pdf" />
-        </Field>
+
       </Section>
 
 
