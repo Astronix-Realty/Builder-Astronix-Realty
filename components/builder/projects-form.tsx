@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { ProjectFlowForm } from "./forms/project-flow-form"
 import { Button } from "@/components/ui/button"
-import { Plus, X, Building2, CheckCircle2, AlertCircle, Copy } from "lucide-react"
+import { Plus, X, Building2, CheckCircle2, AlertCircle, Copy, Trash2 } from "lucide-react"
 import { createInitialProject, type ProjectData, type TownshipData } from "@/lib/builder-types"
 
 interface ProjectsFormProps {
@@ -30,8 +30,16 @@ export function ProjectsForm({ township, projects, onChange, onCloneProject, act
         if (activeProject) onCloneProject(activeProject.id)
     }
 
-    const handleRemove = (idx: number) => {
-        if (!confirm(`"${projects[idx]?.name || `Project ${idx + 1}`}" ko hatayen? Iske saare towers bhi remove ho jayenge.`)) return
+    const handleRemove = async (idx: number) => {
+        const projectToDelete = projects[idx];
+        if (!confirm(`Are you sure you want to delete "${projectToDelete?.name || `Project ${idx + 1}`}"? This will also remove all related towers and units.`)) return;
+        
+        try {
+            await fetch(`/api/projects/${projectToDelete.id}`, { method: 'DELETE' });
+        } catch (error) {
+            console.error("API delete failed (might be a draft):", error);
+        }
+
         const next = projects.filter((_, i) => i !== idx)
         onChange(next)
         setActiveIdx(Math.max(0, idx - 1))
@@ -114,6 +122,15 @@ export function ProjectsForm({ township, projects, onChange, onCloneProject, act
                                 title="Duplicate this project (including all its towers and units)"
                             >
                                 <Copy className="w-4 h-4" /> Clone Project
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => handleRemove(activeIdx)}
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-red-200 bg-red-50 text-red-600 text-sm font-medium hover:bg-red-100 transition-all"
+                                title="Delete this project"
+                            >
+                                <Trash2 className="w-4 h-4" /> Delete
                             </button>
 
                             <span className="text-[10px] text-gray-400 font-bold uppercase mx-2 whitespace-nowrap">

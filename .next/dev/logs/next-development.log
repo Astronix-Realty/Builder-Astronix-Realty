@@ -1,0 +1,288 @@
+[00:00:09.366] Server  LOG     ✓ Ready in 8.2s
+[00:00:28.757] Server  WARN    ⚠ Cross origin request detected from 192.168.4.112 to /_next/* resource. In a future major version of Next.js, you will need to explicitly configure "allowedDevOrigins" in next.config to allow this.
+Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
+[00:00:28.889] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:44.101] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:05:36.352] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:05:41.782] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:10:06.482] Server  LOG     ✓ Compiled in 6.9s
+[00:10:59.317] Server  LOG     ✓ Compiled in 1125ms
+[00:12:19.982] Server  WARN    ⚠ ./app/api/upload/route.ts:72:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  70 |
+  71 | // Increase the body size limit for this route
+> 72 | export const config = {
+     |              ^^^^^^
+  73 |   api: {
+  74 |     bodyParser: false,
+  75 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[00:13:18.113] Server  WARN    ⚠ ./app/api/upload/route.ts:72:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  70 |
+  71 | // Increase the body size limit for this route
+> 72 | export const config = {
+     |              ^^^^^^
+  73 |   api: {
+  74 |     bodyParser: false,
+  75 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[00:13:26.315] Server  WARN    ⚠ ./app/api/upload/route.ts:72:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  70 |
+  71 | // Increase the body size limit for this route
+> 72 | export const config = {
+     |              ^^^^^^
+  73 |   api: {
+  74 |     bodyParser: false,
+  75 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[00:13:56.453] Server  WARN    ⚠ ./app/api/upload/route.ts:72:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  70 |
+  71 | // Increase the body size limit for this route
+> 72 | export const config = {
+     |              ^^^^^^
+  73 |   api: {
+  74 |     bodyParser: false,
+  75 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[00:14:14.532] Server  WARN    ⚠ ./app/api/upload/route.ts:72:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  70 |
+  71 | // Increase the body size limit for this route
+> 72 | export const config = {
+     |              ^^^^^^
+  73 |   api: {
+  74 |     bodyParser: false,
+  75 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[00:15:03.826] Server  WARN    ⚠ ./app/api/upload/route.ts:72:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  70 |
+  71 | // Increase the body size limit for this route
+> 72 | export const config = {
+     |              ^^^^^^
+  73 |   api: {
+  74 |     bodyParser: false,
+  75 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[00:17:48.459] Server  WARN    ⚠ ./app/api/upload/route.ts:73:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  71 |
+  72 | // Increase the body size limit for this route
+> 73 | export const config = {
+     |              ^^^^^^
+  74 |   api: {
+  75 |     bodyParser: false,
+  76 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[00:20:30.252] Server  LOG     ✓ Compiled in 1002ms
+[00:21:11.249] Server  WARN    ⚠ ./app/api/upload/route.ts:73:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  71 |
+  72 | // Increase the body size limit for this route
+> 73 | export const config = {
+     |              ^^^^^^
+  74 |   api: {
+  75 |     bodyParser: false,
+  76 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[00:21:35.887] Server  WARN    ⚠ ./app/api/upload/route.ts:73:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  71 |
+  72 | // Increase the body size limit for this route
+> 73 | export const config = {
+     |              ^^^^^^
+  74 |   api: {
+  75 |     bodyParser: false,
+  76 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[00:23:38.623] Server  LOG     ✓ Compiled in 1718ms
+[00:23:59.192] Server  WARN    ⚠ ./app/api/upload/route.ts:73:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  71 |
+  72 | // Increase the body size limit for this route
+> 73 | export const config = {
+     |              ^^^^^^
+  74 |   api: {
+  75 |     bodyParser: false,
+  76 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[00:43:36.959] Server  WARN    ⚠ ./app/api/upload/route.ts:73:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  71 |
+  72 | // Increase the body size limit for this route
+> 73 | export const config = {
+     |              ^^^^^^
+  74 |   api: {
+  75 |     bodyParser: false,
+  76 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[00:56:21.050] Server  WARN    ⚠ ./app/api/upload/route.ts:73:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  71 |
+  72 | // Increase the body size limit for this route
+> 73 | export const config = {
+     |              ^^^^^^
+  74 |   api: {
+  75 |     bodyParser: false,
+  76 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[00:56:21.052] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:56:24.954] Browser ERROR   Each child in a list should have a unique "key" prop.%s%s See https://react.dev/link/warning-keys for more information. 
+
+Check the render method of `div`.  It was passed a child from InventoryView.
+[00:56:44.802] Server  WARN    ⚠ ./app/api/upload/route.ts:73:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  71 |
+  72 | // Increase the body size limit for this route
+> 73 | export const config = {
+     |              ^^^^^^
+  74 |   api: {
+  75 |     bodyParser: false,
+  76 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[00:56:44.846] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:57:02.238] Server  WARN    ⚠ ./app/api/upload/route.ts:73:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  71 |
+  72 | // Increase the body size limit for this route
+> 73 | export const config = {
+     |              ^^^^^^
+  74 |   api: {
+  75 |     bodyParser: false,
+  76 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[00:57:02.239] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[17:49:52.786] Server  WARN    ⚠ ./app/api/upload/route.ts:73:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  71 |
+  72 | // Increase the body size limit for this route
+> 73 | export const config = {
+     |              ^^^^^^
+  74 |   api: {
+  75 |     bodyParser: false,
+  76 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[17:54:29.300] Server  WARN    ⚠ ./app/api/upload/route.ts:73:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  71 |
+  72 | // Increase the body size limit for this route
+> 73 | export const config = {
+     |              ^^^^^^
+  74 |   api: {
+  75 |     bodyParser: false,
+  76 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[17:54:29.422] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[18:33:10.475] Server  WARN    ⚠ ./app/api/upload/route.ts:73:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  71 |
+  72 | // Increase the body size limit for this route
+> 73 | export const config = {
+     |              ^^^^^^
+  74 |   api: {
+  75 |     bodyParser: false,
+  76 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+
+[20:02:06.915] Server  WARN    ⚠ ./app/api/upload/route.ts:73:14
+Next.js can't recognize the exported `config` field in route. Page config in `config` is deprecated and ignored, use individual exports instead.
+  71 |
+  72 | // Increase the body size limit for this route
+> 73 | export const config = {
+     |              ^^^^^^
+  74 |   api: {
+  75 |     bodyParser: false,
+  76 |   },
+
+The exported configuration object in a source file needs to have a very specific format from which some properties can be statically parsed at compiled-time.
+
+https://nextjs.org/docs/app/api-reference/file-conventions/route-segment-config
+
+

@@ -2,7 +2,7 @@
 
 import { TowerFlowForm } from "./forms/tower-flow-form"
 import { Button } from "@/components/ui/button"
-import { Plus, Building, Building2, CheckCircle2, AlertCircle, Copy } from "lucide-react"
+import { Plus, Building, Building2, CheckCircle2, AlertCircle, Copy, Trash2 } from "lucide-react"
 import { createInitialTower, type TowerData, type ProjectData } from "@/lib/builder-types"
 
 interface TowersFormProps {
@@ -37,6 +37,21 @@ export function TowersForm({
     }
     const handleClone = () => {
         if (activeTower) onCloneTower(activeTower.id)
+    }
+
+    const handleRemove = async (idx: number) => {
+        const towerToDelete = projectTowers[idx];
+        if (!confirm(`Are you sure you want to delete "${towerToDelete?.name || `Tower ${idx + 1}`}"? This will also remove all related units.`)) return;
+        
+        try {
+            await fetch(`/api/towers/${towerToDelete.id}`, { method: 'DELETE' });
+        } catch (error) {
+            console.error("API delete failed (might be a draft):", error);
+        }
+
+        const next = towers.filter(t => t.id !== towerToDelete.id);
+        onTowersChange(next);
+        setActiveTowerIdx(Math.max(0, idx - 1));
     }
 
     const isComplete = (t: TowerData) =>
@@ -121,6 +136,15 @@ export function TowersForm({
                                 title="Duplicate this tower and its unit configs"
                             >
                                 <Copy className="w-4 h-4" /> Clone Tower
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => handleRemove(activeTowerIdx)}
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-red-200 bg-red-50 text-red-600 text-sm font-medium hover:bg-red-100 transition-all"
+                                title="Delete this tower"
+                            >
+                                <Trash2 className="w-4 h-4" /> Delete
                             </button>
 
                             <span className="text-[10px] text-gray-400 font-bold uppercase mx-2 whitespace-nowrap">

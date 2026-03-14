@@ -20,6 +20,7 @@ import type {
   VideoGalleryItem, ReraPhase, MasterPlanHighlight, DevelopmentPhase,
   FaqItem, TestimonialItem, ApfDetail,
 } from "@/lib/builder-types"
+import { BannerUpload, GalleryUpload, VideoUpload, MasterPlanMapUpload, DocumentUpload } from "@/components/ui/media-uploads"
 
 // ─────────────────────────────────────────
 // PROPS
@@ -648,57 +649,80 @@ export function TownshipFlowForm({ data, onChange }: TownshipFlowFormProps) {
 
       {/* ── 9. TOWNSHIP IDENTITY ──────────────── */}
       <Section id="identity" title="Township Identity" description="Name, tagline, price range, hero image — Township Hero Section" icon={Building2} openIds={openIds} setOpenIds={setOpenIds}>
-        <Grid cols={2}>
-          <Field label="Township Name" required>
-            <Input value={data.name} onChange={e => update("name", e.target.value)} placeholder="Greenfield Township" />
-          </Field>
-          <Field label="Tag / Type" hint="Short descriptor below the name">
-            <Input value={data.tagType} onChange={e => update("tagType", e.target.value)} placeholder="Integrated Township" />
-          </Field>
-
-          <Field label="Construction Status" required hint="Determines if CC or OC is needed">
-            <Select value={data.constructionStatus} onValueChange={v => update("constructionStatus", v as any)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pre-launch">Pre-Launch</SelectItem>
-                <SelectItem value="under-construction">Under Construction</SelectItem>
-                <SelectItem value="ready-to-move">Ready to Move</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
-        </Grid>
-
-        <SectionTitle title="Price Range (Hero Section)" />
-        <Grid cols={3}>
-          <Field label="Min Price (₹)" hint="Eg: 5000000 for ₹50L">
-            <Input type="number" value={data.priceRangeMin || ""} onChange={e => update("priceRangeMin", Number(e.target.value))} placeholder="5000000" />
-          </Field>
-          <Field label="Max Price (₹)" hint="Eg: 50000000 for ₹5Cr">
-            <Input type="number" value={data.priceRangeMax || ""} onChange={e => update("priceRangeMax", Number(e.target.value))} placeholder="50000000" />
-          </Field>
-          <Field label="Price Label (Override)" hint="Optional: shows instead of auto-range">
-            <Input value={data.priceLabel || ""} onChange={e => update("priceLabel", e.target.value)} placeholder="₹50L – ₹5 Cr" />
-          </Field>
-        </Grid>
-
-        <SectionTitle title="Hero Image" />
-        <ImageField label="Hero / Banner Image" value={data.heroImage} onChange={v => update("heroImage", v)} placeholder="https://...main-banner.jpg" />
-
-        <div className="flex items-center justify-between mb-3 mt-5">
-          <SectionTitle title="Photo Gallery (Multiple images)" />
-          <BulkImageInput onAdd={urls => update("galleryImages", [...data.galleryImages, ...urls])} />
-        </div>
-        {data.galleryImages.map((img, i) => (
-          <div key={i} className="flex gap-2 mb-2">
-            <Input value={img} onChange={e => updateGalleryImage(i, e.target.value)} placeholder={`Gallery image ${i + 1} URL`} className="text-xs" />
-            <button type="button" onClick={() => removeGalleryImage(i)} className="text-red-400 hover:text-red-600 shrink-0">
-              <X className="w-4 h-4" />
-            </button>
+        {/* Layout matching the provided design: Left = Hero Image, Right = Text Fields */}
+        <div className="flex flex-col md:flex-row gap-8 mb-8 mt-2">
+          {/* LEFT: Hero Image */}
+          <div className="flex-1">
+            <div className="mb-2">
+              <Label className="text-xs font-semibold text-[#1A3C8C] uppercase tracking-wide">Hero Image</Label>
+            </div>
+            <BannerUpload value={data.heroImage} onChange={v => update("heroImage", v)} />
           </div>
-        ))}
-        <Button type="button" variant="outline" size="sm" onClick={addGalleryImage} className="w-full border-dashed">
-          <Plus className="w-3 h-3 mr-1" /> Add Gallery Photo
-        </Button>
+
+          {/* RIGHT: Fields */}
+          <div className="flex-1 space-y-5">
+            <Field label="Township Name" required>
+              <Input value={data.name} onChange={e => update("name", e.target.value)} placeholder="e.g. Royal Meadows" className="h-10 border-gray-200 focus-visible:ring-[#1A3C8C]" />
+            </Field>
+            
+            <Field label="Tag / Type" hint="Appears as a badge on the listing card.">
+              <Input value={data.tagType} onChange={e => update("tagType", e.target.value)} placeholder="e.g. Luxury Integrated Township" className="h-10 border-gray-200 focus-visible:ring-[#1A3C8C]" />
+            </Field>
+
+            <Field label="Construction Status" required hint="Determines if CC or OC is needed">
+              <Select value={data.constructionStatus} onValueChange={v => update("constructionStatus", v as any)}>
+                <SelectTrigger className="h-10 border-gray-200 focus:ring-[#1A3C8C]"><SelectValue placeholder="Select Status..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pre-launch">Pre-Launch</SelectItem>
+                  <SelectItem value="under-construction">Under Construction</SelectItem>
+                  <SelectItem value="ready-to-move">Ready to Move</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
+        </div>
+
+        <div className="border-t border-gray-100 pt-6 mb-6">
+          <SectionTitle title="Price Range (Hero Section)" />
+          <Grid cols={3}>
+            <Field label="Min Price (₹)" hint="Eg: 5000000 for ₹50L">
+              <Input type="number" value={data.priceRangeMin || ""} onChange={e => update("priceRangeMin", Number(e.target.value))} placeholder="5000000" className="border-gray-200" />
+            </Field>
+            <Field label="Max Price (₹)" hint="Eg: 50000000 for ₹5Cr">
+              <Input type="number" value={data.priceRangeMax || ""} onChange={e => update("priceRangeMax", Number(e.target.value))} placeholder="50000000" className="border-gray-200" />
+            </Field>
+            <Field label="Price Label (Override)" hint="Optional: shows instead of auto-range">
+              <Input value={data.priceLabel || ""} onChange={e => update("priceLabel", e.target.value)} placeholder="₹50L – ₹5 Cr" className="border-gray-200" />
+            </Field>
+          </Grid>
+        </div>
+
+        <div className="border-t border-gray-100 pt-6">
+          <div className="flex justify-between items-start mb-2">
+            <div>
+              <Label className="text-xs font-semibold text-[#1A3C8C] uppercase tracking-wide">Gallery Images</Label>
+              <p className="text-[11px] text-gray-400 mt-1">Showcase the property highlights.</p>
+            </div>
+            <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-md">{data.galleryImages.length} / 20</span>
+          </div>
+          <GalleryUpload images={data.galleryImages} onChange={imgs => update("galleryImages", imgs)} max={20} />
+        </div>
+
+        <div className="border-t border-gray-100 pt-6 mt-6">
+          <div className="flex justify-between items-start mb-2">
+            <div className="flex items-center gap-2">
+               <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
+                  <Film className="w-4 h-4 text-orange-500" />
+               </div>
+               <div>
+                  <Label className="text-xs font-semibold text-[#1A3C8C] uppercase tracking-wide">Video Gallery</Label>
+                  <p className="text-[11px] text-gray-400 mt-1">Add walkthrough videos (Max 5).</p>
+               </div>
+            </div>
+            <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-md">{data.videoGallery?.length || 0} / 5</span>
+          </div>
+          <VideoUpload videos={data.videoGallery || []} onChange={vids => update("videoGallery", vids)} max={5} />
+        </div>
       </Section>
 
       {/* ── 10. ABOUT TOWNSHIP ──────────────────── */}
@@ -750,42 +774,73 @@ export function TownshipFlowForm({ data, onChange }: TownshipFlowFormProps) {
       </Section>
 
       {/* ── 12. MASTER PLAN ─────────────────────── */}
-      <Section id="masterplan" title="Master Plan" description="Master plan image + legend/highlights" icon={MapIcon} openIds={openIds} setOpenIds={setOpenIds}>
-        <Grid cols={2}>
-          <Field label="Master Plan Image URL" required>
-            <Input value={data.masterplanImage} onChange={e => update("masterplanImage", e.target.value)} placeholder="https://...master-plan.jpg" />
-          </Field>
-          <Field label="Scale" hint="Eg: 1:500">
-            <Input value={data.masterPlanScale} onChange={e => update("masterPlanScale", e.target.value)} placeholder="1:500" />
-          </Field>
-        </Grid>
-        <div className="mt-3">
-          <Field label="Short Description" hint="Brief explanation of the layout">
-            <Textarea value={data.masterPlanDescription || ""} onChange={e => update("masterPlanDescription", e.target.value)} rows={2} placeholder="The master plan offers a holistic approach to urban living..." />
-          </Field>
-        </div>
-        {
-          data.masterplanImage && (
-            <div className="relative w-full h-40 mt-3 bg-gray-50 border rounded-lg">
-              <Image src={data.masterplanImage} alt="Master Plan Preview" fill className="object-contain" unoptimized />
-            </div>
-          )
-        }
+      <Section id="masterplan" title="Master Plan" description="Architectural layout & highlights" icon={MapIcon} openIds={openIds} setOpenIds={setOpenIds}>
+        <div className="flex flex-col md:flex-row gap-8">
+          {/* Left: Master Plan Image */}
+          <div className="flex-1">
+            <MasterPlanMapUpload 
+              value={data.masterplanImage} 
+              onChange={v => update("masterplanImage", v)} 
+            />
+          </div>
+          
+          {/* Right: Description & Brochure */}
+          <div className="flex-1 space-y-6">
+            <Field label="Short Description" hint="Brief explanation of the layout">
+              <Textarea value={data.masterPlanDescription || ""} onChange={e => update("masterPlanDescription", e.target.value)} rows={3} placeholder="Brief description for listings..." className="bg-white/50" />
+            </Field>
 
-        <SectionTitle title="Master Plan Legend / Highlights" />
-        <p className="text-xs text-gray-500 mb-2">Map ke upar labels jo dikhte hain (Clubhouse, Garden area etc.)</p>
-        {
-          data.masterPlanHighlights.map(item => (
-            <div key={item.id} className="flex gap-2 mb-2">
-              <Input value={item.label} onChange={e => update("masterPlanHighlights", data.masterPlanHighlights.map(x => x.id === item.id ? { ...x, label: e.target.value } : x))} placeholder="Club House" className="text-xs" />
-              <button type="button" onClick={() => removeHighlight(item.id)} className="text-red-400 shrink-0"><X className="w-4 h-4" /></button>
+            <div className="pt-2">
+              {/* Township Master Brochure heading */}
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-9 h-9 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
+                  <FileText className="w-4 h-4 text-red-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Township Master Brochure</p>
+                  <p className="text-xs text-[#2BB673]">Upload your comprehensive township brochure</p>
+                </div>
+              </div>
+              <DocumentUpload
+                value={data.brochureLink || ""}
+                onChange={v => update("brochureLink", v)}
+              />
             </div>
-          ))
-        }
-        <Button type="button" variant="outline" size="sm" onClick={addHighlight} className="w-full border-dashed mt-1">
-          <Plus className="w-3 h-3 mr-1" /> Add Highlight
-        </Button>
-      </Section >
+
+            <div className="pt-6 border-t border-gray-100 mt-6">
+              <SectionTitle title="Master Plan Legend / Highlights" />
+              <p className="text-xs text-gray-500 mb-3">Map labels (Clubhouse, Garden area etc.)</p>
+              
+              <div className="space-y-2 max-h-[160px] overflow-y-auto pr-2 custom-scrollbar">
+                {data.masterPlanHighlights.map(item => (
+                  <div key={item.id} className="flex gap-2 group relative">
+                    <Input 
+                      value={item.label} 
+                      onChange={e => update("masterPlanHighlights", data.masterPlanHighlights.map(x => x.id === item.id ? { ...x, label: e.target.value } : x))} 
+                      placeholder="e.g. Club House" 
+                      className="text-xs bg-white/50 pr-8" 
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => removeHighlight(item.id)} 
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+                {data.masterPlanHighlights.length === 0 && (
+                  <p className="text-[11px] text-gray-400 italic text-center py-2 bg-gray-50 rounded-lg">No highlights added</p>
+                )}
+              </div>
+              
+              <Button type="button" variant="outline" size="sm" onClick={addHighlight} className="w-full border-dashed mt-3 text-blue-600 hover:text-blue-700 hover:bg-blue-50">
+                <Plus className="w-3 h-3 mr-1" /> Add Highlight
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Section>
 
       {/* ── 13. LEGAL (RERA & CC) ────────────────── */}
       <Section id="legal-township" title="Township Legal / RERA" description="RERA, CC, OC — Township-specific legal documents" icon={ShieldCheck} openIds={openIds} setOpenIds={setOpenIds}>
@@ -838,10 +893,7 @@ export function TownshipFlowForm({ data, onChange }: TownshipFlowFormProps) {
           </>
         )}
 
-        <SectionTitle title="E-Brochure" />
-        <Field label="Brochure Link" hint="Direct link to PDF brochure">
-          <Input value={data.brochureLink || ""} onChange={e => update("brochureLink", e.target.value)} placeholder="https://...brochure.pdf" />
-        </Field>
+
       </Section>
 
 
