@@ -521,12 +521,24 @@ export function VideoUpload({ videos, onChange, max = 5 }: {
 }
 
 // ── DOCUMENT UPLOAD ─────────────────────────────────────────────
-export function DocumentUpload({ value, onChange, label, maxSizeMB = 10, accept = ".pdf" }: {
+export function DocumentUpload({ 
+  value, 
+  onChange, 
+  label, 
+  maxSizeMB = 40, 
+  accept = ".pdf",
+  title = "Upload Document",
+  description = "Drop your file here or click to browse.",
+  buttonLabel = "View Document"
+}: {
   value: string;
   onChange: (url: string) => void;
   label?: string;
   maxSizeMB?: number;
   accept?: string;
+  title?: string;
+  description?: string;
+  buttonLabel?: string;
 }) {
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState("")
@@ -601,7 +613,7 @@ export function DocumentUpload({ value, onChange, label, maxSizeMB = 10, accept 
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                 </svg>
-                View Brochure
+                {buttonLabel}
               </a>
               <button
                 type="button"
@@ -620,13 +632,13 @@ export function DocumentUpload({ value, onChange, label, maxSizeMB = 10, accept 
                  <Upload className="w-3.5 h-3.5" />
               </div>
             </div>
-            <span className="font-bold text-gray-800 text-base">Upload Master Brochure</span>
-            <span className="text-xs text-gray-500 mt-1 max-w-[250px]">Share your comprehensive township brochure with potential buyers. Drop your file here or click to browse.</span>
+            <span className="font-bold text-gray-800 text-base">{title}</span>
+            <span className="text-xs text-gray-500 mt-1 max-w-[250px]">{description}</span>
             
             <div className="flex gap-2 mt-4">
               <span className="text-[10px] text-gray-600 bg-white border border-gray-200 px-3 py-1 rounded-full font-medium flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
-                PDF Format Only
+                {accept.includes('pdf') ? 'PDF' : 'Any'} Format
               </span>
               <span className="text-[10px] text-gray-600 bg-white border border-gray-200 px-3 py-1 rounded-full font-medium flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>

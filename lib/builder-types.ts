@@ -153,7 +153,7 @@ export interface CommonInheritedData {
   builderWebsite?: string
   builderEstYear?: string       // "2005"
   builderProjects?: string      // "25+"
-  constructionStatus?: "pre-launch" | "under-construction" | "ready-to-move"
+  constructionStatus?: "under-construction" | "ready-to-move"
 
   // ── LOCATION ─────────────────────────────
   city: string                  // Main City (e.g. Mumbai)
@@ -200,6 +200,7 @@ export interface CommonInheritedData {
   legalTrustDescription: string // "Clear Marketable Title with OC Received"
   ccNumber: string              // Commencement Certificate number
   ccStatus: string              // "CC Received" / "CC Applied"
+  ccCertificateUrl: string      // URL to CC certificate
   apfDetails: ApfDetail[]       // Multi-bank APF approvals
   approvals: string             // "PMRDA / Municipal Corporation Approved"
   approvedBanks: string[]       // ["HDFC", "SBI", "ICICI"]

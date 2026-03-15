@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 4, "column": 0}, "map": {"version":3,"sources":["file:///D:/Astronix%20Realty/New/builder-astronix-realty/lib/utils.ts"],"sourcesContent":["import { type ClassValue, clsx } from \"clsx\"\r\nimport { twMerge } from \"tailwind-merge\"\r\n\r\nexport function cn(...inputs: ClassValue[]) {\r\n  return twMerge(clsx(inputs))\r\n}\r\n\r\nexport function formatPrice(price: number): string {\r\n  if (price >= 10000000) {\r\n    return `₹${(price / 10000000).toFixed(2)} Cr`\r\n  } else if (price >= 100000) {\r\n    return `₹${(price / 100000).toFixed(2)} Lac`\r\n  }\r\n  return `₹${price.toLocaleString('en-IN')}`\r\n}\r\n\r\nexport function formatArea(area: number): string {\r\n  return `${area.toLocaleString('en-IN')} sq.ft`\r\n}\r\n"],"names":[],"mappings":";;;;;;;;AAAA;AACA;;;AAEO,SAAS,GAAG,GAAG,MAAoB;IACxC,OAAO,IAAA,sKAAO,EAAC,IAAA,6IAAI,EAAC;AACtB;AAEO,SAAS,YAAY,KAAa;IACvC,IAAI,SAAS,UAAU;QACrB,OAAO,CAAC,CAAC,EAAE,CAAC,QAAQ,QAAQ,EAAE,OAAO,CAAC,GAAG,GAAG,CAAC;IAC/C,OAAO,IAAI,SAAS,QAAQ;QAC1B,OAAO,CAAC,CAAC,EAAE,CAAC,QAAQ,MAAM,EAAE,OAAO,CAAC,GAAG,IAAI,CAAC;IAC9C;IACA,OAAO,CAAC,CAAC,EAAE,MAAM,cAAc,CAAC,UAAU;AAC5C;AAEO,SAAS,WAAW,IAAY;IACrC,OAAO,GAAG,KAAK,cAAc,CAAC,SAAS,MAAM,CAAC;AAChD"}}]
-}

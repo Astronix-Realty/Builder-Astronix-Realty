@@ -535,51 +535,6 @@ export function TownshipFlowForm({ data, onChange }: TownshipFlowFormProps) {
         </Button>
       </Section>
 
-      {/* ── 7. VIDEO / MEDIA ────────────────────── */}
-      <Section id="media" title="Cinematic Tour & Videos" description="Landscape (Desktop) + Short (Mobile) videos" icon={Film} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-        <SectionTitle title="Video Gallery (Multiple Videos)" />
-        {data.videoGallery.map(item => (
-          <Card key={item.id} className="mb-3 border-gray-100">
-            <CardContent className="p-3">
-              <Grid cols={2}>
-                <Field label="Video Title">
-                  <Input value={item.title} onChange={e => updateVideo(item.id, { title: e.target.value })} placeholder="Clubhouse Tour" />
-                </Field>
-                <Field label="Type">
-                  <Select value={item.type || "walkthrough"} onValueChange={v => updateVideo(item.id, { type: v as VideoGalleryItem["type"] })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {["walkthrough", "aerial", "interior", "clubhouse", "shorts"].map(t => (
-                        <SelectItem key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                {item.type === "short" ? (
-                  <Field label="Short URL (Vertical)">
-                    <Input value={item.shortUrl} onChange={e => updateVideo(item.id, { shortUrl: e.target.value })} placeholder="https://youtube.com/shorts/..." />
-                  </Field>
-                ) : (
-                  <Field label="Landscape URL">
-                    <Input value={item.landscapeUrl} onChange={e => updateVideo(item.id, { landscapeUrl: e.target.value })} placeholder="https://youtube.com/..." />
-                  </Field>
-                )}
-              </Grid>
-              <button type="button" onClick={() => removeVideo(item.id)} className="mt-2 text-xs text-red-400 flex items-center gap-1">
-                <X className="w-3 h-3" /> Remove
-              </button>
-            </CardContent>
-          </Card>
-        ))}
-        <div className="flex gap-3">
-          <Button type="button" variant="outline" size="sm" onClick={() => addVideo("landscape")} className="flex-1 border-dashed">
-            <Plus className="w-4 h-4 mr-1" /> Add Landscape Video
-          </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => addVideo("short")} className="flex-1 border-dashed">
-            <Plus className="w-4 h-4 mr-1" /> Add Short Video
-          </Button>
-        </div>
-      </Section>
 
       {/* ── 8. BANK APF APPROVALS ────────────────── */}
       <Section id="legal-apf" title="Bank APF Approvals" description="Common bank approvals for the township" icon={ShieldCheck} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
@@ -664,7 +619,7 @@ export function TownshipFlowForm({ data, onChange }: TownshipFlowFormProps) {
             <Field label="Township Name" required>
               <Input value={data.name} onChange={e => update("name", e.target.value)} placeholder="e.g. Royal Meadows" className="h-10 border-gray-200 focus-visible:ring-[#1A3C8C]" />
             </Field>
-            
+
             <Field label="Tag / Type" hint="Appears as a badge on the listing card.">
               <Input value={data.tagType} onChange={e => update("tagType", e.target.value)} placeholder="e.g. Luxury Integrated Township" className="h-10 border-gray-200 focus-visible:ring-[#1A3C8C]" />
             </Field>
@@ -673,7 +628,6 @@ export function TownshipFlowForm({ data, onChange }: TownshipFlowFormProps) {
               <Select value={data.constructionStatus} onValueChange={v => update("constructionStatus", v as any)}>
                 <SelectTrigger className="h-10 border-gray-200 focus:ring-[#1A3C8C]"><SelectValue placeholder="Select Status..." /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pre-launch">Pre-Launch</SelectItem>
                   <SelectItem value="under-construction">Under Construction</SelectItem>
                   <SelectItem value="ready-to-move">Ready to Move</SelectItem>
                 </SelectContent>
@@ -711,13 +665,13 @@ export function TownshipFlowForm({ data, onChange }: TownshipFlowFormProps) {
         <div className="border-t border-gray-100 pt-6 mt-6">
           <div className="flex justify-between items-start mb-2">
             <div className="flex items-center gap-2">
-               <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
-                  <Film className="w-4 h-4 text-orange-500" />
-               </div>
-               <div>
-                  <Label className="text-xs font-semibold text-[#1A3C8C] uppercase tracking-wide">Video Gallery</Label>
-                  <p className="text-[11px] text-gray-400 mt-1">Add walkthrough videos (Max 5).</p>
-               </div>
+              <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
+                <Film className="w-4 h-4 text-orange-500" />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold text-[#1A3C8C] uppercase tracking-wide">Video Gallery</Label>
+                <p className="text-[11px] text-gray-400 mt-1">Add walkthrough videos (Max 5).</p>
+              </div>
             </div>
             <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-md">{data.videoGallery?.length || 0} / 5</span>
           </div>
@@ -778,12 +732,12 @@ export function TownshipFlowForm({ data, onChange }: TownshipFlowFormProps) {
         <div className="flex flex-col md:flex-row gap-8">
           {/* Left: Master Plan Image */}
           <div className="flex-1">
-            <MasterPlanMapUpload 
-              value={data.masterplanImage} 
-              onChange={v => update("masterplanImage", v)} 
+            <MasterPlanMapUpload
+              value={data.masterplanImage}
+              onChange={v => update("masterplanImage", v)}
             />
           </div>
-          
+
           {/* Right: Description & Brochure */}
           <div className="flex-1 space-y-6">
             <Field label="Short Description" hint="Brief explanation of the layout">
@@ -810,19 +764,19 @@ export function TownshipFlowForm({ data, onChange }: TownshipFlowFormProps) {
             <div className="pt-6 border-t border-gray-100 mt-6">
               <SectionTitle title="Master Plan Legend / Highlights" />
               <p className="text-xs text-gray-500 mb-3">Map labels (Clubhouse, Garden area etc.)</p>
-              
+
               <div className="space-y-2 max-h-[160px] overflow-y-auto pr-2 custom-scrollbar">
                 {data.masterPlanHighlights.map(item => (
                   <div key={item.id} className="flex gap-2 group relative">
-                    <Input 
-                      value={item.label} 
-                      onChange={e => update("masterPlanHighlights", data.masterPlanHighlights.map(x => x.id === item.id ? { ...x, label: e.target.value } : x))} 
-                      placeholder="e.g. Club House" 
-                      className="text-xs bg-white/50 pr-8" 
+                    <Input
+                      value={item.label}
+                      onChange={e => update("masterPlanHighlights", data.masterPlanHighlights.map(x => x.id === item.id ? { ...x, label: e.target.value } : x))}
+                      placeholder="e.g. Club House"
+                      className="text-xs bg-white/50 pr-8"
                     />
-                    <button 
-                      type="button" 
-                      onClick={() => removeHighlight(item.id)} 
+                    <button
+                      type="button"
+                      onClick={() => removeHighlight(item.id)}
                       className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       <X className="w-3.5 h-3.5" />
@@ -833,7 +787,7 @@ export function TownshipFlowForm({ data, onChange }: TownshipFlowFormProps) {
                   <p className="text-[11px] text-gray-400 italic text-center py-2 bg-gray-50 rounded-lg">No highlights added</p>
                 )}
               </div>
-              
+
               <Button type="button" variant="outline" size="sm" onClick={addHighlight} className="w-full border-dashed mt-3 text-blue-600 hover:text-blue-700 hover:bg-blue-50">
                 <Plus className="w-3 h-3 mr-1" /> Add Highlight
               </Button>
@@ -844,56 +798,93 @@ export function TownshipFlowForm({ data, onChange }: TownshipFlowFormProps) {
 
       {/* ── 13. LEGAL (RERA & CC) ────────────────── */}
       <Section id="legal-township" title="Township Legal / RERA" description="RERA, CC, OC — Township-specific legal documents" icon={ShieldCheck} openIds={openIds} setOpenIds={setOpenIds}>
-        <SectionTitle title="Property Status & RERA" />
+        <SectionTitle title="RERA Details" />
         <Grid cols={2}>
           <Field label="RERA Number" required>
             <Input value={data.reraNumber} onChange={e => update("reraNumber", e.target.value)} placeholder="PRM/KA/RERA/..." />
-          </Field>
-        </Grid>
-        <Field label="RERA Certificate URL" hint="Paste the link to your RERA certificate PDF or image">
-          <Input value={data.reraCertificateUrl} onChange={e => update("reraCertificateUrl", e.target.value)} placeholder="https://maharera.mahaonline.gov.in/..." />
-        </Field>
-
-        <SectionTitle title="Legal Trust & Score" />
-        <Grid cols={2}>
-          <Field label="Trust Score" hint="Out of 100">
-            <Input value={data.legalTrustScore} onChange={e => update("legalTrustScore", e.target.value)} placeholder="100" />
           </Field>
           <Field label="Approvals" hint="Eg: PMRDA / Municipal Corporation Approved">
             <Input value={data.approvals} onChange={e => update("approvals", e.target.value)} placeholder="Thane Municipal Corporation Approved" />
           </Field>
         </Grid>
-        <Field label="Trust Description" hint="Eg: Clear Marketable Title with OC Received">
-          <Textarea value={data.legalTrustDescription} onChange={e => update("legalTrustDescription", e.target.value)} rows={2} placeholder="This project has clear marketable titles and all necessary permissions from the local authorities." />
-        </Field>
 
-        {data.constructionStatus === "ready-to-move" ? (
-          <>
-            <SectionTitle title="Occupation Certificate (OC)" />
-            <Grid cols={2}>
-              <Field label="OC Number" required>
-                <Input value={data.ocNumber} onChange={e => update("ocNumber", e.target.value)} placeholder="OC/2024/0001" />
-              </Field>
-              <Field label="OC Certificate URL" hint="Link to OC document">
-                <Input value={data.ocCertificateUrl} onChange={e => update("ocCertificateUrl", e.target.value)} placeholder="https://maharera.mahaonline.gov.in/OC/..." />
-              </Field>
-            </Grid>
-          </>
-        ) : (
-          <>
-            <SectionTitle title="Commencement Certificate (CC)" />
-            <Grid cols={2}>
-              <Field label="CC Number">
-                <Input value={data.ccNumber} onChange={e => update("ccNumber", e.target.value)} placeholder="CC/2023/0001" />
-              </Field>
-              <Field label="CC Status" hint="Eg: CC Received / CC Applied">
-                <Input value={data.ccStatus} onChange={e => update("ccStatus", e.target.value)} placeholder="CC Received" />
-              </Field>
-            </Grid>
-          </>
-        )}
+        <div className="mt-4">
+          <Field label="Description" hint="Eg: Clear Marketable Title with OC Received">
+            <Textarea value={data.legalTrustDescription} onChange={e => update("legalTrustDescription", e.target.value)} rows={2} placeholder="This project has clear marketable titles and all necessary permissions from the local authorities." />
+          </Field>
+        </div>
 
+        <SectionTitle title="Legal Documents" />
+        <p className="text-xs text-gray-500 mb-4">Official certificates and approvals in PDF format.</p>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* 1. RERA Certificate */}
+          <div className="bg-gray-50/50 rounded-2xl p-5 border border-gray-100 hover:border-gray-200 transition-colors shadow-sm flex flex-col h-full">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-7 h-7 bg-blue-100/50 rounded-lg flex items-center justify-center">
+                <ShieldCheck className="w-4 h-4 text-[#1A3C8C]" />
+              </div>
+              <Label className="text-[11px] font-bold uppercase tracking-wider text-[#1A3C8C]">RERA Certificate</Label>
+              <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">Required</span>
+            </div>
+
+            <div className="flex-1">
+              <DocumentUpload
+                value={data.reraCertificateUrl || ""}
+                onChange={v => update("reraCertificateUrl", v)}
+                title="RERA Certificate"
+                description="Official registration document."
+                buttonLabel="View RERA"
+              />
+            </div>
+          </div>
+
+          {/* 2. CC Certificate (Visible for both UC and RM) */}
+          {(data.constructionStatus === "under-construction" || data.constructionStatus === "ready-to-move") && (
+            <div className="bg-blue-50/20 rounded-2xl p-5 border border-blue-100/50 hover:border-blue-200 transition-colors shadow-sm flex flex-col h-full">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <FileText className="w-4 h-4 text-[#1A3C8C]" />
+                </div>
+                <Label className="text-[11px] font-bold uppercase tracking-wider text-[#1A3C8C]">Commencement (CC)</Label>
+                <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">Required</span>
+              </div>
+
+              <div className="flex-1">
+                <DocumentUpload
+                  value={data.ccCertificateUrl || ""}
+                  onChange={v => update("ccCertificateUrl", v)}
+                  title="CC Certificate"
+                  description="Official Commencement Certificate PDF."
+                  buttonLabel="View CC"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 3. OC Certificate (Visible if Ready to Move) */}
+          {data.constructionStatus === "ready-to-move" && (
+            <div className="bg-green-50/10 rounded-2xl p-5 border border-green-100/50 hover:border-green-200 transition-colors shadow-sm flex flex-col h-full">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-7 h-7 bg-green-100/50 rounded-lg flex items-center justify-center">
+                  <FileText className="w-4 h-4 text-green-600" />
+                </div>
+                <Label className="text-[11px] font-bold uppercase tracking-wider text-green-700">Occupancy (OC)</Label>
+                <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">Required</span>
+              </div>
+
+              <div className="flex-1">
+                <DocumentUpload
+                  value={data.ocCertificateUrl || ""}
+                  onChange={v => update("ocCertificateUrl", v)}
+                  title="OC Certificate"
+                  description="Official Occupancy Certificate PDF."
+                  buttonLabel="View OC"
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </Section>
 
 
