@@ -12,13 +12,14 @@ import { Badge } from "@/components/ui/badge"
 import {
   Building2, BarChart3, FileText, Film, Leaf, ShieldCheck,
   Plus, X, ChevronDown, ChevronUp, AlertCircle, CheckCircle,
-  Home, MapPin, Wifi, Star, Map as MapIcon, Globe, Info, Briefcase, Users
+  Home, MapPin, Wifi, Star, Map as MapIcon, Globe, Info, Briefcase, Users, Upload
 } from "lucide-react"
 import type {
   ProjectData, EcoFeature, AmenityItem, VideoGalleryItem,
   ApfDetail, TownshipData, ConnectivityItem, ReraPhase,
   MasterPlanHighlight, DevelopmentPhase, FaqItem, TestimonialItem
 } from "@/lib/builder-types"
+import { BannerUpload, GalleryUpload, VideoUpload, MasterPlanMapUpload, DocumentUpload } from "@/components/ui/media-uploads"
 
 // ─────────────────────────────────────────
 // PROPS
@@ -221,6 +222,8 @@ function BulkImageInput({ onAdd }: { onAdd: (urls: string[]) => void }) {
   )
 }
 
+
+
 // ─────────────────────────────────────────
 // MAIN FORM
 // ─────────────────────────────────────────
@@ -357,6 +360,14 @@ export function ProjectFlowForm({ data, onChange, townshipName, townshipData, on
     update("apfDetails", (data.apfDetails || []).map(x => x.id === id ? { ...x, ...patch } : x))
   const removeApf = (id: string) =>
     update("apfDetails", (data.apfDetails || []).filter(x => x.id !== id))
+
+  // Master Plan Highlights
+  const addHighlight = () => {
+    const item: MasterPlanHighlight = { id: crypto.randomUUID(), label: "" }
+    update("masterPlanHighlights", [...(data.masterPlanHighlights || []), item])
+  }
+  const removeHighlight = (id: string) =>
+    update("masterPlanHighlights", (data.masterPlanHighlights || []).filter(x => x.id !== id))
 
   return (
     <div className="space-y-10">
@@ -646,42 +657,73 @@ export function ProjectFlowForm({ data, onChange, townshipName, townshipData, on
       </div>
 
       {/* ── 1. PROJECT IDENTITY ────────────────── */}
-      <Section id="proj-identity" title="Project Identity" description="Name, hero image, gallery — Project Hero Section" icon={Building2} openIds={openIds} setOpenIds={setOpenIds}>
-        <Grid cols={2}>
-          <Field label="Project Name" required>
-            <Input value={data.name} onChange={e => update("name", e.target.value)} placeholder="Skyline Residences" />
-          </Field>
-          <Field label="Tag / Type">
-            <Input value={data.tagType} onChange={e => update("tagType", e.target.value)} placeholder="Premium Residential Project" />
-          </Field>
-          <Field label="Construction Status" required>
-            <Select value={data.constructionStatus} onValueChange={v => update("constructionStatus", v as ProjectData["constructionStatus"])}>
-              <SelectTrigger><SelectValue placeholder="Select status..." /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pre-launch">Pre-Launch</SelectItem>
-                <SelectItem value="under-construction">Under Construction</SelectItem>
-                <SelectItem value="ready-to-move">Ready to Move</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
-        </Grid>
-
-        <SectionTitle title="Hero / Banner Image" />
-        <ImageField label="Hero Image" value={data.heroImage} onChange={v => update("heroImage", v)} placeholder="https://...project-hero.jpg" />
-
-        <div className="flex items-center justify-between mb-3 mt-5">
-          <SectionTitle title="Photo Gallery" />
-          <BulkImageInput onAdd={urls => update("galleryImages", [...data.galleryImages, ...urls])} />
-        </div>
-        {data.galleryImages.map((img, i) => (
-          <div key={i} className="flex gap-2 mb-2">
-            <Input value={img} onChange={e => updateGallery(i, e.target.value)} placeholder={`Gallery photo ${i + 1} URL`} className="text-xs" />
-            <button type="button" onClick={() => removeGallery(i)} className="text-red-400 shrink-0"><X className="w-4 h-4" /></button>
+      <Section id="proj-identity" title="Project Identity" description="Name, tag, price range, hero image — Project Hero Section" icon={Building2} openIds={openIds} setOpenIds={setOpenIds}>
+        {/* Layout matching the provided design: Left = Hero Image, Right = Text Fields */}
+        <div className="flex flex-col md:flex-row gap-8 mb-8 mt-2">
+          {/* LEFT: Hero Image */}
+          <div className="flex-1">
+            <div className="mb-2">
+              <Label className="text-xs font-semibold text-[#1A3C8C] uppercase tracking-wide">Hero Image</Label>
+            </div>
+            <BannerUpload value={data.heroImage} onChange={v => update("heroImage", v)} />
           </div>
-        ))}
-        <Button type="button" variant="outline" size="sm" onClick={addGallery} className="w-full border-dashed">
-          <Plus className="w-3 h-3 mr-1" /> Add Gallery Photo
-        </Button>
+
+          {/* RIGHT: Fields */}
+          <div className="flex-1 space-y-5">
+            <Field label="Project Name" required>
+              <Input value={data.name} onChange={e => update("name", e.target.value)} placeholder="e.g. Skyline Residences" className="h-10 border-gray-200 focus-visible:ring-[#1A3C8C]" />
+            </Field>
+
+            <Field label="Tag / Type" hint="Appears as a badge on the listing card.">
+              <Input value={data.tagType} onChange={e => update("tagType", e.target.value)} placeholder="e.g. Premium Residential Project" className="h-10 border-gray-200 focus-visible:ring-[#1A3C8C]" />
+            </Field>
+
+            <Field label="Construction Status" required hint="Determines if CC or OC is needed">
+              <Select value={data.constructionStatus} onValueChange={v => update("constructionStatus", v as any)}>
+                <SelectTrigger className="h-10 border-gray-200 focus:ring-[#1A3C8C]"><SelectValue placeholder="Select Status..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="under-construction">Under Construction</SelectItem>
+                  <SelectItem value="ready-to-move">Ready to Move</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
+        </div>
+
+        <div className="border-t border-gray-100 pt-6 mb-6">
+          <SectionTitle title="Price Range (Auto from Units)" />
+          <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg text-xs text-gray-500">
+            <CheckCircle className="w-4 h-4 text-green-500" />
+            Price range auto-calculated from Unit configurations — ₹{(data.priceRangeMin / 100000).toFixed(0)}L – ₹{(data.priceRangeMax / 100000).toFixed(0)}L
+          </div>
+        </div>
+
+        <div className="border-t border-gray-100 pt-6">
+          <div className="flex justify-between items-start mb-2">
+            <div>
+              <Label className="text-xs font-semibold text-[#1A3C8C] uppercase tracking-wide">Gallery Images</Label>
+              <p className="text-[11px] text-gray-400 mt-1">Showcase the property highlights.</p>
+            </div>
+            <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-md">{data.galleryImages.length} / 20</span>
+          </div>
+          <GalleryUpload images={data.galleryImages} onChange={imgs => update("galleryImages", imgs)} max={20} />
+        </div>
+
+        <div className="border-t border-gray-100 pt-6 mt-6">
+          <div className="flex justify-between items-start mb-2">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
+                <Film className="w-4 h-4 text-orange-500" />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold text-[#1A3C8C] uppercase tracking-wide">Video Gallery</Label>
+                <p className="text-[11px] text-gray-400 mt-1">Add walkthrough videos (Max 5).</p>
+              </div>
+            </div>
+            <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-md">{data.videoGallery?.length || 0} / 5</span>
+          </div>
+          <VideoUpload videos={data.videoGallery || []} onChange={vids => update("videoGallery", vids)} max={5} />
+        </div>
       </Section>
 
       {/* ── 2. ABOUT PROJECT ──────────────────── */}
@@ -725,52 +767,165 @@ export function ProjectFlowForm({ data, onChange, townshipName, townshipData, on
           </Field>
         </Grid>
 
-        <SectionTitle title="Price Range (Auto from Units)" />
-        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg text-xs text-gray-500">
-          <CheckCircle className="w-4 h-4 text-green-500" />
-          Price range auto-calculated from Unit configurations — ₹{(data.priceRangeMin / 100000).toFixed(0)}L – ₹{(data.priceRangeMax / 100000).toFixed(0)}L
+      </Section>
+
+      {/* ── 4. MASTER PLAN ─────────────────────── */}
+      <Section id="proj-masterplan" title="Master Plan" description="Architectural layout & highlights" icon={MapIcon} openIds={openIds} setOpenIds={setOpenIds}>
+        <div className="flex flex-col md:flex-row gap-8">
+          {/* Left: Master Plan Image */}
+          <div className="flex-1">
+            <MasterPlanMapUpload
+              value={data.masterplanImage || ""}
+              onChange={v => update("masterplanImage", v)}
+            />
+          </div>
+
+          {/* Right: Description & Brochure */}
+          <div className="flex-1 space-y-6">
+            <Field label="Short Description" hint="Brief explanation of the layout">
+              <Textarea value={data.masterPlanDescription || ""} onChange={e => update("masterPlanDescription", e.target.value)} rows={3} placeholder="Brief description for listings..." className="bg-white/50" />
+            </Field>
+
+            <div className="pt-2">
+              {/* Project Master Brochure heading */}
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-9 h-9 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
+                  <FileText className="w-4 h-4 text-red-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Project Master Brochure</p>
+                  <p className="text-xs text-[#2BB673]">Upload your comprehensive project brochure</p>
+                </div>
+              </div>
+              <DocumentUpload
+                value={data.brochureLink || ""}
+                onChange={v => update("brochureLink", v)}
+              />
+            </div>
+
+            <div className="pt-6 border-t border-gray-100 mt-6">
+              <SectionTitle title="Master Plan Legend / Highlights" />
+              <p className="text-xs text-gray-500 mb-3">Map labels (Clubhouse, Garden area etc.)</p>
+
+              <div className="space-y-2 max-h-[160px] overflow-y-auto pr-2 custom-scrollbar">
+                {(data.masterPlanHighlights || []).map(item => (
+                  <div key={item.id} className="flex gap-2 group relative">
+                    <Input
+                      value={item.label}
+                      onChange={e => update("masterPlanHighlights", (data.masterPlanHighlights || []).map(x => x.id === item.id ? { ...x, label: e.target.value } : x))}
+                      placeholder="e.g. Club House"
+                      className="text-xs bg-white/50 pr-8"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeHighlight(item.id)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+                {(data.masterPlanHighlights || []).length === 0 && (
+                  <p className="text-[11px] text-gray-400 italic text-center py-2 bg-gray-50 rounded-lg">No highlights added</p>
+                )}
+              </div>
+
+              <Button type="button" variant="outline" size="sm" onClick={addHighlight} className="w-full border-dashed mt-3 text-blue-600 hover:text-blue-700 hover:bg-blue-50">
+                <Plus className="w-3 h-3 mr-1" /> Add Highlight
+              </Button>
+            </div>
+          </div>
         </div>
       </Section>
 
-
-      {/* ── 4. LEGAL (PROJECT-SPECIFIC) ───────── */}
-      <Section id="proj-legal" title="Project Legal / RERA" description="RERA, CC, OC, APF — Project-specific legal documents" icon={ShieldCheck} openIds={openIds} setOpenIds={setOpenIds}>
-        <SectionTitle title="Property Status & RERA" />
+      {/* ── 5. LEGAL (PROJECT-SPECIFIC) ───────── */}
+      <Section id="proj-legal" title="Project Legal / RERA" description="RERA, CC, OC — Official documentation" icon={ShieldCheck} openIds={openIds} setOpenIds={setOpenIds}>
+        <SectionTitle title="RERA Details" />
         <Grid cols={2}>
           <Field label="RERA Number" required>
             <Input value={data.reraNumber} onChange={e => update("reraNumber", e.target.value)} placeholder="PRM/KA/RERA/..." />
           </Field>
+          <Field label="Approvals" hint="Eg: PMRDA / Municipal Corporation Approved">
+            <Input value={data.approvalStatus || ""} onChange={e => update("approvalStatus", e.target.value)} placeholder="Thane Municipal Corporation Approved" />
+          </Field>
         </Grid>
-        <Field label="RERA Certificate URL" hint="Paste the link to your RERA certificate PDF or image">
-          <Input value={data.reraCertificateUrl} onChange={e => update("reraCertificateUrl", e.target.value)} placeholder="https://maharera.mahaonline.gov.in/..." />
-        </Field>
+        <div className="mt-4 mb-8">
+          <Field label="Description" hint="Eg: Clear Marketable Title with OC Received">
+            <Textarea value={data.legalTrustDescription || ""} onChange={e => update("legalTrustDescription", e.target.value)} rows={2} placeholder="Clear Marketable Title with OC Received" />
+          </Field>
+        </div>
 
-        {data.constructionStatus === "ready-to-move" ? (
-          <>
-            <SectionTitle title="Occupation Certificate (OC)" />
-            <Grid cols={2}>
-              <Field label="OC Number" required>
-                <Input value={data.ocNumber} onChange={e => update("ocNumber", e.target.value)} placeholder="OC/2024/0001" />
-              </Field>
-              <Field label="OC Certificate URL" hint="Link to OC document">
-                <Input value={data.ocCertificateUrl} onChange={e => update("ocCertificateUrl", e.target.value)} placeholder="https://maharera.mahaonline.gov.in/OC/..." />
-              </Field>
-            </Grid>
-          </>
-        ) : (
-          <>
-            <SectionTitle title="Commencement Certificate (CC)" />
-            <Grid cols={2}>
-              <Field label="CC Number">
-                <Input value={data.ccNumber} onChange={e => update("ccNumber", e.target.value)} placeholder="CC/2023/0001" />
-              </Field>
-              <Field label="CC Status" hint="Eg: CC Received / CC Applied">
-                <Input value={data.ccStatus} onChange={e => update("ccStatus", e.target.value)} placeholder="CC Received" />
-              </Field>
-            </Grid>
-          </>
-        )}
+        <SectionTitle title="Legal Documents" />
+        <p className="text-xs text-gray-400 mb-4 mt-[-8px]">Official certificates and approvals in PDF format.</p>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* 1. RERA Certificate */}
+          <div className="bg-gray-50/50 rounded-2xl p-5 border border-gray-100 hover:border-gray-200 transition-colors shadow-sm flex flex-col h-full">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-7 h-7 bg-blue-100/50 rounded-lg flex items-center justify-center">
+                <ShieldCheck className="w-4 h-4 text-[#1A3C8C]" />
+              </div>
+              <Label className="text-[11px] font-bold uppercase tracking-wider text-[#1A3C8C]">RERA Certificate</Label>
+              <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">Required</span>
+            </div>
 
+            <div className="flex-1">
+              <DocumentUpload
+                value={data.reraCertificateUrl || ""}
+                onChange={v => update("reraCertificateUrl", v)}
+                title="RERA Certificate"
+                description="Official registration document."
+                buttonLabel="View RERA"
+              />
+            </div>
+          </div>
+
+          {/* 2. CC Certificate (Visible for both UC and RM) */}
+          {(data.constructionStatus === "under-construction" || data.constructionStatus === "ready-to-move") && (
+            <div className="bg-blue-50/20 rounded-2xl p-5 border border-blue-100/50 hover:border-blue-200 transition-colors shadow-sm flex flex-col h-full">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <FileText className="w-4 h-4 text-[#1A3C8C]" />
+                </div>
+                <Label className="text-[11px] font-bold uppercase tracking-wider text-[#1A3C8C]">Commencement (CC)</Label>
+                <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">Required</span>
+              </div>
+
+              <div className="flex-1">
+                <DocumentUpload
+                  value={data.ccCertificateUrl || ""}
+                  onChange={v => update("ccCertificateUrl", v)}
+                  title="CC Certificate"
+                  description="Official Commencement Certificate PDF."
+                  buttonLabel="View CC"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 3. OC Certificate (Visible if Ready to Move) */}
+          {data.constructionStatus === "ready-to-move" && (
+            <div className="bg-green-50/10 rounded-2xl p-5 border border-green-100/50 hover:border-green-200 transition-colors shadow-sm flex flex-col h-full">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-7 h-7 bg-green-100/50 rounded-lg flex items-center justify-center">
+                  <FileText className="w-4 h-4 text-green-600" />
+                </div>
+                <Label className="text-[11px] font-bold uppercase tracking-wider text-green-700">Occupancy (OC)</Label>
+                <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">Required</span>
+              </div>
+
+              <div className="flex-1">
+                <DocumentUpload
+                  value={data.ocCertificateUrl || ""}
+                  onChange={v => update("ocCertificateUrl", v)}
+                  title="OC Certificate"
+                  description="Official Occupancy Certificate PDF."
+                  buttonLabel="View OC"
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </Section>
 
 

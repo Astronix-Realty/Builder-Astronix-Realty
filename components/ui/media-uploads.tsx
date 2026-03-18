@@ -42,9 +42,8 @@ export function BannerUpload({ value, onChange }: { value: string; onChange: (ur
   return (
     <div className="space-y-2">
       <div
-        className={`relative w-full h-[260px] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group ${
-          value ? "border-transparent" : "border-blue-200 bg-blue-50/30 hover:bg-blue-50 hover:border-blue-300"
-        }`}
+        className={`relative w-full h-[260px] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group ${value ? "border-transparent" : "border-blue-200 bg-blue-50/30 hover:bg-blue-50 hover:border-blue-300"
+          }`}
         onClick={() => !isUploading && fileRef.current?.click()}
       >
         {isUploading ? (
@@ -165,11 +164,10 @@ export function GalleryUpload({ images, onChange, max = 20 }: { images: string[]
 
         {images.length < max && (
           <div
-            className={`w-28 h-28 border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-colors ${
-              isUploading
+            className={`w-28 h-28 border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-colors ${isUploading
                 ? "border-blue-300 bg-blue-50"
                 : "border-gray-200 hover:border-blue-400 hover:bg-blue-50/30 text-gray-400"
-            }`}
+              }`}
             onClick={() => !isUploading && fileRef.current?.click()}
           >
             {isUploading ? (
@@ -196,7 +194,7 @@ export function GalleryUpload({ images, onChange, max = 20 }: { images: string[]
 
 // ── VIDEO UPLOAD ───────────────────────────────────────────────
 export function VideoUpload({ videos, onChange, max = 5 }: {
-  videos: { id: string; title?: string; landscapeUrl?: string; shortUrl?: string; type: string }[];
+  videos: { id: string; title?: string; landscapeUrl?: string; shortUrl?: string; type?: string }[];
   onChange: (v: any[]) => void;
   max?: number
 }) {
@@ -211,7 +209,7 @@ export function VideoUpload({ videos, onChange, max = 5 }: {
   const [currentVideoType, setCurrentVideoType] = useState<'uploaded' | 'youtube' | 'other_url' | null>(null)
 
   // Helper to determine video type and URL for playback
-  const getVideoPlaybackInfo = (videoItem: { landscapeUrl?: string; shortUrl?: string; type: string }) => {
+  const getVideoPlaybackInfo = (videoItem: { landscapeUrl?: string; shortUrl?: string; type?: string }) => {
     const url = videoItem.landscapeUrl || videoItem.shortUrl;
     if (!url) return null;
 
@@ -232,11 +230,11 @@ export function VideoUpload({ videos, onChange, max = 5 }: {
     return null;
   };
 
-  const openVideoModal = (videoItem: { landscapeUrl?: string; shortUrl?: string; type: string }) => {
+  const openVideoModal = (videoItem: { landscapeUrl?: string; shortUrl?: string; type?: string }) => {
     const info = getVideoPlaybackInfo(videoItem);
     if (info) {
       setCurrentVideoUrl(info.url);
-      setCurrentVideoType(info.type);
+      setCurrentVideoType(info.type as 'uploaded' | 'youtube' | 'other_url');
       setModalOpen(true);
     }
   };
@@ -333,9 +331,8 @@ export function VideoUpload({ videos, onChange, max = 5 }: {
           return (
             <div
               key={vid.id || i}
-              className={`relative rounded-xl border border-gray-200 overflow-hidden group shadow-sm bg-gray-900 cursor-pointer ${
-                isShort ? "w-24 h-36" : "w-36 h-28"
-              }`}
+              className={`relative rounded-xl border border-gray-200 overflow-hidden group shadow-sm bg-gray-900 cursor-pointer ${isShort ? "w-24 h-36" : "w-36 h-28"
+                }`}
               onClick={() => openVideoModal(vid)}
             >
               {/* Type Badge - Premium glassmorphism */}
@@ -363,7 +360,7 @@ export function VideoUpload({ videos, onChange, max = 5 }: {
               {/* Play button overlay - Frosty glass */}
               <div className="absolute inset-0 flex items-center justify-center transition-all bg-black/0 group-hover:bg-black/20">
                 <div className="w-10 h-10 rounded-full bg-white/30 backdrop-blur-sm border border-white/40 flex items-center justify-center shadow-xl transition-all group-hover:scale-110 group-hover:bg-white/40">
-                  <svg className="w-4 h-4 text-white ml-1 drop-shadow-md" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                  <svg className="w-4 h-4 text-white ml-1 drop-shadow-md" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
                 </div>
               </div>
 
@@ -392,7 +389,7 @@ export function VideoUpload({ videos, onChange, max = 5 }: {
         <div className="bg-gradient-to-br from-orange-50/60 to-white border border-orange-100 shadow-sm rounded-2xl p-5 relative overflow-hidden">
           {/* Decorative background element */}
           <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-gradient-to-bl from-orange-100/50 rounded-bl-full pointer-events-none" />
-          
+
           <div className="mb-4 pb-4 border-b border-orange-100/80">
             <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
               <div className="w-6 h-6 rounded-md bg-orange-100 flex items-center justify-center">
@@ -424,7 +421,7 @@ export function VideoUpload({ videos, onChange, max = 5 }: {
                 </>
               )}
             </button>
-            
+
             <div className="hidden md:flex flex-col items-center justify-center">
               <div className="h-4 w-px bg-gray-200"></div>
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest my-1">OR</span>
@@ -489,13 +486,12 @@ export function VideoUpload({ videos, onChange, max = 5 }: {
             <X className="w-6 h-6" />
           </button>
           <div
-            className={`w-full rounded-2xl overflow-hidden shadow-2xl bg-black ${
-              currentVideoType === 'youtube' && currentVideoUrl.includes('shorts')
+            className={`w-full rounded-2xl overflow-hidden shadow-2xl bg-black ${currentVideoType === 'youtube' && currentVideoUrl.includes('shorts')
                 ? 'max-w-md aspect-[9/16]'
                 : currentVideoType !== 'youtube' && videos.find(v => (v.landscapeUrl === currentVideoUrl || v.shortUrl === currentVideoUrl))?.type === 'short'
-                ? 'max-w-md aspect-[9/16]'
-                : 'max-w-4xl aspect-video'
-            }`}
+                  ? 'max-w-md aspect-[9/16]'
+                  : 'max-w-4xl aspect-video'
+              }`}
             onClick={(e) => e.stopPropagation()}
           >
             {currentVideoType === "youtube" ? (
@@ -521,11 +517,11 @@ export function VideoUpload({ videos, onChange, max = 5 }: {
 }
 
 // ── DOCUMENT UPLOAD ─────────────────────────────────────────────
-export function DocumentUpload({ 
-  value, 
-  onChange, 
-  label, 
-  maxSizeMB = 40, 
+export function DocumentUpload({
+  value,
+  onChange,
+  label,
+  maxSizeMB = 40,
   accept = ".pdf",
   title = "Upload Document",
   description = "Drop your file here or click to browse.",
@@ -573,9 +569,8 @@ export function DocumentUpload({
       {label && <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide">{label}</div>}
 
       <div
-        className={`relative w-full min-h-[160px] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group p-6 ${
-          value ? "border-green-200 bg-green-50/30" : "border-gray-200 bg-gray-50/50 hover:bg-gray-100 hover:border-gray-300"
-        }`}
+        className={`relative w-full min-h-[160px] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group p-6 ${value ? "border-green-200 bg-green-50/30" : "border-gray-200 bg-gray-50/50 hover:bg-gray-100 hover:border-gray-300"
+          }`}
         onClick={() => !isUploading && fileRef.current?.click()}
       >
         {isUploading ? (
@@ -629,12 +624,12 @@ export function DocumentUpload({
             <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center text-red-500 mb-4 transition-transform group-hover:scale-110 shadow-sm relative">
               <FileText className="w-8 h-8" />
               <div className="absolute -bottom-2 right-0 bg-blue-500 text-white p-1.5 rounded-full shadow-md">
-                 <Upload className="w-3.5 h-3.5" />
+                <Upload className="w-3.5 h-3.5" />
               </div>
             </div>
             <span className="font-bold text-gray-800 text-base">{title}</span>
             <span className="text-xs text-gray-500 mt-1 max-w-[250px]">{description}</span>
-            
+
             <div className="flex gap-2 mt-4">
               <span className="text-[10px] text-gray-600 bg-white border border-gray-200 px-3 py-1 rounded-full font-medium flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
@@ -661,7 +656,17 @@ export function DocumentUpload({
 }
 
 // ── MASTER PLAN MAP UPLOAD ──────────────────────────────────────
-export function MasterPlanMapUpload({ value, onChange }: { value: string; onChange: (url: string) => void }) {
+export function MasterPlanMapUpload({ 
+  value, 
+  onChange,
+  title = "Upload Master Plan Map",
+  description = "Architectural layout or site map of the township"
+}: { 
+  value: string; 
+  onChange: (url: string) => void;
+  title?: string;
+  description?: string;
+}) {
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState("")
   const fileRef = useRef<HTMLInputElement>(null)
@@ -670,7 +675,7 @@ export function MasterPlanMapUpload({ value, onChange }: { value: string; onChan
     const file = e.target.files?.[0]
     if (!file) return
     setError("")
-    
+
     // Strict validation for images only
     if (!file.type.startsWith("image/")) {
       setError("Invalid file type: Only image files are allowed.")
@@ -693,9 +698,8 @@ export function MasterPlanMapUpload({ value, onChange }: { value: string; onChan
   return (
     <div className="space-y-2 h-full">
       <div
-        className={`relative w-full h-full min-h-[300px] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group ${
-          value ? "border-transparent bg-gray-50" : "border-blue-200 bg-blue-50/20 hover:bg-blue-50/50 hover:border-blue-300"
-        }`}
+        className={`relative w-full h-full min-h-[300px] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group ${value ? "border-transparent bg-gray-50" : "border-blue-200 bg-blue-50/20 hover:bg-blue-50/50 hover:border-blue-300"
+          }`}
         onClick={() => !isUploading && fileRef.current?.click()}
       >
         {isUploading ? (
@@ -706,9 +710,9 @@ export function MasterPlanMapUpload({ value, onChange }: { value: string; onChan
         ) : value ? (
           <>
             <div className="absolute inset-0 p-2">
-                <div className="relative w-full h-full rounded-xl overflow-hidden border border-gray-200 bg-white">
-                   <Image src={value} alt="Master Plan Map" fill className="object-contain" unoptimized />
-                </div>
+              <div className="relative w-full h-full rounded-xl overflow-hidden border border-gray-200 bg-white">
+                <Image src={value} alt="Master Plan Map" fill className="object-contain" unoptimized />
+              </div>
             </div>
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-3 transition-opacity backdrop-blur-sm rounded-2xl">
               <button
@@ -732,14 +736,14 @@ export function MasterPlanMapUpload({ value, onChange }: { value: string; onChan
             <div className="w-16 h-16 bg-blue-100 rounded-2xl shadow-sm text-blue-600 flex items-center justify-center mb-5 transition-transform group-hover:scale-110 group-hover:-translate-y-1">
               <MapIcon className="w-8 h-8" />
             </div>
-            <span className="font-bold text-gray-800 text-lg">Upload Master Plan Map</span>
-            <span className="text-sm text-gray-500 mt-1.5 max-w-[250px]">Architectural layout or site map of the township</span>
-            
+            <span className="font-bold text-gray-800 text-lg">{title}</span>
+            <span className="text-sm text-gray-500 mt-1.5 max-w-[250px]">{description}</span>
+
             <div className="mt-6 flex flex-col gap-2 w-full max-w-[200px]">
-                <div className="bg-white border text-xs px-3 py-2 rounded-lg text-gray-500 shadow-sm flex items-center justify-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-                    High Quality
-                </div>
+              <div className="bg-white border text-xs px-3 py-2 rounded-lg text-gray-500 shadow-sm flex items-center justify-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                High Quality
+              </div>
             </div>
           </div>
         )}

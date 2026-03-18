@@ -307,6 +307,7 @@ export interface ProjectData {
   reraCertificateUrl: string    // RERA certificate PDF/image link
   ccNumber: string
   ccStatus: string
+  ccCertificateUrl: string
   ocNumber: string
   ocCertificateUrl: string
   apfDetails: ApfDetail[]
@@ -325,6 +326,12 @@ export interface ProjectData {
 
   // ── AMENITIES (Optional override) ────────
   amenities?: AmenityItem[]
+
+  // ── MASTER PLAN (Project-specific) ───────
+  masterplanImage?: string
+  masterPlanDescription?: string
+  brochureLink?: string
+  masterPlanHighlights?: MasterPlanHighlight[]
 
   // ── AUTO-CALCULATED ──────────────────────
   totalTowers: number           // count from children
@@ -348,6 +355,7 @@ export interface TowerData {
   description: string
   visionStatement: string       // Detailed about text
   aboutImageUrl: string         // About section image
+  videoGallery?: VideoGalleryItem[]
 
   // ── STRUCTURE (Key Stats) ────────────────
   totalFloors: string           // "G + 24" or "25"
@@ -355,7 +363,7 @@ export interface TowerData {
   unitsPerFloor: string         // "4"
   totalLifts: string            // "3"
   liftsConfiguration: string    // "3 High-Speed + 1 Service Lift"
-  constructionStatus: "pre-launch" | "under-construction" | "ready-to-move"
+  constructionStatus: "under-construction" | "ready-to-move"
   launchDate: string
   possessionDate: string
 
@@ -379,12 +387,15 @@ export interface TowerData {
   // ── FLOOR PLAN IMAGES ────────────────────
   typicalFloorPlanImage: string   // Typical floor layout
   refugeFloorPlanImage?: string   // Refuge floor
+  floorPlanDescription?: string
+  brochureLink?: string
 
   // ── LEGAL (TOWER-SPECIFIC) ────────────────
   reraNumber: string
   reraCertificateUrl?: string
   ccNumber?: string
   ccStatus?: string
+  ccCertificateUrl?: string
   ocNumber?: string
   ocCertificateUrl?: string
 
@@ -700,6 +711,7 @@ export const initialCommonData: CommonInheritedData = {
   legalTrustDescription: "Clear Marketable Title with OC Received",
   ccNumber: "",
   ccStatus: "",
+  ccCertificateUrl: "",
   apfDetails: defaultApfDetails.map(c => ({ ...c })),
   approvals: "",
   approvedBanks: ["SBI", "HDFC", "ICICI"],
@@ -804,6 +816,7 @@ export const createInitialProject = (parentTownshipIdOrIndex: string | number, i
     reraCertificateUrl: "",
     ccNumber: "",
     ccStatus: "",
+    ccCertificateUrl: "",
     ocNumber: "",
     ocCertificateUrl: "",
     apfDetails: defaultApfDetails.map(c => ({ ...c })),
@@ -823,6 +836,12 @@ export const createInitialProject = (parentTownshipIdOrIndex: string | number, i
     // Amenities override
     amenities: defaultAmenities.map(c => ({ ...c })),
 
+    // Master Plan
+    masterplanImage: "",
+    masterPlanDescription: "",
+    brochureLink: "",
+    masterPlanHighlights: [],
+
     // Auto
     totalTowers: 0,
     totalUnits: 0,
@@ -838,6 +857,7 @@ export const createInitialTower = (index: number, projectId: string): TowerData 
   name: "",
   heroImage: "",
   galleryImages: [],
+  videoGallery: [],
   description: "",
   visionStatement: "",
   aboutImageUrl: "",
@@ -861,6 +881,7 @@ export const createInitialTower = (index: number, projectId: string): TowerData 
   reraCertificateUrl: "",
   ccNumber: "",
   ccStatus: "",
+  ccCertificateUrl: "",
   ocNumber: "",
   ocCertificateUrl: "",
 
@@ -877,6 +898,8 @@ export const createInitialTower = (index: number, projectId: string): TowerData 
   // Floor Plans
   typicalFloorPlanImage: "",
   refugeFloorPlanImage: "",
+  floorPlanDescription: "",
+  brochureLink: "",
 
   // Auto
   totalUnits: 0,

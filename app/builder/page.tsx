@@ -603,7 +603,7 @@ function BuilderContent() {
               />
             </div>
 
-            <div className="flex items-center gap-3 justify-end shrink-0">
+            <div className="flex items-center gap-2 justify-end shrink-0">
               <div className="hidden lg:block text-right border-r pr-4 border-slate-200 dark:border-slate-800">
                 <p className="text-[10px] text-muted-foreground font-bold uppercase mb-0.5">Current Phase</p>
                 <p className="text-sm font-black text-[#1A3C8C] dark:text-blue-400">
@@ -617,6 +617,18 @@ function BuilderContent() {
                 title="Save Draft"
               >
                 <Save className="w-4 h-4 group-hover:scale-110 transition-transform" />
+              </button>
+              <button
+                onClick={() => {
+                  if (confirm("Are you sure you want to cancel? Unsaved changes will be lost.")) {
+                    window.location.href = "/builder-dashboard"
+                  }
+                }}
+                disabled={isCreating}
+                className="p-2.5 rounded-xl bg-slate-100/50 border border-slate-200 text-slate-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 hover:shadow-sm transition-all group"
+                title="Cancel / Close"
+              >
+                <X className="w-4 h-4 group-hover:scale-110 transition-transform" />
               </button>
             </div>
           </div>
@@ -846,85 +858,63 @@ function BuilderContent() {
         </div>
       </main>
 
-      {/* Sticky Navigation Footer - Optimized for Mobile */}
-      <div className="sticky bottom-0 left-0 right-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-t shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-40">
-        <div className="container max-w-7xl mx-auto px-4 md:px-6 py-4">
-          <div className="flex items-center justify-between gap-3 md:gap-6">
+      {/* Side Navigation Buttons */}
+      <button
+        onClick={prevStep}
+        disabled={state.currentStep === minStep}
+        className="fixed left-4 md:left-8 top-1/2 -translate-y-1/2 z-40 p-3 md:p-4 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-[0_8px_30px_rgb(0,0,0,0.12)] text-slate-600 hover:text-[#1A3C8C] hover:border-blue-300 transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 disabled:opacity-0 disabled:pointer-events-none group hidden sm:flex"
+      >
+        <ChevronLeft className="w-6 h-6 md:w-8 md:h-8 group-hover:-translate-x-1 transition-transform" />
+      </button>
 
-            {/* Cancel Button - Text on desktop, Icon on mobile if needed or just smaller text */}
-            <button
-              onClick={() => {
-                if (confirm("Are you sure you want to cancel? Unsaved changes will be lost.")) {
-                  window.location.href = "/builder-dashboard"
-                }
-              }}
-              disabled={isCreating}
-              className="px-3 py-2 md:px-6 border border-red-500 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 disabled:opacity-50 transition-colors font-medium text-sm"
-            >
-              <span className="hidden md:inline">Cancel</span>
-              <span className="md:hidden flex items-center gap-1"><X className="h-4 w-4" /> Cancel</span>
-            </button>
-
-            {/* Progress - HIDDEN on Mobile (md:flex) because top bar is now sticky */}
-            <div className="hidden md:flex flex-col items-center gap-3 flex-1">
-              <div className="text-sm font-medium text-muted-foreground">
-                Step {displayStepIndex + 1} of {STEPS.length + 1}
-              </div>
-              <div className="w-full max-w-xs h-2 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-300 rounded-full"
-                  style={{ width: `${((displayStepIndex + 1) / (STEPS.length + 1)) * 100}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex items-center gap-2 md:gap-3">
-              {/* Save as Draft - Icon on mobile */}
-              <button
-                onClick={handleSaveDraft}
-                disabled={isCreating}
-                className="px-3 md:px-6 py-2 flex items-center gap-2 bg-transparent border border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-500 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-sm"
-                title="Save as Draft"
-              >
-                <Save className="h-4 w-4" />
-                <span className="hidden md:inline">{isCreating ? "Saving..." : "Save Draft"}</span>
-              </button>
-
-              {/* Back Button - Icon only on very small screens if needed, but text usually fits now */}
-              <button
-                onClick={prevStep}
-                disabled={state.currentStep === minStep}
-                className="px-3 md:px-6 py-2 flex items-center gap-2 bg-transparent border border-gray-300 rounded-lg hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-foreground text-sm"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                <span className="hidden sm:inline">Back</span>
-              </button>
-
-              {/* Next / Create */}
-              {!isReviewStep ? (
-                <button
-                  onClick={nextStep}
-                  className="px-4 md:px-6 py-2 flex items-center gap-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
-                >
-                  <span className="hidden sm:inline">{state.currentStep === maxStep ? "Review" : "Next"}</span>
-                  <span className="sm:hidden">Next</span>
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              ) : (
-                <button
-                  onClick={handleCreate}
-                  disabled={isCreating}
-                  className="px-4 md:px-8 py-2 flex items-center gap-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-sm"
-                >
-                  {isCreating ? <span className="hidden md:inline">Creating...</span> : <span className="hidden md:inline">Create All</span>}
-                  <span className="md:hidden">{isCreating ? "..." : "Create"}</span>
-                  {!isCreating && <Check className="h-4 w-4" />}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
+      {!isReviewStep ? (
+        <button
+          onClick={nextStep}
+          className="fixed right-4 md:right-8 top-1/2 -translate-y-1/2 z-40 p-3 md:p-4 rounded-full bg-[#1A3C8C] text-white shadow-[0_8px_30px_rgba(26,60,140,0.4)] hover:bg-blue-700 hover:scale-105 transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/40 group hidden sm:flex"
+        >
+          <ChevronRight className="w-6 h-6 md:w-8 md:h-8 group-hover:translate-x-1 transition-transform" />
+        </button>
+      ) : (
+        <button
+          onClick={handleCreate}
+          disabled={isCreating}
+          className="fixed right-4 md:right-8 top-1/2 -translate-y-1/2 z-40 p-3 md:p-4 rounded-full bg-[#2BB673] text-white shadow-[0_8px_30px_rgba(43,182,115,0.4)] hover:bg-emerald-600 hover:scale-105 transition-all focus:outline-none focus:ring-4 focus:ring-emerald-500/40 disabled:opacity-50 disabled:scale-100 flex items-center justify-center group hidden sm:flex"
+          title="Create All"
+        >
+          {isCreating ? (
+            <span className="w-6 h-6 md:w-8 md:h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          ) : (
+            <Check className="w-6 h-6 md:w-8 md:h-8" />
+          )}
+        </button>
+      )}
+      
+      {/* Mobile Floating Actions (Visible only on small screens) */}
+      <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-50 sm:hidden">
+        <button
+          onClick={prevStep}
+          disabled={state.currentStep === minStep}
+          className="p-3 rounded-full bg-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-200 text-slate-700 disabled:opacity-0 disabled:pointer-events-none transition-all"
+        >
+          <ChevronLeft className="w-6 h-6" />
+        </button>
+        
+        {!isReviewStep ? (
+          <button
+            onClick={nextStep}
+            className="p-4 rounded-full bg-[#1A3C8C] text-white shadow-[0_8px_30px_rgba(26,60,140,0.4)] transition-all"
+          >
+            <ChevronRight className="w-7 h-7" />
+          </button>
+        ) : (
+          <button
+            onClick={handleCreate}
+            disabled={isCreating}
+            className="p-4 rounded-full bg-[#2BB673] text-white shadow-[0_8px_30px_rgba(43,182,115,0.4)] transition-all disabled:opacity-50"
+          >
+            {isCreating ? <span className="w-7 h-7 flex items-center justify-center text-xs">...</span> : <Check className="w-7 h-7" />}
+          </button>
+        )}
       </div>
     </div>
   )

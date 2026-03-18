@@ -5,13 +5,14 @@ import Unit from "@/models/Unit";
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await dbConnect();
 
     // Trigger findOneAndDelete so the pre-hook cascades the Units
-    const deletedTower = await Tower.findOneAndDelete({ _id: params.id });
+    const deletedTower = await Tower.findOneAndDelete({ _id: id });
 
     if (!deletedTower) {
       return NextResponse.json({ error: "Tower not found" }, { status: 404 });

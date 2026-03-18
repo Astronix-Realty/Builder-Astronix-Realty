@@ -16,8 +16,9 @@ import {
 } from "lucide-react"
 import type {
   TowerData, FloorBreakdown, TownshipData, ConnectivityItem,
-  AmenityItem, EcoFeature, ApfDetail, VideoGalleryItem
+  AmenityItem, EcoFeature, ApfDetail, VideoGalleryItem, MasterPlanHighlight
 } from "@/lib/builder-types"
+import { BannerUpload, GalleryUpload, VideoUpload, DocumentUpload, MasterPlanMapUpload } from "@/components/ui/media-uploads"
 
 // ─────────────────────────────────────────
 // PROPS
@@ -321,6 +322,8 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
     const g = [...(data.galleryImages || [])]; g[i] = v; update("galleryImages", g)
   }
   const removeGallery = (i: number) => update("galleryImages", (data.galleryImages || []).filter((_, idx) => idx !== i))
+
+
 
   // Floor breakdown
   const addFloorBreakdown = () => {
@@ -639,49 +642,64 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
 
       {/* ── 1. TOWER IDENTITY ──────────────────── */}
       <Section id="tower-identity" title="Tower Identity" description="Name, hero image, gallery — Tower Hero Section" icon={Building} openIds={openIds} setOpenIds={setOpenIds}>
-        <Grid cols={2}>
-          <Field label="Tower Name" required>
-            <Input value={data.name} onChange={e => update("name", e.target.value)} placeholder="Tower A – Skyline" />
-          </Field>
-          <Field label="Tower Type">
-            <Select value={data.towerType} onValueChange={v => update("towerType", v as TowerData["towerType"])}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="residential">Residential</SelectItem>
-                <SelectItem value="commercial">Commercial</SelectItem>
-                <SelectItem value="mixed">Mixed Use</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label="Construction Status" required>
-            <Select value={data.constructionStatus} onValueChange={v => update("constructionStatus", v as TowerData["constructionStatus"])}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pre-launch">Pre-Launch</SelectItem>
-                <SelectItem value="under-construction">Under Construction</SelectItem>
-                <SelectItem value="ready-to-move">Ready to Move</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
-        </Grid>
-
-        <SectionTitle title="Hero / Banner Image" />
-        <ImageField label="Tower Hero Image" value={data.heroImage || ""} onChange={v => update("heroImage", v)} placeholder="https://...tower-banner.jpg" />
-
-        <div className="flex items-center justify-between mb-3 mt-5">
-          <SectionTitle title="Photo Gallery" />
-          <BulkImageInput onAdd={urls => update("galleryImages", [...(data.galleryImages || []), ...urls])} />
-        </div>
-        {(data.galleryImages || []).map((img, i) => (
-          <div key={i} className="flex gap-2 mb-2">
-            <Input value={img} onChange={e => updateGallery(i, e.target.value)} placeholder={`Tower photo ${i + 1} URL`} className="text-xs" />
-            <button type="button" onClick={() => removeGallery(i)} className="text-red-400 shrink-0"><X className="w-4 h-4" /></button>
+        <div className="flex flex-col md:flex-row gap-8">
+          {/* Left Column: Hero Image Upload */}
+          <div className="flex-1">
+            <BannerUpload
+              value={data.heroImage || ""}
+              onChange={v => update("heroImage", v)}
+            />
           </div>
-        ))}
-        <Button type="button" variant="outline" size="sm" onClick={addGallery} className="w-full border-dashed">
-          <Plus className="w-3 h-3 mr-1" /> Add Tower Photo
-        </Button>
 
+          {/* Right Column: Tower Details */}
+          <div className="flex-1 flex flex-col gap-6 pt-2">
+            <Field label="Tower Name" required>
+              <Input
+                value={data.name || ""}
+                onChange={e => update("name", e.target.value)}
+                placeholder="e.g. Tower A - Skyline"
+                className="h-12 text-lg font-medium tracking-tight bg-white/50"
+              />
+            </Field>
+
+            <Field label="Tower Type">
+              <Select value={data.towerType || "residential"} onValueChange={v => update("towerType", v as TowerData["towerType"])}>
+                <SelectTrigger className="h-11 bg-white/50"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="residential">Residential</SelectItem>
+                  <SelectItem value="commercial">Commercial</SelectItem>
+                  <SelectItem value="mixed">Mixed Use</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+
+            <Field label="Construction Status" required hint="Determines if CC or OC is needed">
+              <Select value={data.constructionStatus || "under-construction"} onValueChange={v => update("constructionStatus", v as TowerData["constructionStatus"])}>
+                <SelectTrigger className="h-11 bg-white/50"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="under-construction">Under Construction</SelectItem>
+                  <SelectItem value="ready-to-move">Ready to Move</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
+        </div>
+
+        <div className="mt-8 pt-6 border-t border-gray-100">
+          <SectionTitle title="Photo Gallery" />
+          <GalleryUpload
+            images={data.galleryImages || []}
+            onChange={v => update("galleryImages", v)}
+          />
+        </div>
+
+        <div className="mt-8 pt-6 border-t border-gray-100">
+          <SectionTitle title="Tower Video Gallery" />
+          <VideoUpload
+            videos={data.videoGallery || []}
+            onChange={v => update("videoGallery", v)}
+          />
+        </div>
       </Section>
 
       {/* ── 2. ABOUT TOWER ──────────────────────── */}
@@ -786,10 +804,49 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
       </Section>
 
       {/* ── 4. FLOOR PLAN IMAGES ─────────────────── */}
-      <Section id="tower-floorplan" title="Floor Plan Images" description="Tower layout + refuge floor plan — Floor Plan section" icon={FileText} openIds={openIds} setOpenIds={setOpenIds}>
-        <ImageField label="Typical Floor Plan" value={data.typicalFloorPlanImage || ""} onChange={v => update("typicalFloorPlanImage", v)} placeholder="https://...typical-floor-plan.jpg" />
-        <div className="mt-3">
-          <ImageField label="Refuge Floor Plan (Optional)" value={data.refugeFloorPlanImage || ""} onChange={v => update("refugeFloorPlanImage", v)} placeholder="https://...refuge-floor-plan.jpg" />
+      <Section id="tower-floorplan" title="Floor Plan Images" description="Architectural layout & highlights" icon={FileText} openIds={openIds} setOpenIds={setOpenIds}>
+        <div className="flex flex-col md:flex-row gap-8">
+          {/* Left: Master Plan Image */}
+          <div className="flex-1">
+            <MasterPlanMapUpload
+              value={data.typicalFloorPlanImage || ""}
+              onChange={v => update("typicalFloorPlanImage", v)}
+              title="Upload Tower Floor Plan"
+              description="Architectural layout or site map of the Tower"
+            />
+          </div>
+
+          {/* Right: Description & Brochure */}
+          <div className="flex-1 space-y-6">
+            <Field label="Short Description" hint="Brief explanation of the layout">
+              <Textarea value={data.floorPlanDescription || ""} onChange={e => update("floorPlanDescription", e.target.value)} rows={3} placeholder="Brief description for listings..." className="bg-white/50" />
+            </Field>
+
+            <div className="pt-2">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-9 h-9 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
+                  <FileText className="w-4 h-4 text-red-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Tower Brochure</p>
+                  <p className="text-xs text-[#2BB673]">Upload your comprehensive tower brochure</p>
+                </div>
+              </div>
+              <DocumentUpload
+                value={data.brochureLink || ""}
+                onChange={v => update("brochureLink", v)}
+              />
+            </div>
+
+
+            {data.refugeFloorPlanImage && (
+               <div className="pt-2"> 
+                   <Field label="Refuge Floor Plan (Optional)">
+                      <Input value={data.refugeFloorPlanImage || ""} onChange={e => update("refugeFloorPlanImage", e.target.value)} placeholder="https://...refuge-floor-plan.jpg" />
+                   </Field>
+               </div>
+            )}
+          </div>
         </div>
       </Section>
 
@@ -832,36 +889,87 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
           <Field label="RERA Number">
             <Input value={data.reraNumber} onChange={e => update("reraNumber", e.target.value)} placeholder="PRM/KA/RERA/..." />
           </Field>
-          <Field label="RERA Certificate URL" hint="Link to RERA certificate PDF or image">
-            <Input value={data.reraCertificateUrl} onChange={e => update("reraCertificateUrl", e.target.value)} placeholder="https://maharera.mahaonline.gov.in/..." />
-          </Field>
         </Grid>
 
-        {data.constructionStatus === "ready-to-move" ? (
-          <>
-            <SectionTitle title="Occupation Certificate (OC)" />
-            <Grid cols={2}>
-              <Field label="OC Number">
-                <Input value={data.ocNumber} onChange={e => update("ocNumber", e.target.value)} placeholder="OC/2024/0001" />
-              </Field>
-              <Field label="OC Certificate URL" hint="Link to OC document">
-                <Input value={data.ocCertificateUrl} onChange={e => update("ocCertificateUrl", e.target.value)} placeholder="https://maharera.mahaonline.gov.in/OC/..." />
-              </Field>
-            </Grid>
-          </>
-        ) : (
-          <>
-            <SectionTitle title="Commencement Certificate (CC)" />
-            <Grid cols={2}>
-              <Field label="CC Number">
-                <Input value={data.ccNumber} onChange={e => update("ccNumber", e.target.value)} placeholder="CC/2023/0001" />
-              </Field>
-              <Field label="CC Status" hint="Eg: CC Received / CC Applied">
-                <Input value={data.ccStatus} onChange={e => update("ccStatus", e.target.value)} placeholder="CC Received" />
-              </Field>
-            </Grid>
-          </>
-        )}
+        <SectionTitle title="Legal Documents" />
+        <p className="text-xs text-gray-400 mb-4 mt-[-8px]">Official certificates and approvals in PDF format.</p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* 1. RERA Certificate */}
+          <div className="bg-gray-50/50 rounded-2xl p-5 border border-gray-100 hover:border-gray-200 transition-colors shadow-sm flex flex-col h-full">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-7 h-7 bg-blue-100/50 rounded-lg flex items-center justify-center">
+                <ShieldCheck className="w-4 h-4 text-[#1A3C8C]" />
+              </div>
+              <Label className="text-[11px] font-bold uppercase tracking-wider text-[#1A3C8C]">RERA Certificate</Label>
+              <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">Required</span>
+            </div>
+
+            <div className="flex-1">
+              <DocumentUpload
+                value={data.reraCertificateUrl || ""}
+                onChange={v => update("reraCertificateUrl", v)}
+                title="RERA Certificate"
+                description="Official registration document."
+                buttonLabel="View RERA"
+              />
+            </div>
+          </div>
+
+          {/* 2. CC Certificate (Visible for both UC and RM) */}
+          {(data.constructionStatus === "under-construction" || data.constructionStatus === "ready-to-move") && (
+            <div className="bg-blue-50/20 rounded-2xl p-5 border border-blue-100/50 hover:border-blue-200 transition-colors shadow-sm flex flex-col h-full">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <FileText className="w-4 h-4 text-[#1A3C8C]" />
+                </div>
+                <Label className="text-[11px] font-bold uppercase tracking-wider text-[#1A3C8C]">Commencement (CC)</Label>
+                <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">Required</span>
+              </div>
+              
+              <div className="mb-4">
+                <Input value={data.ccNumber || ""} onChange={e => update("ccNumber", e.target.value)} placeholder="CC Number (e.g. CC/2023/102)" className="text-xs bg-white/50" />
+              </div>
+
+              <div className="flex-1">
+                <DocumentUpload
+                  value={data.ccCertificateUrl || ""}
+                  onChange={v => update("ccCertificateUrl", v)}
+                  title="CC Certificate"
+                  description="Official Commencement Certificate PDF."
+                  buttonLabel="View CC"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 3. OC Certificate (Visible if Ready to Move) */}
+          {data.constructionStatus === "ready-to-move" && (
+            <div className="bg-green-50/10 rounded-2xl p-5 border border-green-100/50 hover:border-green-200 transition-colors shadow-sm flex flex-col h-full">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-7 h-7 bg-green-100/50 rounded-lg flex items-center justify-center">
+                  <FileText className="w-4 h-4 text-green-600" />
+                </div>
+                <Label className="text-[11px] font-bold uppercase tracking-wider text-green-700">Occupancy (OC)</Label>
+                <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">Required</span>
+              </div>
+
+              <div className="mb-4">
+                <Input value={data.ocNumber || ""} onChange={e => update("ocNumber", e.target.value)} placeholder="OC Number (e.g. OC/2024/099)" className="text-xs bg-white/50" />
+              </div>
+
+              <div className="flex-1">
+                <DocumentUpload
+                  value={data.ocCertificateUrl || ""}
+                  onChange={v => update("ocCertificateUrl", v)}
+                  title="OC Certificate"
+                  description="Official Occupancy Certificate PDF."
+                  buttonLabel="View OC"
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </Section>
 
     </div>

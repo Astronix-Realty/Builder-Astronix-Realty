@@ -6,13 +6,14 @@ import Unit from "@/models/Unit";
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await dbConnect();
 
     // Trigger findOneAndDelete so the pre-hook cascades
-    const deletedProject = await Project.findOneAndDelete({ _id: params.id });
+    const deletedProject = await Project.findOneAndDelete({ _id: id });
 
     if (!deletedProject) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
