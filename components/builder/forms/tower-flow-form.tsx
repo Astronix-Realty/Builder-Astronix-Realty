@@ -519,47 +519,7 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
             </Button>
           </Section>
 
-          <Section id="media-common" title="Cinematic Tour & Videos" description="Landscape (Desktop) + Short (Mobile) videos" icon={Film} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-            {townshipData.videoGallery.map(item => (
-              <Card key={item.id} className="mb-3 border-gray-100 shadow-none">
-                <CardContent className="p-3">
-                  <Grid cols={2}>
-                    <Field label="Video Title">
-                      <Input value={item.title} onChange={e => updateVideoGalleryItem(item.id, { title: e.target.value })} placeholder="Clubhouse Tour" className="h-8 text-xs" />
-                    </Field>
-                    <Field label="Type">
-                      <Select value={item.type || "walkthrough"} onValueChange={v => updateVideoGalleryItem(item.id, { type: v as VideoGalleryItem["type"] })}>
-                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {["walkthrough", "aerial", "interior", "clubhouse", "short"].map(t => (
-                            <SelectItem key={t} value={t} className="text-xs">{t.charAt(0).toUpperCase() + t.slice(1)}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    {item.type === "short" ? (
-                      <Field label="Short URL (Vertical)">
-                        <Input value={item.shortUrl} onChange={e => updateVideoGalleryItem(item.id, { shortUrl: e.target.value })} placeholder="https://youtube.com/shorts/..." className="h-8 text-xs" />
-                      </Field>
-                    ) : (
-                      <Field label="Landscape URL">
-                        <Input value={item.landscapeUrl} onChange={e => updateVideoGalleryItem(item.id, { landscapeUrl: e.target.value })} placeholder="https://youtube.com/..." className="h-8 text-xs" />
-                      </Field>
-                    )}
-                  </Grid>
-                  <button type="button" onClick={() => removeVideoGalleryItem(item.id)} className="mt-2 text-[10px] text-red-400 hover:text-red-500 font-bold uppercase">Remove Video</button>
-                </CardContent>
-              </Card>
-            ))}
-            <div className="flex gap-3 mt-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => addVideoGalleryItem("walkthrough")} className="flex-1 border-dashed text-xs h-9">
-                + Walkthrough
-              </Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => addVideoGalleryItem("short")} className="flex-1 border-dashed text-xs h-9">
-                + Shorts
-              </Button>
-            </div>
-          </Section>
+
 
           <Section id="common-legal" title="Bank APF Approvals" description="List of pre-approved banks for loans" icon={ShieldCheck} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
             <div className="mb-6">
