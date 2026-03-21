@@ -759,3 +759,103 @@ export function MasterPlanMapUpload({
     </div>
   )
 }
+
+// ── ABOUT IMAGE UPLOAD ──────────────────────────────────────────────
+export function AboutImageUpload({ 
+  value, 
+  onChange,
+  title = "Upload About Image",
+  description = "Landscape or aerial view for the about section"
+}: { 
+  value: string; 
+  onChange: (url: string) => void;
+  title?: string;
+  description?: string;
+}) {
+  const [isUploading, setIsUploading] = useState(false)
+  const [error, setError] = useState("")
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setError("")
+
+    if (!file.type.startsWith("image/")) {
+      setError("Invalid file type: Only image files are allowed.")
+      if (fileRef.current) fileRef.current.value = ""
+      return
+    }
+
+    try {
+      setIsUploading(true)
+      const url = await uploadFileToServer(file)
+      onChange(url)
+    } catch (err: any) {
+      setError(err.message || "Upload failed")
+    } finally {
+      setIsUploading(false)
+      if (fileRef.current) fileRef.current.value = ""
+    }
+  }
+
+  return (
+    <div className="space-y-2 h-full">
+      <div
+        className={`relative w-full h-full min-h-[350px] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group ${value ? "border-transparent bg-gray-50/50" : "border-gray-200 bg-gray-50/10 hover:bg-gray-50/50 hover:border-gray-300"
+          }`}
+        onClick={() => !isUploading && fileRef.current?.click()}
+      >
+        {isUploading ? (
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-10 h-10 border-4 border-[#1A3C8C] border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm font-semibold text-[#1A3C8C]">Uploading...</span>
+          </div>
+        ) : value ? (
+          <>
+            <Image src={value} alt="About Image" fill className="object-cover" unoptimized />
+            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-3 transition-opacity backdrop-blur-sm rounded-2xl">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); !isUploading && fileRef.current?.click() }}
+                className="bg-white text-gray-800 px-5 py-2.5 rounded-xl font-semibold shadow-xl hover:bg-gray-50 flex items-center gap-2 transition-transform transform hover:scale-105"
+              >
+                <Upload className="w-4 h-4 text-[#1A3C8C]" /> Replace Image
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onChange("") }}
+                className="bg-red-500 text-white px-5 py-2.5 rounded-xl font-semibold shadow-xl hover:bg-red-600 flex items-center gap-2 transition-transform transform hover:scale-105"
+              >
+                <X className="w-4 h-4" /> Remove
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col items-center text-center p-6">
+            <div className="w-16 h-16 bg-[#1A3C8C]/10 rounded-2xl shadow-sm text-[#1A3C8C] flex items-center justify-center mb-5 transition-transform group-hover:scale-110 group-hover:-translate-y-1">
+              <FileText className="w-8 h-8" />
+            </div>
+            <span className="font-bold text-gray-800 text-lg">{title}</span>
+            <span className="text-sm text-gray-500 mt-1.5 max-w-[250px]">{description}</span>
+
+            <div className="mt-6 flex flex-col gap-2 w-full max-w-[200px]">
+              <div className="bg-white border text-xs px-3 py-2 rounded-lg text-gray-400 shadow-sm flex items-center justify-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#2BB673]"></span>
+                Best Perspective
+              </div>
+            </div>
+          </div>
+        )}
+        <input type="file" ref={fileRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-2 text-red-500 text-xs bg-red-50 px-3 py-2 rounded-lg mt-2">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+    </div>
+  )
+}

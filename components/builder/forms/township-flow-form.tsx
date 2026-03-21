@@ -20,7 +20,7 @@ import type {
   VideoGalleryItem, ReraPhase, MasterPlanHighlight, DevelopmentPhase,
   FaqItem, TestimonialItem, ApfDetail,
 } from "@/lib/builder-types"
-import { BannerUpload, GalleryUpload, VideoUpload, MasterPlanMapUpload, DocumentUpload } from "@/components/ui/media-uploads"
+import { BannerUpload, GalleryUpload, VideoUpload, MasterPlanMapUpload, DocumentUpload, AboutImageUpload } from "@/components/ui/media-uploads"
 
 // ─────────────────────────────────────────
 // PROPS
@@ -117,74 +117,112 @@ const COMMON_BANKS = ["HDFC Bank", "SBI", "ICICI Bank", "Axis Bank", "Kotak Bank
 function BankSelector({ banks, onChange }: { banks: string[]; onChange: (b: string[]) => void }) {
   const [custom, setCustom] = useState("")
   return (
-    <div className="space-y-2">
+    <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
         {COMMON_BANKS.map(b => (
           <button key={b} type="button"
             onClick={() => onChange(banks.includes(b) ? banks.filter(x => x !== b) : [...banks, b])}
-            className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-all ${banks.includes(b) ? "bg-[#1A3C8C] text-white border-transparent" : "bg-white text-gray-600 border-gray-200 hover:border-[#1A3C8C]"}`}
+            className={`text-xs px-4 py-2 rounded-xl border font-semibold transition-all shadow-sm ${banks.includes(b) ? "bg-[#1A3C8C] text-white border-transparent" : "bg-white text-gray-600 border-gray-100 hover:border-[#1A3C8C]"}`}
           >{b}</button>
         ))}
       </div>
       {banks.filter(b => !COMMON_BANKS.includes(b)).map(b => (
-        <Badge key={b} className="bg-[#2BB673]/10 text-[#2BB673] border-0 text-xs font-medium gap-1">
+        <Badge key={b} className="bg-[#2BB673]/10 text-[#2BB673] border-0 text-xs font-semibold py-1.5 px-3 rounded-lg gap-2">
           {b}
-          <button onClick={() => onChange(banks.filter(x => x !== b))}><X className="w-3 h-3" /></button>
+          <button onClick={() => onChange(banks.filter(x => x !== b))} className="hover:text-red-500 transition-colors"><X className="w-3 h-3" /></button>
         </Badge>
       ))}
-      <div className="flex gap-2 mt-2">
-        <Input value={custom} onChange={e => setCustom(e.target.value)} placeholder="Add other bank..." className="h-8 text-xs" />
-        <Button type="button" size="sm" className="h-8 text-xs" onClick={() => { if (custom.trim()) { onChange([...banks, custom.trim()]); setCustom("") } }}>Add</Button>
+      <div className="flex gap-2 max-w-sm">
+        <Input value={custom} onChange={e => setCustom(e.target.value)} placeholder="Add other bank..." className="h-10 text-sm bg-gray-50/50" />
+        <Button type="button" className="h-10 px-6 bg-[#1A3C8C] hover:bg-[#1A3C8C]/90 text-sm font-bold" onClick={() => { if (custom.trim()) { onChange([...banks, custom.trim()]); setCustom("") } }}>Add</Button>
       </div>
     </div>
   )
 }
 
-// ─────────────────────────────────────────
-// IMAGE UPLOAD FIELD (URL input)
-// ─────────────────────────────────────────
-function ImageField({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
-  const [isValid, setIsValid] = useState(true)
-  const [isChecking, setIsChecking] = useState(false)
-
-  useEffect(() => {
-    if (!value) {
-      setIsValid(true)
-      return
-    }
-    // Basic URL regex
-    const isUrl = /^(https?:\/\/|\/|data:image\/)\S+/.test(value)
-    if (!isUrl) {
-      setIsValid(false)
-      return
-    }
-
-    setIsChecking(true)
-    const img = new window.Image()
-    img.onload = () => { setIsValid(true); setIsChecking(false) }
-    img.onerror = () => { setIsValid(false); setIsChecking(false) }
-    img.src = value
-  }, [value])
+function PartCollapse({
+  title, id, openParts, setOpenParts, children, icon: Icon
+}: {
+  title: string; id: string; openParts: string[]; setOpenParts: React.Dispatch<React.SetStateAction<string[]>>; children: React.ReactNode; icon: React.ComponentType<{ className?: string }>
+}) {
+  const isOpen = openParts.includes(id)
+  const isPartA = id === "part-a"
 
   return (
-    <Field label={label} hint={!isValid ? "⚠️ Please enter a valid image URL" : "Paste image URL or upload path"}>
-      <div className="relative">
-        {value && isValid && (
-          <div className="relative w-full h-28 mb-2">
-            <Image src={value} alt="preview" fill className="object-cover rounded-lg border shadow-sm" unoptimized />
-            {isChecking && <div className="absolute inset-0 bg-white/50 animate-pulse rounded-lg" />}
+    <div className={[
+      "mb-4 sm:mb-6 2xl:mb-8 rounded-2xl sm:rounded-3xl border transition-all duration-500 overflow-hidden",
+      isOpen
+        ? "bg-white border-blue-100 shadow-lg sm:shadow-xl shadow-blue-50/80"
+        : "bg-gray-50/70 border-gray-100 shadow-none"
+    ].join(" ")}>
+
+      {/* ── HEADER BUTTON ── */}
+      <button
+        type="button"
+        onClick={() => setOpenParts(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])}
+        className="w-full text-left flex items-center justify-between group transition-colors px-4 py-4 sm:px-6 sm:py-5 2xl:px-10 2xl:py-7 gap-3 sm:gap-5"
+      >
+        {/* Left: Icon + Label */}
+        <div className="flex items-center gap-3 sm:gap-4 2xl:gap-6 min-w-0">
+
+          {/* Icon Container */}
+          <div className={[
+            "shrink-0 flex items-center justify-center rounded-xl sm:rounded-2xl transition-all duration-500",
+            "w-10 h-10 sm:w-12 sm:h-12 2xl:w-16 2xl:h-16",
+            isOpen
+              ? isPartA
+                ? "bg-[#1A3C8C] text-white shadow-lg shadow-blue-300/40"
+                : "bg-[#2BB673] text-white shadow-lg shadow-emerald-300/40"
+              : "bg-white text-gray-400 border border-gray-100 shadow-sm group-hover:border-blue-100 group-hover:shadow-blue-50",
+          ].join(" ")}>
+            <Icon className="w-5 h-5 sm:w-6 sm:h-6 2xl:w-8 2xl:h-8" />
           </div>
-        )}
-        <Input
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          placeholder={placeholder || "https://..."}
-          className={`text-xs ${!isValid && value ? "border-red-400 focus-visible:ring-red-400 bg-red-50/30" : ""}`}
-        />
-      </div>
-    </Field>
+
+          {/* Text */}
+          <div className="min-w-0">
+            <span className={[
+              "block font-black uppercase tracking-[0.18em] mb-0.5 sm:mb-1",
+              "text-[9px] sm:text-[10px] 2xl:text-xs",
+              isOpen
+                ? isPartA ? "text-[#1A3C8C]" : "text-[#2BB673]"
+                : "text-gray-400"
+            ].join(" ")}>
+              {isPartA ? "Phase One" : "Phase Two"}
+            </span>
+            <h2 className={[
+              "font-bold tracking-tight leading-tight truncate transition-colors",
+              "text-base sm:text-xl 2xl:text-3xl",
+              isOpen ? "text-gray-900" : "text-gray-500"
+            ].join(" ")}>
+              {title}
+            </h2>
+          </div>
+        </div>
+
+        {/* Right: Chevron Toggle */}
+        <div className={[
+          "shrink-0 flex items-center justify-center rounded-full border transition-all duration-500",
+          "w-7 h-7 sm:w-9 sm:h-9 2xl:w-11 2xl:h-11",
+          isOpen
+            ? "bg-gray-900 border-gray-900 text-white rotate-180"
+            : "bg-white border-gray-200 text-gray-400 group-hover:border-gray-400"
+        ].join(" ")}>
+          <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 2xl:w-5 2xl:h-5" />
+        </div>
+      </button>
+
+      {/* ── CONTENT ── */}
+      {isOpen && (
+        <div className="px-4 pb-5 pt-0 sm:px-6 sm:pb-8 2xl:px-10 2xl:pb-12 space-y-4 sm:space-y-6 border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-300">
+          {children}
+        </div>
+      )}
+    </div>
   )
 }
+
+
+
 
 // ─────────────────────────────────────────
 // BULK IMAGE INPUT
@@ -228,6 +266,7 @@ function BulkImageInput({ onAdd }: { onAdd: (urls: string[]) => void }) {
 // ─────────────────────────────────────────
 export function TownshipFlowForm({ data, onChange }: TownshipFlowFormProps) {
   const [openIds, setOpenIds] = useState<SectionId[]>(["builder", "identity"])
+  const [openParts, setOpenParts] = useState<string[]>(["part-a", "part-b"])
 
   const update = <K extends keyof TownshipData>(field: K, value: TownshipData[K]) => {
     onChange({ ...data, [field]: value })
@@ -346,18 +385,7 @@ export function TownshipFlowForm({ data, onChange }: TownshipFlowFormProps) {
 
   return (
     <div className="space-y-10">
-      {/* ══════════════════════════════════════════ */}
-      {/* PART A: COMMON INHERITED DATA              */}
-      {/* (Township mein enter → sabhi pages inherit) */}
-      {/* ══════════════════════════════════════════ */}
-
-      <div className="flex items-center gap-3 py-2 px-4 bg-[#1A3C8C] rounded-xl">
-        <Home className="w-4 h-4 text-white" />
-        <div>
-          <p className="text-white font-bold text-sm">Part A: Common Data</p>
-          <p className="text-blue-200 text-[11px]">Yeh data Project → Tower → Unit sabhi pages pe inherit hoga</p>
-        </div>
-      </div>
+      <PartCollapse id="part-a" title="Common Inherited Data" icon={Home} openParts={openParts} setOpenParts={setOpenParts}>
 
       {/* ── 1. BUILDER / DEVELOPER ─────────────── */}
       <Section id="builder" title="Developer / Builder Info" description="Builder name, logo, contact — Hero pe dikhta hai" icon={Building2} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
@@ -495,11 +523,6 @@ export function TownshipFlowForm({ data, onChange }: TownshipFlowFormProps) {
 
       {/* ── 6. ECO / SUSTAINABILITY ─────────────── */}
       <Section id="eco" title="Sustainability & Eco Features" description="Solar, Rainwater, Green Cover — Sustainability section" icon={Leaf} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-        <Grid cols={2}>
-          <Field label="Green Cover %" hint="Percentage of total area that is green">
-            <Input value={data.greenCoverPercentage} onChange={e => update("greenCoverPercentage", e.target.value)} placeholder="40" />
-          </Field>
-        </Grid>
         <SectionTitle title="Specific Eco Features" />
         {data.ecoFeatures.map(item => (
           <Card key={item.id} className="mb-3 border-gray-100">
@@ -590,17 +613,9 @@ export function TownshipFlowForm({ data, onChange }: TownshipFlowFormProps) {
         </Grid>
       </Section>
 
-      {/* ══════════════════════════════════════════ */}
-      {/* PART B: TOWNSHIP-SPECIFIC DATA            */}
-      {/* (Only Township page pe dikhega)           */}
-      {/* ══════════════════════════════════════════ */}
-      <div className="flex items-center gap-3 py-2 px-4 bg-[#2BB673] rounded-xl mt-16">
-        <Building2 className="w-4 h-4 text-white" />
-        <div>
-          <p className="text-white font-bold text-sm">Part B: Township-Specific Data</p>
-          <p className="text-green-100 text-[11px]">Sirf Township page pe dikhega — Project/Tower/Unit inherit nahi karenge</p>
-        </div>
-      </div>
+      </PartCollapse>
+
+      <PartCollapse id="part-b" title="Township-Specific Data" icon={Building2} openParts={openParts} setOpenParts={setOpenParts}>
 
       {/* ── 9. TOWNSHIP IDENTITY ──────────────── */}
       <Section id="identity" title="Township Identity" description="Name, tagline, price range, hero image — Township Hero Section" icon={Building2} openIds={openIds} setOpenIds={setOpenIds}>
@@ -680,17 +695,41 @@ export function TownshipFlowForm({ data, onChange }: TownshipFlowFormProps) {
       </Section>
 
       {/* ── 10. ABOUT TOWNSHIP ──────────────────── */}
-      <Section id="about" title="About Township" description="Vision statement + Description + About image — About section" icon={FileText} openIds={openIds} setOpenIds={setOpenIds}>
-        <Field label="Short Description / Tagline" hint="1-2 lines — appears in property card">
-          <Textarea value={data.description} onChange={e => update("description", e.target.value)} rows={3} placeholder="A mega township where luxury meets nature..." />
-        </Field>
-        <div className="mt-3">
-          <Field label="Vision Statement" hint="Detailed paragraph — About section right side">
-            <Textarea value={data.visionStatement} onChange={e => update("visionStatement", e.target.value)} rows={4} placeholder="Our vision is to create a world-class living experience..." />
-          </Field>
+      <Section id="about" title="About Township" description="Vision, background and architectural essence" icon={FileText} openIds={openIds} setOpenIds={setOpenIds}>
+        <div className="flex flex-col md:flex-row gap-8">
+          {/* Left: About Image */}
+          <div className="flex-1">
+            <AboutImageUpload
+              value={data.aboutImageUrl || ""}
+              onChange={v => update("aboutImageUrl", v)}
+              title="Upload Township About Image"
+              description="A stunning aerial or perspective view of the township"
+            />
+          </div>
+
+          {/* Right: Text Fields */}
+          <div className="flex-1 space-y-6">
+            <Field label="Short Description / Tagline" hint="Appears in property cards (1-2 lines)">
+              <Textarea 
+                value={data.description} 
+                onChange={e => update("description", e.target.value)} 
+                rows={3} 
+                placeholder="A mega township where luxury meets nature..." 
+                className="bg-white/50"
+              />
+            </Field>
+            
+            <Field label="Vision Statement" hint="Detailed core philosophy of the project">
+              <Textarea 
+                value={data.visionStatement} 
+                onChange={e => update("visionStatement", e.target.value)} 
+                rows={4} 
+                placeholder="Our vision is to create a world-class living experience..." 
+                className="bg-white/50 border-blue-50 focus:border-blue-200"
+              />
+            </Field>
+          </div>
         </div>
-        <SectionTitle title="About Section Image" />
-        <ImageField label="About Image (Left Side of About section)" value={data.aboutImageUrl || ""} onChange={v => update("aboutImageUrl", v)} placeholder="https://...about-aerial.jpg" />
       </Section>
 
       {/* ── 11. KEY STATISTICS ──────────────────── */}
@@ -890,9 +929,7 @@ export function TownshipFlowForm({ data, onChange }: TownshipFlowFormProps) {
 
 
 
-
-
-
+      </PartCollapse>
     </div>
   )
 }

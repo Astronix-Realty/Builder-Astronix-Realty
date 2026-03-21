@@ -18,7 +18,7 @@ import type {
   TowerData, FloorBreakdown, TownshipData, ConnectivityItem,
   AmenityItem, EcoFeature, ApfDetail, VideoGalleryItem, MasterPlanHighlight
 } from "@/lib/builder-types"
-import { BannerUpload, GalleryUpload, VideoUpload, DocumentUpload, MasterPlanMapUpload } from "@/components/ui/media-uploads"
+import { BannerUpload, GalleryUpload, VideoUpload, DocumentUpload, MasterPlanMapUpload, AboutImageUpload } from "@/components/ui/media-uploads"
 
 // ─────────────────────────────────────────
 // PROPS
@@ -114,73 +114,106 @@ const COMMON_BANKS = ["HDFC Bank", "SBI", "ICICI Bank", "Axis Bank", "Kotak Bank
 function BankSelector({ banks, onChange }: { banks: string[]; onChange: (b: string[]) => void }) {
   const [custom, setCustom] = useState("")
   return (
-    <div className="space-y-2">
+    <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
         {COMMON_BANKS.map(b => (
           <button key={b} type="button"
             onClick={() => onChange(banks.includes(b) ? banks.filter(x => x !== b) : [...banks, b])}
-            className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-all ${banks.includes(b) ? "bg-[#1A3C8C] text-white border-transparent" : "bg-white text-gray-600 border-gray-200 hover:border-[#1A3C8C]"}`}
+            className={`text-xs px-4 py-2 rounded-xl border font-semibold transition-all shadow-sm ${banks.includes(b) ? "bg-[#1A3C8C] text-white border-transparent" : "bg-white text-gray-600 border-gray-100 hover:border-[#1A3C8C]"}`}
           >{b}</button>
         ))}
       </div>
       {banks.filter(b => !COMMON_BANKS.includes(b)).map(b => (
-        <Badge key={b} className="bg-[#2BB673]/10 text-[#2BB673] border-0 text-xs font-medium gap-1">
+        <Badge key={b} className="bg-[#2BB673]/10 text-[#2BB673] border-0 text-xs font-semibold py-1.5 px-3 rounded-lg gap-2">
           {b}
-          <button onClick={() => onChange(banks.filter(x => x !== b))}><X className="w-3 h-3" /></button>
+          <button onClick={() => onChange(banks.filter(x => x !== b))} className="hover:text-red-500 transition-colors"><X className="w-3 h-3" /></button>
         </Badge>
       ))}
-      <div className="flex gap-2 mt-2">
-        <Input value={custom} onChange={e => setCustom(e.target.value)} placeholder="Add other bank..." className="h-8 text-xs" />
-        <Button type="button" size="sm" className="h-8 text-xs" onClick={() => { if (custom.trim()) { onChange([...banks, custom.trim()]); setCustom("") } }}>Add</Button>
+      <div className="flex gap-2 max-w-sm">
+        <Input value={custom} onChange={e => setCustom(e.target.value)} placeholder="Add other bank..." className="h-10 text-sm bg-gray-50/50" />
+        <Button type="button" className="h-10 px-6 bg-[#1A3C8C] hover:bg-[#1A3C8C]/90 text-sm font-bold" onClick={() => { if (custom.trim()) { onChange([...banks, custom.trim()]); setCustom("") } }}>Add</Button>
       </div>
+    </div>
+  )
+}
+
+function PartCollapse({
+  title, id, openParts, setOpenParts, children, icon: Icon
+}: {
+  title: string; id: string; openParts: string[]; setOpenParts: React.Dispatch<React.SetStateAction<string[]>>; children: React.ReactNode; icon: React.ComponentType<{ className?: string }>
+}) {
+  const isOpen = openParts.includes(id)
+  const isPartA = id === "part-a"
+
+  return (
+    <div className={[
+      "mb-4 sm:mb-6 2xl:mb-8 rounded-2xl sm:rounded-3xl border transition-all duration-500 overflow-hidden",
+      isOpen
+        ? "bg-white border-blue-100 shadow-lg sm:shadow-xl shadow-blue-50/80"
+        : "bg-gray-50/70 border-gray-100 shadow-none"
+    ].join(" ")}>
+
+      <button
+        type="button"
+        onClick={() => setOpenParts(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])}
+        className="w-full text-left flex items-center justify-between group transition-colors px-4 py-4 sm:px-6 sm:py-5 2xl:px-10 2xl:py-7 gap-3 sm:gap-5"
+      >
+        <div className="flex items-center gap-3 sm:gap-4 2xl:gap-6 min-w-0">
+          <div className={[
+            "shrink-0 flex items-center justify-center rounded-xl sm:rounded-2xl transition-all duration-500",
+            "w-10 h-10 sm:w-12 sm:h-12 2xl:w-16 2xl:h-16",
+            isOpen
+              ? isPartA
+                ? "bg-[#1A3C8C] text-white shadow-lg shadow-blue-300/40"
+                : "bg-[#2BB673] text-white shadow-lg shadow-emerald-300/40"
+              : "bg-white text-gray-400 border border-gray-100 shadow-sm group-hover:border-blue-100 group-hover:shadow-blue-50",
+          ].join(" ")}>
+            <Icon className="w-5 h-5 sm:w-6 sm:h-6 2xl:w-8 2xl:h-8" />
+          </div>
+
+          <div className="min-w-0">
+            <span className={[
+              "block font-black uppercase tracking-[0.18em] mb-0.5 sm:mb-1",
+              "text-[9px] sm:text-[10px] 2xl:text-xs",
+              isOpen
+                ? isPartA ? "text-[#1A3C8C]" : "text-[#2BB673]"
+                : "text-gray-400"
+            ].join(" ")}>
+              {isPartA ? "Phase One" : "Phase Two"}
+            </span>
+            <h2 className={[
+              "font-bold tracking-tight leading-tight truncate transition-colors",
+              "text-base sm:text-xl 2xl:text-3xl",
+              isOpen ? "text-gray-900" : "text-gray-500"
+            ].join(" ")}>
+              {title}
+            </h2>
+          </div>
+        </div>
+
+        <div className={[
+          "shrink-0 flex items-center justify-center rounded-full border transition-all duration-500",
+          "w-7 h-7 sm:w-9 sm:h-9 2xl:w-11 2xl:h-11",
+          isOpen
+            ? "bg-gray-900 border-gray-900 text-white rotate-180"
+            : "bg-white border-gray-200 text-gray-400 group-hover:border-gray-400"
+        ].join(" ")}>
+          <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 2xl:w-5 2xl:h-5" />
+        </div>
+      </button>
+
+      {isOpen && (
+        <div className="px-4 pb-5 pt-0 sm:px-6 sm:pb-8 2xl:px-10 2xl:pb-12 space-y-4 sm:space-y-6 border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-300">
+          {children}
+        </div>
+      )}
     </div>
   )
 }
 
 // ─────────────────────────────────────────
 // IMAGE UPLOAD FIELD (URL input)
-// ─────────────────────────────────────────
-function ImageField({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
-  const [isValid, setIsValid] = useState(true)
-  const [isChecking, setIsChecking] = useState(false)
 
-  useEffect(() => {
-    if (!value) {
-      setIsValid(true)
-      return
-    }
-    const isUrl = /^(https?:\/\/|\/|data:image\/)\S+/.test(value)
-    if (!isUrl) {
-      setIsValid(false)
-      return
-    }
-
-    setIsChecking(true)
-    const img = new window.Image()
-    img.onload = () => { setIsValid(true); setIsChecking(false) }
-    img.onerror = () => { setIsValid(false); setIsChecking(false) }
-    img.src = value
-  }, [value])
-
-  return (
-    <Field label={label} hint={!isValid ? "⚠️ Please enter a valid image URL" : "Paste image URL or upload path"}>
-      <div className="relative">
-        {value && isValid && (
-          <div className="relative w-full h-28 mb-2">
-            <Image src={value} alt="preview" fill className="object-cover rounded-lg border shadow-sm" unoptimized />
-            {isChecking && <div className="absolute inset-0 bg-white/50 animate-pulse rounded-lg" />}
-          </div>
-        )}
-        <Input
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          placeholder={placeholder || "https://..."}
-          className={`text-xs ${!isValid && value ? "border-red-400 focus-visible:ring-red-400 bg-red-50/30" : ""}`}
-        />
-      </div>
-    </Field>
-  )
-}
 // ─────────────────────────────────────────
 // BULK IMAGE INPUT
 // ─────────────────────────────────────────
@@ -220,6 +253,7 @@ function BulkImageInput({ onAdd }: { onAdd: (urls: string[]) => void }) {
 
 export function TowerFlowForm({ data, onChange, projectName, townshipName, townshipData, onTownshipChange, showCommonData }: TowerFlowFormProps) {
   const [openIds, setOpenIds] = useState<string[]>(["builder", "tower-identity", "location"])
+  const [openParts, setOpenParts] = useState<string[]>(["part-a", "part-b"])
 
   const update = <K extends keyof TowerData>(field: K, value: TowerData[K]) => {
     onChange({ ...data, [field]: value })
@@ -361,13 +395,7 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
       {/* ══════════════════════════════════════════ */}
       {(showCommonData && townshipData) && (
         <>
-          <div className="flex items-center gap-3 py-2 px-4 bg-[#1A3C8C] rounded-xl">
-            <Home className="w-4 h-4 text-white" />
-            <div>
-              <p className="text-white font-bold text-sm">Part A: Common Data</p>
-              <p className="text-blue-200 text-[11px]">Yeh data sabhi Units pe inherit hoga</p>
-            </div>
-          </div>
+          <PartCollapse id="part-a" title="Common Inherited Data" icon={Home} openParts={openParts} setOpenParts={setOpenParts}>
 
           <Section id="builder" title="Developer / Builder Info" description="Builder name, logo, contact — Hero pe dikhta hai" icon={Building2} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
             <Grid cols={2}>
@@ -484,11 +512,6 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
           </Section>
 
           <Section id="eco-common" title="Sustainability & Eco Features" description="Solar, Rainwater, Green Cover — Sustainability section" icon={Leaf} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-            <Grid cols={2}>
-              <Field label="Green Cover %" hint="Percentage of total area that is green">
-                <Input value={townshipData.greenCoverPercentage} onChange={e => updateCommon("greenCoverPercentage", e.target.value)} placeholder="40" />
-              </Field>
-            </Grid>
             <SectionTitle title="Specific Eco Features" />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {townshipData.ecoFeatures.map(item => (
@@ -585,20 +608,11 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
             </Grid>
           </Section>
 
-          <div className="h-6" />
+          </PartCollapse>
         </>
       )}
 
-      {/* ══════════════════════════════════════════ */}
-      {/* PART B: TOWER-SPECIFIC DATA                */}
-      {/* ══════════════════════════════════════════ */}
-      <div className="flex items-center gap-3 py-2 px-4 bg-[#2BB673] rounded-xl mt-16">
-        <Building className="w-4 h-4 text-white" />
-        <div>
-          <p className="text-white font-bold text-sm">Part B: Tower-Specific Data</p>
-          <p className="text-emerald-50 text-[11px] opacity-80">Configure structure specifications unique to this tower</p>
-        </div>
-      </div>
+      <PartCollapse id="part-b" title="Tower-Specific Data" icon={Building} openParts={openParts} setOpenParts={setOpenParts}>
 
       {/* ── 1. TOWER IDENTITY ──────────────────── */}
       <Section id="tower-identity" title="Tower Identity" description="Name, hero image, gallery — Tower Hero Section" icon={Building} openIds={openIds} setOpenIds={setOpenIds}>
@@ -662,20 +676,41 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
         </div>
       </Section>
 
-      {/* ── 2. ABOUT TOWER ──────────────────────── */}
-      <Section id="tower-about" title="About Tower" description="Vision statement + About image — About section" icon={FileText} openIds={openIds} setOpenIds={setOpenIds}>
-        <SectionTitle title="About This Tower" />
-        <Field label="Short Description / Tagline" hint="1-2 lines — appears in property card">
-          <Textarea value={data.description} onChange={e => update("description", e.target.value)} rows={2}
-            placeholder="Tower A is an iconic 25-storey residential tower with panoramic city views..." />
-        </Field>
-        <div className="mt-4" />
-        <Field label="Vision Statement" hint="Detailed paragraph — About section right side">
-          <Textarea value={data.visionStatement || ""} onChange={e => update("visionStatement", e.target.value)} rows={4}
-            placeholder="Tower A stands as a beacon of modern architecture, offering world-class amenities..." />
-        </Field>
-        <SectionTitle title="About Section Image" />
-        <ImageField label="About Image" value={data.aboutImageUrl || ""} onChange={v => update("aboutImageUrl", v)} placeholder="https://...tower-about.jpg" />
+      <Section id="tower-about" title="About Tower" description="Tower characteristics and unique positioning" icon={FileText} openIds={openIds} setOpenIds={setOpenIds}>
+        <div className="flex flex-col md:flex-row gap-8">
+          {/* Left: About Image */}
+          <div className="flex-1">
+            <AboutImageUpload
+              value={data.aboutImageUrl || ""}
+              onChange={v => update("aboutImageUrl", v)}
+              title="Upload Tower Profile Image"
+              description="A majestic shot highlighting this specific tower's profile"
+            />
+          </div>
+
+          {/* Right: Text Fields */}
+          <div className="flex-1 space-y-6">
+            <Field label="Short Description / Tagline" hint="Appears in property cards (1-2 lines)">
+              <Textarea 
+                value={data.description} 
+                onChange={e => update("description", e.target.value)} 
+                rows={3} 
+                placeholder="Tower A is an iconic 25-storey residential tower with panoramic city views..." 
+                className="bg-white/50"
+              />
+            </Field>
+            
+            <Field label="Vision Statement" hint="Architectural details and exclusive features">
+              <Textarea 
+                value={data.visionStatement || ""} 
+                onChange={e => update("visionStatement", e.target.value)} 
+                rows={4} 
+                placeholder="Tower A stands as a beacon of modern architecture, offering world-class amenities..." 
+                className="bg-white/50 border-blue-50 focus:border-blue-200"
+              />
+            </Field>
+          </div>
+        </div>
       </Section>
 
       {/* ── 2. TOWER STRUCTURE (KEY STATS) ─────── */}
@@ -931,7 +966,7 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
           )}
         </div>
       </Section>
-
+      </PartCollapse>
     </div>
   )
 }
