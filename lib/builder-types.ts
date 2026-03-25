@@ -377,12 +377,7 @@ export interface TowerData {
   floorsBreakdown: FloorBreakdown[]
 
   // ── TOWER-SPECIFIC AMENITIES ─────────────
-  towerAmenities: Array<{
-    id: string
-    title: string
-    description: string
-    icon?: string
-  }>
+  towerAmenities: AmenityItem[]
 
   // ── FLOOR PLAN IMAGES ────────────────────
   typicalFloorPlanImage: string   // Typical floor layout
@@ -603,10 +598,11 @@ export const defaultConnectivity: ConnectivityItem[] = [
 ]
 
 export const defaultAmenities: AmenityItem[] = [
-  { id: "am-1", title: "Swimming Pool", category: "recreation", description: "Olympic size swimming pool with kids pool" },
-  { id: "am-2", title: "Clubhouse", category: "community", description: "State-of-the-art 50,000 sq ft clubhouse" },
-  { id: "am-3", title: "24/7 Security", category: "security", description: "CCTV surveillance and manned security" },
-  { id: "am-4", title: "Landscaped Gardens", category: "green", description: "Lush green parks and walking trails" },
+  { id: "am-0", title: "Party Lawn", category: "social" },
+  { id: "am-1", title: "Swimming Pool", category: "recreation" },
+  { id: "am-2", title: "Clubhouse", category: "community" },
+  { id: "am-3", title: "24/7 Security", category: "security" },
+  { id: "am-4", title: "Landscaped Gardens", category: "green" },
 ]
 
 export const defaultEcoFeatures: EcoFeature[] = [
@@ -646,9 +642,10 @@ export const defaultReraPhases: ReraPhase[] = [
   { id: "rera-1", phaseName: "Phase 1 - Towers A & B", reraNumber: "P521000XXXXX", validUntil: "2027-12-31" },
 ]
 
-export const defaultTowerAmenities: Array<{ id: string, title: string, description: string, icon?: string }> = [
-  { id: "ta-1", title: "Double Height Lobby", description: "Grand entrance lobby with waiting area" },
-  { id: "ta-2", title: "High-Speed Elevators", description: "3 Passenger and 1 Service lift" },
+export const defaultTowerAmenities: AmenityItem[] = [
+  { id: "ta-0", title: "Sky Lounge", category: "social" },
+  { id: "ta-1", title: "Double Height Lobby", category: "general" },
+  { id: "ta-2", title: "High-Speed Elevators", category: "general" },
 ]
 
 export const defaultVideoGallery: VideoGalleryItem[] = []

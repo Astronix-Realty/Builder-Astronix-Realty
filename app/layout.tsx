@@ -5,7 +5,7 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Astronix Realty | Builder Panel',
+  title: 'Builder Astronix Realty | Builder Panel',
   description: 'Manage your real estate townships, projects, and inventory.',
 }
 

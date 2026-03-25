@@ -21,6 +21,7 @@ import type {
   FaqItem, TestimonialItem, ApfDetail,
 } from "@/lib/builder-types"
 import { BannerUpload, GalleryUpload, VideoUpload, MasterPlanMapUpload, DocumentUpload, AboutImageUpload } from "@/components/ui/media-uploads"
+import { AmenitiesManager } from "@/components/builder/shared/AmenitiesManager"
 
 // ─────────────────────────────────────────
 // PROPS
@@ -29,6 +30,7 @@ interface TownshipFlowFormProps {
   data: TownshipData
   onChange: (data: TownshipData) => void
   flowType?: "township"
+  user?: any
 }
 
 // ─────────────────────────────────────────
@@ -264,9 +266,30 @@ function BulkImageInput({ onAdd }: { onAdd: (urls: string[]) => void }) {
 // ─────────────────────────────────────────
 // MAIN FORM COMPONENT
 // ─────────────────────────────────────────
-export function TownshipFlowForm({ data, onChange }: TownshipFlowFormProps) {
+export function TownshipFlowForm({ data, onChange, user }: TownshipFlowFormProps) {
   const [openIds, setOpenIds] = useState<SectionId[]>(["builder", "identity"])
   const [openParts, setOpenParts] = useState<string[]>(["part-a", "part-b"])
+
+  const isBuilder = user?.role === "builder" || user?.userType === "builder"
+
+  useEffect(() => {
+    if (isBuilder) {
+      let changed = false;
+      const newDocs = { ...data };
+      if (!data.builderName && (user.profile?.companyName || user.profile?.name)) {
+        newDocs.builderName = user.profile.companyName || user.profile.name || "";
+        changed = true;
+      }
+      if (!data.builderLogo && user.profile?.companyLogo) {
+        newDocs.builderLogo = user.profile.companyLogo;
+        changed = true;
+      }
+      if (changed) {
+        onChange(newDocs);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isBuilder, user, data.builderName, data.builderLogo]);
 
   const update = <K extends keyof TownshipData>(field: K, value: TownshipData[K]) => {
     onChange({ ...data, [field]: value })
@@ -285,15 +308,6 @@ export function TownshipFlowForm({ data, onChange }: TownshipFlowFormProps) {
   const removeConnectivity = (id: string) =>
     update("connectivity", data.connectivity.filter(x => x.id !== id))
 
-  // ── Amenities ────────────────────────────
-  const addAmenity = (cat: AmenityItem["category"]) => {
-    const item: AmenityItem = { id: crypto.randomUUID(), title: "", category: cat }
-    update("amenities", [...data.amenities, item])
-  }
-  const updateAmenity = (id: string, patch: Partial<AmenityItem>) =>
-    update("amenities", data.amenities.map(x => x.id === id ? { ...x, ...patch } : x))
-  const removeAmenity = (id: string) =>
-    update("amenities", data.amenities.filter(x => x.id !== id))
 
   // ── Eco Features ─────────────────────────
   const addEco = () => {
@@ -381,23 +395,26 @@ export function TownshipFlowForm({ data, onChange }: TownshipFlowFormProps) {
   const removeTestimonial = (id: string) =>
     update("testimonials", (data.testimonials || []).filter(x => x.id !== id))
 
-  const AMENITY_CATS: AmenityItem["category"][] = ["social", "recreation", "community", "green", "security", "general"]
 
   return (
     <div className="space-y-10">
       <PartCollapse id="part-a" title="Common Inherited Data" icon={Home} openParts={openParts} setOpenParts={setOpenParts}>
 
       {/* ── 1. BUILDER / DEVELOPER ─────────────── */}
+      {!isBuilder && (
       <Section id="builder" title="Developer / Builder Info" description="Builder name, logo, contact — Hero pe dikhta hai" icon={Building2} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-        <Grid cols={2}>
-          <Field label="Builder / Company Name" required>
-            <Input value={data.builderName} onChange={e => update("builderName", e.target.value)} placeholder="Astronix Realty" />
-          </Field>
-          <Field label="Builder Logo URL">
-            <Input value={data.builderLogo} onChange={e => update("builderLogo", e.target.value)} placeholder="https://..." />
-          </Field>
-        </Grid>
+         <div className="bg-gray-50/50 p-4 sm:p-5 rounded-2xl border border-gray-100 flex flex-col gap-5">
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+             <Field label="Builder / Company Name" required hint="Registered company name (auto-filled for builders)">
+               <Input value={data.builderName} onChange={e => update("builderName", e.target.value)} placeholder="Astronix Realty" className="h-11 border-gray-200 bg-white shadow-sm focus-visible:ring-blue-500 rounded-xl" />
+             </Field>
+             <Field label="Builder Logo URL" hint="A publicly accessible logo URL">
+               <Input value={data.builderLogo} onChange={e => update("builderLogo", e.target.value)} placeholder="https://..." className="h-11 border-gray-200 bg-white shadow-sm focus-visible:ring-blue-500 rounded-xl" />
+             </Field>
+           </div>
+         </div>
       </Section>
+      )}
 
       {/* ── 2. LOCATION ────────────────────────── */}
       <Section id="location" title="Location Details" description="City, district, pincode — Map pe dikhta hai" icon={MapPin} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
@@ -495,30 +512,10 @@ export function TownshipFlowForm({ data, onChange }: TownshipFlowFormProps) {
 
       {/* ── 5. AMENITIES ────────────────────────── */}
       <Section id="amenities" title="Lifestyle & Amenities" description="Social, Recreation, Community, Green, Security, General tabs" icon={Star} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-        <p className="text-xs text-gray-500 mb-3">Visitor panel mein 6-tab layout mein dikhega: Social / Recreation / Community / Green / Security / General</p>
-        {AMENITY_CATS.map(cat => {
-          const catItems = data.amenities.filter(a => a.category === cat)
-          return (
-            <div key={cat} className="mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold uppercase tracking-widest text-[#1A3C8C]">{cat}</span>
-                <Button type="button" variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => addAmenity(cat)}>
-                  <Plus className="w-3 h-3 mr-1" /> Add
-                </Button>
-              </div>
-              {catItems.map(item => (
-                <div key={item.id} className="flex gap-2 mb-2">
-                  <Input value={item.title} onChange={e => updateAmenity(item.id, { title: e.target.value })} placeholder="Swimming Pool" className="h-8 text-xs" />
-                  <Input value={item.image || ""} onChange={e => updateAmenity(item.id, { image: e.target.value })} placeholder="Image URL (optional)" className="h-8 text-xs" />
-                  <button type="button" onClick={() => removeAmenity(item.id)} className="shrink-0 text-red-400 hover:text-red-600">
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-              {catItems.length === 0 && <p className="text-[11px] text-gray-400 italic">No {cat} amenities added</p>}
-            </div>
-          )
-        })}
+        <AmenitiesManager 
+          amenities={data.amenities}
+          onChange={(val) => update("amenities", val)}
+        />
       </Section>
 
       {/* ── 6. ECO / SUSTAINABILITY ─────────────── */}

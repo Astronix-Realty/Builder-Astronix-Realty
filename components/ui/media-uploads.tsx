@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react"
 import Image from "next/image"
-import { Upload, X, Plus, Film, AlertCircle, FileText, Map as MapIcon } from "lucide-react"
+import { Upload, X, Plus, Film, AlertCircle, FileText, Map as MapIcon, Eye, Download } from "lucide-react"
 
 // ── Shared upload helper ─────────────────────────────────────
 async function uploadFileToServer(file: File): Promise<string> {
@@ -17,6 +17,17 @@ async function uploadFileToServer(file: File): Promise<string> {
   return data.url as string
 }
 
+// ── Cloudinary cleanup helper ─────────────────────────────────
+// Fire-and-forget: deletes old Cloudinary file silently when replacing
+function deleteCloudinaryFile(url: string | undefined) {
+  if (!url || !url.includes("cloudinary.com")) return
+  fetch("/api/upload", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url }),
+  }).catch(() => {}) // Swallow errors — best-effort cleanup
+}
+
 // ── BANNER UPLOAD ──────────────────────────────────────────────
 export function BannerUpload({ value, onChange }: { value: string; onChange: (url: string) => void }) {
   const [isUploading, setIsUploading] = useState(false)
@@ -29,8 +40,10 @@ export function BannerUpload({ value, onChange }: { value: string; onChange: (ur
     setError("")
     try {
       setIsUploading(true)
+      const oldUrl = value
       const url = await uploadFileToServer(file)
       onChange(url)
+      deleteCloudinaryFile(oldUrl) // Delete old file after new upload succeeds
     } catch (err: any) {
       setError(err.message || "Upload failed")
     } finally {
@@ -58,9 +71,9 @@ export function BannerUpload({ value, onChange }: { value: string; onChange: (ur
               <Upload className="w-7 h-7 text-white" />
               <span className="text-white font-semibold text-sm">Change Cover Image</span>
             </div>
-            <button
+              <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); onChange("") }}
+              onClick={(e) => { e.stopPropagation(); deleteCloudinaryFile(value); onChange("") }}
               className="absolute top-3 right-3 bg-white/90 text-red-500 p-2 rounded-xl hover:bg-red-50 shadow opacity-0 group-hover:opacity-100 transition-opacity"
             >
               <X className="w-4 h-4" />
@@ -154,7 +167,7 @@ export function GalleryUpload({ images, onChange, max = 20 }: { images: string[]
             <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity" />
             <button
               type="button"
-              onClick={() => onChange(images.filter((_, idx) => idx !== i))}
+              onClick={() => { deleteCloudinaryFile(images[i]); onChange(images.filter((_, idx) => idx !== i)) }}
               className="absolute top-1.5 right-1.5 bg-white/90 text-red-600 p-1 rounded-lg hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
             >
               <X className="w-3.5 h-3.5" />
@@ -554,8 +567,10 @@ export function DocumentUpload({
 
     try {
       setIsUploading(true)
+      const oldUrl = value
       const url = await uploadFileToServer(file)
       onChange(url)
+      deleteCloudinaryFile(oldUrl) // Delete old PDF after new one uploads
     } catch (err: any) {
       setError(err.message || "Upload failed")
     } finally {
@@ -592,31 +607,21 @@ export function DocumentUpload({
             </div>
 
             {/* File name */}
-            <p className="text-sm font-semibold text-gray-800 max-w-[220px] truncate" title={value.split('/').pop() || 'Document'}>
-              {value.split('/').pop() || 'Document Uploaded'}
+            <p className="text-sm font-semibold text-gray-800 max-w-[220px] truncate" title={value.split('/').pop()?.split('?')[0] || 'Document'}>
+              {value.split('/').pop()?.split('_').slice(0, -1).join('_') || value.split('/').pop()?.split('?')[0] || 'Document Uploaded'}
             </p>
 
             {/* Always-visible action buttons */}
             <div className="flex items-center gap-2">
-              <a
-                href={value}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-4 py-2 rounded-xl transition-colors"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-                {buttonLabel}
-              </a>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onChange("") }}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-500 bg-red-50 hover:bg-red-100 border border-red-200 px-4 py-2 rounded-xl transition-colors"
-              >
-                <X className="w-3.5 h-3.5" /> Remove
-              </button>
+            <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); deleteCloudinaryFile(value); onChange("") }}
+              className="absolute top-3 right-3 bg-white/90 text-red-500 p-1.5 rounded-xl hover:bg-red-50 shadow opacity-0 group-hover:opacity-100 transition-opacity z-10"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            </div>
             </div>
           </div>
         ) : (
@@ -651,6 +656,7 @@ export function DocumentUpload({
           <span>{error}</span>
         </div>
       )}
+
     </div>
   )
 }
@@ -722,14 +728,15 @@ export function MasterPlanMapUpload({
               >
                 <Upload className="w-4 h-4 text-blue-600" /> Replace Image
               </button>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onChange("") }}
-                className="bg-red-500 text-white px-5 py-2.5 rounded-xl font-semibold shadow-xl hover:bg-red-600 flex items-center gap-2 transition-transform transform hover:scale-105"
-              >
-                <X className="w-4 h-4" /> Remove Map
-              </button>
             </div>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onChange("") }}
+              className="absolute top-3 right-3 bg-white/90 text-red-500 p-2 rounded-xl shadow-xl hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:scale-110"
+              title="Remove Map"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </>
         ) : (
           <div className="flex flex-col items-center text-center p-6">
@@ -822,14 +829,15 @@ export function AboutImageUpload({
               >
                 <Upload className="w-4 h-4 text-[#1A3C8C]" /> Replace Image
               </button>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onChange("") }}
-                className="bg-red-500 text-white px-5 py-2.5 rounded-xl font-semibold shadow-xl hover:bg-red-600 flex items-center gap-2 transition-transform transform hover:scale-105"
-              >
-                <X className="w-4 h-4" /> Remove
-              </button>
             </div>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onChange("") }}
+              className="absolute top-3 right-3 bg-white/90 text-red-500 p-2 rounded-xl shadow-xl hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:scale-110"
+              title="Remove Image"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </>
         ) : (
           <div className="flex flex-col items-center text-center p-6">

@@ -2009,6 +2009,7 @@ function AddGroupModal({ isOpen, onClose, onAdd, configurations, defaultUnits, d
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-xl rounded-[32px] border-0 shadow-2xl overflow-hidden p-0 bg-white">
+                <DialogTitle className="sr-only">Add Floor Group</DialogTitle>
                 <div className="bg-[#1A3C8C] p-8 text-white relative">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-3xl" />
                     <div className="relative z-10 flex items-center justify-between">

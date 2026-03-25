@@ -97,23 +97,24 @@ function DashboardContent() {
     localStorage.setItem('theme', theme)
   }, [theme])
 
-  // Disable authentication for now (Unified login later)
+  // Auth: fetch current user from API
   useEffect(() => {
-    // Check local storage for user, or set a dummy builder user
-    let user = localStorage.getItem("currentUser")
-    if (!user) {
-      const mockUser = {
-        name: "Mock Builder",
-        email: "builder@astronix.com",
-        userType: "builder",
-        companyName: "Astronix Builders"
+    const fetchUser = async () => {
+      try {
+        const res = await fetch("/api/auth/me")
+        if (!res.ok) {
+          router.push("/login")
+          return
+        }
+        const data = await res.json()
+        setCurrentUser(data.user)
+      } catch {
+        router.push("/login")
+      } finally {
+        setIsLoading(false)
       }
-      localStorage.setItem("currentUser", JSON.stringify(mockUser))
-      setCurrentUser(mockUser)
-    } else {
-      setCurrentUser(JSON.parse(user))
     }
-    setIsLoading(false)
+    fetchUser()
   }, [router])
 
   // Handle Query Params (Redirects from Builder)
@@ -137,118 +138,87 @@ function DashboardContent() {
     }
   }, [searchParams])
 
-  const handleLogout = () => {
-    localStorage.removeItem("currentUser")
-    localStorage.removeItem("builderProfile")
+  const handleLogout = async () => {
+    await fetch("/api/auth/logout", { method: "POST" })
     router.push("/login")
   }
 
+  // Helper to map DB/Storage data to UI format
+  const mapProperty = (p: any, defaultStatus: 'active' | 'pending'): Property => {
+    const details = p.details || {}
+    const flowType = p.flowType
+
+    let name = "Untitled Property"
+    let location = "Unknown Location"
+    let projectsCount = 0
+    let towersCount = 0
+    let unitsCount = 0
+
+    if (flowType === "township" && details.township) {
+      name = details.township.name || "Untitled Township"
+      location = `${details.township.city || ""}, ${details.township.state || ""}`
+      projectsCount = details.projects?.length || 0
+      towersCount = details.towers?.length || 0
+    } else if (flowType === "project" && details.projects?.[0]) {
+      name = details.projects[0].name || "Untitled Project"
+      location = `${details.projects[0].city || ""}, ${details.projects[0].state || ""}`
+      projectsCount = 1
+      towersCount = details.towers?.length || 0
+    } else if (flowType === "tower" && details.towers?.[0]) {
+      name = details.towers[0].name || "Untitled Tower"
+      location = `${details.towers[0].city || ""}, ${details.towers[0].state || ""}`
+      projectsCount = 0
+      towersCount = 1
+    }
+
+    unitsCount = details.generatedUnits?.length || 0
+    const totalValue = details.generatedUnits?.reduce((sum: number, u: any) => sum + (u.price || 0), 0) || (unitsCount * 5000000)
+
+    let finalStatus: 'active' | 'pending' = defaultStatus
+    if (p.status === 'draft') finalStatus = 'pending'
+    else if (p.status === 'published') finalStatus = 'active'
+
+    return {
+      id: p._id || p.id, // Support MongoDB _id
+      townshipName: name,
+      projects: projectsCount,
+      towers: towersCount,
+      units: unitsCount,
+      location: location.replace(/^, /, "").replace(/, $/, "") || "Location not set",
+      status: finalStatus,
+      totalValue: totalValue || 0,
+      createdDate: p.createdAt || new Date().toISOString(),
+      flowType: flowType
+    }
+  }
+
+  // Load properties from MongoDB
   useEffect(() => {
-    // Helper to map storage data to UI format
-    const mapProperty = (p: any, defaultStatus: 'active' | 'pending'): Property => {
-      const data = p.data
-      const flowType = p.flowType
-
-      let name = "Untitled Property"
-      let location = "Unknown Location"
-      let projectsCount = 0
-      let towersCount = 0
-      let unitsCount = 0
-
-      if (flowType === "township" && data.township) {
-        name = data.township.name || "Untitled Township"
-        location = `${data.township.city || ""}, ${data.township.state || ""}`
-        projectsCount = data.projects?.length || 0
-        towersCount = data.towers?.length || 0
-      } else if (flowType === "project" && data.projects?.[0]) {
-        name = data.projects[0].name || "Untitled Project"
-        location = `${data.projects[0].city || ""}, ${data.projects[0].state || ""}`
-        projectsCount = 1
-        towersCount = data.towers?.length || 0
-      } else if (flowType === "tower" && data.towers?.[0]) {
-        name = data.towers[0].name || "Untitled Tower"
-        location = `${data.towers[0].city || ""}, ${data.towers[0].state || ""}`
-        projectsCount = 0
-        towersCount = 1
-      }
-
-      unitsCount = data.generatedUnits?.length || 0
-      const totalValue = data.generatedUnits?.reduce((sum: number, u: any) => sum + (u.price || 0), 0) || (unitsCount * 5000000)
-
-      // Use the storage status if available, otherwise use the default based on storage source
-      // If it's from 'properties', it's active. If from 'propertyDrafts', it's pending.
-      // logic: p.status might be 'draft' or 'published' from the other file.
-      // We map 'draft' -> 'pending', 'published' -> 'active'
-
-      let finalStatus: 'active' | 'pending' = defaultStatus
-      if (p.status === 'draft') finalStatus = 'pending'
-      else if (p.status === 'published') finalStatus = 'active'
-
-      return {
-        id: p.id,
-        townshipName: name,
-        projects: projectsCount,
-        towers: towersCount,
-        units: unitsCount,
-        location: location.replace(/^, /, "").replace(/, $/, "") || "Location not set",
-        status: finalStatus,
-        totalValue: totalValue || 0,
-        createdDate: p.createdAt || new Date().toISOString(),
-        flowType: flowType
+    const fetchProperties = async () => {
+      try {
+        const res = await fetch("/api/properties")
+        if (res.ok) {
+          const data = await res.json()
+          if (data.properties) {
+            const mapped = data.properties.map((p: any) => 
+              mapProperty(p, p.status === 'draft' ? 'pending' : 'active')
+            )
+            setProperties(mapped)
+          }
+        }
+      } catch (error) {
+        console.error("Error loading properties:", error)
       }
     }
 
-    // ── Auto-seed mock data if localStorage is empty ─────────────────────────
-    const MOCK_PROPERTIES = [
-      {
-        id: "mock-township-001",
-        flowType: "township",
-        status: "published",
-        createdAt: "2026-01-15T10:00:00.000Z",
-        data: {
-          township: { name: "Runwal Gardens Township", city: "Dombivli", state: "Maharashtra" },
-          projects: [{ id: "p1", name: "Phase 1" }, { id: "p2", name: "Phase 2" }],
-          towers: [{ id: "t1", name: "Tower A", projectId: "p1" }, { id: "t2", name: "Tower B", projectId: "p1" }],
-          generatedUnits: [
-            { id: "u1", unitNumber: "A-101", floorNumber: 1, configuration: "2BHK", price: 7500000, status: "available", towerId: "t1" },
-            { id: "u2", unitNumber: "A-102", floorNumber: 1, configuration: "3BHK", price: 9500000, status: "sold", towerId: "t1", customerName: "Rahul Sharma" },
-            { id: "u3", unitNumber: "B-201", floorNumber: 2, configuration: "1BHK", price: 4500000, status: "available", towerId: "t2" },
-            { id: "u4", unitNumber: "B-202", floorNumber: 2, configuration: "2BHK", price: 7800000, status: "reserved", towerId: "t2" },
-          ]
-        }
-      },
-      {
-        id: "mock-project-001",
-        flowType: "project",
-        status: "published",
-        createdAt: "2026-01-20T10:00:00.000Z",
-        data: {
-          projects: [{ id: "pp1", name: "Lodha Palava City", city: "Dombivli East", state: "Maharashtra" }],
-          towers: [{ id: "pt1", name: "Cluster A", projectId: "pp1" }],
-          generatedUnits: [
-            { id: "pu1", unitNumber: "C-101", floorNumber: 1, configuration: "2BHK", price: 8200000, status: "available", towerId: "pt1" }
-          ]
-        }
-      },
-      { id: "mock-tower-001", flowType: "tower", status: "published", createdAt: "2026-02-01T10:00:00.000Z", data: { towers: [{ name: "Astronix Skyline Tower", city: "Dombivli", state: "Maharashtra" }], generatedUnits: [] } },
-    ]
-
-    let savedProperties = JSON.parse(localStorage.getItem("properties") || "[]")
-    const savedDrafts = JSON.parse(localStorage.getItem("propertyDrafts") || "[]")
-
-    // If localStorage is empty → auto-seed mocks so dashboard never shows blank
-    if (savedProperties.length === 0) {
-      localStorage.setItem("properties", JSON.stringify(MOCK_PROPERTIES))
-      savedProperties = MOCK_PROPERTIES
+    if (currentUser) {
+      fetchProperties()
     }
+  }, [currentUser])
 
-    const mappedActive = savedProperties.map((p: any) => mapProperty(p, 'active'))
-    const mappedDrafts = savedDrafts.map((p: any) => mapProperty(p, 'pending'))
-
-    setProperties([...mappedActive, ...mappedDrafts])
-
-    // Load saved offers
-    const savedOffers = JSON.parse(localStorage.getItem("builderOffers") || "[]")
+  // Load mock/local offers for now (Keep localStorage for non-critical settings)
+  useEffect(() => {
+    const savedOffers = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem("builderOffers") || "[]") : []
     setOffers(savedOffers)
   }, [])
 
@@ -390,15 +360,19 @@ function DashboardContent() {
     }).format(value)
   }
 
-  const deleteProperty = (id: string) => {
+  const deleteProperty = async (id: string) => {
     if (confirm("Are you sure you want to delete this property?")) {
-      const updated = properties.filter((p) => p.id !== id)
-      setProperties(updated)
-
-      // Update localStorage
-      const savedProperties = JSON.parse(localStorage.getItem("properties") || "[]")
-      const newSaved = savedProperties.filter((p: any) => p.id !== id)
-      localStorage.setItem("properties", JSON.stringify(newSaved))
+      try {
+        const res = await fetch(`/api/properties/${id}`, { method: 'DELETE' })
+        if (res.ok) {
+          setProperties(prev => prev.filter(p => p.id !== id))
+        } else {
+          alert("Failed to delete property. Status: " + res.status)
+        }
+      } catch (error) {
+        console.error("Delete property error:", error)
+        alert("An error occurred while deleting")
+      }
     }
   }
 
@@ -432,11 +406,11 @@ function DashboardContent() {
         <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           {/* Branding */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg">
-              <Building2 className="h-6 w-6 text-white" />
+            <div className="w-12 h-12 flex items-center justify-center relative">
+              <img src="/astronix-logo.png" alt="Astronix Logo" className="w-full h-full object-contain" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-900 dark:text-white leading-tight">Astronix</h1>
+              <h1 className="text-xl font-bold text-slate-900 dark:text-white leading-tight">Builder Astronix Realty</h1>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium tracking-wide">BUILDER PANEL</p>
             </div>
           </div>
@@ -512,7 +486,7 @@ function DashboardContent() {
         {/* User Profile - Bottom Sidebar */}
         <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
           <div className="flex items-center gap-3 mb-3 px-2">
-            <div className={`w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center border-2 border-white dark:border-slate-600 shadow-sm overflow-hidden`}>
+            <div className={`relative w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center border-2 border-white dark:border-slate-600 shadow-sm overflow-hidden`}>
               {currentUser?.logo ? (
                 <Image src={currentUser.logo} alt="Builder Logo" fill className="object-cover" unoptimized />
               ) : (

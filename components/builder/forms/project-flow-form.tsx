@@ -20,6 +20,7 @@ import type {
   MasterPlanHighlight, DevelopmentPhase, FaqItem, TestimonialItem
 } from "@/lib/builder-types"
 import { BannerUpload, GalleryUpload, VideoUpload, MasterPlanMapUpload, DocumentUpload, AboutImageUpload } from "@/components/ui/media-uploads"
+import { AmenitiesManager } from "@/components/builder/shared/AmenitiesManager"
 
 // ─────────────────────────────────────────
 // PROPS
@@ -31,6 +32,7 @@ interface ProjectFlowFormProps {
   townshipData?: TownshipData
   onTownshipChange?: (data: TownshipData) => void
   showCommonData?: boolean
+  user?: any
 }
 
 // ─────────────────────────────────────────
@@ -258,9 +260,30 @@ function BulkImageInput({ onAdd }: { onAdd: (urls: string[]) => void }) {
 // ─────────────────────────────────────────
 // MAIN FORM
 // ─────────────────────────────────────────
-export function ProjectFlowForm({ data, onChange, townshipName, townshipData, onTownshipChange, showCommonData }: ProjectFlowFormProps) {
+export function ProjectFlowForm({ data, onChange, townshipName, townshipData, onTownshipChange, showCommonData, user }: ProjectFlowFormProps) {
   const [openIds, setOpenIds] = useState<string[]>(["builder", "proj-identity", "location"])
   const [openParts, setOpenParts] = useState<string[]>(["part-a", "part-b"])
+
+  const isBuilder = user?.role === "builder" || user?.userType === "builder"
+
+  useEffect(() => {
+    if (isBuilder && townshipData && onTownshipChange) {
+      let changed = false;
+      const newDocs = { ...townshipData };
+      if (!townshipData.builderName && (user.profile?.companyName || user.profile?.name)) {
+        newDocs.builderName = user.profile.companyName || user.profile.name || "";
+        changed = true;
+      }
+      if (!townshipData.builderLogo && user.profile?.companyLogo) {
+        newDocs.builderLogo = user.profile.companyLogo;
+        changed = true;
+      }
+      if (changed) {
+        onTownshipChange(newDocs);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isBuilder, user, townshipData?.builderName, townshipData?.builderLogo]);
 
   const update = <K extends keyof ProjectData>(field: K, value: ProjectData[K]) => {
     onChange({ ...data, [field]: value })
@@ -288,19 +311,6 @@ export function ProjectFlowForm({ data, onChange, townshipName, townshipData, on
     updateCommon("connectivity", townshipData.connectivity.filter(x => x.id !== id))
   }
 
-  const addAmenityCommon = (cat: AmenityItem["category"]) => {
-    if (!townshipData) return
-    const item: AmenityItem = { id: crypto.randomUUID(), title: "", category: cat }
-    updateCommon("amenities", [...townshipData.amenities, item])
-  }
-  const updateAmenityCommon = (id: string, patch: Partial<AmenityItem>) => {
-    if (!townshipData) return
-    updateCommon("amenities", townshipData.amenities.map(x => x.id === id ? { ...x, ...patch } : x))
-  }
-  const removeAmenityCommon = (id: string) => {
-    if (!townshipData) return
-    updateCommon("amenities", townshipData.amenities.filter(x => x.id !== id))
-  }
 
   const addEcoCommon = () => {
     if (!townshipData) return
@@ -344,7 +354,6 @@ export function ProjectFlowForm({ data, onChange, townshipName, townshipData, on
     updateCommon("apfDetails", (townshipData.apfDetails || []).filter(x => x.id !== id))
   }
 
-  const AMENITY_CATS: AmenityItem["category"][] = ["social", "recreation", "community", "green", "security", "general"]
 
   // Gallery images
   const addGallery = () => update("galleryImages", [...data.galleryImages, ""])
@@ -363,15 +372,6 @@ export function ProjectFlowForm({ data, onChange, townshipName, townshipData, on
   const removeEco = (id: string) =>
     update("ecoFeatures", (data.ecoFeatures || []).filter(x => x.id !== id))
 
-  // Amenities override
-  const addAmenity = (cat: AmenityItem["category"]) => {
-    const item: AmenityItem = { id: crypto.randomUUID(), title: "", category: cat }
-    update("amenities", [...(data.amenities || []), item])
-  }
-  const updateAmenity = (id: string, patch: Partial<AmenityItem>) =>
-    update("amenities", (data.amenities || []).map(x => x.id === id ? { ...x, ...patch } : x))
-  const removeAmenity = (id: string) =>
-    update("amenities", (data.amenities || []).filter(x => x.id !== id))
 
   // Video gallery
   const addVideo = (type: VideoGalleryItem["type"]) => {
@@ -411,16 +411,20 @@ export function ProjectFlowForm({ data, onChange, townshipName, townshipData, on
         <>
           <PartCollapse id="part-a" title="Common Inherited Data" icon={Home} openParts={openParts} setOpenParts={setOpenParts}>
 
+          {!isBuilder && (
           <Section id="builder" title="Developer / Builder Info" description="Builder name, logo, contact — Hero pe dikhta hai" icon={Building2} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-            <Grid cols={2}>
-              <Field label="Builder / Company Name" required>
-                <Input value={townshipData.builderName} onChange={e => updateCommon("builderName", e.target.value)} placeholder="Astronix Realty" />
-              </Field>
-              <Field label="Builder Logo URL">
-                <Input value={townshipData.builderLogo} onChange={e => updateCommon("builderLogo", e.target.value)} placeholder="https://..." />
-              </Field>
-            </Grid>
+             <div className="bg-gray-50/50 p-4 sm:p-5 rounded-2xl border border-gray-100 flex flex-col gap-5">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                 <Field label="Builder / Company Name" required hint="Registered company name (auto-filled for builders)">
+                   <Input value={townshipData.builderName} onChange={e => updateCommon("builderName", e.target.value)} placeholder="Astronix Realty" className="h-11 border-gray-200 bg-white shadow-sm focus-visible:ring-blue-500 rounded-xl" />
+                 </Field>
+                 <Field label="Builder Logo URL" hint="A publicly accessible logo URL">
+                   <Input value={townshipData.builderLogo} onChange={e => updateCommon("builderLogo", e.target.value)} placeholder="https://..." className="h-11 border-gray-200 bg-white shadow-sm focus-visible:ring-blue-500 rounded-xl" />
+                 </Field>
+               </div>
+             </div>
           </Section>
+          )}
 
           <Section id="location" title="Location Details" description="City, district, pincode — Map pe dikhta hai" icon={MapPin} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
             <Grid cols={3}>
@@ -500,29 +504,10 @@ export function ProjectFlowForm({ data, onChange, townshipName, townshipData, on
           </Section>
 
           <Section id="amenities-common" title="Lifestyle & Amenities" description="Social, Recreation, Community, Green, Security, General tabs" icon={Star} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-            {AMENITY_CATS.map(cat => {
-              const catItems = townshipData.amenities.filter(a => a.category === cat)
-              return (
-                <div key={cat} className="mb-4 last:mb-0">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-[#1A3C8C] opacity-80">{cat}</span>
-                    <Button type="button" variant="ghost" size="sm" className="h-6 text-[10px] px-2 font-bold text-blue-600" onClick={() => addAmenityCommon(cat)}>
-                      <Plus className="w-3 h-3 mr-1" /> Add {cat}
-                    </Button>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {catItems.map(item => (
-                      <div key={item.id} className="flex gap-2 items-center bg-gray-50 p-1.5 rounded-lg border border-gray-100">
-                        <Input value={item.title} onChange={e => updateAmenityCommon(item.id, { title: e.target.value })} placeholder="Swimming Pool" className="h-7 text-[11px] bg-white border-none shadow-none" />
-                        <button type="button" onClick={() => removeAmenityCommon(item.id)} className="shrink-0 text-red-300 hover:text-red-500 transition-colors px-1">
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
+            <AmenitiesManager 
+              amenities={townshipData.amenities}
+              onChange={(val) => updateCommon("amenities", val)}
+            />
           </Section>
 
           <Section id="eco-common" title="Sustainability & Eco Features" description="Solar, Rainwater, Green Cover — Sustainability section" icon={Leaf} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
@@ -834,7 +819,14 @@ export function ProjectFlowForm({ data, onChange, townshipName, townshipData, on
         </div>
       </Section>
 
-      {/* ── 5. LEGAL (PROJECT-SPECIFIC) ───────── */}
+      {/* ── 5. PROJECT AMENITIES ────────────────── */}
+      <Section id="proj-amenities" title="Project Amenities" description="Project-exclusive amenities — unique to this project" icon={Star} openIds={openIds} setOpenIds={setOpenIds}>
+        <p className="text-xs text-gray-500 mb-3">Township Amenities sabhi projects pe dikhenge. Yahan sirf is project ke exclusive amenities add karo.</p>
+        <AmenitiesManager 
+          amenities={data.amenities || []}
+          onChange={(val) => update("amenities", val)}
+        />
+      </Section>
       <Section id="proj-legal" title="Project Legal / RERA" description="RERA, CC, OC — Official documentation" icon={ShieldCheck} openIds={openIds} setOpenIds={setOpenIds}>
         <SectionTitle title="RERA Details" />
         <Grid cols={2}>

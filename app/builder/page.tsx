@@ -9,7 +9,7 @@ import { UnitsForm } from "@/components/builder/units-form"
 import { WizardSummary } from "@/components/builder/wizard-summary"
 import {
   ChevronLeft, ChevronRight, Check, Building2, Save, X,
-  Plus, Layers, LayoutGrid, CheckCircle2, AlertCircle
+  Plus, Layers, LayoutGrid, CheckCircle2, AlertCircle, Loader2, CloudOff, Clock
 } from "lucide-react"
 import {
   type WizardState,
@@ -27,6 +27,8 @@ import {
 import { TownshipFlowForm } from "@/components/builder/forms/township-flow-form"
 import { ProjectFlowForm } from "@/components/builder/forms/project-flow-form"
 import { TowerFlowForm } from "@/components/builder/forms/tower-flow-form"
+import { useAutoDraft } from "@/lib/algorithms/use-auto-draft"
+import { DraftResumeBanner } from "@/components/builder/shared/DraftResumeBanner"
 
 const ALL_STEPS = [
   { id: 1, name: "Township", description: "Basic details & location" },
@@ -113,6 +115,33 @@ function BuilderContent() {
   const [state, setState] = useState<WizardState>(() => getInitialState())
   const [isComplete, setIsComplete] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
+  const [isAuthChecking, setIsAuthChecking] = useState(true)
+  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [showResumeBanner, setShowResumeBanner] = useState(true)
+
+  // Verify Auth on Client Mount explicitly (Bonus)
+  useEffect(() => {
+    const verifyClientAuth = async () => {
+      try {
+        const res = await fetch("/api/auth/me")
+        if (res.ok) {
+          const data = await res.json()
+          const checkRole = data.user?.role || data.user?.userType
+          if (checkRole === "builder" || checkRole === "mandate") {
+             setCurrentUser(data.user)
+             setIsAuthChecking(false)
+          } else {
+             window.location.href = "/"
+          }
+        } else {
+          window.location.href = "/login?redirect=/builder"
+        }
+      } catch (e) {
+        window.location.href = "/login"
+      }
+    }
+    verifyClientAuth()
+  }, [])
 
   // Sub-navigation state for Tabs
   const [activeProjectIdx, setActiveProjectIdx] = useState(0)
@@ -120,30 +149,49 @@ function BuilderContent() {
   const [activeUnitTowerId, setActiveUnitTowerId] = useState<string>("global")
   const [activeUnitProjectId, setActiveUnitProjectId] = useState<string>("all")
 
+  const editId = searchParams.get("edit")
+
   // Load data if editing
   useEffect(() => {
-    const editId = searchParams.get("edit")
-    if (editId) {
-      // Search in properties first
-      const properties = JSON.parse(localStorage.getItem("properties") || "[]")
-      const property = properties.find((p: any) => p.id === editId)
-
-      if (property) {
-        setState(property.data)
-        console.log("Loaded property:", property)
-        return
-      }
-
-      // Search in drafts
-      const drafts = JSON.parse(localStorage.getItem("propertyDrafts") || "[]")
-      const draft = drafts.find((d: any) => d.id === editId)
-
-      if (draft) {
-        setState(draft.data)
-        console.log("Loaded draft:", draft)
+    const loadProperty = async () => {
+      if (editId) {
+        try {
+          const res = await fetch(`/api/properties/${editId}`)
+          if (res.ok) {
+            const data = await res.json()
+            if (data.property) {
+              const wizardData = data.property.details || data.property.data
+              if (wizardData) {
+                const defaultState = getInitialState()
+                setState({
+                  ...defaultState,
+                  ...wizardData,
+                  township: { ...defaultState.township, ...(wizardData.township || {}) },
+                  projects: wizardData.projects || defaultState.projects,
+                  towers: wizardData.towers || defaultState.towers,
+                  unitTemplate: { ...defaultState.unitTemplate, ...(wizardData.unitTemplate || {}) },
+                  towerUnitConfigs: wizardData.towerUnitConfigs || defaultState.towerUnitConfigs,
+                })
+                console.log("Loaded property from MongoDB:", data.property)
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Error loading property:", error)
+        }
       }
     }
-  }, [searchParams])
+    loadProperty()
+  }, [editId])
+
+  // Auto draft hook
+  const { draftIds, isSaving, lastSaved, draftError, saveNow, clearDraft } = useAutoDraft({
+    flowType,
+    currentStep: state?.currentStep || 1,
+    state,
+    debounceMs: 10000,
+    enabled: !isAuthChecking,
+  })
 
   // Theme management
   const [theme, setTheme] = useState("system")
@@ -277,9 +325,9 @@ function BuilderContent() {
 
   // Ensure towerUnitConfigs are populated for all towers
   useEffect(() => {
-    const missingConfigTowerIds = state.towers
+    const missingConfigTowerIds = (state?.towers || [])
       .map((t) => t.id)
-      .filter((id) => !state.towerUnitConfigs.some((c) => c.towerId === id))
+      .filter((id) => !state?.towerUnitConfigs?.some((c) => c.towerId === id))
 
     if (missingConfigTowerIds.length > 0) {
       console.log("Populating default configs for:", missingConfigTowerIds)
@@ -324,9 +372,9 @@ function BuilderContent() {
 
   // ── Auto-sync township counts ──────────────────────────────────────────
   useEffect(() => {
-    const towersCount = state.towers.length
-    const unitsCount = generatedUnits.length
-    const projectsCount = state.projects.length
+    const towersCount = state?.towers?.length || 0
+    const unitsCount = generatedUnits?.length || 0
+    const projectsCount = state?.projects?.length || 0
     // totalFamilies is typically same as totalUnits for initial estimation
     const familiesCount = unitsCount
 
@@ -467,80 +515,110 @@ function BuilderContent() {
   }, [minStep])
 
   const handleSaveDraft = async () => {
-    try {
-      setIsCreating(true)
-      const draftData = {
-        id: state.township?.id || state.projects[0]?.id || state.towers[0]?.id || `draft-${Date.now()}`,
-        flowType,
-        status: "draft",
-        data: {
-          ...state,
-          generatedTowers,
-          generatedUnits,
-        },
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }
-      const existingDrafts = JSON.parse(localStorage.getItem("propertyDrafts") || "[]")
-      const draftIndex = existingDrafts.findIndex((d: any) => d.id === draftData.id)
-      if (draftIndex >= 0) {
-        existingDrafts[draftIndex] = draftData
-      } else {
-        existingDrafts.push(draftData)
-      }
-      localStorage.setItem("propertyDrafts", JSON.stringify(existingDrafts))
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      setIsCreating(false)
-      window.location.href = "/builder-dashboard?tab=properties&filter=drafts"
-    } catch (error) {
-      console.error("Error saving draft:", error)
-      setIsCreating(false)
-      alert("Failed to save draft. Please try again.")
-    }
+    await saveNow()
+    window.location.href = "/builder-dashboard?tab=properties&filter=drafts"
   }
+
 
   const handleCreate = async () => {
     try {
       setIsCreating(true)
-      const propertyData = {
-        id: state.township?.id || state.projects[0]?.id || state.towers[0]?.id || `property-${Date.now()}`,
-        flowType,
-        status: "published",
-        data: {
-          ...state,
-          generatedTowers,
-          generatedUnits,
-        },
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+
+      const createApi = async (payload: any) => {
+        const res = await fetch('/api/properties', {
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+        if (!res.ok) {
+            const err = await res.json()
+            throw new Error(err.error?.message || "Failed to save entity")
+        }
+        return (await res.json()).property._id
       }
-      const existingProperties = JSON.parse(localStorage.getItem("properties") || "[]")
-      const propertyIndex = existingProperties.findIndex((p: any) => p.id === propertyData.id)
-      if (propertyIndex >= 0) {
-        existingProperties[propertyIndex] = propertyData
-      } else {
-        existingProperties.push(propertyData)
+
+      // Sequential Creation Flow
+      if (flowType === "township") {
+        const rootName = state.township?.name || "Untitled Township"
+        const rootLoc = { city: state.township?.city, state: state.township?.state }
+        
+        const townshipId = await createApi({
+          type: 'township',
+          name: rootName,
+          location: rootLoc,
+          details: state.township,
+          status: 'active'
+        })
+        
+        for (const proj of state.projects) {
+           const projectId = await createApi({
+             type: 'project',
+             parentId: townshipId,
+             name: proj.name || "Untitled Project",
+             location: { city: (proj as any).city, state: (proj as any).state },
+             details: proj,
+             status: 'active'
+           })
+
+           const projTowers = generatedTowers.filter(t => t.projectId === proj.id)
+           for (const tow of projTowers) {
+              await createApi({
+                type: 'tower',
+                parentId: projectId,
+                name: tow.name || "Untitled Tower",
+                details: { ...tow, unitConfig: state.towerUnitConfigs.find(c => c.towerId === tow.id) },
+                status: 'active'
+              })
+           }
+        }
+      } else if (flowType === "project") {
+        const rootProj = state.projects[0]
+        const projectId = await createApi({
+             type: 'project',
+             name: rootProj?.name || "Untitled Project",
+             location: { city: (rootProj as any)?.city, state: (rootProj as any)?.state },
+             details: rootProj,
+             status: 'active'
+        })
+        
+        for (const tow of generatedTowers) {
+            await createApi({
+                type: 'tower',
+                parentId: projectId,
+                name: tow.name || "Untitled Tower",
+                details: { ...tow, unitConfig: state.towerUnitConfigs.find(c => c.towerId === tow.id) },
+                status: 'active'
+            })
+        }
+      } else if (flowType === "tower") {
+         const rootTow = state.towers[0]
+         await createApi({
+                type: 'tower',
+                name: rootTow?.name || "Untitled Tower",
+                details: { ...rootTow, unitConfig: state.towerUnitConfigs[0] },
+                status: 'active'
+         })
       }
-      localStorage.setItem("properties", JSON.stringify(existingProperties))
-      const existingDrafts = JSON.parse(localStorage.getItem("propertyDrafts") || "[]")
-      const updatedDrafts = existingDrafts.filter((d: any) => d.id !== propertyData.id)
-      localStorage.setItem("propertyDrafts", JSON.stringify(updatedDrafts))
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+
+      // Note: Units are handled in a separate upcoming flow per the strict schema.
+
+      await new Promise((resolve) => setTimeout(resolve, 1500))
       setIsCreating(false)
       setIsComplete(true)
+      clearDraft() // Clear draft from localStorage on successful publish
       setTimeout(() => {
-        window.location.href = "/builder-dashboard?tab=properties&filter=published"
+        window.location.href = "/builder-dashboard?tab=properties&filter=active"
       }, 1500)
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating property:", error)
       setIsCreating(false)
-      alert("Failed to create property. Please try again.")
+      alert(error.message || "Failed to create property structure. Please ensure all required fields are filled.")
     }
   }
 
-  const totalEntities = 1 + state.projects.length + generatedTowers.length + generatedUnits.length
-  const displayStepIndex = state.currentStep - 1 - stepOffset
-  const isReviewStep = state.currentStep > maxStep
+  const totalEntities = 1 + (state?.projects?.length || 0) + (generatedTowers?.length || 0) + (generatedUnits?.length || 0)
+  const displayStepIndex = (state?.currentStep || 1) - 1 - stepOffset
+  const isReviewStep = (state?.currentStep || 1) > maxStep
 
   const getFlowTitle = () => {
     switch (flowType) {
@@ -549,6 +627,15 @@ function BuilderContent() {
       case "tower": return "Tower Builder"
       default: return "Property Builder"
     }
+  }
+
+  if (isAuthChecking) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
+        <p className="ml-3 text-slate-600 font-medium">Verifying secure builder session...</p>
+      </div>
+    )
   }
 
   if (isComplete) {
@@ -610,13 +697,27 @@ function BuilderContent() {
                   {isReviewStep ? "Final Review" : STEPS[displayStepIndex]?.name}
                 </p>
               </div>
+
+              {/* Auto-save status indicator */}
+              <div className="hidden md:flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg border">
+                {isSaving ? (
+                  <><Loader2 className="w-3 h-3 animate-spin text-blue-500" /><span className="text-blue-500">Saving...</span></>
+                ) : draftError ? (
+                  <><CloudOff className="w-3 h-3 text-red-400" /><span className="text-red-400">Save failed</span></>
+                ) : lastSaved ? (
+                  <><Clock className="w-3 h-3 text-emerald-500" /><span className="text-emerald-600">Saved {Math.round((Date.now() - lastSaved.getTime()) / 60000) < 1 ? 'just now' : `${Math.round((Date.now() - lastSaved.getTime()) / 60000)}m ago`}</span></>
+                ) : (
+                  <><Save className="w-3 h-3 text-slate-400" /><span className="text-slate-400">Auto-save on</span></>
+                )}
+              </div>
+
               <button
                 onClick={handleSaveDraft}
-                disabled={isCreating}
+                disabled={isSaving}
                 className="p-2.5 rounded-xl bg-slate-100/50 border border-slate-200 text-slate-600 hover:bg-white hover:text-blue-600 hover:border-blue-200 hover:shadow-sm transition-all group"
-                title="Save Draft"
+                title="Save Draft Now"
               >
-                <Save className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 group-hover:scale-110 transition-transform" />}
               </button>
               <button
                 onClick={() => {
@@ -634,13 +735,13 @@ function BuilderContent() {
           </div>
 
           {/* Row 2: Merged Entity Tabs (Visible only on Step 2, 3, 4) */}
-          {(state.currentStep >= 2 && state.currentStep <= 4) && (
+          {(state?.currentStep >= 2 && state?.currentStep <= 4) && (
             <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 overflow-x-auto scrollbar-hide">
               {/* Step 2: Projects Navigation */}
-              {state.currentStep === 2 && flowType === "township" && (
+              {state?.currentStep === 2 && flowType === "township" && (
                 <>
                   <LayoutGrid className="w-4 h-4 text-slate-400 ml-1 mr-2" />
-                  {state.projects.map((p, i) => (
+                  {state?.projects?.map((p, i) => (
                     <button
                       key={p.id}
                       onClick={() => setActiveProjectIdx(i)}
@@ -675,13 +776,13 @@ function BuilderContent() {
                       setActiveTowerIdx(0)
                     }}
                   >
-                    {state.projects.map((p, i) => (
+                    {state?.projects?.map((p, i) => (
                       <option key={p.id} value={i}>{p.name || `Project ${i + 1}`}</option>
                     ))}
                   </select>
                   <div className="w-px h-4 bg-slate-200 mx-2" />
                   {/* Towers in active project */}
-                  {state.towers.filter(t => t.projectId === state.projects[activeProjectIdx]?.id).map((t, i) => (
+                  {state?.towers?.filter(t => t.projectId === state?.projects?.[activeProjectIdx]?.id).map((t, i) => (
                     <button
                       key={t.id}
                       onClick={() => setActiveTowerIdx(i)}
@@ -694,7 +795,7 @@ function BuilderContent() {
                     </button>
                   ))}
                   <button
-                    onClick={() => handleAddTower(state.projects[activeProjectIdx].id)}
+                    onClick={() => state?.projects?.[activeProjectIdx] && handleAddTower(state.projects[activeProjectIdx].id)}
                     className="px-3 py-1.5 rounded-full text-xs font-bold text-emerald-600 border border-dashed border-emerald-300 bg-emerald-50 hover:bg-emerald-100 transition-all flex items-center gap-1.5 whitespace-nowrap"
                   >
                     <Plus className="w-3.5 h-3.5" /> Add Tower
@@ -758,6 +859,22 @@ function BuilderContent() {
         </div>
       </header>
 
+      {/* Draft Resume Banner */}
+      {showResumeBanner && (
+        <DraftResumeBanner
+          flowType={flowType}
+          draftId={draftIds.townshipId || draftIds.projectId || draftIds.towerId}
+          onResume={(details, step) => {
+            setState(prev => ({ ...prev, ...details, currentStep: step }))
+            setShowResumeBanner(false)
+          }}
+          onDiscard={() => {
+            clearDraft()
+            setShowResumeBanner(false)
+          }}
+        />
+      )}
+
       <main className="container max-w-7xl mx-auto px-4 md:px-6 py-8 flex-1">
         <div className="mb-6 md:mb-10 space-y-2 md:space-y-3">
           {/* <h2 className="text-2xl md:text-3xl font-bold text-foreground">
@@ -765,55 +882,58 @@ function BuilderContent() {
           </h2> */}
           <p className="text-sm md:text-base text-muted-foreground max-w-2xl leading-relaxed">
             {/* {state.currentStep === 1 && "Define your township's core identity, location, and master plan"} */}
-            {state.currentStep === 2 &&
-              `Configure ${flowType === "township" ? state.township.projectCount || 0 : state.projects.length} individual projects`}
-            {state.currentStep === 3 && `Add towers and building details for ${state.projects.length || 0} projects`}
-            {state.currentStep === 4 &&
-              `Customize unit configurations and pricing for each of ${state.towers.length || 0} towers`}
+            {state?.currentStep === 2 &&
+              `Configure ${flowType === "township" ? state?.township?.projectCount || 0 : state?.projects?.length || 0} individual projects`}
+            {state?.currentStep === 3 && `Add towers and building details for ${state?.projects?.length || 0} projects`}
+            {state?.currentStep === 4 &&
+              `Customize unit configurations and pricing for each of ${state?.towers?.length || 0} towers`}
             {isReviewStep && `Review all ${totalEntities.toLocaleString()} entities before creating`}
           </p>
         </div>
 
         <div className="mb-8 min-h-[50vh] pb-24">
-          {flowType === "township" && state.currentStep === 1 && (
+          {flowType === "township" && state?.currentStep === 1 && (
             <TownshipFlowForm
-              data={state.township}
+              data={state?.township}
               onChange={(data) => updateState("township", data)}
+              user={currentUser}
             />
           )}
 
-          {flowType === "project" && state.currentStep === 2 && (
+          {flowType === "project" && state?.currentStep === 2 && (
             <ProjectFlowForm
-              data={state.projects[0]}
+              data={state?.projects?.[0]}
               onChange={(data) => {
-                const updated = [...state.projects]
+                const updated = [...(state?.projects || [])]
                 updated[0] = data
                 setState((prev) => ({ ...prev, projects: updated }))
               }}
-              townshipData={state.township}
+              townshipData={state?.township}
               onTownshipChange={(data) => updateState("township", data)}
               showCommonData={true}
+              user={currentUser}
             />
           )}
 
-          {flowType === "tower" && state.currentStep === 3 && (
+          {flowType === "tower" && state?.currentStep === 3 && (
             <TowerFlowForm
-              data={state.towers[0]}
+              data={state?.towers?.[0]}
               onChange={(data) => {
-                const updated = [...state.towers]
+                const updated = [...(state?.towers || [])]
                 updated[0] = data
                 setState((prev) => ({ ...prev, towers: updated }))
               }}
-              townshipData={state.township}
+              townshipData={state?.township}
               onTownshipChange={(data) => updateState("township", data)}
               showCommonData={true}
+              user={currentUser}
             />
           )}
 
-          {flowType === "township" && state.currentStep === 2 && (
+          {flowType === "township" && state?.currentStep === 2 && (
             <ProjectsForm
-              township={state.township}
-              projects={state.projects}
+              township={state?.township}
+              projects={state?.projects}
               onChange={updateProjects}
               onCloneProject={handleCloneProject}
               activeIdx={activeProjectIdx}
@@ -822,10 +942,10 @@ function BuilderContent() {
             />
           )}
 
-          {(flowType === "township" || flowType === "project") && state.currentStep === 3 && (
+          {(flowType === "township" || flowType === "project") && state?.currentStep === 3 && (
             <TowersForm
-              projects={state.projects}
-              towers={state.towers}
+              projects={state?.projects}
+              towers={state?.towers}
               onTowersChange={updateTowers}
               onCloneTower={handleCloneTower}
               activeProjectIdx={activeProjectIdx}
@@ -835,12 +955,12 @@ function BuilderContent() {
             />
           )}
 
-          {state.currentStep === 4 && (
+          {state?.currentStep === 4 && (
             <UnitsForm
               towers={generatedTowers}
-              data={state.unitTemplate}
+              data={state?.unitTemplate}
               onChange={(data) => updateState("unitTemplate", data)}
-              towerConfigs={state.towerUnitConfigs}
+              towerConfigs={state?.towerUnitConfigs}
               onTowerConfigsChange={(configs) => updateState("towerUnitConfigs", configs)}
               activeTowerId={activeUnitTowerId}
               setActiveTowerId={setActiveUnitTowerId}
