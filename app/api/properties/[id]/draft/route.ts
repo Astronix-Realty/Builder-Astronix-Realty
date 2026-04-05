@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Property from "@/models/Property";
 import { getTokenFromRequest, verifyToken } from "@/lib/auth";
+import { secureDeleteProperty } from "@/services/property-service";
 
 /**
  * PATCH /api/properties/[id]/draft
@@ -22,15 +23,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     await dbConnect();
 
     // Only allow updating these safe fields — never status, type, builderId, parentId
-    const allowedFields: Record<string, any> = {
+    const $set: Record<string, any> = {
       updatedBy: decoded.userId,
-      autoSaveVersion: (body.autoSaveVersion ?? 0) + 1,
     };
 
-    if (body.name !== undefined)          allowedFields.name = body.name;
-    if (body.location !== undefined)      allowedFields.location = body.location;
-    if (body.details !== undefined)       allowedFields.details = body.details;
-    if (body.lastSavedStep !== undefined) allowedFields.lastSavedStep = body.lastSavedStep;
+    if (body.name !== undefined)          $set.name = body.name;
+    if (body.location !== undefined)      $set.location = body.location;
+    if (body.details !== undefined)       $set.details = body.details;
+    if (body.lastSavedStep !== undefined) $set.lastSavedStep = body.lastSavedStep;
 
     const property = await Property.findOneAndUpdate(
       { 
@@ -39,11 +39,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         isDeleted: false,
         status: "draft" // Only auto-save drafts, never overwrite published records
       },
-      { $set: allowedFields },
+      { 
+        $set,
+        $inc: { autoSaveVersion: 1 }, // Atomic increment — never miss a version bump
+      },
       { new: true, runValidators: false } // Skip validators for speed — trust the schema shape
     );
 
     if (!property) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(`[PATCH /api/properties/${id}/draft] Not updated. Check: not draft status, deleted, or wrong builderId='${decoded.userId}'`);
+      }
       return NextResponse.json({ error: "Draft not found or already published" }, { status: 404 });
     }
 
@@ -58,5 +64,51 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   } catch (error: any) {
     console.error("Auto-save draft error:", error);
     return NextResponse.json({ error: "Auto-save failed" }, { status: 500 });
+  }
+}
+
+/**
+ * DELETE /api/properties/[id]/draft
+ * Hard-deletes a draft and all its child entities (project/tower docs).
+ * Utilizes secure deletion to clear associated media efficiently.
+ * Called by useAutoDraft.clearDraft() on discard or successful publish.
+ */
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params;
+    const token = getTokenFromRequest(req);
+    if (!token) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+    const decoded = verifyToken(token);
+    if (!decoded) return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+
+    // Guard: invalid ObjectId format → skip DB call, return clean 200 (idempotent)
+    if (!/^[a-f\d]{24}$/i.test(id)) {
+      return NextResponse.json({ success: true, message: "Nothing to delete" }, { status: 200 });
+    }
+
+    await dbConnect();
+    
+    // Ensure the property is actually a draft before letting the service delete it
+    const draftProp = await Property.findOne({ _id: id, builderId: decoded.userId, status: "draft" });
+    if (!draftProp) {
+        return NextResponse.json({ success: true, message: "Draft already removed or published" }, { status: 200 });
+    }
+
+    const deleteResult = await secureDeleteProperty(id, decoded.userId);
+
+    return NextResponse.json(
+      { success: true, message: "Draft deleted securely", details: deleteResult },
+      { status: 200 }
+    );
+  } catch (error: any) {
+    console.error("[DELETE /api/properties/[id]/draft] error:", error.message);
+    
+    // Idempotent catch
+    if (error.message === "Property not found or unauthorized") {
+       return NextResponse.json({ success: true, message: "Draft already removed" }, { status: 200 });
+    }
+    
+    return NextResponse.json({ error: "Failed to delete draft" }, { status: 500 });
   }
 }

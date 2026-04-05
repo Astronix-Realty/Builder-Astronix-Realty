@@ -197,7 +197,7 @@ function ImageField({ label, value, onChange, placeholder }: { label: string; va
                     </div>
                 )}
                 <Input
-                    value={value}
+                    value={value ?? ""}
                     onChange={e => onChange(e.target.value)}
                     placeholder={placeholder || "https://..."}
                     className={`text-xs ${!isValid && value ? "border-red-400 focus-visible:ring-red-400 bg-red-50/30" : ""}`}
@@ -460,10 +460,10 @@ function UnitConfigCard({
                                             </SelectContent>
                                         </Select>
                                     </Field>
-                                    <Field label="Carpet Area (sqft)" required><Input type="number" value={config.carpetArea} onChange={e => onChange({ carpetArea: Number(e.target.value) })} placeholder="850" /></Field>
-                                    <Field label="Built-Up Area" hint="Total slab area"><Input type="number" value={config.builtUpArea} onChange={e => onChange({ builtUpArea: Number(e.target.value) })} placeholder="1020" /></Field>
-                                    <Field label="Super Built-Up" hint="Saleable area"><Input type="number" value={config.superBuiltUpArea} onChange={e => onChange({ superBuiltUpArea: Number(e.target.value) })} placeholder="1190" /></Field>
-                                    <Field label="Loading Factor %"><Input type="number" value={config.loadingFactor} onChange={e => onChange({ loadingFactor: Number(e.target.value) })} placeholder="40" /></Field>
+                                    <Field label="Carpet Area (sqft)" required><Input type="number" value={config.carpetArea ?? ""} onChange={e => onChange({ carpetArea: Number(e.target.value) })} placeholder="850" /></Field>
+                                    <Field label="Built-Up Area" hint="Total slab area"><Input type="number" value={config.builtUpArea ?? ""} onChange={e => onChange({ builtUpArea: Number(e.target.value) })} placeholder="1020" /></Field>
+                                    <Field label="Super Built-Up" hint="Saleable area"><Input type="number" value={config.superBuiltUpArea ?? ""} onChange={e => onChange({ superBuiltUpArea: Number(e.target.value) })} placeholder="1190" /></Field>
+                                    <Field label="Loading Factor %"><Input type="number" value={config.loadingFactor ?? ""} onChange={e => onChange({ loadingFactor: Number(e.target.value) })} placeholder="40" /></Field>
                                 </Grid>
                             </Section>
 
@@ -538,7 +538,7 @@ function UnitConfigCard({
                                 <div className="space-y-4">
                                     <Field label="Tagline / Short Title">
                                         <Input
-                                            value={config.tagline || ""}
+                                            value={config.tagline ?? ""}
                                             onChange={e => onChange({ tagline: e.target.value })}
                                             placeholder="e.g. The Pinnacle of Luxury"
                                             className="bg-white"
@@ -546,7 +546,7 @@ function UnitConfigCard({
                                     </Field>
                                     <Field label="Description">
                                         <Textarea
-                                            value={config.description || ""}
+                                            value={config.description ?? ""}
                                             onChange={e => onChange({ description: e.target.value })}
                                             placeholder="Describe the unique selling point of this unit (e.g. Spacious 3 BHK with double height balcony)..."
                                             className="min-h-[80px] bg-white resize-none"
@@ -563,9 +563,9 @@ function UnitConfigCard({
                                 <div className="space-y-2">
                                     {config.roomDimensions.map(room => (
                                         <div key={room.id} className="grid grid-cols-4 gap-2 bg-gray-50/50 p-2 rounded-xl group/room">
-                                            <Input value={room.roomName} onChange={e => updateRoom(room.id, { roomName: e.target.value })} placeholder="Room Name" className="h-8 text-[11px] bg-white border-0 shadow-sm" />
-                                            <Input value={room.length} onChange={e => updateRoom(room.id, { length: e.target.value })} placeholder="Len" className="h-8 text-[11px] bg-white border-0 shadow-sm text-center" />
-                                            <Input value={room.width} onChange={e => updateRoom(room.id, { width: e.target.value })} placeholder="Wid" className="h-8 text-[11px] bg-white border-0 shadow-sm text-center" />
+                                            <Input value={room.roomName ?? ""} onChange={e => updateRoom(room.id, { roomName: e.target.value })} placeholder="Room Name" className="h-8 text-[11px] bg-white border-0 shadow-sm" />
+                                            <Input value={room.length ?? ""} onChange={e => updateRoom(room.id, { length: e.target.value })} placeholder="Len" className="h-8 text-[11px] bg-white border-0 shadow-sm text-center" />
+                                            <Input value={room.width ?? ""} onChange={e => updateRoom(room.id, { width: e.target.value })} placeholder="Wid" className="h-8 text-[11px] bg-white border-0 shadow-sm text-center" />
                                             <div className="flex items-center gap-1">
                                                 <span className="text-[10px] font-bold text-gray-400">FT</span>
                                                 <Button variant="ghost" size="sm" onClick={() => removeRoom(room.id)} className="h-6 w-6 p-0 text-red-300 hover:text-red-500 hover:bg-red-50 ml-auto opacity-0 group-hover/room:opacity-100 transition-opacity"><Trash2 className="w-3 h-3" /></Button>
@@ -721,7 +721,7 @@ function UnitConfigCard({
                                                 checked={m.included}
                                                 onCheckedChange={v => updateMoveIn(m.id, { included: v })}
                                             />
-                                            <Input value={m.item} onChange={e => updateMoveIn(m.id, { item: e.target.value })} placeholder="Modular Kitchen" className="h-8 text-[11px] bg-white border-0 shadow-sm flex-1" />
+                                            <Input value={m.item ?? ""} onChange={e => updateMoveIn(m.id, { item: e.target.value })} placeholder="Modular Kitchen" className="h-8 text-[11px] bg-white border-0 shadow-sm flex-1" />
                                             <Button variant="ghost" size="sm" onClick={() => removeMoveIn(m.id)} className="h-8 w-8 p-0 text-red-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover/check:opacity-100 transition-opacity"><Trash2 className="w-4 h-4" /></Button>
                                         </div>
                                     ))}
@@ -757,7 +757,7 @@ function UnitConfigCard({
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                     {(config.galleryImages || []).map((img, i) => (
                                         <div key={i} className="relative group/img">
-                                            <Input value={img} onChange={e => updateGalleryImg(i, e.target.value)} placeholder="URL" className="h-8 text-[9px] bg-white border border-gray-200" />
+                                            <Input value={img ?? ""} onChange={e => updateGalleryImg(i, e.target.value)} placeholder="URL" className="h-8 text-[9px] bg-white border border-gray-200" />
                                             <Button variant="ghost" size="sm" onClick={() => removeGalleryImg(i)} className="absolute -top-2 -right-2 h-5 w-5 p-0 bg-white border border-gray-200 shadow-sm text-red-500 rounded-full opacity-0 group-hover/img:opacity-100 transition-opacity z-10"><X className="w-3 h-3" /></Button>
                                         </div>
                                     ))}
@@ -1034,14 +1034,14 @@ export function UnitFlowForm({
                 <TabsContent value="pricing" className="space-y-16 focus-visible:outline-none">
                     <Section id="pricing-rules" title="Pricing & Tax Logic" description="Global rules inherited by all units in this tower" icon={DollarSign} openIds={openIds} setOpenIds={setOpenIds}>
                         <Grid cols={3}>
-                            <Field label="Base Rate (₹/sqft)"><Input type="number" value={data.baseRatePerSqft} onChange={e => updateData({ baseRatePerSqft: e.target.value })} placeholder="5500" /></Field>
-                            <Field label="Parking Charges (₹)"><Input type="number" value={data.parkingCharges} onChange={e => updateData({ parkingCharges: e.target.value })} placeholder="500000" /></Field>
-                            <Field label="GST (%)"><Input type="number" value={data.gstPercentage} onChange={e => updateData({ gstPercentage: e.target.value })} placeholder="5" /></Field>
-                            <Field label="Stamp Duty (%)"><Input type="number" value={data.stampDutyPercentage} onChange={e => updateData({ stampDutyPercentage: e.target.value })} placeholder="7" /></Field>
-                            <Field label="Registration (₹)"><Input type="number" value={data.registrationCharges || ""} onChange={e => updateData({ registrationCharges: e.target.value })} placeholder="30000" /></Field>
+                            <Field label="Base Rate (₹/sqft)"><Input type="number" value={data.baseRatePerSqft ?? ""} onChange={e => updateData({ baseRatePerSqft: e.target.value })} placeholder="5500" /></Field>
+                            <Field label="Parking Charges (₹)"><Input type="number" value={data.parkingCharges ?? ""} onChange={e => updateData({ parkingCharges: e.target.value })} placeholder="500000" /></Field>
+                            <Field label="GST (%)"><Input type="number" value={data.gstPercentage ?? ""} onChange={e => updateData({ gstPercentage: e.target.value })} placeholder="5" /></Field>
+                            <Field label="Stamp Duty (%)"><Input type="number" value={data.stampDutyPercentage ?? ""} onChange={e => updateData({ stampDutyPercentage: e.target.value })} placeholder="7" /></Field>
+                            <Field label="Registration (₹)"><Input type="number" value={data.registrationCharges ?? ""} onChange={e => updateData({ registrationCharges: e.target.value })} placeholder="30000" /></Field>
                             <Field label="Maintenance (₹/sqft)">
                                 <div className="flex gap-2">
-                                    <Input type="number" value={data.maintenancePerSqft} onChange={e => updateData({ maintenancePerSqft: e.target.value })} placeholder="3.5" className="flex-1" />
+                                    <Input type="number" value={data.maintenancePerSqft ?? ""} onChange={e => updateData({ maintenancePerSqft: e.target.value })} placeholder="3.5" className="flex-1" />
                                     <Select value={data.maintenanceType} onValueChange={v => updateData({ maintenanceType: v as any })}>
                                         <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
                                         <SelectContent>
@@ -1143,7 +1143,7 @@ export function UnitFlowForm({
                                             {collapsedGroups.includes(group.id) ? <ChevronRight className="w-4 h-4 text-[#1A3C8C]" /> : <ChevronDown className="w-4 h-4 text-[#1A3C8C]" />}
                                             <Badge variant="outline" className="bg-white text-[#1A3C8C] text-[10px] font-bold h-6 uppercase tracking-wider">Group {idx + 1}</Badge>
                                             <Input
-                                                value={group.name}
+                                                value={group.name ?? ""}
                                                 onChange={e => updateGroup(group.id, { name: e.target.value })}
                                                 onClick={e => e.stopPropagation()}
                                                 className="h-8 text-base font-black text-[#1A3C8C] bg-transparent border-0 focus-visible:ring-0 p-0 w-64"
@@ -1164,7 +1164,7 @@ export function UnitFlowForm({
                                             <Grid cols={2}>
                                                 <Field label="Assign Floors" hint="E.g. 1-10, 15, 20-30">
                                                     <Input
-                                                        value={group.floorRange}
+                                                        value={group.floorRange ?? ""}
                                                         onChange={e => {
                                                             const floors = parseFloorRange(e.target.value)
                                                             updateGroup(group.id, { floorRange: e.target.value, floors })
@@ -1332,7 +1332,7 @@ export function UnitFlowForm({
                                                                                 <Label className="text-[10px] font-black text-[#1A3C8C] uppercase tracking-widest pl-1">Unit Identity (NO.)</Label>
                                                                                 <div className="relative">
                                                                                     <Input
-                                                                                        value={slot.slotNumber}
+                                                                                        value={slot.slotNumber ?? ""}
                                                                                         onChange={e => updateSlot({ slotNumber: e.target.value })}
                                                                                         placeholder="101"
                                                                                         className="h-10 w-full border-2 border-slate-200 bg-slate-50 text-base font-black text-slate-900 focus:ring-4 focus:ring-blue-100 px-3 rounded-xl"

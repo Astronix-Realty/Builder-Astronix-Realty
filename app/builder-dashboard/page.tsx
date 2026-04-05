@@ -3,7 +3,8 @@
 import { useState, useEffect, Suspense } from "react"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Plus, Building2, MapPin, DollarSign, ChevronRight, Edit2, Trash2, Home, Layers, Building, Eye, User, Save, Globe, Mail, Phone, FileText, Tag, Percent, Calendar, Clock, Gift, Paintbrush, Image as ImageIcon, LogOut, Settings, Menu, X, Palette, Bell, Shield, Lock, Headphones, Smartphone, MessageSquare, Users, Briefcase } from "lucide-react"
+import { Plus, Building2, MapPin, DollarSign, ChevronRight, Edit2, Trash2, Home, Layers, Building, Eye, User, Save, Globe, Mail, Phone, FileText, Tag, Percent, Calendar, Clock, Gift, Paintbrush, Image as ImageIcon, LogOut, Settings, Menu, X, Palette, Bell, Shield, Lock, Headphones, Smartphone, MessageSquare, Users, Briefcase, Loader2, RefreshCw } from "lucide-react"
+import { toast } from "sonner"
 import BannerEditor from "@/components/BannerEditor"
 import { ImageUpload } from "@/components/ui/image-upload"
 import { InventoryView } from "@/components/builder/inventory/inventory-view"
@@ -37,6 +38,7 @@ interface Property {
   totalValue: number
   createdDate: string
   flowType?: string
+  thumbnail?: string
 }
 
 interface Offer {
@@ -56,6 +58,8 @@ function DashboardContent() {
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [properties, setProperties] = useState<Property[]>([])
+  const [isFetchingProperties, setIsFetchingProperties] = useState(false)
+  const [deletingPropertyId, setDeletingPropertyId] = useState<string | null>(null)
   const [offers, setOffers] = useState<Offer[]>([])
   const [showAddOffer, setShowAddOffer] = useState(false)
   const [showBannerEditor, setShowBannerEditor] = useState(false)
@@ -146,75 +150,117 @@ function DashboardContent() {
   // Helper to map DB/Storage data to UI format
   const mapProperty = (p: any, defaultStatus: 'active' | 'pending'): Property => {
     const details = p.details || {}
-    const flowType = p.flowType
+    const flowType = p.flowType || p.type
 
-    let name = "Untitled Property"
-    let location = "Unknown Location"
-    let projectsCount = 0
-    let towersCount = 0
-    let unitsCount = 0
+    let name = p.name || "Untitled Property"
+    let location = ""
+    let projectsCount = p.calculatedCounts?.projectsCount || 0
+    let towersCount = p.calculatedCounts?.towersCount || 0
+    let unitsCount = p.calculatedCounts?.unitsCount || 0
+    let thumbnail = p.thumbnail || undefined
 
-    if (flowType === "township" && details.township) {
-      name = details.township.name || "Untitled Township"
-      location = `${details.township.city || ""}, ${details.township.state || ""}`
-      projectsCount = details.projects?.length || 0
-      towersCount = details.towers?.length || 0
-    } else if (flowType === "project" && details.projects?.[0]) {
-      name = details.projects[0].name || "Untitled Project"
-      location = `${details.projects[0].city || ""}, ${details.projects[0].state || ""}`
-      projectsCount = 1
-      towersCount = details.towers?.length || 0
-    } else if (flowType === "tower" && details.towers?.[0]) {
-      name = details.towers[0].name || "Untitled Tower"
-      location = `${details.towers[0].city || ""}, ${details.towers[0].state || ""}`
-      projectsCount = 0
-      towersCount = 1
+    if (defaultStatus === "pending") {
+      if (flowType === "township") {
+        const ts = details.township
+        if (ts) {
+          name = ts.name || name
+          location = `${ts.city || ""}, ${ts.state || ""}`.replace(/^, |, $/, "")
+          projectsCount = details.projects?.length || 0
+          towersCount = details.towers?.length || 0
+        } else {
+          name = details.name || name
+          location = `${details.city || ""}, ${details.state || ""}`.replace(/^, |, $/, "")
+        }
+      } else if (flowType === "project") {
+        const proj = details.projects?.[0]
+        if (proj) {
+          name = proj.name || name
+          location = `${proj.city || ""}, ${proj.state || ""}`.replace(/^, |, $/, "")
+          projectsCount = 1
+          towersCount = details.towers?.length || 0
+        } else {
+          name = details.name || name
+          location = `${details.city || ""}, ${details.state || ""}`.replace(/^, |, $/, "")
+          projectsCount = 1
+        }
+      } else if (flowType === "tower") {
+        const tower = details.towers?.[0]
+        if (tower) {
+          name = tower.name || name
+          location = `${tower.city || ""}, ${tower.state || ""}`.replace(/^, |, $/, "")
+          towersCount = 1
+        } else {
+          name = details.name || name
+          location = `${details.city || ""}, ${details.state || ""}`.replace(/^, |, $/, "")
+          towersCount = 1
+        }
+      }
+      unitsCount = details.generatedUnits?.length || 0
     }
 
-    unitsCount = details.generatedUnits?.length || 0
-    const totalValue = details.generatedUnits?.reduce((sum: number, u: any) => sum + (u.price || 0), 0) || (unitsCount * 5000000)
+    // Root-level location fallback
+    if (!location && p.location) {
+      location = `${p.location.city || ""}, ${p.location.state || ""}`.replace(/^, |, $/, "")
+    }
+
+    const totalValue =
+      details.generatedUnits?.reduce((sum: number, u: any) => sum + (u.price || 0), 0) ||
+      unitsCount * 5000000
 
     let finalStatus: 'active' | 'pending' = defaultStatus
     if (p.status === 'draft') finalStatus = 'pending'
-    else if (p.status === 'published') finalStatus = 'active'
+    else if (p.status === 'published' || p.status === 'active') finalStatus = 'active'
 
     return {
-      id: p._id || p.id, // Support MongoDB _id
+      id: p._id || p.id,
       townshipName: name,
       projects: projectsCount,
       towers: towersCount,
       units: unitsCount,
-      location: location.replace(/^, /, "").replace(/, $/, "") || "Location not set",
+      location: location || "Location not set",
       status: finalStatus,
       totalValue: totalValue || 0,
       createdDate: p.createdAt || new Date().toISOString(),
-      flowType: flowType
+      flowType: flowType,
+      thumbnail: thumbnail,
     }
   }
 
   // Load properties from MongoDB
-  useEffect(() => {
-    const fetchProperties = async () => {
-      try {
-        const res = await fetch("/api/properties")
-        if (res.ok) {
-          const data = await res.json()
-          if (data.properties) {
-            const mapped = data.properties.map((p: any) => 
-              mapProperty(p, p.status === 'draft' ? 'pending' : 'active')
-            )
-            setProperties(mapped)
-          }
+  const fetchProperties = async () => {
+    setIsFetchingProperties(true)
+    try {
+      const res = await fetch("/api/properties")
+      if (res.ok) {
+        const data = await res.json()
+        if (data.properties) {
+          const mapped = data.properties.map((p: any) => 
+            mapProperty(p, p.status === 'draft' ? 'pending' : 'active')
+          )
+          setProperties(mapped)
         }
-      } catch (error) {
-        console.error("Error loading properties:", error)
+      } else {
+        throw new Error("Failed to load properties")
       }
+    } catch (error) {
+      console.error("Error loading properties:", error)
+      toast.error("Failed to fetch properties")
+    } finally {
+      setIsFetchingProperties(false)
     }
+  }
 
+  useEffect(() => {
     if (currentUser) {
       fetchProperties()
     }
   }, [currentUser])
+
+  const handleRefreshProperties = () => {
+    if (isFetchingProperties) return
+    toast("Fetching data...")
+    fetchProperties()
+  }
 
   // Load mock/local offers for now (Keep localStorage for non-critical settings)
   useEffect(() => {
@@ -361,17 +407,29 @@ function DashboardContent() {
   }
 
   const deleteProperty = async (id: string) => {
+    if (!id) {
+      console.error("[deleteProperty] Called with undefined/empty id — check property card data")
+      return
+    }
     if (confirm("Are you sure you want to delete this property?")) {
+      setDeletingPropertyId(id)
       try {
-        const res = await fetch(`/api/properties/${id}`, { method: 'DELETE' })
+        const res = await fetch(`/api/properties/${id}`, { method: "DELETE" })
         if (res.ok) {
+          // Remove from local state immediately for snappy UX
           setProperties(prev => prev.filter(p => p.id !== id))
+          toast.success("Property deleted successfully")
         } else {
-          alert("Failed to delete property. Status: " + res.status)
+          const errData = await res.json().catch(() => ({}))
+          const msg = errData?.error || `HTTP ${res.status}`
+          console.error(`[deleteProperty] API returned error for id='${id}':`, msg)
+          toast.error(`Failed to delete property: ${msg}`)
         }
       } catch (error) {
-        console.error("Delete property error:", error)
-        alert("An error occurred while deleting")
+        console.error("[deleteProperty] Network/fetch error:", error)
+        toast.error("An error occurred while deleting. Please try again.")
+      } finally {
+        setDeletingPropertyId(null)
       }
     }
   }
@@ -652,7 +710,14 @@ function DashboardContent() {
                   <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Your Properties</h2>
                   <p className="text-slate-600 dark:text-slate-400">Manage and create new property listings</p>
                 </div>
-
+                <button
+                  onClick={handleRefreshProperties}
+                  disabled={isFetchingProperties}
+                  className="flex items-center gap-2 px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-medium transition-all shadow-sm disabled:opacity-50"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isFetchingProperties ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">Refresh</span>
+                </button>
               </div>
 
               {/* Add Property Options with 3 flow types */}
@@ -736,69 +801,169 @@ function DashboardContent() {
 
               {/* Properties Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {properties.filter(p => p.status === propertyFilter).map((property) => (
+                {isFetchingProperties && properties.filter(p => p.status === propertyFilter).length === 0 ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm h-[380px] animate-pulse">
+                      <div className="h-44 bg-slate-200 dark:bg-slate-800 rounded-t-xl" />
+                      <div className="p-5 flex-1">
+                        <div className="h-6 bg-slate-200 dark:bg-slate-800 rounded w-2/3 mb-4" />
+                        <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-1/3 mb-6" />
+                        <div className="grid grid-cols-3 gap-4 border-t border-slate-100 dark:border-slate-800 pt-4">
+                          <div className="h-10 bg-slate-200 dark:bg-slate-800 rounded" />
+                          <div className="h-10 bg-slate-200 dark:bg-slate-800 rounded" />
+                          <div className="h-10 bg-slate-200 dark:bg-slate-800 rounded" />
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  properties.filter(p => p.status === propertyFilter).map((property) => (
                   <div
                     key={property.id}
-                    className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+                    className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col group"
                   >
-                    {/* Property Header */}
-                    <div className="p-6 border-b border-slate-100 dark:border-slate-800">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">{property.townshipName}</h3>
-                          <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 text-sm">
-                            <MapPin className="h-4 w-4" />
-                            {property.location}
-                          </div>
+                    {/* Thumbnail Image Header - ONLY show if image exists */}
+                    {property.thumbnail ? (
+                      <div className="h-44 w-full relative bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-800 overflow-hidden">
+                        <Image 
+                          src={property.thumbnail} 
+                          alt={property.townshipName} 
+                          fill 
+                          className="object-cover group-hover:scale-105 transition-transform duration-700" 
+                          unoptimized 
+                        />
+                        
+                        {/* Gradient Overlay for Text Readability */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20"></div>
+                        
+                        {/* Hierarchy Badge */}
+                        <div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/20 shadow-sm flex items-center gap-1.5 transition-all group-hover:bg-black/60">
+                          <span className="text-[10px] font-bold text-white uppercase tracking-widest">{property.flowType}</span>
+                          {property.flowType === "township" && (
+                             <>
+                               <ChevronRight className="h-3 w-3 text-white/50" />
+                               <Layers className="h-3 w-3 text-white/80" />
+                             </>
+                          )}
                         </div>
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-semibold ${property.status === "active"
-                            ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                            : property.status === "pending"
-                              ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
-                              : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
-                            }`}
-                        >
-                          {property.status.charAt(0).toUpperCase() + property.status.slice(1)}
+                        
+                        {/* Status Badge */}
+                        <div className="absolute top-4 right-4">
+                          <span className={`px-3 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest shadow-xl border backdrop-blur-sm ${
+                            property.status === "active" 
+                              ? "bg-emerald-500/80 text-white border-emerald-400/50" 
+                              : property.status === "pending" 
+                                ? "bg-amber-500/80 text-white border-amber-400/50" 
+                                : "bg-slate-500/80 text-white border-slate-400/50"
+                          }`}>
+                            {property.status === "active" ? "Published" : property.status === "pending" ? "Draft" : property.status}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Enhanced Empty State Form Factor Header */
+                      <div className="h-44 w-full relative bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 flex items-center justify-center p-6 text-center">
+                        <div className="absolute inset-0 bg-blue-50/50 dark:bg-blue-900/10" /> 
+                        <div className="relative z-10 flex flex-col items-center gap-2">
+                          <div className={`p-3 rounded-2xl shadow-sm ${
+                            property.flowType === 'township' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/50' :
+                            property.flowType === 'project' ? 'bg-teal-100 text-teal-600 dark:bg-teal-900/50' :
+                            'bg-orange-100 text-orange-600 dark:bg-orange-900/50'
+                          }`}>
+                            {property.flowType === 'township' ? <Home className="h-6 w-6" /> : 
+                             property.flowType === 'project' ? <Layers className="h-6 w-6" /> : 
+                             <Building className="h-6 w-6" />}
+                          </div>
+                          <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{property.flowType}</span>
+                        </div>
+                        
+                        {/* Status Badge */}
+                        <div className="absolute top-4 right-4 z-20">
+                          <span className={`px-3 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest shadow-sm border ${
+                            property.status === "active" 
+                              ? "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/40 dark:border-emerald-800" 
+                              : property.status === "pending" 
+                                ? "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/40 dark:border-amber-800"
+                                : "bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:border-slate-700"
+                          }`}>
+                            {property.status === "active" ? "Published" : property.status === "pending" ? "Draft" : property.status}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Property Header */}
+                    <div className="p-5 flex-1 min-w-0">
+                      <div className="flex justify-between items-start gap-3 mb-3">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight transition-colors group-hover:text-blue-600 dark:group-hover:text-blue-400 truncate" title={property.townshipName}>
+                            {property.townshipName}
+                          </h3>
+                        </div>
+                        <div className="shrink-0 text-right">
+                           <div className="text-lg font-black text-blue-700 dark:text-blue-400 font-mono tracking-tight">
+                              {formatCurrency(property.totalValue)}
+                           </div>
+                           <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">Total Inv. Value</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs font-medium bg-slate-50 dark:bg-slate-800/40 p-2 rounded-lg">
+                        <MapPin className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                        <span className="truncate">{property.location}</span>
+                      </div>
+                    </div>
+
+                    {/* Property Stats - HIERARCHY INFORMED GRID */}
+                    <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/40">
+                      <div className={`grid gap-4 text-center ${
+                        property.flowType === 'township' ? 'grid-cols-3' :
+                        property.flowType === 'project' ? 'grid-cols-2' :
+                        'grid-cols-1'
+                      }`}>
+                        {/* Township always shows Projects */}
+                        {property.flowType === 'township' && (
+                          <div className="relative after:absolute after:right-[-8px] after:top-1/2 after:-translate-y-1/2 after:h-8 after:w-[1px] after:bg-slate-200 dark:after:bg-slate-800">
+                            <div className="text-xl font-black text-slate-800 dark:text-white">{property.projects}</div>
+                            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Projects</div>
+                          </div>
+                        )}
+                        
+                        {/* Township & Project show Towers */}
+                        {(property.flowType === 'township' || property.flowType === 'project') && (
+                          <div className={property.flowType === 'township' ? "relative after:absolute after:right-[-8px] after:top-1/2 after:-translate-y-1/2 after:h-8 after:w-[1px] after:bg-slate-200 dark:after:bg-slate-800" : ""}>
+                            <div className="text-xl font-black text-slate-800 dark:text-white">{property.towers}</div>
+                            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Towers</div>
+                          </div>
+                        )}
+                        
+                        {/* Everyone shows Units */}
+                        <div>
+                          <div className="text-xl font-black text-blue-600 dark:text-blue-400">{property.units}</div>
+                          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Total Units</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Footer Info */}
+                    <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-slate-400">
+                        <Clock className="h-3 w-3" />
+                        <span className="text-[10px] font-medium uppercase tracking-tight">
+                          Synced {new Date(property.createdDate).toLocaleDateString()}
                         </span>
                       </div>
-                    </div>
-
-                    {/* Property Stats */}
-                    <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/50">
-                      <div className="grid grid-cols-3 gap-4 text-center">
-                        <div>
-                          <div className="text-2xl font-bold text-slate-900 dark:text-white">{property.projects}</div>
-                          <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">Projects</div>
-                        </div>
-                        <div>
-                          <div className="text-2xl font-bold text-slate-900 dark:text-white">{property.towers}</div>
-                          <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">Towers</div>
-                        </div>
-                        <div>
-                          <div className="text-2xl font-bold text-slate-900 dark:text-white">{property.units}</div>
-                          <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">Units</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Property Value */}
-                    <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800">
-                      <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 mb-3">
-                        <DollarSign className="h-4 w-4" />
-                        <span className="text-sm font-medium">Total Value</span>
-                      </div>
-                      <div className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(property.totalValue)}</div>
-                      <div className="text-xs text-slate-500 dark:text-slate-500 mt-2">
-                        Created {new Date(property.createdDate).toLocaleDateString()}
+                      
+                      <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase tracking-tight">
+                         ID: <span className="text-slate-300 dark:text-slate-600">{property.id.slice(-6)}</span>
                       </div>
                     </div>
 
                     {/* Actions */}
-                    <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex gap-2">
+                    <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 flex gap-2">
                       <a
                         href={`/builder?flow=${property.flowType || "township"}&edit=${property.id}`}
-                        className="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg font-medium hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center justify-center gap-2"
+                        className="flex-1 px-3 py-2.5 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg font-semibold hover:bg-white dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-300 dark:hover:border-blue-700 transition-all flex items-center justify-center gap-2 shadow-sm"
                       >
                         <Edit2 className="h-4 w-4" />
                         Edit
@@ -806,10 +971,11 @@ function DashboardContent() {
 
                       {property.status !== "pending" && (
                         <a
-                          href={`/${property.flowType || "township"}/${property.id}`}
+                          href={`/property/${property.id}`}
                           target="_blank"
-                          className="px-3 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg font-medium hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center justify-center"
-                          title="View Property"
+                          rel="noreferrer"
+                          className="px-3.5 py-2.5 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg font-semibold hover:bg-white dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-300 dark:hover:border-indigo-700 transition-all flex items-center justify-center shadow-sm"
+                          title="View Live Property"
                         >
                           <Eye className="h-4 w-4" />
                         </a>
@@ -817,17 +983,19 @@ function DashboardContent() {
 
                       <button
                         onClick={() => deleteProperty(property.id)}
-                        className="px-3 py-2 border border-slate-300 dark:border-slate-600 text-red-600 dark:text-red-400 rounded-lg font-medium hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-300 dark:hover:border-red-800 transition-colors"
+                        disabled={deletingPropertyId === property.id}
+                        className="px-3.5 py-2.5 border border-slate-300 dark:border-slate-600 text-red-600 dark:text-red-400 rounded-lg font-semibold hover:bg-white dark:hover:bg-slate-800 hover:text-red-700 dark:hover:border-red-400 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center"
+                        title="Delete Property"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        {deletingPropertyId === property.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                       </button>
                     </div>
                   </div>
-                ))}
+                )))}
               </div>
 
               {/* Empty State */}
-              {properties.filter(p => p.status === propertyFilter).length === 0 && (
+              {!isFetchingProperties && properties.filter(p => p.status === propertyFilter).length === 0 && (
                 <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
                   <Building2 className="h-16 w-16 text-slate-300 dark:text-slate-700 mx-auto mb-4" />
                   <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">No Properties Found</h3>

@@ -6,6 +6,8 @@ export type DraftIds = {
   townshipId?: string
   projectId?: string
   towerId?: string
+  projectMap?: Record<string, string>
+  towerMap?: Record<string, string>
 }
 
 export type AutoDraftState = {
@@ -25,10 +27,25 @@ function getDraftStorageKey(flowType: string, entity: string) {
 
 function loadDraftIds(flowType: string): DraftIds {
   if (typeof window === "undefined") return {}
+  
+  let projectMap = {}
+  let towerMap = {}
+  try {
+     const pStr = localStorage.getItem(getDraftStorageKey(flowType, "projectMap"))
+     if (pStr) projectMap = JSON.parse(pStr)
+  } catch (e) {}
+
+  try {
+     const tStr = localStorage.getItem(getDraftStorageKey(flowType, "towerMap"))
+     if (tStr) towerMap = JSON.parse(tStr)
+  } catch (e) {}
+
   return {
     townshipId: localStorage.getItem(getDraftStorageKey(flowType, "township")) ?? undefined,
     projectId:  localStorage.getItem(getDraftStorageKey(flowType, "project")) ?? undefined,
     towerId:    localStorage.getItem(getDraftStorageKey(flowType, "tower")) ?? undefined,
+    projectMap,
+    towerMap,
   }
 }
 
@@ -37,6 +54,8 @@ function saveDraftIdsToStorage(flowType: string, ids: DraftIds) {
   if (ids.townshipId) localStorage.setItem(getDraftStorageKey(flowType, "township"), ids.townshipId)
   if (ids.projectId)  localStorage.setItem(getDraftStorageKey(flowType, "project"), ids.projectId)
   if (ids.towerId)    localStorage.setItem(getDraftStorageKey(flowType, "tower"), ids.towerId)
+  if (ids.projectMap) localStorage.setItem(getDraftStorageKey(flowType, "projectMap"), JSON.stringify(ids.projectMap))
+  if (ids.towerMap)   localStorage.setItem(getDraftStorageKey(flowType, "towerMap"), JSON.stringify(ids.towerMap))
 }
 
 function clearDraftIdsFromStorage(flowType: string) {
@@ -44,6 +63,8 @@ function clearDraftIdsFromStorage(flowType: string) {
   localStorage.removeItem(getDraftStorageKey(flowType, "township"))
   localStorage.removeItem(getDraftStorageKey(flowType, "project"))
   localStorage.removeItem(getDraftStorageKey(flowType, "tower"))
+  localStorage.removeItem(getDraftStorageKey(flowType, "projectMap"))
+  localStorage.removeItem(getDraftStorageKey(flowType, "towerMap"))
 }
 
 interface UseAutoDraftOptions {
@@ -82,6 +103,8 @@ export function useAutoDraft({
     }
   ): Promise<string> => {
     const safeName = payload.name?.trim() || `Untitled ${entityType}`
+    // Normalize location — always send an object, never undefined
+    const safeLocation = payload.location ?? {}
 
     if (existingId) {
       // PATCH — lightweight auto-save
@@ -90,8 +113,8 @@ export function useAutoDraft({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: safeName,
-          location: payload.location,
-          details: payload.details,
+          location: safeLocation,
+          details: payload.details ?? {},
           lastSavedStep: currentStep,
         }),
       })
@@ -102,16 +125,24 @@ export function useAutoDraft({
       return existingId
     } else {
       // POST — create new draft
-      const body: any = {
+      // flowType comes from the hook's closure — always defined via UseAutoDraftOptions.
+      // Log a warning in development if it somehow slips through as undefined.
+      if (process.env.NODE_ENV !== "production" && !flowType) {
+        console.warn("[useAutoDraft] saveEntity called with no flowType — defaulting to entityType:", entityType)
+      }
+      const resolvedFlowType = flowType || entityType  // Fallback: entity's own type
+
+      const body: Record<string, any> = {
         type: entityType,
-        flowType,
+        flowType: resolvedFlowType,
         name: safeName,
-        location: payload.location,
-        details: payload.details,
+        location: safeLocation,
+        details: payload.details ?? {},
         status: "draft",
         lastSavedStep: currentStep,
-        ...(payload.parentId ? { parentId: payload.parentId } : {}),
       }
+      if (payload.parentId) body.parentId = payload.parentId
+
       const res = await fetch("/api/properties", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -129,73 +160,138 @@ export function useAutoDraft({
   // ── Core save function ─────────────────────────────────────────────────────
   const performSave = useCallback(async () => {
     if (!enabled) return
+
+    // Guard: skip if there is truly nothing worth saving yet so we don't
+    // POST blank drafts on the very first render before the user types anything.
+    const hasAnythingToSave =
+      (flowType === "township" && (state.township?.name?.trim() || state.projects?.length > 0)) ||
+      (flowType === "project"  && state.projects?.[0]?.name?.trim()) ||
+      (flowType === "tower"    && state.towers?.[0]?.name?.trim())
+    if (!hasAnythingToSave) return
+
     setIsSaving(true)
     setDraftError(null)
 
     try {
       const newIds: DraftIds = { ...draftIdsRef.current }
 
+      // ── IMPORTANT: always persist the FULL WizardState in `details`. ──────
+      // DraftResumeBanner passes data.property.details directly to setState,
+      // which expects the full WizardState shape. If we store only a flat
+      // entity object (e.g. `tp`, `proj`, `tower`), the wizard state cannot
+      // be restored correctly.
+      const fullStateSnapshot = state
+
       if (flowType === "township") {
         const tp = state.township
         const townshipId = await saveEntity("township", newIds.townshipId, {
           name: tp?.name,
           location: { city: tp?.city, state: tp?.state },
-          details: tp,
+          details: fullStateSnapshot,   // ← full WizardState
         })
         newIds.townshipId = townshipId
 
-        // Save first project if exists
-        const proj = state.projects?.[0]
-        if (proj) {
-          const projectId = await saveEntity("project", newIds.projectId, {
+        const currentProjectMap = newIds.projectMap || {}
+        const currentTowerMap = newIds.towerMap || {}
+
+        // Save ALL projects (instead of just the first one)
+        for (const proj of state.projects || []) {
+          const projectLocation = {
+            city: proj.city || tp?.city,
+            state: proj.state || tp?.state
+          }
+          const mappedProjectId = currentProjectMap[proj.id];
+          const projectId = await saveEntity("project", mappedProjectId, {
             name: proj.name,
-            location: { city: proj.city, state: proj.state },
-            details: proj,
+            location: projectLocation,
+            details: fullStateSnapshot, // ← full WizardState
             parentId: townshipId,
           })
-          newIds.projectId = projectId
+          currentProjectMap[proj.id] = projectId
 
-          // Save first tower of that project if exists
-          const tower = state.towers?.find((t: any) => t.projectId === proj.id)
-          if (tower) {
-            const towerId = await saveEntity("tower", newIds.towerId, {
+          // Save ALL towers of THIS project
+          const projectTowers = (state.towers || []).filter((t: any) => t.projectId === proj.id)
+          for (const tower of projectTowers) {
+            const mappedTowerId = currentTowerMap[tower.id];
+            const towerId = await saveEntity("tower", mappedTowerId, {
               name: tower.name,
-              details: { ...tower, unitConfig: state.towerUnitConfigs?.find((c: any) => c.towerId === tower.id) },
+              location: projectLocation, // Inherit from project (which inherited from township)
+              details: fullStateSnapshot, // ← full WizardState
               parentId: projectId,
             })
-            newIds.towerId = towerId
+            currentTowerMap[tower.id] = towerId
           }
         }
+        newIds.projectMap = currentProjectMap
+        newIds.towerMap = currentTowerMap
+        
+        // Also keep the root projectId reference for backwards-compatibility checking 
+        // to appease `app/builder/page.tsx`'s draft check logic.
+        if (state.projects?.[0] && currentProjectMap[state.projects[0].id]) {
+           newIds.projectId = currentProjectMap[state.projects[0].id];
+        }
+
       } else if (flowType === "project") {
-        const proj = state.projects?.[0]
-        if (proj) {
-          const projectId = await saveEntity("project", newIds.projectId, {
+        const currentProjectMap = newIds.projectMap || {}
+        const currentTowerMap = newIds.towerMap || {}
+
+        // Normally Project flow has 1 project, but handle any existing projects correctly
+        for (const proj of state.projects || []) {
+          const projectLocation = { city: proj.city, state: proj.state }
+          const mappedProjectId = currentProjectMap[proj.id];
+          const projectId = await saveEntity("project", mappedProjectId, {
             name: proj.name,
-            location: { city: proj.city, state: proj.state },
-            details: proj,
+            location: projectLocation,
+            details: fullStateSnapshot, // ← full WizardState
             parentId: null,
           })
-          newIds.projectId = projectId
+          currentProjectMap[proj.id] = projectId
 
-          const tower = state.towers?.[0]
-          if (tower) {
-            const towerId = await saveEntity("tower", newIds.towerId, {
+          // Save ALL towers ofTHIS project
+          const projectTowers = (state.towers || []).filter((t: any) => t.projectId === proj.id)
+          for (const tower of projectTowers) {
+            const mappedTowerId = currentTowerMap[tower.id]
+            const towerId = await saveEntity("tower", mappedTowerId, {
               name: tower.name,
-              details: { ...tower, unitConfig: state.towerUnitConfigs?.[0] },
+              location: projectLocation, // Inherit from project
+              details: fullStateSnapshot, // ← full WizardState
               parentId: projectId,
             })
-            newIds.towerId = towerId
+            currentTowerMap[tower.id] = towerId
           }
         }
+        
+        newIds.projectMap = currentProjectMap
+        newIds.towerMap = currentTowerMap
+        
+        // Root projectId compatibility
+        if (state.projects?.[0] && currentProjectMap[state.projects[0].id]) {
+           newIds.projectId = currentProjectMap[state.projects[0].id];
+        }
+
       } else if (flowType === "tower") {
-        const tower = state.towers?.[0]
-        if (tower) {
-          const towerId = await saveEntity("tower", newIds.towerId, {
+        const currentTowerMap = newIds.towerMap || {}
+        
+        for (const tower of state.towers || []) {
+          const towerLocation = { 
+            city: (tower as any).city || state.township?.city, 
+            state: (tower as any).state || state.township?.state 
+          }
+          const mappedTowerId = currentTowerMap[tower.id]
+          const towerId = await saveEntity("tower", mappedTowerId, {
             name: tower.name,
-            details: { ...tower, unitConfig: state.towerUnitConfigs?.[0] },
+            location: towerLocation,
+            details: fullStateSnapshot, // ← full WizardState
             parentId: null,
           })
-          newIds.towerId = towerId
+          currentTowerMap[tower.id] = towerId
+        }
+
+        newIds.towerMap = currentTowerMap
+        
+        // Root towerId compatibility
+        if (state.towers?.[0] && currentTowerMap[state.towers[0].id]) {
+           newIds.towerId = currentTowerMap[state.towers[0].id];
         }
       }
 
@@ -203,6 +299,12 @@ export function useAutoDraft({
       saveDraftIdsToStorage(flowType, newIds)
       setLastSaved(new Date())
     } catch (err: any) {
+      if (err.message === "Draft not found or already published" || err.message === "Auto-save patch failed") {
+         // Gracefully handle race conditions where draft was just cleared or published.
+         clearDraftIdsFromStorage(flowType)
+         setDraftIds({})
+         return // Exit without angry console logs
+      }
       console.error("[useAutoDraft] Save failed:", err)
       setDraftError(err.message || "Auto-save failed")
     } finally {
@@ -227,6 +329,33 @@ export function useAutoDraft({
   }, [performSave])
 
   const clearDraft = useCallback(() => {
+    // ── Delete draft docs from MongoDB ─────────────────────────────────────
+    // Fire-and-forget: UI clears instantly; API call runs in background.
+    // The endpoint is idempotent — safe to call even if the doc is already gone.
+    const ids = draftIdsRef.current
+    
+    // Deleting the root gracefully deletes all nested entities via secureDeleteProperty
+    let rootIdsToDelete: string[] = []
+    if (flowType === "township" && ids.townshipId) {
+      rootIdsToDelete.push(ids.townshipId)
+    } else if (flowType === "project" && ids.projectId) {
+      rootIdsToDelete.push(ids.projectId)
+    } else if (flowType === "tower" && ids.towerId) {
+      rootIdsToDelete.push(ids.towerId)
+    }
+
+    if (rootIdsToDelete.length === 0) {
+      // Fallback
+      rootIdsToDelete = [ids.townshipId, ids.projectId, ids.towerId].filter(Boolean) as string[]
+    }
+
+    rootIdsToDelete.forEach((draftId) => {
+      fetch(`/api/properties/${draftId}/draft`, { method: "DELETE" }).catch((err) => {
+        console.warn(`[clearDraft] Failed to delete draft ${draftId} from DB:`, err)
+      })
+    })
+
+    // ── Clear localStorage immediately ──────────────────────────────────────
     clearDraftIdsFromStorage(flowType)
     setDraftIds({})
     setLastSaved(null)

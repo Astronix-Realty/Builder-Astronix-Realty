@@ -13,6 +13,8 @@ export interface IProperty extends Document {
   isDeleted: boolean;
   lastSavedStep: number;        // Last wizard step user was on
   autoSaveVersion: number;      // Increments on each auto-save
+  publishedId: mongoose.Types.ObjectId | null;  // For drafts: linked published record
+  draftId: mongoose.Types.ObjectId | null;      // For published: linked draft record
   createdBy: mongoose.Types.ObjectId;
   updatedBy: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -21,7 +23,14 @@ export interface IProperty extends Document {
 
 const PropertySchema = new Schema<IProperty>({
   type: { type: String, enum: ['township', 'project', 'tower'], required: true },
-  flowType: { type: String, enum: ['township', 'project', 'tower'], required: true },
+  // flowType: The entry-point flow. Defaults to the entity's own type (safe for standalone flows).
+  // The API always sends this explicitly; the default is a last-resort safety net.
+  flowType: {
+    type: String,
+    enum: ['township', 'project', 'tower'],
+    required: true,
+    default: function (this: any) { return this.type },
+  },
   parentId: { type: Schema.Types.ObjectId, ref: 'Property', default: null },
   builderId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   name: { type: String, required: true, trim: true },
@@ -32,6 +41,8 @@ const PropertySchema = new Schema<IProperty>({
   isDeleted: { type: Boolean, default: false },
   lastSavedStep: { type: Number, default: 1 },
   autoSaveVersion: { type: Number, default: 0 },
+  publishedId: { type: Schema.Types.ObjectId, ref: 'Property', default: null },
+  draftId: { type: Schema.Types.ObjectId, ref: 'Property', default: null },
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   updatedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true }
 }, { 
@@ -42,7 +53,9 @@ const PropertySchema = new Schema<IProperty>({
 PropertySchema.index({ builderId: 1 });
 PropertySchema.index({ parentId: 1 });
 PropertySchema.index({ builderId: 1, type: 1 });
-PropertySchema.index({ slug: 1 }, { unique: true });
+PropertySchema.index({ builderId: 1, publishedId: 1, status: 1 });
+PropertySchema.index({ publishedId: 1 });
+PropertySchema.index({ draftId: 1 });
 
 // Pre-save hook for hierarchy validation
 PropertySchema.pre('save', async function (next) {

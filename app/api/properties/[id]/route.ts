@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Property from "@/models/Property";
+import Unit from "@/models/Unit";
 import { getTokenFromRequest, verifyToken } from "@/lib/auth";
+import { secureDeleteProperty } from "@/services/property-service";
 
 // GET /api/properties/[id] - Fetch a single property
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -13,6 +15,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const decoded = verifyToken(token);
     if (!decoded) return NextResponse.json({ error: "Invalid token" }, { status: 401 });
 
+    // Guard: invalid ObjectId format → skip DB call and return a clean 404
+    if (!/^[a-f\d]{24}$/i.test(id)) {
+      return NextResponse.json({ error: "Property not found" }, { status: 404 });
+    }
+
     await dbConnect();
 
     // Only allow fetching properties owned by the token holder and not deleted
@@ -23,11 +30,115 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     });
 
     if (!property) {
+      if (process.env.NODE_ENV !== "production") {
+        // Check if the property exists at all (ownership mismatch vs deleted vs not found)
+        const exists = await Property.findById(id).lean();
+        if (!exists) {
+          console.warn(`[GET /api/properties/${id}] Not found in DB at all.`);
+        } else if ((exists as any).isDeleted) {
+          console.warn(`[GET /api/properties/${id}] Found but isDeleted=true.`);
+        } else {
+          console.warn(
+            `[GET /api/properties/${id}] builderId mismatch. doc.builderId='${
+              (exists as any).builderId
+            }' token.userId='${decoded.userId}'`
+          );
+        }
+      }
       return NextResponse.json({ error: "Property not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ property }, { status: 200 });
+    let finalProperty = property.toObject();
+
+    // Reconstruct the split documents back into standard WizardState for editing
+    // We do this if NOT draft, OR if it's a draft that was cloned (has publishedId) but has empty details.
+    const isRecNeeded = finalProperty.status !== "draft" || (finalProperty.publishedId && (!finalProperty.details?.projects || finalProperty.details.projects.length === 0));
+
+    if (isRecNeeded) {
+      let wizardState: any = {
+        township: {},
+        projects: [],
+        towers: [],
+        towerUnitConfigs: [],
+        generatedUnits: []
+      };
+      
+      let towerDbIds: string[] = []; // Real MongoDB _ids for Unit querying
+      const rootId = id; // Always look for children relative to current doc (draft or active)
+
+      // ── UPWARD RECONSTRUCTION (Inherit from parents if this is a child) ─────────────────
+      let walk = finalProperty;
+      while (walk.parentId) {
+          const parent = await Property.findById(walk.parentId).lean();
+          if (!parent || parent.isDeleted) break;
+          
+          if (parent.type === 'township') {
+              wizardState.township = (parent as any).details || {};
+          } else if (parent.type === 'project') {
+              // If we are starting from a tower, we might need project info too
+              // (but typically wizardState.projects is an array of all projects in township)
+          }
+          walk = parent as any;
+      }
+
+      // ── DOWNWARD RECONSTRUCTION (Fill children) ─────────────────────────────────────────
+      if (finalProperty.type === 'township') {
+          wizardState.township = finalProperty.details || {};
+          
+          const projects = await Property.find({ parentId: rootId, isDeleted: false, type: 'project' }).lean();
+          wizardState.projects = projects.map(p => ({ ...p.details, _dbId: p._id.toString() }));
+          
+          const projectDbIds = projects.map(p => p._id);
+          const towers = await Property.find({ parentId: { $in: projectDbIds }, isDeleted: false, type: 'tower' }).lean();
+          
+          wizardState.towers = towers.map(t => {
+              const { unitConfig, ...rest } = (t.details as any) || {};
+              if (unitConfig) wizardState.towerUnitConfigs.push({ ...unitConfig, towerId: rest.id });
+              towerDbIds.push(t._id.toString());
+              return { ...rest, _dbId: t._id.toString() };
+          });
+
+      } else if (finalProperty.type === 'project') {
+          wizardState.projects = [{ ...finalProperty.details, _dbId: id }];
+          
+          const towers = await Property.find({ parentId: rootId, isDeleted: false, type: 'tower' }).lean();
+          wizardState.towers = towers.map(t => {
+              const { unitConfig, ...rest } = (t.details as any) || {};
+              if (unitConfig) wizardState.towerUnitConfigs.push({ ...unitConfig, towerId: rest.id });
+              towerDbIds.push(t._id.toString());
+              return { ...rest, _dbId: t._id.toString() };
+          });
+
+      } else if (finalProperty.type === 'tower') {
+          const { unitConfig, ...rest } = finalProperty.details || {};
+          wizardState.towers = [{ ...rest, _dbId: id }];
+          if (unitConfig) wizardState.towerUnitConfigs.push({ ...unitConfig, towerId: rest.id });
+          towerDbIds.push(id);
+      }
+
+      // ── UNIT FETCHING (Using DB ObjectIDs) ──────────────────────────────────────────────
+      if (towerDbIds.length > 0) {
+          const units = await Unit.find({ towerId: { $in: towerDbIds } }).lean();
+          wizardState.generatedUnits = units.map(u => ({
+              id: (u as any).originalId || u._id.toString(),
+              towerId: u.towerId.toString(),
+              projectId: u.projectId?.toString(),
+              unitNumber: u.unitNumber,
+              floor: u.floorNumber,
+              type: u.configuration, // Map back to wizard schema
+              carpetArea: u.area,     // Map back to wizard schema
+              price: u.price,
+              facing: u.facing,
+              status: u.status
+          }));
+      }
+
+      finalProperty.details = wizardState;
+    }
+
+    return NextResponse.json({ property: finalProperty }, { status: 200 });
   } catch (error: any) {
+    console.error("[GET /api/properties/[id]] error:", error.message);
     return NextResponse.json({ error: "Failed to fetch property" }, { status: 500 });
   }
 }
@@ -67,7 +178,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
-// DELETE /api/properties/[id] - Soft delete a property
+// DELETE /api/properties/[id] - Delete a property
+// Hard deletes properties and any associated units + orphaned Cloudinary media securely.
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -77,20 +189,26 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const decoded = verifyToken(token);
     if (!decoded) return NextResponse.json({ error: "Invalid token" }, { status: 401 });
 
-    await dbConnect();
-
-    // Soft delete: set isDeleted to true
-    const result = await Property.findOneAndUpdate(
-      { _id: id, builderId: decoded.userId },
-      { $set: { isDeleted: true, updatedBy: decoded.userId } }
-    );
-
-    if (!result) {
-      return NextResponse.json({ error: "Property not found or unauthorized" }, { status: 404 });
+    // Guard: invalid ObjectId format → clean 404 instead of Mongoose CastError
+    if (!/^[a-f\d]{24}$/i.test(id)) {
+      return NextResponse.json({ error: "Property not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ message: "Property deleted successfully" }, { status: 200 });
+    await dbConnect();
+
+    const deleteResult = await secureDeleteProperty(id, decoded.userId);
+
+    return NextResponse.json(
+      { success: true, message: "Property and associated media securely deleted", details: deleteResult },
+      { status: 200 }
+    );
   } catch (error: any) {
+    console.error("[DELETE /api/properties/[id]] error:", error.message);
+    
+    if (error.message === "Property not found or unauthorized") {
+       return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+    
     return NextResponse.json({ error: "Failed to delete property" }, { status: 500 });
   }
 }

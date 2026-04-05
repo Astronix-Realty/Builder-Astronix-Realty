@@ -267,7 +267,7 @@ function BulkImageInput({ onAdd }: { onAdd: (urls: string[]) => void }) {
 // MAIN FORM COMPONENT
 // ─────────────────────────────────────────
 export function TownshipFlowForm({ data, onChange, user }: TownshipFlowFormProps) {
-  const [openIds, setOpenIds] = useState<SectionId[]>(["builder", "identity"])
+  const [openIds, setOpenIds] = useState<SectionId[]>(["identity", "builder", "location"])
   const [openParts, setOpenParts] = useState<string[]>(["part-a", "part-b"])
 
   const isBuilder = user?.role === "builder" || user?.userType === "builder"
@@ -398,221 +398,9 @@ export function TownshipFlowForm({ data, onChange, user }: TownshipFlowFormProps
 
   return (
     <div className="space-y-10">
-      <PartCollapse id="part-a" title="Common Inherited Data" icon={Home} openParts={openParts} setOpenParts={setOpenParts}>
 
-      {/* ── 1. BUILDER / DEVELOPER ─────────────── */}
-      {!isBuilder && (
-      <Section id="builder" title="Developer / Builder Info" description="Builder name, logo, contact — Hero pe dikhta hai" icon={Building2} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-         <div className="bg-gray-50/50 p-4 sm:p-5 rounded-2xl border border-gray-100 flex flex-col gap-5">
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-             <Field label="Builder / Company Name" required hint="Registered company name (auto-filled for builders)">
-               <Input value={data.builderName} onChange={e => update("builderName", e.target.value)} placeholder="Astronix Realty" className="h-11 border-gray-200 bg-white shadow-sm focus-visible:ring-blue-500 rounded-xl" />
-             </Field>
-             <Field label="Builder Logo URL" hint="A publicly accessible logo URL">
-               <Input value={data.builderLogo} onChange={e => update("builderLogo", e.target.value)} placeholder="https://..." className="h-11 border-gray-200 bg-white shadow-sm focus-visible:ring-blue-500 rounded-xl" />
-             </Field>
-           </div>
-         </div>
-      </Section>
-      )}
-
-      {/* ── 2. LOCATION ────────────────────────── */}
-      <Section id="location" title="Location Details" description="City, district, pincode — Map pe dikhta hai" icon={MapPin} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-        <Grid cols={2}>
-          <Field label="City" required>
-            <Input value={data.city} onChange={e => update("city", e.target.value)} placeholder="Mumbai" />
-          </Field>
-          <Field label="District" required>
-            <Input value={data.district} onChange={e => update("district", e.target.value)} placeholder="Thane" />
-          </Field>
-          <Field label="Sub City" required>
-            <Input value={data.subCity} onChange={e => update("subCity", e.target.value)} placeholder="Dombivali" />
-          </Field>
-          <Field label="Village / Area" required>
-            <Input value={data.village || ""} onChange={e => update("village", e.target.value)} placeholder="Sonarpada" />
-          </Field>
-
-          <Field label="State" required>
-            <Input value={data.state} onChange={e => update("state", e.target.value)} placeholder="Maharashtra" />
-          </Field>
-          <Field label="Country" required>
-            <Input value={data.country} onChange={e => update("country", e.target.value)} placeholder="India" />
-          </Field>
-          <Field label="Pincode" required>
-            <Input value={data.pincode} onChange={e => update("pincode", e.target.value)} placeholder="400601" />
-          </Field>
-        </Grid>
-        <SectionTitle title="Nearby Landmark" />
-        <Field label="Nearest Landmark" required hint="Eg: Near Viviana Mall, Off Ghodbunder Road">
-          <Input value={data.nearbyLandmark} onChange={e => update("nearbyLandmark", e.target.value)} placeholder="Near Viviana Mall" />
-        </Field>
-      </Section>
-
-      {/* ── 3. GOOGLE MAPS ─────────────────────── */}
-      <Section id="maps" title="Google Maps Integration" description="Map embed + directions — Connectivity section" icon={MapIcon} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-        <Grid cols={1}>
-          <Field label="Google Maps Full URL" required hint="Copy the full Google Maps share link">
-            <Input value={data.googleMapLink} onChange={e => update("googleMapLink", e.target.value)} placeholder="https://goo.gl/maps/..." />
-          </Field>
-          <Field label="Google Plus Code" hint='Eg: "+QR5, Thane, Maharashtra"'>
-            <Input value={data.googlePlusCode} onChange={e => update("googlePlusCode", e.target.value)} placeholder="+QR5, Thane, Maharashtra" />
-          </Field>
-          <Field label="Google Business Profile Code" hint="Embed code from Google My Business (optional)">
-            <Textarea value={data.gmbProfileCode || ""} onChange={e => update("gmbProfileCode", e.target.value)} rows={2} placeholder="<iframe ...></iframe>" />
-          </Field>
-        </Grid>
-        <SectionTitle title="Coordinates (Optional)" />
-        <Grid cols={2}>
-          <Field label="Latitude">
-            <Input value={data.coordinates?.lat || ""} onChange={e => update("coordinates", { ...data.coordinates, lat: e.target.value, lng: data.coordinates?.lng || "" })} placeholder="19.2183" />
-          </Field>
-          <Field label="Longitude">
-            <Input value={data.coordinates?.lng || ""} onChange={e => update("coordinates", { lat: data.coordinates?.lat || "", lng: e.target.value })} placeholder="72.9781" />
-          </Field>
-        </Grid>
-      </Section>
-
-      {/* ── 4. CONNECTIVITY ─────────────────────── */}
-      <Section id="connectivity" title="Connectivity" description="Airport, Railway, Metro, Hospital, Schools distance" icon={Wifi} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-        <p className="text-xs text-gray-500 mb-3">Yeh items sabhi pages (Project/Tower/Unit) pe dikhenge. Har ek important location ke liye ek item add karo.</p>
-        {data.connectivity.map(item => (
-          <Card key={item.id} className="mb-3 border-gray-100">
-            <CardContent className="p-3">
-              <Grid cols={2}>
-                <Field label="Location Name">
-                  <Input value={item.title} onChange={e => updateConnectivity(item.id, { title: e.target.value })} placeholder="International Airport" />
-                </Field>
-                <Field label="Type">
-                  <Select value={item.type} onValueChange={v => updateConnectivity(item.id, { type: v as ConnectivityItem["type"] })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {["airport", "railway", "metro", "highway", "hospital", "school", "mall", "it-park", "bus", "custom"].map(t => (
-                        <SelectItem key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="Distance">
-                  <Input value={item.distanceKm} onChange={e => updateConnectivity(item.id, { distanceKm: e.target.value })} placeholder="18 KM" />
-                </Field>
-                <Field label="Travel Time">
-                  <Input value={item.duration} onChange={e => updateConnectivity(item.id, { duration: e.target.value })} placeholder="25 Mins" />
-                </Field>
-              </Grid>
-              <button type="button" onClick={() => removeConnectivity(item.id)} className="mt-2 text-xs text-red-400 hover:text-red-600 flex items-center gap-1">
-                <X className="w-3 h-3" /> Remove
-              </button>
-            </CardContent>
-          </Card>
-        ))}
-        <Button type="button" variant="outline" size="sm" onClick={addConnectivity} className="w-full border-dashed">
-          <Plus className="w-4 h-4 mr-1" /> Add Connectivity Item
-        </Button>
-      </Section>
-
-      {/* ── 5. AMENITIES ────────────────────────── */}
-      <Section id="amenities" title="Lifestyle & Amenities" description="Social, Recreation, Community, Green, Security, General tabs" icon={Star} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-        <AmenitiesManager 
-          amenities={data.amenities}
-          onChange={(val) => update("amenities", val)}
-        />
-      </Section>
-
-      {/* ── 6. ECO / SUSTAINABILITY ─────────────── */}
-      <Section id="eco" title="Sustainability & Eco Features" description="Solar, Rainwater, Green Cover — Sustainability section" icon={Leaf} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-        <SectionTitle title="Specific Eco Features" />
-        {data.ecoFeatures.map(item => (
-          <Card key={item.id} className="mb-3 border-gray-100">
-            <CardContent className="p-3">
-              <Grid cols={3}>
-                <Field label="Feature Title">
-                  <Input value={item.title} onChange={e => updateEco(item.id, { title: e.target.value })} placeholder="Solar Power" />
-                </Field>
-                <Field label="Icon">
-                  <Select value={item.icon || "leaf"} onValueChange={v => updateEco(item.id, { icon: v as EcoFeature["icon"] })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {["leaf", "zap", "droplet", "sun", "wind", "recycle"].map(ic => (
-                        <SelectItem key={ic} value={ic}>{ic}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <button type="button" onClick={() => removeEco(item.id)} className="mt-5 text-red-400 hover:text-red-600 self-start">
-                  <X className="w-4 h-4" />
-                </button>
-              </Grid>
-              <div className="mt-2">
-                <Field label="Description">
-                  <Input value={item.description} onChange={e => updateEco(item.id, { description: e.target.value })} placeholder="100% renewable energy for common areas" />
-                </Field>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-        <Button type="button" variant="outline" size="sm" onClick={addEco} className="w-full border-dashed mt-1">
-          <Plus className="w-4 h-4 mr-1" /> Add Eco Feature
-        </Button>
-      </Section>
-
-
-      {/* ── 8. BANK APF APPROVALS ────────────────── */}
-      <Section id="legal-apf" title="Bank APF Approvals" description="Common bank approvals for the township" icon={ShieldCheck} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-        <SectionTitle title="Bank APF Approvals" />
-        {(data.apfDetails || []).map(item => (
-          <Card key={item.id} className="mb-3 border-gray-100">
-            <CardContent className="p-3 relative">
-              <button type="button" onClick={() => removeApf(item.id)} className="absolute top-2 right-2 text-red-400 hover:text-red-600">
-                <X className="w-4 h-4" />
-              </button>
-              <Grid cols={3}>
-                <Field label="Bank Name">
-                  <Input value={item.bankName} onChange={e => updateApf(item.id, { bankName: e.target.value })} placeholder="HDFC Bank" />
-                </Field>
-                <Field label="APF Number">
-                  <Input value={item.apfNumber} onChange={e => updateApf(item.id, { apfNumber: e.target.value })} placeholder="APF/HDFC/2023/001" />
-                </Field>
-                <Field label="Certificate URL">
-                  <Input value={item.certificateUrl} onChange={e => updateApf(item.id, { certificateUrl: e.target.value })} placeholder="https://..." />
-                </Field>
-              </Grid>
-            </CardContent>
-          </Card>
-        ))}
-        <Button type="button" variant="outline" size="sm" onClick={addApf} className="w-full border-dashed">
-          <Plus className="w-4 h-4 mr-1" /> Add Bank APF
-        </Button>
-      </Section>
-
-
-
-      {/* ── 9. GROUP BUYING ─────────────────────── */}
-      <Section id="groupbuying" title="Group Buying" description="Interest count + discount — GroupBuyingSection component" icon={Users} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-        <Grid cols={2}>
-          <Field label="Enable Group Buying">
-            <div className="flex items-center gap-3 mt-1">
-              <button
-                type="button"
-                onClick={() => update("groupBuying", { ...data.groupBuying, enabled: !data.groupBuying?.enabled })}
-                className={`w-10 h-6 rounded-full transition-colors relative ${data.groupBuying?.enabled ? "bg-[#2BB673]" : "bg-gray-200"}`}
-              >
-                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${data.groupBuying?.enabled ? "left-5" : "left-1"}`} />
-              </button>
-              <span className="text-sm font-medium text-gray-600">{data.groupBuying?.enabled ? "Active" : "Inactive"}</span>
-            </div>
-          </Field>
-          <Field label="Discount Label (in % or amount)" hint="Text shown on group buying card">
-            <Input value={data.groupBuying?.discountLabel || ""} onChange={e => update("groupBuying", { ...data.groupBuying, discountLabel: e.target.value })} placeholder="Extra 2% off on group booking" />
-          </Field>
-          <Field label="Minimum people required for unlock discount" hint="Goal milestone for group buying">
-            <Input type="number" value={data.groupBuying?.targetCount || 500} onChange={e => update("groupBuying", { ...data.groupBuying, targetCount: Number(e.target.value) })} placeholder="500" />
-          </Field>
-        </Grid>
-      </Section>
-
-      </PartCollapse>
-
-      <PartCollapse id="part-b" title="Township-Specific Data" icon={Building2} openParts={openParts} setOpenParts={setOpenParts}>
+      {/* PHASE ONE: TOWNSHIP SPECIFIC DATA (Now part-a) */}
+      <PartCollapse id="part-a" title="Township-Specific Data" icon={Building2} openParts={openParts} setOpenParts={setOpenParts}>
 
       {/* ── 9. TOWNSHIP IDENTITY ──────────────── */}
       <Section id="identity" title="Township Identity" description="Name, tagline, price range, hero image — Township Hero Section" icon={Building2} openIds={openIds} setOpenIds={setOpenIds}>
@@ -629,11 +417,11 @@ export function TownshipFlowForm({ data, onChange, user }: TownshipFlowFormProps
           {/* RIGHT: Fields */}
           <div className="flex-1 space-y-5">
             <Field label="Township Name" required>
-              <Input value={data.name} onChange={e => update("name", e.target.value)} placeholder="e.g. Royal Meadows" className="h-10 border-gray-200 focus-visible:ring-[#1A3C8C]" />
+              <Input value={data.name ?? ""} onChange={e => update("name", e.target.value)} placeholder="e.g. Royal Meadows" className="h-10 border-gray-200 focus-visible:ring-[#1A3C8C]" />
             </Field>
 
             <Field label="Tag / Type" hint="Appears as a badge on the listing card.">
-              <Input value={data.tagType} onChange={e => update("tagType", e.target.value)} placeholder="e.g. Luxury Integrated Township" className="h-10 border-gray-200 focus-visible:ring-[#1A3C8C]" />
+              <Input value={data.tagType ?? ""} onChange={e => update("tagType", e.target.value)} placeholder="e.g. Luxury Integrated Township" className="h-10 border-gray-200 focus-visible:ring-[#1A3C8C]" />
             </Field>
 
             <Field label="Construction Status" required hint="Determines if CC or OC is needed">
@@ -652,13 +440,13 @@ export function TownshipFlowForm({ data, onChange, user }: TownshipFlowFormProps
           <SectionTitle title="Price Range (Hero Section)" />
           <Grid cols={3}>
             <Field label="Min Price (₹)" hint="Eg: 5000000 for ₹50L">
-              <Input type="number" value={data.priceRangeMin || ""} onChange={e => update("priceRangeMin", Number(e.target.value))} placeholder="5000000" className="border-gray-200" />
+              <Input type="number" value={data.priceRangeMin ?? ""} onChange={e => update("priceRangeMin", Number(e.target.value))} placeholder="5000000" className="border-gray-200" />
             </Field>
             <Field label="Max Price (₹)" hint="Eg: 50000000 for ₹5Cr">
-              <Input type="number" value={data.priceRangeMax || ""} onChange={e => update("priceRangeMax", Number(e.target.value))} placeholder="50000000" className="border-gray-200" />
+              <Input type="number" value={data.priceRangeMax ?? ""} onChange={e => update("priceRangeMax", Number(e.target.value))} placeholder="50000000" className="border-gray-200" />
             </Field>
             <Field label="Price Label (Override)" hint="Optional: shows instead of auto-range">
-              <Input value={data.priceLabel || ""} onChange={e => update("priceLabel", e.target.value)} placeholder="₹50L – ₹5 Cr" className="border-gray-200" />
+              <Input value={data.priceLabel ?? ""} onChange={e => update("priceLabel", e.target.value)} placeholder="₹50L – ₹5 Cr" className="border-gray-200" />
             </Field>
           </Grid>
         </div>
@@ -708,7 +496,7 @@ export function TownshipFlowForm({ data, onChange, user }: TownshipFlowFormProps
           <div className="flex-1 space-y-6">
             <Field label="Short Description / Tagline" hint="Appears in property cards (1-2 lines)">
               <Textarea 
-                value={data.description} 
+                value={data.description ?? ""} 
                 onChange={e => update("description", e.target.value)} 
                 rows={3} 
                 placeholder="A mega township where luxury meets nature..." 
@@ -718,7 +506,7 @@ export function TownshipFlowForm({ data, onChange, user }: TownshipFlowFormProps
             
             <Field label="Vision Statement" hint="Detailed core philosophy of the project">
               <Textarea 
-                value={data.visionStatement} 
+                value={data.visionStatement ?? ""} 
                 onChange={e => update("visionStatement", e.target.value)} 
                 rows={4} 
                 placeholder="Our vision is to create a world-class living experience..." 
@@ -733,7 +521,7 @@ export function TownshipFlowForm({ data, onChange, user }: TownshipFlowFormProps
       <Section id="stats" title="Key Statistics" description="Total area, families, launch date — Stats bar" icon={BarChart3} openIds={openIds} setOpenIds={setOpenIds}>
         <Grid cols={3}>
           <Field label="Total Land Area" required>
-            <Input type="number" value={data.totalArea} onChange={e => update("totalArea", e.target.value)} placeholder="100" />
+            <Input type="number" value={data.totalArea ?? ""} onChange={e => update("totalArea", e.target.value)} placeholder="100" />
           </Field>
           <Field label="Area Unit">
             <Select value={data.areaUnit} onValueChange={v => update("areaUnit", v as TownshipData["areaUnit"])}>
@@ -746,19 +534,19 @@ export function TownshipFlowForm({ data, onChange, user }: TownshipFlowFormProps
             </Select>
           </Field>
           <Field label="Total Projects / Phases" hint="Auto-synced from Projects step">
-            <Input type="number" value={data.projectCount} onChange={e => update("projectCount", Number(e.target.value))} placeholder="5" className="bg-gray-50/50" />
+            <Input type="number" value={data.projectCount ?? ""} onChange={e => update("projectCount", Number(e.target.value))} placeholder="5" className="bg-gray-50/50" />
           </Field>
           <Field label="Total Towers" hint="Auto-synced from Towers step">
-            <Input type="number" value={data.totalTowers} readOnly placeholder="0" className="bg-gray-50 cursor-not-allowed font-bold text-blue-600" />
+            <Input type="number" value={data.totalTowers ?? ""} readOnly placeholder="0" className="bg-gray-50 cursor-not-allowed font-bold text-blue-600" />
           </Field>
           <Field label="Total Units" hint="Auto-synced from Units step">
-            <Input type="number" value={data.totalUnits} readOnly placeholder="0" className="bg-gray-50 cursor-not-allowed font-bold text-blue-600" />
+            <Input type="number" value={data.totalUnits ?? ""} readOnly placeholder="0" className="bg-gray-50 cursor-not-allowed font-bold text-blue-600" />
           </Field>
           <Field label="Total Families" hint="Auto-calculated (can override)">
-            <Input type="number" value={data.totalFamilies} onChange={e => update("totalFamilies", Number(e.target.value))} placeholder="2000" className="bg-gray-50/50" />
+            <Input type="number" value={data.totalFamilies ?? ""} onChange={e => update("totalFamilies", Number(e.target.value))} placeholder="2000" className="bg-gray-50/50" />
           </Field>
           <Field label="Launch Date" hint="Eg: January 2022">
-            <Input value={data.launchDate} onChange={e => update("launchDate", e.target.value)} placeholder="January 2022" />
+            <Input value={data.launchDate ?? ""} onChange={e => update("launchDate", e.target.value)} placeholder="January 2022" />
           </Field>
         </Grid>
       </Section>
@@ -923,10 +711,226 @@ export function TownshipFlowForm({ data, onChange, user }: TownshipFlowFormProps
         </div>
       </Section>
 
+      </PartCollapse>
 
 
+
+
+      {/* PHASE TWO: COMMON INHERITED DATA (Now part-b) */}
+      <PartCollapse id="part-b" title="Common Inherited Data" icon={Home} openParts={openParts} setOpenParts={setOpenParts}>
+
+      {/* ── 1. BUILDER / DEVELOPER ─────────────── */}
+      {!isBuilder && (
+      <Section id="builder" title="Developer / Builder Info" description="Builder name, logo, contact — Hero pe dikhta hai" icon={Building2} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
+         <div className="bg-gray-50/50 p-4 sm:p-5 rounded-2xl border border-gray-100 flex flex-col gap-5">
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+             <Field label="Builder / Company Name" required hint="Registered company name (auto-filled for builders)">
+               <Input value={data.builderName} onChange={e => update("builderName", e.target.value)} placeholder="Astronix Realty" className="h-11 border-gray-200 bg-white shadow-sm focus-visible:ring-blue-500 rounded-xl" />
+             </Field>
+             <Field label="Builder Logo URL" hint="A publicly accessible logo URL">
+               <Input value={data.builderLogo} onChange={e => update("builderLogo", e.target.value)} placeholder="https://..." className="h-11 border-gray-200 bg-white shadow-sm focus-visible:ring-blue-500 rounded-xl" />
+             </Field>
+           </div>
+         </div>
+      </Section>
+      )}
+
+      {/* ── 2. LOCATION ────────────────────────── */}
+      <Section id="location" title="Location Details" description="City, district, pincode — Map pe dikhta hai" icon={MapPin} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
+        <Grid cols={2}>
+          <Field label="City" required>
+            <Input value={data.city ?? ""} onChange={e => update("city", e.target.value)} placeholder="Mumbai" />
+          </Field>
+          <Field label="District" required>
+            <Input value={data.district ?? ""} onChange={e => update("district", e.target.value)} placeholder="Thane" />
+          </Field>
+          <Field label="Sub City" required>
+            <Input value={data.subCity ?? ""} onChange={e => update("subCity", e.target.value)} placeholder="Dombivali" />
+          </Field>
+          <Field label="Village / Area" required>
+            <Input value={data.village ?? ""} onChange={e => update("village", e.target.value)} placeholder="Sonarpada" />
+          </Field>
+
+          <Field label="State" required>
+            <Input value={data.state ?? ""} onChange={e => update("state", e.target.value)} placeholder="Maharashtra" />
+          </Field>
+          <Field label="Country" required>
+            <Input value={data.country ?? ""} onChange={e => update("country", e.target.value)} placeholder="India" />
+          </Field>
+          <Field label="Pincode" required>
+            <Input value={data.pincode ?? ""} onChange={e => update("pincode", e.target.value)} placeholder="400601" />
+          </Field>
+        </Grid>
+        <SectionTitle title="Nearby Landmark" />
+        <Field label="Nearest Landmark" required hint="Eg: Near Viviana Mall, Off Ghodbunder Road">
+          <Input value={data.nearbyLandmark ?? ""} onChange={e => update("nearbyLandmark", e.target.value)} placeholder="Near Viviana Mall" />
+        </Field>
+      </Section>
+
+      {/* ── 3. GOOGLE MAPS ─────────────────────── */}
+      <Section id="maps" title="Google Maps Integration" description="Map embed + directions — Connectivity section" icon={MapIcon} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
+        <Grid cols={1}>
+          <Field label="Google Maps Full URL" required hint="Copy the full Google Maps share link">
+            <Input value={data.googleMapLink ?? ""} onChange={e => update("googleMapLink", e.target.value)} placeholder="https://goo.gl/maps/..." />
+          </Field>
+          <Field label="Google Plus Code" hint='Eg: "+QR5, Thane, Maharashtra"'>
+            <Input value={data.googlePlusCode ?? ""} onChange={e => update("googlePlusCode", e.target.value)} placeholder="+QR5, Thane, Maharashtra" />
+          </Field>
+          <Field label="Google Business Profile Code" hint="Embed code from Google My Business (optional)">
+            <Textarea value={data.gmbProfileCode ?? ""} onChange={e => update("gmbProfileCode", e.target.value)} rows={2} placeholder="<iframe ...></iframe>" />
+          </Field>
+        </Grid>
+        <SectionTitle title="Coordinates (Optional)" />
+        <Grid cols={2}>
+          <Field label="Latitude">
+            <Input value={data.coordinates?.lat || ""} onChange={e => update("coordinates", { ...data.coordinates, lat: e.target.value, lng: data.coordinates?.lng || "" })} placeholder="19.2183" />
+          </Field>
+          <Field label="Longitude">
+            <Input value={data.coordinates?.lng || ""} onChange={e => update("coordinates", { lat: data.coordinates?.lat || "", lng: e.target.value })} placeholder="72.9781" />
+          </Field>
+        </Grid>
+      </Section>
+
+      {/* ── 4. CONNECTIVITY ─────────────────────── */}
+      <Section id="connectivity" title="Connectivity" description="Airport, Railway, Metro, Hospital, Schools distance" icon={Wifi} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
+        <p className="text-xs text-gray-500 mb-3">Yeh items sabhi pages (Project/Tower/Unit) pe dikhenge. Har ek important location ke liye ek item add karo.</p>
+        {data.connectivity.map(item => (
+          <Card key={item.id} className="mb-3 border-gray-100">
+            <CardContent className="p-3">
+              <Grid cols={2}>
+                <Field label="Location Name">
+                  <Input value={item.title ?? ""} onChange={e => updateConnectivity(item.id, { title: e.target.value })} placeholder="International Airport" />
+                </Field>
+                <Field label="Type">
+                  <Select value={item.type} onValueChange={v => updateConnectivity(item.id, { type: v as ConnectivityItem["type"] })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {["airport", "railway", "metro", "highway", "hospital", "school", "mall", "it-park", "bus", "custom"].map(t => (
+                        <SelectItem key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Distance">
+                  <Input value={item.distanceKm ?? ""} onChange={e => updateConnectivity(item.id, { distanceKm: e.target.value })} placeholder="18 KM" />
+                </Field>
+                <Field label="Travel Time">
+                  <Input value={item.duration ?? ""} onChange={e => updateConnectivity(item.id, { duration: e.target.value })} placeholder="25 Mins" />
+                </Field>
+              </Grid>
+              <button type="button" onClick={() => removeConnectivity(item.id)} className="mt-2 text-xs text-red-400 hover:text-red-600 flex items-center gap-1">
+                <X className="w-3 h-3" /> Remove
+              </button>
+            </CardContent>
+          </Card>
+        ))}
+        <Button type="button" variant="outline" size="sm" onClick={addConnectivity} className="w-full border-dashed">
+          <Plus className="w-4 h-4 mr-1" /> Add Connectivity Item
+        </Button>
+      </Section>
+
+      {/* ── 5. AMENITIES ────────────────────────── */}
+      <Section id="amenities" title="Lifestyle & Amenities" description="Social, Recreation, Community, Green, Security, General tabs" icon={Star} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
+        <AmenitiesManager 
+          amenities={data.amenities}
+          onChange={(val) => update("amenities", val)}
+        />
+      </Section>
+
+      {/* ── 6. ECO / SUSTAINABILITY ─────────────── */}
+      <Section id="eco" title="Sustainability & Eco Features" description="Solar, Rainwater, Green Cover — Sustainability section" icon={Leaf} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
+        <SectionTitle title="Specific Eco Features" />
+        {data.ecoFeatures.map(item => (
+          <Card key={item.id} className="mb-3 border-gray-100">
+            <CardContent className="p-3">
+              <Grid cols={3}>
+                <Field label="Feature Title">
+                  <Input value={item.title} onChange={e => updateEco(item.id, { title: e.target.value })} placeholder="Solar Power" />
+                </Field>
+                <Field label="Icon">
+                  <Select value={item.icon || "leaf"} onValueChange={v => updateEco(item.id, { icon: v as EcoFeature["icon"] })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {["leaf", "zap", "droplet", "sun", "wind", "recycle"].map(ic => (
+                        <SelectItem key={ic} value={ic}>{ic}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <button type="button" onClick={() => removeEco(item.id)} className="mt-5 text-red-400 hover:text-red-600 self-start">
+                  <X className="w-4 h-4" />
+                </button>
+              </Grid>
+              <div className="mt-2">
+                <Field label="Description">
+                  <Input value={item.description ?? ""} onChange={e => updateEco(item.id, { description: e.target.value })} placeholder="100% renewable energy for common areas" />
+                </Field>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+        <Button type="button" variant="outline" size="sm" onClick={addEco} className="w-full border-dashed mt-1">
+          <Plus className="w-4 h-4 mr-1" /> Add Eco Feature
+        </Button>
+      </Section>
+
+
+      {/* ── 8. BANK APF APPROVALS ────────────────── */}
+      <Section id="legal-apf" title="Bank APF Approvals" description="Common bank approvals for the township" icon={ShieldCheck} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
+        <SectionTitle title="Bank APF Approvals" />
+        {(data.apfDetails || []).map(item => (
+          <Card key={item.id} className="mb-3 border-gray-100">
+            <CardContent className="p-3 relative">
+              <button type="button" onClick={() => removeApf(item.id)} className="absolute top-2 right-2 text-red-400 hover:text-red-600">
+                <X className="w-4 h-4" />
+              </button>
+              <Grid cols={3}>
+                <Field label="Bank Name">
+                  <Input value={item.bankName ?? ""} onChange={e => updateApf(item.id, { bankName: e.target.value })} placeholder="HDFC Bank" />
+                </Field>
+                <Field label="APF Number">
+                  <Input value={item.apfNumber ?? ""} onChange={e => updateApf(item.id, { apfNumber: e.target.value })} placeholder="APF/HDFC/2023/001" />
+                </Field>
+                <Field label="Certificate URL">
+                  <Input value={item.certificateUrl ?? ""} onChange={e => updateApf(item.id, { certificateUrl: e.target.value })} placeholder="https://..." />
+                </Field>
+              </Grid>
+            </CardContent>
+          </Card>
+        ))}
+        <Button type="button" variant="outline" size="sm" onClick={addApf} className="w-full border-dashed">
+          <Plus className="w-4 h-4 mr-1" /> Add Bank APF
+        </Button>
+      </Section>
+
+
+
+      {/* ── 9. GROUP BUYING ─────────────────────── */}
+      <Section id="groupbuying" title="Group Buying" description="Interest count + discount — GroupBuyingSection component" icon={Users} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
+        <Grid cols={2}>
+          <Field label="Enable Group Buying">
+            <div className="flex items-center gap-3 mt-1">
+              <button
+                type="button"
+                onClick={() => update("groupBuying", { ...data.groupBuying, enabled: !data.groupBuying?.enabled })}
+                className={`w-10 h-6 rounded-full transition-colors relative ${data.groupBuying?.enabled ? "bg-[#2BB673]" : "bg-gray-200"}`}
+              >
+                <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${data.groupBuying?.enabled ? "left-5" : "left-1"}`} />
+              </button>
+              <span className="text-sm font-medium text-gray-600">{data.groupBuying?.enabled ? "Active" : "Inactive"}</span>
+            </div>
+          </Field>
+          <Field label="Discount Label (in % or amount)" hint="Text shown on group buying card">
+            <Input value={data.groupBuying?.discountLabel || ""} onChange={e => update("groupBuying", { ...data.groupBuying, discountLabel: e.target.value })} placeholder="Extra 2% off on group booking" />
+          </Field>
+          <Field label="Minimum people required for unlock discount" hint="Goal milestone for group buying">
+            <Input type="number" value={data.groupBuying?.targetCount || 500} onChange={e => update("groupBuying", { ...data.groupBuying, targetCount: Number(e.target.value) })} placeholder="500" />
+          </Field>
+        </Grid>
+      </Section>
 
       </PartCollapse>
+
     </div>
   )
 }

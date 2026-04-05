@@ -156,7 +156,26 @@ function BuilderContent() {
     const loadProperty = async () => {
       if (editId) {
         try {
-          const res = await fetch(`/api/properties/${editId}`)
+          let targetId = editId
+          const checkRes = await fetch(`/api/properties/${editId}`)
+          if (checkRes.ok) {
+            const checkData = await checkRes.json()
+            // If the property is NOT a draft, clone it to a draft first
+            if (checkData.property?.status !== 'draft') {
+              console.log("Property is active. Cloning to draft before editing...")
+              const cloneRes = await fetch(`/api/properties/${editId}/clone-to-draft`, { method: 'POST' })
+              if (cloneRes.ok) {
+                const cloneData = await cloneRes.json()
+                targetId = cloneData.draftId
+                // Update URL without full reload to prevent infinite loop but ensure refresh uses the draft ID
+                const newUrl = new URL(window.location.href)
+                newUrl.searchParams.set("edit", targetId)
+                window.history.replaceState({}, "", newUrl.toString())
+              }
+            }
+          }
+
+          const res = await fetch(`/api/properties/${targetId}`)
           if (res.ok) {
             const data = await res.json()
             if (data.property) {
@@ -171,8 +190,10 @@ function BuilderContent() {
                   towers: wizardData.towers || defaultState.towers,
                   unitTemplate: { ...defaultState.unitTemplate, ...(wizardData.unitTemplate || {}) },
                   towerUnitConfigs: wizardData.towerUnitConfigs || defaultState.towerUnitConfigs,
+                  // Ensure currentStep is restored
+                  currentStep: wizardData.currentStep || data.property.lastSavedStep || defaultState.currentStep
                 })
-                console.log("Loaded property from MongoDB:", data.property)
+                console.log("Loaded property draft from MongoDB:", data.property)
               }
             }
           }
@@ -190,7 +211,8 @@ function BuilderContent() {
     currentStep: state?.currentStep || 1,
     state,
     debounceMs: 10000,
-    enabled: !isAuthChecking,
+    // Turn off auto-save when creating to prevent "draft already published" errors
+    enabled: !isAuthChecking && !isCreating && !isComplete,
   })
 
   // Theme management
@@ -253,8 +275,8 @@ function BuilderContent() {
 
   const generatedTowers = useMemo<GeneratedTower[]>(() => {
     return towers.map((tower) => {
-      const floors = Number.parseInt(tower.totalFloors.replace(/\D/g, "")) || 20
-      const unitsPerFloor = Number.parseInt(tower.unitsPerFloor) || 4
+      const floors = Number.parseInt(String(tower.totalFloors || "").replace(/\D/g, "")) || 20
+      const unitsPerFloor = Number.parseInt(String(tower.unitsPerFloor || "")) || 4
       return {
         id: tower.id,
         projectId: tower.projectId,
@@ -453,32 +475,24 @@ function BuilderContent() {
 
     // Clone towers of this project
     const projectTowers = state.towers.filter(t => t.projectId === projectId)
-    const clonedTowers = projectTowers.map(tower => {
-      const newTowerId = `tower-${crypto.randomUUID()}`
-      return { ...tower, id: newTowerId, projectId: newProjectId }
-    })
-
-    // Clone units of those towers
-    const clonedConfigs = projectTowers.flatMap(tower => {
-      const originalConfig = state.towerUnitConfigs.find(c => c.towerId === tower.id)
-      if (originalConfig) {
-        // Find the new tower id for this tower
-        const newTowerId = clonedTowers.find(ct => ct.name === tower.name)?.id // names might not be unique but here they are same
-        // Actually better to map them safely
-        return [] // We'll do it better below
-      }
-      return []
-    })
-
-    // Correct way to clone nested structure
     const towerConfigsToAdd: any[] = []
+    
+    // Create a precise mapping of old Tower ID to new Tower ID
+    const towerIdMap: Record<string, string> = {}
+    
     const finalClonedTowers = projectTowers.map(tower => {
       const newTowerId = `tower-${crypto.randomUUID()}`
+      towerIdMap[tower.id] = newTowerId
+      return { ...tower, id: newTowerId, projectId: newProjectId }
+    })
+
+    // Now map configs using the exact map
+    projectTowers.forEach(tower => {
       const originalConfig = state.towerUnitConfigs.find(c => c.towerId === tower.id)
-      if (originalConfig) {
+      const newTowerId = towerIdMap[tower.id]
+      if (originalConfig && newTowerId) {
         towerConfigsToAdd.push({ ...originalConfig, towerId: newTowerId })
       }
-      return { ...tower, id: newTowerId, projectId: newProjectId }
     })
 
     setState(prev => ({
@@ -495,9 +509,26 @@ function BuilderContent() {
   const minStep = 1 + stepOffset // Min step based on flow
 
   const validateStep = useCallback(() => {
-    // ⚠️ Validation temporarily disabled — enable before production
+    if (state.currentStep === 1) {
+      if (!state.township.name) {
+        alert("Please enter a Township Name.")
+        return false
+      }
+    }
+    if (state.currentStep === 2 && flowType === "township") {
+      if (state.projects.length === 0) {
+        alert("Please add at least one Project.")
+        return false
+      }
+    }
+    if (state.currentStep === 3 && (flowType === "township" || flowType === "project")) {
+      if (state.towers.length === 0) {
+         alert("Please add at least one Tower.")
+         return false
+      }
+    }
     return true
-  }, [])
+  }, [state.currentStep, state.township.name, state.projects.length, state.towers.length, flowType])
 
   const nextStep = useCallback(() => {
     if (!validateStep()) return
@@ -537,70 +568,109 @@ function BuilderContent() {
         return (await res.json()).property._id
       }
 
-      // Sequential Creation Flow
-      if (flowType === "township") {
-        const rootName = state.township?.name || "Untitled Township"
+      // Use the specialized Publish API if we have a draft ID
+      if (draftIds.townshipId || draftIds.projectId || draftIds.towerId) {
+        const rootDraftId = draftIds.townshipId || draftIds.projectId || draftIds.towerId;
+        const publishRes = await fetch(`/api/properties/${rootDraftId}/publish`, { method: 'POST' });
+        if (!publishRes.ok) {
+          const err = await publishRes.json();
+          throw new Error(err.error || "Failed to publish draft hierarchy");
+        }
+      } else {
+        // Fallback to legacy sequential creation for brand new, unsaved content
+        // This handles cases where auto-save hasn't fired yet but the user clicks publish
+        const towerIdMap: Record<string, string> = {}
+        const projectIdMap: Record<string, string> = {}
         const rootLoc = { city: state.township?.city, state: state.township?.state }
-        
-        const townshipId = await createApi({
-          type: 'township',
-          name: rootName,
-          location: rootLoc,
-          details: state.township,
-          status: 'active'
-        })
-        
-        for (const proj of state.projects) {
-           const projectId = await createApi({
-             type: 'project',
-             parentId: townshipId,
-             name: proj.name || "Untitled Project",
-             location: { city: (proj as any).city, state: (proj as any).state },
-             details: proj,
-             status: 'active'
-           })
 
-           const projTowers = generatedTowers.filter(t => t.projectId === proj.id)
-           for (const tow of projTowers) {
-              await createApi({
-                type: 'tower',
-                parentId: projectId,
-                name: tow.name || "Untitled Tower",
-                details: { ...tow, unitConfig: state.towerUnitConfigs.find(c => c.towerId === tow.id) },
-                status: 'active'
+        if (flowType === "township") {
+          const rootName = state.township?.name || "Untitled Township"
+          
+          const townshipId = await createApi({
+            type: 'township',
+            name: rootName,
+            location: rootLoc,
+            details: state.township,
+            status: 'active'
+          })
+          
+          for (const proj of state.projects) {
+             const projectId = await createApi({
+               type: 'project',
+               parentId: townshipId,
+               name: proj.name || "Untitled Project",
+               location: rootLoc,
+               details: proj,
+               status: 'active'
+             })
+             projectIdMap[proj.id] = projectId
+  
+             const projTowers = generatedTowers.filter(t => t.projectId === proj.id)
+             for (const tow of projTowers) {
+                const towerId = await createApi({
+                  type: 'tower',
+                  parentId: projectId,
+                  name: tow.name || "Untitled Tower",
+                  details: { ...tow, unitConfig: state.towerUnitConfigs.find(c => c.towerId === tow.id) },
+                  status: 'active'
+                })
+                towerIdMap[tow.id] = towerId
+             }
+          }
+        } else if (flowType === "project") {
+          const rootProj = state.projects[0]
+          const projectId = await createApi({
+               type: 'project',
+               name: rootProj?.name || "Untitled Project",
+               location: rootLoc,
+               details: rootProj,
+               status: 'active'
+          })
+          projectIdMap[rootProj?.id || ""] = projectId
+          
+          for (const tow of generatedTowers) {
+              const towerId = await createApi({
+                  type: 'tower',
+                  parentId: projectId,
+                  name: tow.name || "Untitled Tower",
+                  details: { ...tow, unitConfig: state.towerUnitConfigs.find(c => c.towerId === tow.id) },
+                  status: 'active'
               })
-           }
+              towerIdMap[tow.id] = towerId
+          }
+        } else if (flowType === "tower") {
+           const rootTow = state.towers[0]
+           const towerId = await createApi({
+                  type: 'tower',
+                  name: rootTow?.name || "Untitled Tower",
+                  details: { ...rootTow, unitConfig: state.towerUnitConfigs[0] },
+                  status: 'active'
+           })
+           towerIdMap[rootTow?.id || ""] = towerId
         }
-      } else if (flowType === "project") {
-        const rootProj = state.projects[0]
-        const projectId = await createApi({
-             type: 'project',
-             name: rootProj?.name || "Untitled Project",
-             location: { city: (rootProj as any)?.city, state: (rootProj as any)?.state },
-             details: rootProj,
-             status: 'active'
-        })
-        
-        for (const tow of generatedTowers) {
-            await createApi({
-                type: 'tower',
-                parentId: projectId,
-                name: tow.name || "Untitled Tower",
-                details: { ...tow, unitConfig: state.towerUnitConfigs.find(c => c.towerId === tow.id) },
-                status: 'active'
-            })
-        }
-      } else if (flowType === "tower") {
-         const rootTow = state.towers[0]
-         await createApi({
-                type: 'tower',
-                name: rootTow?.name || "Untitled Tower",
-                details: { ...rootTow, unitConfig: state.towerUnitConfigs[0] },
-                status: 'active'
-         })
-      }
 
-      // Note: Units are handled in a separate upcoming flow per the strict schema.
+        // Step: Perform Bulk Unit Creation (Legacy fallback only)
+        if (generatedUnits && generatedUnits.length > 0) {
+          // IMPORTANT: Update units with the REAL ObjectIds established during property creation
+          const mappedUnits = generatedUnits.map(unit => ({
+            ...unit,
+            towerId: towerIdMap[unit.towerId] || unit.towerId,
+            projectId: projectIdMap[unit.projectId || ""] || unit.projectId,
+            parentId: towerIdMap[unit.towerId] || unit.towerId,
+            location: rootLoc,
+            type: 'unit'
+          }))
+
+          const unitsRes = await fetch('/api/units/bulk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ units: mappedUnits, status: 'available' })
+          });
+          if (!unitsRes.ok) {
+            console.error("Bulk unit creation failed in fallback:", await unitsRes.json())
+          }
+        }
+      }
 
       await new Promise((resolve) => setTimeout(resolve, 1500))
       setIsCreating(false)
@@ -864,8 +934,23 @@ function BuilderContent() {
         <DraftResumeBanner
           flowType={flowType}
           draftId={draftIds.townshipId || draftIds.projectId || draftIds.towerId}
-          onResume={(details, step) => {
-            setState(prev => ({ ...prev, ...details, currentStep: step }))
+          onResume={(wizardState, step) => {
+            // wizardState is the full WizardState snapshot stored in details.
+            // Safely merge it with the current initial defaults so missing
+            // keys (from old or partial drafts) never leave the wizard broken.
+            const defaultState = getInitialState()
+            setState({
+              ...defaultState,
+              ...wizardState,
+              // Always restore sub-objects with fallbacks
+              township: { ...defaultState.township, ...(wizardState?.township ?? {}) },
+              projects: wizardState?.projects?.length > 0 ? wizardState.projects : defaultState.projects,
+              towers: wizardState?.towers?.length > 0 ? wizardState.towers : defaultState.towers,
+              unitTemplate: { ...defaultState.unitTemplate, ...(wizardState?.unitTemplate ?? {}) },
+              towerUnitConfigs: wizardState?.towerUnitConfigs ?? defaultState.towerUnitConfigs,
+              // step comes from lastSavedStep, not the snapshot's own currentStep
+              currentStep: step,
+            })
             setShowResumeBanner(false)
           }}
           onDiscard={() => {

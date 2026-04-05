@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { v2 as cloudinary } from "cloudinary"
+import { deleteCloudinaryFile } from "@/lib/utils/cloudinary"
 
 // Configure Cloudinary
 cloudinary.config({
@@ -97,53 +98,13 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "No URL provided" }, { status: 400 })
     }
 
-    // ── Extract public_id from Cloudinary URL ─────────────────────────────
-    // Example URL: https://res.cloudinary.com/cloud/image/upload/v123/folder/file.jpg
-    // Example PDF:  https://res.cloudinary.com/cloud/raw/upload/folder/file_123.pdf
-    let publicId: string | null = null
-    let resourceType: "image" | "video" | "raw" = "image"
-
-    // Determine resource_type from URL path segment
-    if (url.includes("/raw/upload/")) {
-      resourceType = "raw"
-    } else if (url.includes("/video/upload/")) {
-      resourceType = "video"
-    } else {
-      resourceType = "image"
+    const deleteResult = await deleteCloudinaryFile(url)
+    
+    if (deleteResult.success) {
+      return NextResponse.json({ success: true, result: deleteResult.result }, { status: 200 })
     }
 
-    // Extract the part after /upload/ (strip optional version like v1234567890/)
-    const uploadMarker = "/upload/"
-    const uploadIdx = url.indexOf(uploadMarker)
-    if (uploadIdx === -1) {
-      return NextResponse.json({ error: "Not a valid Cloudinary URL" }, { status: 400 })
-    }
-
-    let afterUpload = url.slice(uploadIdx + uploadMarker.length)
-
-    // Strip version prefix (v followed by digits then slash)
-    afterUpload = afterUpload.replace(/^v\d+\//, "")
-
-    // For raw files, keep the extension as part of public_id
-    // For images/videos, strip the extension
-    if (resourceType !== "raw") {
-      afterUpload = afterUpload.replace(/\.[^/.]+$/, "")
-    }
-
-    publicId = afterUpload
-
-    if (!publicId) {
-      return NextResponse.json({ error: "Could not extract public_id from URL" }, { status: 400 })
-    }
-
-    // ── Delete from Cloudinary ────────────────────────────────────────────
-    const result = await cloudinary.uploader.destroy(publicId, { resource_type: resourceType })
-
-    if (result.result === "ok" || result.result === "not found") {
-      return NextResponse.json({ success: true, result: result.result }, { status: 200 })
-    }
-
-    return NextResponse.json({ error: `Cloudinary deletion failed: ${result.result}` }, { status: 500 })
+    return NextResponse.json({ error: `Cloudinary deletion failed: ${deleteResult.error}` }, { status: 500 })
 
   } catch (error: any) {
     console.error("Cloudinary delete error:", error)

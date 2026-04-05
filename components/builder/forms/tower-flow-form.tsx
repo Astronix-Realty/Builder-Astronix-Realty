@@ -213,8 +213,10 @@ function PartCollapse({
   )
 }
 
-// ─────────────────────────────────────────
-// IMAGE UPLOAD FIELD (URL input)
+// BHK Config Tags
+const BHK_TYPES = ["1BHK", "2BHK", "3BHK", "4BHK", "5BHK", "Studio", "Penthouse", "Duplex"]
+
+
 
 // ─────────────────────────────────────────
 // BULK IMAGE INPUT
@@ -253,6 +255,11 @@ function BulkImageInput({ onAdd }: { onAdd: (urls: string[]) => void }) {
   )
 }
 
+
+
+// ─────────────────────────────────────────
+// MAIN FORM
+// ─────────────────────────────────────────
 export function TowerFlowForm({ data, onChange, projectName, townshipName, townshipData, onTownshipChange, showCommonData, user }: TowerFlowFormProps) {
   const [openIds, setOpenIds] = useState<string[]>(["builder", "tower-identity", "location"])
   const [openParts, setOpenParts] = useState<string[]>(["part-a", "part-b"])
@@ -351,8 +358,8 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
 
   // Auto-calculate total units
   useEffect(() => {
-    const floors = data.totalFloorsNum || parseInt(data.totalFloors?.replace(/\D/g, "")) || 0
-    const perFloor = parseInt(data.unitsPerFloor) || 0
+    const floors = data.totalFloorsNum || parseInt(String(data.totalFloors || "").replace(/\D/g, "")) || 0
+    const perFloor = parseInt(String(data.unitsPerFloor || "")) || 0
     const total = floors * perFloor
     if (total !== data.totalUnits) {
       onChange({ ...data, totalUnits: total })
@@ -389,215 +396,11 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
 
   return (
     <div className="space-y-10">
+
       {/* ══════════════════════════════════════════ */}
-      {/* PART A: COMMON INHERITED DATA              */}
-      {/* (Only shown in Standalone Tower Flow)      */}
+      {/* PHASE ONE: TOWER-SPECIFIC DATA             */}
       {/* ══════════════════════════════════════════ */}
-      {(showCommonData && townshipData) && (
-        <>
-          <PartCollapse id="part-a" title="Common Inherited Data" icon={Home} openParts={openParts} setOpenParts={setOpenParts}>
-
-          {!isBuilder && (
-          <Section id="builder" title="Developer / Builder Info" description="Builder name, logo, contact — Hero pe dikhta hai" icon={Building2} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-             <div className="bg-gray-50/50 p-4 sm:p-5 rounded-2xl border border-gray-100 flex flex-col gap-5">
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                 <Field label="Builder / Company Name" required hint="Registered company name (auto-filled for builders)">
-                   <Input value={townshipData.builderName} onChange={e => updateCommon("builderName", e.target.value)} placeholder="Astronix Realty" className="h-11 border-gray-200 bg-white shadow-sm focus-visible:ring-blue-500 rounded-xl" />
-                 </Field>
-                 <Field label="Builder Logo URL" hint="A publicly accessible logo URL">
-                   <Input value={townshipData.builderLogo} onChange={e => updateCommon("builderLogo", e.target.value)} placeholder="https://..." className="h-11 border-gray-200 bg-white shadow-sm focus-visible:ring-blue-500 rounded-xl" />
-                 </Field>
-               </div>
-             </div>
-          </Section>
-          )}
-
-          <Section id="location" title="Location Details" description="City, district, pincode — Map pe dikhta hai" icon={MapPin} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-            <Grid cols={3}>
-              <Field label="City" required>
-                <Input value={townshipData.city} onChange={e => updateCommon("city", e.target.value)} placeholder="Mumbai" />
-              </Field>
-              <Field label="District" required>
-                <Input value={townshipData.district} onChange={e => updateCommon("district", e.target.value)} placeholder="Thane" />
-              </Field>
-              <Field label="Sub City" required>
-                <Input value={townshipData.subCity} onChange={e => updateCommon("subCity", e.target.value)} placeholder="Dombivali" />
-              </Field>
-              <Field label="Village / Area" required>
-                <Input value={townshipData.village || ""} onChange={e => updateCommon("village", e.target.value)} placeholder="Sonarpada" />
-              </Field>
-              <Field label="State" required>
-                <Input value={townshipData.state} onChange={e => updateCommon("state", e.target.value)} placeholder="Maharashtra" />
-              </Field>
-              <Field label="Country" required>
-                <Input value={townshipData.country} onChange={e => updateCommon("country", e.target.value)} placeholder="India" />
-              </Field>
-              <Field label="Pincode" required>
-                <Input value={townshipData.pincode} onChange={e => updateCommon("pincode", e.target.value)} placeholder="400601" />
-              </Field>
-            </Grid>
-            <SectionTitle title="Nearby Landmark" />
-            <Field label="Nearest Landmark" required hint="Eg: Near Viviana Mall, Off Ghodbunder Road">
-              <Input value={townshipData.nearbyLandmark} onChange={e => updateCommon("nearbyLandmark", e.target.value)} placeholder="Near Viviana Mall" />
-            </Field>
-          </Section>
-
-          <Section id="maps" title="Google Maps Integration" description="Map embed + directions — Connectivity section" icon={MapIcon} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-            <Grid cols={1}>
-              <Field label="Google Maps Full URL" required hint="Copy the full Google Maps share link">
-                <Input value={townshipData.googleMapLink} onChange={e => updateCommon("googleMapLink", e.target.value)} placeholder="https://goo.gl/maps/..." />
-              </Field>
-              <Field label="Google Plus Code" hint='Eg: "+QR5, Thane, Maharashtra"'>
-                <Input value={townshipData.googlePlusCode} onChange={e => updateCommon("googlePlusCode", e.target.value)} placeholder="+QR5, Thane, Maharashtra" />
-              </Field>
-            </Grid>
-          </Section>
-
-          <Section id="connectivity" title="Connectivity" description="Airport, Railway, Metro, Hospital, Schools distance" icon={Wifi} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-            {townshipData.connectivity.map(item => (
-              <Card key={item.id} className="mb-3 border-gray-100 shadow-none">
-                <CardContent className="p-3">
-                  <Grid cols={2}>
-                    <Field label="Location Name">
-                      <Input value={item.title} onChange={e => updateConnectivity(item.id, { title: e.target.value })} placeholder="International Airport" className="h-8 text-xs" />
-                    </Field>
-                    <Field label="Type">
-                      <Select value={item.type} onValueChange={v => updateConnectivity(item.id, { type: v as ConnectivityItem["type"] })}>
-                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {["airport", "railway", "metro", "highway", "hospital", "school", "mall", "it-park", "bus", "custom"].map(t => (
-                            <SelectItem key={t} value={t} className="text-xs">{t.charAt(0).toUpperCase() + t.slice(1)}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    <Field label="Distance">
-                      <Input value={item.distanceKm} onChange={e => updateConnectivity(item.id, { distanceKm: e.target.value })} placeholder="18 KM" className="h-8 text-xs" />
-                    </Field>
-                    <Field label="Travel Time">
-                      <Input value={item.duration} onChange={e => updateConnectivity(item.id, { duration: e.target.value })} placeholder="25 Mins" className="h-8 text-xs" />
-                    </Field>
-                  </Grid>
-                  <button type="button" onClick={() => removeConnectivity(item.id)} className="mt-2 text-[10px] text-red-400 hover:text-red-600 flex items-center gap-1 font-bold uppercase tracking-wider">
-                    <X className="w-3 h-3" /> Remove Item
-                  </button>
-                </CardContent>
-              </Card>
-            ))}
-            <Button type="button" variant="outline" size="sm" onClick={addConnectivity} className="w-full border-dashed text-xs h-9 bg-gray-50/50 hover:bg-gray-50">
-              <Plus className="w-4 h-4 mr-1 text-blue-600" /> Add Connectivity Point
-            </Button>
-          </Section>
-
-          <Section id="amenities-common" title="Lifestyle & Amenities" description="Social, Recreation, Community, Green, Security, General tabs" icon={Star} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-            <AmenitiesManager 
-              amenities={townshipData.amenities}
-              onChange={(val) => updateCommon("amenities", val)}
-            />
-          </Section>
-
-          <Section id="eco-common" title="Sustainability & Eco Features" description="Solar, Rainwater, Green Cover — Sustainability section" icon={Leaf} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-            <SectionTitle title="Specific Eco Features" />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {townshipData.ecoFeatures.map(item => (
-                <Card key={item.id} className="border-gray-100 shadow-none bg-gray-50/50">
-                  <CardContent className="p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="w-7 h-7 rounded-lg bg-green-100 flex items-center justify-center">
-                        <Leaf className="w-3.5 h-3.5 text-green-600" />
-                      </div>
-                      <button onClick={() => removeEcoCommon(item.id)} className="text-red-300 hover:text-red-500">
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <Field label="Feature Title">
-                      <Input value={item.title} onChange={e => updateEcoCommon(item.id, { title: e.target.value })} placeholder="Solar Power" className="h-8 text-xs" />
-                    </Field>
-                    <div className="mt-2">
-                      <Field label="Description">
-                        <Input value={item.description} onChange={e => updateEcoCommon(item.id, { description: e.target.value })} placeholder="100% renewable energy" className="h-8 text-[11px]" />
-                      </Field>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-            <Button type="button" variant="outline" size="sm" onClick={addEcoCommon} className="w-full border-dashed mt-3 text-xs h-9">
-              <Plus className="w-4 h-4 mr-1 text-green-600" /> Add Sustainability Feature
-            </Button>
-          </Section>
-
-
-
-          <Section id="common-legal" title="Bank APF Approvals" description="List of pre-approved banks for loans" icon={ShieldCheck} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-            <div className="mb-6">
-              <Label className="text-[10px] font-black uppercase text-gray-400 mb-3 block tracking-widest">Select Active Banks</Label>
-              <BankSelector
-                banks={townshipData.approvedBanks}
-                onChange={banks => updateCommon("approvedBanks", banks)}
-              />
-            </div>
-            <SectionTitle title="Legal Trust & Score" />
-            <Grid cols={2}>
-              <Field label="Trust Score" hint="Out of 100">
-                <Input value={townshipData.legalTrustScore} onChange={e => updateCommon("legalTrustScore", e.target.value)} placeholder="100" />
-              </Field>
-              <Field label="Approvals" hint="Eg: PMRDA / Municipal Corporation Approved">
-                <Input value={townshipData.approvals} onChange={e => updateCommon("approvals", e.target.value)} placeholder="Local Authority Approved" />
-              </Field>
-            </Grid>
-            <Field label="Trust Description" hint="Eg: Clear Marketable Title with OC Received">
-              <Textarea value={townshipData.legalTrustDescription} onChange={e => updateCommon("legalTrustDescription", e.target.value)} rows={2} placeholder="This project has clear marketable titles and all necessary permissions." />
-            </Field>
-            <SectionTitle title="Bank APF Certificates" />
-            <div className="space-y-3">
-              {(townshipData.apfDetails || []).map(apf => (
-                <div key={apf.id} className="grid grid-cols-2 gap-3 p-3 bg-gray-50 rounded-xl relative group border border-gray-100">
-                  <Field label="Bank Name">
-                    <Input value={apf.bankName} onChange={e => updateApfCommon(apf.id, { bankName: e.target.value })} placeholder="HDFC Bank" className="h-8 text-xs bg-white" />
-                  </Field>
-                  <Field label="APF Number">
-                    <Input value={apf.apfNumber} onChange={e => updateApfCommon(apf.id, { apfNumber: e.target.value })} placeholder="APF-123456" className="h-8 text-xs bg-white" />
-                  </Field>
-                  <button onClick={() => removeApfCommon(apf.id)} className="absolute -top-1 -right-1 bg-white border shadow-sm p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                    <X className="w-3 h-3 text-red-500" />
-                  </button>
-                </div>
-              ))}
-              <Button type="button" variant="outline" size="sm" onClick={addApfCommon} className="w-full text-xs h-9 border-dashed">
-                <Plus className="w-4 h-4 mr-1 text-indigo-600" /> Add APF Certificate Info
-              </Button>
-            </div>
-          </Section>
-
-          <Section id="group-buying-common" title="Group Buying" description="Interest count + discount — GroupBuyingSection component" icon={Users} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-            <Grid cols={2}>
-              <Field label="Enable Group Buying">
-                <div className="flex items-center gap-3 mt-1">
-                  <button
-                    type="button"
-                    onClick={() => updateCommon("groupBuying", { ...townshipData.groupBuying, enabled: !townshipData.groupBuying?.enabled })}
-                    className={`w-10 h-6 rounded-full transition-colors relative ${townshipData.groupBuying?.enabled ? "bg-[#2BB673]" : "bg-gray-200"}`}
-                  >
-                    <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${townshipData.groupBuying?.enabled ? "left-5" : "left-1"}`} />
-                  </button>
-                  <span className="text-[11px] font-bold text-gray-500">{townshipData.groupBuying?.enabled ? "ACTIVE" : "INACTIVE"}</span>
-                </div>
-              </Field>
-              <Field label="Discount Label" hint="Shown on card">
-                <Input value={townshipData.groupBuying?.discountLabel || ""} onChange={e => updateCommon("groupBuying", { ...townshipData.groupBuying, discountLabel: e.target.value })} placeholder="Extra 2% off" className="h-8 text-xs" />
-              </Field>
-              <Field label="Target Milestone">
-                <Input type="number" value={townshipData.groupBuying?.targetCount || 500} onChange={e => updateCommon("groupBuying", { ...townshipData.groupBuying, targetCount: Number(e.target.value) })} className="h-8 text-xs" />
-              </Field>
-            </Grid>
-          </Section>
-
-          </PartCollapse>
-        </>
-      )}
-
-      <PartCollapse id="part-b" title="Tower-Specific Data" icon={Building} openParts={openParts} setOpenParts={setOpenParts}>
+      <PartCollapse id="part-a" title="Tower-Specific Data" icon={Building} openParts={openParts} setOpenParts={setOpenParts}>
 
       {/* ── 1. TOWER IDENTITY ──────────────────── */}
       <Section id="tower-identity" title="Tower Identity" description="Name, hero image, gallery — Tower Hero Section" icon={Building} openIds={openIds} setOpenIds={setOpenIds}>
@@ -677,7 +480,7 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
           <div className="flex-1 space-y-6">
             <Field label="Short Description / Tagline" hint="Appears in property cards (1-2 lines)">
               <Textarea 
-                value={data.description} 
+                value={data.description ?? ""} 
                 onChange={e => update("description", e.target.value)} 
                 rows={3} 
                 placeholder="Tower A is an iconic 25-storey residential tower with panoramic city views..." 
@@ -702,10 +505,10 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
       <Section id="tower-structure" title="Tower Structure & Stats" description="Floors, lifts, view type, dates — Stats bar + About Tower" icon={BarChart3} openIds={openIds} setOpenIds={setOpenIds}>
         <Grid cols={3}>
           <Field label="Total Lifts" hint="Shown in Stats Snapshot">
-            <Input value={data.totalLifts} onChange={e => update("totalLifts", e.target.value)} placeholder="3" />
+            <Input value={data.totalLifts ?? ""} onChange={e => update("totalLifts", e.target.value)} placeholder="3" />
           </Field>
           <Field label="Lifts Configuration" hint="Full detail shown in About section">
-            <Input value={data.liftsConfiguration} onChange={e => update("liftsConfiguration", e.target.value)} placeholder="3 High-Speed + 1 Service Lift" />
+            <Input value={data.liftsConfiguration ?? ""} onChange={e => update("liftsConfiguration", e.target.value)} placeholder="3 High-Speed + 1 Service Lift" />
           </Field>
           <Field label="View Type" hint="Shown in Stats Snapshot">
             <Select value={data.viewType} onValueChange={v => update("viewType", v)}>
@@ -716,23 +519,23 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
             </Select>
           </Field>
           <Field label="Parking Levels" hint="Shown in About Tower section">
-            <Input value={data.parkingLevels} onChange={e => update("parkingLevels", e.target.value)} placeholder="2 Basement Levels" />
+            <Input value={data.parkingLevels ?? ""} onChange={e => update("parkingLevels", e.target.value)} placeholder="2 Basement Levels" />
           </Field>
           <Field label="Lobby Details">
-            <Input value={data.lobbyDetails} onChange={e => update("lobbyDetails", e.target.value)} placeholder="Double-Height Grand Lobby with Concierge" />
+            <Input value={data.lobbyDetails ?? ""} onChange={e => update("lobbyDetails", e.target.value)} placeholder="Double-Height Grand Lobby with Concierge" />
           </Field>
           <Field label="Units Per Floor" required hint="Used for total units calculation">
-            <Input type="number" value={data.unitsPerFloor} onChange={e => update("unitsPerFloor", e.target.value)} placeholder="8" />
+            <Input type="number" value={data.unitsPerFloor ?? ""} onChange={e => update("unitsPerFloor", e.target.value)} placeholder="8" />
           </Field>
         </Grid>
 
         <SectionTitle title="Construction Status & Dates" />
         <Grid cols={3}>
           <Field label="Launch Date">
-            <Input value={data.launchDate} onChange={e => update("launchDate", e.target.value)} placeholder="January 2024" />
+            <Input value={data.launchDate ?? ""} onChange={e => update("launchDate", e.target.value)} placeholder="January 2024" />
           </Field>
           <Field label="Possession Date" required>
-            <Input value={data.possessionDate} onChange={e => update("possessionDate", e.target.value)} placeholder="December 2026" />
+            <Input value={data.possessionDate ?? ""} onChange={e => update("possessionDate", e.target.value)} placeholder="December 2026" />
           </Field>
         </Grid>
 
@@ -763,13 +566,13 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
                   </Select>
                 </Field>
                 <Field label="Description">
-                  <Input value={item.description} onChange={e => updateFloorBreakdown(item.id, { description: e.target.value })} placeholder="Basement Parking / Grand Lobby..." />
+                  <Input value={item.description ?? ""} onChange={e => updateFloorBreakdown(item.id, { description: e.target.value })} placeholder="Basement Parking / Grand Lobby..." />
                 </Field>
                 <Field label="From Floor">
-                  <Input value={item.fromFloor} onChange={e => updateFloorBreakdown(item.id, { fromFloor: e.target.value })} placeholder="B2 or 1" />
+                  <Input value={item.fromFloor ?? ""} onChange={e => updateFloorBreakdown(item.id, { fromFloor: e.target.value })} placeholder="B2 or 1" />
                 </Field>
                 <Field label="To Floor">
-                  <Input value={item.toFloor} onChange={e => updateFloorBreakdown(item.id, { toFloor: e.target.value })} placeholder="B1 or 24" />
+                  <Input value={item.toFloor ?? ""} onChange={e => updateFloorBreakdown(item.id, { toFloor: e.target.value })} placeholder="B1 or 24" />
                 </Field>
               </Grid>
               <button type="button" onClick={() => removeFloorBreakdown(item.id)} className="mt-2 text-xs text-red-400 flex items-center gap-1">
@@ -849,7 +652,7 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
         <SectionTitle title="Property Status & RERA" />
         <Grid cols={2}>
           <Field label="RERA Number">
-            <Input value={data.reraNumber} onChange={e => update("reraNumber", e.target.value)} placeholder="PRM/KA/RERA/..." />
+            <Input value={data.reraNumber ?? ""} onChange={e => update("reraNumber", e.target.value)} placeholder="PRM/KA/RERA/..." />
           </Field>
         </Grid>
 
@@ -934,6 +737,218 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
         </div>
       </Section>
       </PartCollapse>
+
+
+
+
+      {/* ══════════════════════════════════════════ */}
+      {/* PHASE TWO: COMMON INHERITED DATA            */}
+      {/* (Only shown in Standalone Tower Flow)      */}
+      {/* ══════════════════════════════════════════ */}
+      {(showCommonData && townshipData) && (
+        <>
+          <PartCollapse id="part-b" title="Common Inherited Data" icon={Home} openParts={openParts} setOpenParts={setOpenParts}>
+
+          {!isBuilder && (
+          <Section id="builder" title="Developer / Builder Info" description="Builder name, logo, contact — Hero pe dikhta hai" icon={Building2} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
+             <div className="bg-gray-50/50 p-4 sm:p-5 rounded-2xl border border-gray-100 flex flex-col gap-5">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                 <Field label="Builder / Company Name" required hint="Registered company name (auto-filled for builders)">
+                   <Input value={townshipData.builderName} onChange={e => updateCommon("builderName", e.target.value)} placeholder="Astronix Realty" className="h-11 border-gray-200 bg-white shadow-sm focus-visible:ring-blue-500 rounded-xl" />
+                 </Field>
+                 <Field label="Builder Logo URL" hint="A publicly accessible logo URL">
+                   <Input value={townshipData.builderLogo} onChange={e => updateCommon("builderLogo", e.target.value)} placeholder="https://..." className="h-11 border-gray-200 bg-white shadow-sm focus-visible:ring-blue-500 rounded-xl" />
+                 </Field>
+               </div>
+             </div>
+          </Section>
+          )}
+
+          <Section id="location" title="Location Details" description="City, district, pincode — Map pe dikhta hai" icon={MapPin} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
+            <Grid cols={3}>
+              <Field label="City" required>
+                <Input value={townshipData.city ?? ""} onChange={e => updateCommon("city", e.target.value)} placeholder="Mumbai" />
+              </Field>
+              <Field label="District" required>
+                <Input value={townshipData.district ?? ""} onChange={e => updateCommon("district", e.target.value)} placeholder="Thane" />
+              </Field>
+              <Field label="Sub City" required>
+                <Input value={townshipData.subCity ?? ""} onChange={e => updateCommon("subCity", e.target.value)} placeholder="Dombivali" />
+              </Field>
+              <Field label="Village / Area" required>
+                <Input value={townshipData.village ?? ""} onChange={e => updateCommon("village", e.target.value)} placeholder="Sonarpada" />
+              </Field>
+              <Field label="State" required>
+                <Input value={townshipData.state ?? ""} onChange={e => updateCommon("state", e.target.value)} placeholder="Maharashtra" />
+              </Field>
+              <Field label="Country" required>
+                <Input value={townshipData.country ?? ""} onChange={e => updateCommon("country", e.target.value)} placeholder="India" />
+              </Field>
+              <Field label="Pincode" required>
+                <Input value={townshipData.pincode ?? ""} onChange={e => updateCommon("pincode", e.target.value)} placeholder="400601" />
+              </Field>
+            </Grid>
+            <SectionTitle title="Nearby Landmark" />
+            <Field label="Nearest Landmark" required hint="Eg: Near Viviana Mall, Off Ghodbunder Road">
+              <Input value={townshipData.nearbyLandmark ?? ""} onChange={e => updateCommon("nearbyLandmark", e.target.value)} placeholder="Near Viviana Mall" />
+            </Field>
+          </Section>
+
+          <Section id="maps" title="Google Maps Integration" description="Map embed + directions — Connectivity section" icon={MapIcon} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
+            <Grid cols={1}>
+              <Field label="Google Maps Full URL" required hint="Copy the full Google Maps share link">
+                <Input value={townshipData.googleMapLink ?? ""} onChange={e => updateCommon("googleMapLink", e.target.value)} placeholder="https://goo.gl/maps/..." />
+              </Field>
+              <Field label="Google Plus Code" hint='Eg: "+QR5, Thane, Maharashtra"'>
+                <Input value={townshipData.googlePlusCode ?? ""} onChange={e => updateCommon("googlePlusCode", e.target.value)} placeholder="+QR5, Thane, Maharashtra" />
+              </Field>
+            </Grid>
+          </Section>
+
+          <Section id="connectivity" title="Connectivity" description="Airport, Railway, Metro, Hospital, Schools distance" icon={Wifi} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
+            {townshipData.connectivity.map(item => (
+              <Card key={item.id} className="mb-3 border-gray-100 shadow-none">
+                <CardContent className="p-3">
+                  <Grid cols={2}>
+                    <Field label="Location Name">
+                      <Input value={item.title ?? ""} onChange={e => updateConnectivity(item.id, { title: e.target.value })} placeholder="International Airport" className="h-8 text-xs" />
+                    </Field>
+                    <Field label="Type">
+                      <Select value={item.type} onValueChange={v => updateConnectivity(item.id, { type: v as ConnectivityItem["type"] })}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {["airport", "railway", "metro", "highway", "hospital", "school", "mall", "it-park", "bus", "custom"].map(t => (
+                            <SelectItem key={t} value={t} className="text-xs">{t.charAt(0).toUpperCase() + t.slice(1)}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <Field label="Distance">
+                      <Input value={item.distanceKm ?? ""} onChange={e => updateConnectivity(item.id, { distanceKm: e.target.value })} placeholder="18 KM" className="h-8 text-xs" />
+                    </Field>
+                    <Field label="Travel Time">
+                      <Input value={item.duration ?? ""} onChange={e => updateConnectivity(item.id, { duration: e.target.value })} placeholder="25 Mins" className="h-8 text-xs" />
+                    </Field>
+                  </Grid>
+                  <button type="button" onClick={() => removeConnectivity(item.id)} className="mt-2 text-[10px] text-red-400 hover:text-red-600 flex items-center gap-1 font-bold uppercase tracking-wider">
+                    <X className="w-3 h-3" /> Remove Item
+                  </button>
+                </CardContent>
+              </Card>
+            ))}
+            <Button type="button" variant="outline" size="sm" onClick={addConnectivity} className="w-full border-dashed text-xs h-9 bg-gray-50/50 hover:bg-gray-50">
+              <Plus className="w-4 h-4 mr-1 text-blue-600" /> Add Connectivity Point
+            </Button>
+          </Section>
+
+          <Section id="amenities-common" title="Lifestyle & Amenities" description="Social, Recreation, Community, Green, Security, General tabs" icon={Star} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
+            <AmenitiesManager 
+              amenities={townshipData.amenities}
+              onChange={(val) => updateCommon("amenities", val)}
+            />
+          </Section>
+
+          <Section id="eco-common" title="Sustainability & Eco Features" description="Solar, Rainwater, Green Cover — Sustainability section" icon={Leaf} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
+            <SectionTitle title="Specific Eco Features" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {townshipData.ecoFeatures.map(item => (
+                <Card key={item.id} className="border-gray-100 shadow-none bg-gray-50/50">
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="w-7 h-7 rounded-lg bg-green-100 flex items-center justify-center">
+                        <Leaf className="w-3.5 h-3.5 text-green-600" />
+                      </div>
+                      <button onClick={() => removeEcoCommon(item.id)} className="text-red-300 hover:text-red-500">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <Field label="Feature Title">
+                      <Input value={item.title ?? ""} onChange={e => updateEcoCommon(item.id, { title: e.target.value })} placeholder="Solar Power" className="h-8 text-xs" />
+                    </Field>
+                    <div className="mt-2">
+                      <Field label="Description">
+                        <Input value={item.description ?? ""} onChange={e => updateEcoCommon(item.id, { description: e.target.value })} placeholder="100% renewable energy" className="h-8 text-[11px]" />
+                      </Field>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={addEcoCommon} className="w-full border-dashed mt-3 text-xs h-9">
+              <Plus className="w-4 h-4 mr-1 text-green-600" /> Add Sustainability Feature
+            </Button>
+          </Section>
+
+
+
+          <Section id="common-legal" title="Bank APF Approvals" description="List of pre-approved banks for loans" icon={ShieldCheck} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
+            <div className="mb-6">
+              <Label className="text-[10px] font-black uppercase text-gray-400 mb-3 block tracking-widest">Select Active Banks</Label>
+              <BankSelector
+                banks={townshipData.approvedBanks}
+                onChange={banks => updateCommon("approvedBanks", banks)}
+              />
+            </div>
+            <SectionTitle title="Legal Trust & Score" />
+            <Grid cols={2}>
+              <Field label="Trust Score" hint="Out of 100">
+                <Input value={townshipData.legalTrustScore} onChange={e => updateCommon("legalTrustScore", e.target.value)} placeholder="100" />
+              </Field>
+              <Field label="Approvals" hint="Eg: PMRDA / Municipal Corporation Approved">
+                <Input value={townshipData.approvals} onChange={e => updateCommon("approvals", e.target.value)} placeholder="Local Authority Approved" />
+              </Field>
+            </Grid>
+            <Field label="Trust Description" hint="Eg: Clear Marketable Title with OC Received">
+              <Textarea value={townshipData.legalTrustDescription} onChange={e => updateCommon("legalTrustDescription", e.target.value)} rows={2} placeholder="This project has clear marketable titles and all necessary permissions." />
+            </Field>
+            <SectionTitle title="Bank APF Certificates" />
+            <div className="space-y-3">
+              {(townshipData.apfDetails || []).map(apf => (
+                <div key={apf.id} className="grid grid-cols-2 gap-3 p-3 bg-gray-50 rounded-xl relative group border border-gray-100">
+                  <Field label="Bank Name">
+                    <Input value={apf.bankName} onChange={e => updateApfCommon(apf.id, { bankName: e.target.value })} placeholder="HDFC Bank" className="h-8 text-xs bg-white" />
+                  </Field>
+                  <Field label="APF Number">
+                    <Input value={apf.apfNumber} onChange={e => updateApfCommon(apf.id, { apfNumber: e.target.value })} placeholder="APF-123456" className="h-8 text-xs bg-white" />
+                  </Field>
+                  <button onClick={() => removeApfCommon(apf.id)} className="absolute -top-1 -right-1 bg-white border shadow-sm p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                    <X className="w-3 h-3 text-red-500" />
+                  </button>
+                </div>
+              ))}
+              <Button type="button" variant="outline" size="sm" onClick={addApfCommon} className="w-full text-xs h-9 border-dashed">
+                <Plus className="w-4 h-4 mr-1 text-indigo-600" /> Add APF Certificate Info
+              </Button>
+            </div>
+          </Section>
+
+          <Section id="group-buying-common" title="Group Buying" description="Interest count + discount — GroupBuyingSection component" icon={Users} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
+            <Grid cols={2}>
+              <Field label="Enable Group Buying">
+                <div className="flex items-center gap-3 mt-1">
+                  <button
+                    type="button"
+                    onClick={() => updateCommon("groupBuying", { ...townshipData.groupBuying, enabled: !townshipData.groupBuying?.enabled })}
+                    className={`w-10 h-6 rounded-full transition-colors relative ${townshipData.groupBuying?.enabled ? "bg-[#2BB673]" : "bg-gray-200"}`}
+                  >
+                    <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${townshipData.groupBuying?.enabled ? "left-5" : "left-1"}`} />
+                  </button>
+                  <span className="text-[11px] font-bold text-gray-500">{townshipData.groupBuying?.enabled ? "ACTIVE" : "INACTIVE"}</span>
+                </div>
+              </Field>
+              <Field label="Discount Label" hint="Shown on card">
+                <Input value={townshipData.groupBuying?.discountLabel ?? ""} onChange={e => updateCommon("groupBuying", { ...townshipData.groupBuying, discountLabel: e.target.value })} placeholder="Extra 2% off" className="h-8 text-xs" />
+              </Field>
+              <Field label="Target Milestone">
+                <Input type="number" value={townshipData.groupBuying?.targetCount ?? 500} onChange={e => updateCommon("groupBuying", { ...townshipData.groupBuying, targetCount: Number(e.target.value) })} className="h-8 text-xs" />
+              </Field>
+            </Grid>
+          </Section>
+
+          </PartCollapse>
+        </>
+      )}
+
     </div>
   )
 }

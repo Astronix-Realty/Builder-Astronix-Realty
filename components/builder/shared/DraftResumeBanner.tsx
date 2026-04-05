@@ -10,6 +10,7 @@ interface DraftInfo {
   flowType: string
   lastSavedStep: number
   updatedAt: string
+  details?: any // Full WizardState snapshot
 }
 
 interface DraftResumeBannerProps {
@@ -52,11 +53,16 @@ export function DraftResumeBanner({ flowType, draftId, onResume, onDiscard }: Dr
     if (!draft) return
     setIsResuming(true)
     try {
-      const res = await fetch(`/api/properties/${draft._id}`)
-      if (res.ok) {
-        const data = await res.json()
-        onResume(data.property.details, data.property.lastSavedStep || 1)
+      // `draft` already has `.details` from the initial fetch — no second request needed.
+      // details is the full WizardState snapshot saved by useAutoDraft.
+      const wizardState = draft.details
+
+      if (!wizardState) {
+        console.warn("[DraftResumeBanner] draft.details is empty — cannot restore")
+        return
       }
+
+      onResume(wizardState, draft.lastSavedStep || 1)
     } catch (e) {
       console.error("Failed to resume draft:", e)
     } finally {

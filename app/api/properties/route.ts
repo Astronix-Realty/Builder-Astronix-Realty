@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Property from "@/models/Property";
+import Unit from "@/models/Unit";
 import { getTokenFromRequest, verifyToken } from "@/lib/auth";
+import { slugify, generateRandomSlug } from "@/lib/utils/slug";
 
-// GET /api/properties - Fetch all ROOT properties (Townships or Standalone Projects) for the user
+// GET /api/properties - Fetch root properties for the authenticated builder.
+// Optional query param: ?status=draft|active|archived
 export async function GET(req: NextRequest) {
   try {
     const token = getTokenFromRequest(req);
@@ -14,12 +17,74 @@ export async function GET(req: NextRequest) {
 
     await dbConnect();
 
-    // Fetch properties where parentId is null (usually Townships)
-    const properties = await Property.find({ 
+    const { searchParams } = new URL(req.url);
+    const statusFilter = searchParams.get("status"); // e.g. "draft", "active"
+
+    // Root entities: parentId is null (townships and standalone projects/towers)
+    const query: Record<string, any> = {
       builderId: decoded.userId,
       parentId: null,
-      isDeleted: false
-    }).sort({ updatedAt: -1 });
+      isDeleted: false,
+    };
+
+    if (statusFilter) {
+      query.status = statusFilter; // narrow to draft / active / archived
+    }
+
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[GET /api/properties] query:", JSON.stringify(query));
+    }
+
+    const rawProperties = await Property.find(query).sort({ updatedAt: -1 }).lean();
+    
+    // Process properties to attach accurate counts and thumbnails
+    const properties = await Promise.all(rawProperties.map(async (p: any) => {
+      // 1. Handle Active properties (Split DB rows)
+      if (p.status !== "draft") {
+        let projectsCount = 0, towersCount = 0, unitsCount = 0;
+        let thumbnail = p.details?.heroImage || null;
+
+        if (p.type === 'township') {
+           const projects = await Property.find({ parentId: p._id, isDeleted: false }, '_id details.heroImage').lean();
+           projectsCount = projects.length;
+           
+           const projectIds = projects.map(proj => proj._id);
+           const towers = await Property.find({ parentId: { $in: projectIds }, isDeleted: false }, '_id details.id').lean();
+           towersCount = towers.length;
+           
+           const towerObjectIds = towers.map(t => t._id);
+           if (towerObjectIds.length > 0) unitsCount = await Unit.countDocuments({ towerId: { $in: towerObjectIds } });
+
+           if (!thumbnail && projects.length > 0) thumbnail = (projects[0].details as any)?.heroImage || null;
+
+        } else if (p.type === 'project') {
+           projectsCount = 1;
+           const towers = await Property.find({ parentId: p._id, isDeleted: false }, '_id details.id').lean();
+           towersCount = towers.length;
+
+           const towerObjectIds = towers.map(t => t._id);
+           if (towerObjectIds.length > 0) unitsCount = await Unit.countDocuments({ towerId: { $in: towerObjectIds } });
+
+        } else if (p.type === 'tower') {
+           projectsCount = 0;
+           towersCount = 1;
+           unitsCount = await Unit.countDocuments({ towerId: p._id });
+        }
+
+        return { ...p, calculatedCounts: { projectsCount, towersCount, unitsCount }, thumbnail };
+      } 
+      
+      // 2. Handle Draft properties (Fully contained WizardState array)
+      else {
+        const details = p.details || {};
+        const thumbnail = details.township?.heroImage || details.projects?.[0]?.heroImage || null;
+        return { ...p, thumbnail };
+      }
+    }));
+
+    if (process.env.NODE_ENV !== "production") {
+      console.log(`[GET /api/properties] returned ${properties.length} docs.`);
+    }
 
     return NextResponse.json({ properties }, { status: 200 });
   } catch (error: any) {
@@ -38,21 +103,27 @@ export async function POST(req: NextRequest) {
     if (!decoded) return NextResponse.json({ error: "Invalid token" }, { status: 401 });
 
     const body = await req.json();
-    const { type, parentId, name, slug, location, status, details } = body;
+    const { type, flowType, parentId, name, slug, location, status, details } = body;
 
     if (!type || !name) {
       return NextResponse.json({ error: "Type and name are required." }, { status: 400 });
     }
 
+    // flowType is always sent by useAutoDraft, but derive a safe fallback
+    // from `type` if it's somehow absent (legacy callers, tests, etc.).
+    const resolvedFlowType: string = flowType || type;
+    if (process.env.NODE_ENV !== "production" && !flowType) {
+      console.warn(`[POST /api/properties] flowType missing for type='${type}' — defaulting to '${resolvedFlowType}'`);
+    }
+
     await dbConnect();
 
-    // Auto-generate slug if not provided logically (simplified)
-    const baseSlug = slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    const finalSlug = `${baseSlug}-${Date.now().toString().slice(-6)}`;
+    const finalSlug = generateRandomSlug(name, slug || "");
 
     const newProperty = await Property.create({
       builderId: decoded.userId,
       type,
+      flowType: resolvedFlowType,
       parentId: parentId || null,
       name,
       slug: finalSlug,
@@ -75,4 +146,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Failed to create property" }, { status: 500 });
   }
 }
-
