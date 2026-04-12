@@ -8,7 +8,12 @@ export interface IProperty extends Document {
   name: string;
   slug: string;
   location: { city?: string; state?: string; address?: string };
-  status: 'draft' | 'active' | 'archived';
+  status: 'draft' | 'pending' | 'published' | 'rejected' | 'archived';
+  isActive: boolean;
+  rejectionReason: string | null;
+  submittedAt: Date | null;
+  approvedAt: Date | null;
+  approvedBy: mongoose.Types.ObjectId | null;
   details: Record<string, any>;
   isDeleted: boolean;
   lastSavedStep: number;        // Last wizard step user was on
@@ -36,7 +41,12 @@ const PropertySchema = new Schema<IProperty>({
   name: { type: String, required: true, trim: true },
   slug: { type: String, unique: true, required: true },
   location: { city: String, state: String, address: String },
-  status: { type: String, enum: ['draft', 'active', 'archived'], default: 'draft' },
+  status: { type: String, enum: ['draft', 'pending', 'published', 'rejected', 'archived'], default: 'draft' },
+  isActive: { type: Boolean, default: false },
+  rejectionReason: { type: String, default: null },
+  submittedAt: { type: Date, default: null },
+  approvedAt: { type: Date, default: null },
+  approvedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
   details: { type: Schema.Types.Mixed, default: {} },
   isDeleted: { type: Boolean, default: false },
   lastSavedStep: { type: Number, default: 1 },

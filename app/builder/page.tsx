@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useCallback, useMemo, useEffect, Suspense } from "react"
+import { useState, useCallback, useMemo, useEffect, Suspense, Fragment } from "react"
+import { v4 as uuidv4 } from "uuid"
 import { useSearchParams } from "next/navigation"
 import { ProgressBar } from "@/components/builder/progress-bar"
 import { ProjectsForm } from "@/components/builder/projects-form"
@@ -186,11 +187,10 @@ function BuilderContent() {
                   ...defaultState,
                   ...wizardData,
                   township: { ...defaultState.township, ...(wizardData.township || {}) },
-                  projects: wizardData.projects || defaultState.projects,
-                  towers: wizardData.towers || defaultState.towers,
+                  projects: (wizardData.projects || defaultState.projects).filter(Boolean),
+                  towers: (wizardData.towers || defaultState.towers).filter(Boolean),
                   unitTemplate: { ...defaultState.unitTemplate, ...(wizardData.unitTemplate || {}) },
-                  towerUnitConfigs: wizardData.towerUnitConfigs || defaultState.towerUnitConfigs,
-                  // Ensure currentStep is restored
+                  towerUnitConfigs: (wizardData.towerUnitConfigs || defaultState.towerUnitConfigs).filter(Boolean),
                   currentStep: wizardData.currentStep || data.property.lastSavedStep || defaultState.currentStep
                 })
                 console.log("Loaded property draft from MongoDB:", data.property)
@@ -247,22 +247,21 @@ function BuilderContent() {
     setIsCreating(false)
   }, [flowType, getInitialState])
 
-  // ── Auto-add projects when township.projectCount increases ────────────────
-  // NOTE: We only ADD projects here, never remove them.
-  // Removal is handled by the ProjectsForm's remove button.
-  // This way, manually added projects are never wiped by this effect.
+  // ── Auto-sync projects when township.projectCount changes ────────────────
+  // We automatically add default projects or cleanly slice orphaned ones if 
+  // the user decrements the project count, preventing bloated databases.
   useEffect(() => {
     if (flowType !== "township") return
-    const currentCount = state.projects.length
+    const currentCount = state.projects.filter(Boolean).length
     const targetCount = state.township.projectCount
     if (targetCount > currentCount) {
       const newProjects = Array.from({ length: targetCount - currentCount }, (_, i) =>
         createInitialProject(currentCount + i + 1),
       )
-      setState((prev) => ({ ...prev, projects: [...prev.projects, ...newProjects] }))
+      setState((prev) => ({ ...prev, projects: [...prev.projects.filter(Boolean), ...newProjects] }))
+    } else if (targetCount < currentCount) {
+      setState((prev) => ({ ...prev, projects: prev.projects.filter(Boolean).slice(0, targetCount) }))
     }
-    // ⛔ Deliberately NOT cutting projects when targetCount < currentCount
-    // ProjectsForm remove button handles deletion directly.
   }, [state.township.projectCount, flowType, state.projects.length])
 
   // ── Tower sync useEffect DISABLED ──────────────────────────────────────────
@@ -274,13 +273,13 @@ function BuilderContent() {
   const { unitTemplate, towers, towerUnitConfigs } = state
 
   const generatedTowers = useMemo<GeneratedTower[]>(() => {
-    return towers.map((tower) => {
+    return (towers || []).filter(Boolean).map((tower) => {
       const floors = Number.parseInt(String(tower.totalFloors || "").replace(/\D/g, "")) || 20
       const unitsPerFloor = Number.parseInt(String(tower.unitsPerFloor || "")) || 4
       return {
         id: tower.id,
         projectId: tower.projectId,
-        name: tower.name || `Tower ${tower.id.split("-").pop()?.toUpperCase()}`,
+        name: tower.name || `Tower ${tower.id?.split("-").pop()?.toUpperCase() || "N/A"}`,
         reraNumber: tower.reraNumber,
         totalFloors: floors,
         unitsPerFloor,
@@ -293,52 +292,60 @@ function BuilderContent() {
     const units: GeneratedUnit[] = []
     const facings = ["north", "south", "east", "west", "north-east", "north-west", "south-east", "south-west"]
 
+    if (!generatedTowers || !Array.isArray(generatedTowers)) return []
+
     generatedTowers.forEach((tower) => {
-      const towerConfig = towerUnitConfigs.find((c) => c.towerId === tower.id)
-      const configs = towerConfig?.configurations || unitTemplate.configurations
+      const towerConfig = towerUnitConfigs?.find((c) => c.towerId === tower.id)
+      const configs = towerConfig?.configurations || unitTemplate?.configurations || []
       const basePrice = towerConfig?.basePrice
         ? Number.parseFloat(towerConfig.basePrice)
-        : Number.parseFloat(unitTemplate.basePrice)
+        : Number.parseFloat(unitTemplate?.basePrice || "0")
       const ratePerSqft = towerConfig?.ratePerSqft
         ? Number.parseFloat(towerConfig.ratePerSqft)
-        : Number.parseFloat(unitTemplate.ratePerSqft)
-      const facingPremiums = towerConfig?.facingPremiums || unitTemplate.facingPremiums
+        : Number.parseFloat(unitTemplate?.ratePerSqft || "0")
+      const facingPremiums = towerConfig?.facingPremiums || unitTemplate?.facingPremiums || {}
 
       let unitNumber = 0
-      for (let floor = 1; floor <= tower.totalFloors; floor++) {
-        configs.forEach((config: any) => {
-          for (let i = 0; i < config.countPerFloor; i++) {
-            unitNumber++
-            const facing = facings[(unitNumber - 1) % facings.length]
+      const totalFloors = tower.totalFloors || 0
+      
+      if (Array.isArray(configs)) {
+        for (let floor = 1; floor <= totalFloors; floor++) {
+          configs.forEach((config: any) => {
+            const countPerFloor = config?.countPerFloor || 0
+            for (let i = 0; i < countPerFloor; i++) {
+              unitNumber++
+              const facing = facings[(unitNumber - 1) % facings.length]
 
-            const carpetArea = config.carpetArea || 0
-            let finalPrice = carpetArea * ratePerSqft || basePrice
+              const carpetArea = config?.carpetArea || 0
+              let finalPrice = carpetArea * ratePerSqft || basePrice
 
-            const floorRiseStart = 5
-            if (floor >= floorRiseStart) {
-              const floorDiff = floor - floorRiseStart
-              const risePercent = 0.5 / 100
-              finalPrice = finalPrice * (1 + floorDiff * risePercent)
+              const floorRiseStart = 5
+              if (floor >= floorRiseStart) {
+                const floorDiff = floor - floorRiseStart
+                const risePercent = 0.5 / 100
+                finalPrice = finalPrice * (1 + floorDiff * risePercent)
+              }
+
+              const premiumValue = facingPremiums[facing as keyof typeof facingPremiums]
+              const facingPremium = (Number.parseFloat(String(premiumValue || "0")) || 0) / 100
+              finalPrice = finalPrice * (1 + facingPremium)
+
+              units.push({
+                id: `unit-${tower.id}-${floor}-${unitNumber}`,
+                towerId: tower.id,
+                unitNumber: `${tower.name?.replace("Tower ", "") || "T"}-${floor}${String(unitNumber % 100).padStart(2, "0")}`,
+                floor,
+                floorNumber: floor,
+                configuration: config?.type || "1BHK",
+                carpetArea,
+                area: carpetArea,
+                price: Math.round(finalPrice),
+                facing,
+                status: "available",
+              })
             }
-
-            const facingPremium = Number.parseFloat(facingPremiums[facing as keyof typeof facingPremiums]) / 100
-            finalPrice = finalPrice * (1 + facingPremium)
-
-            units.push({
-              id: `unit-${tower.id}-${floor}-${unitNumber}`,
-              towerId: tower.id,
-              unitNumber: `${tower.name.replace("Tower ", "")}-${floor}${String(unitNumber % 100).padStart(2, "0")}`,
-              floor,
-              floorNumber: floor,
-              configuration: config.type,
-              carpetArea,
-              area: carpetArea,
-              price: Math.round(finalPrice),
-              facing,
-              status: "available",
-            })
-          }
-        })
+          })
+        }
       }
     })
 
@@ -347,7 +354,7 @@ function BuilderContent() {
 
   // Ensure towerUnitConfigs are populated for all towers
   useEffect(() => {
-    const missingConfigTowerIds = (state?.towers || [])
+    const missingConfigTowerIds = (state?.towers || []).filter(Boolean)
       .map((t) => t.id)
       .filter((id) => !state?.towerUnitConfigs?.some((c) => c.towerId === id))
 
@@ -373,31 +380,30 @@ function BuilderContent() {
   }, [])
 
   const updateProjects = useCallback((projects: ProjectData[]) => {
-    // Also sync township.projectCount so summary is accurate
+    const safeProjects = projects.filter(Boolean)
     setState((prev) => ({
       ...prev,
-      projects,
-      township: { ...prev.township, projectCount: projects.length },
+      projects: safeProjects,
+      township: { ...prev.township, projectCount: safeProjects.length },
     }))
   }, [])
 
   const updateTowers = useCallback((towers: TowerData[]) => {
-    // Also sync each project's totalTowers count from actual towers array
+    const safeTowers = towers.filter(Boolean)
     setState((prev) => {
-      const updatedProjects = prev.projects.map(p => ({
+      const updatedProjects = prev.projects.filter(Boolean).map(p => ({
         ...p,
-        totalTowers: towers.filter(t => t.projectId === p.id).length,
+        totalTowers: safeTowers.filter(t => t.projectId === p.id).length,
       }))
-      return { ...prev, towers, projects: updatedProjects }
+      return { ...prev, towers: safeTowers, projects: updatedProjects }
     })
   }, [])
 
   // ── Auto-sync township counts ──────────────────────────────────────────
   useEffect(() => {
-    const towersCount = state?.towers?.length || 0
+    const towersCount = (state?.towers || []).filter(Boolean).length
     const unitsCount = generatedUnits?.length || 0
-    const projectsCount = state?.projects?.length || 0
-    // totalFamilies is typically same as totalUnits for initial estimation
+    const projectsCount = (state?.projects || []).filter(Boolean).length
     const familiesCount = unitsCount
 
     if (
@@ -420,16 +426,17 @@ function BuilderContent() {
   }, [state.projects.length, state.towers.length, generatedUnits.length, state.township.projectCount, state.township.totalTowers, state.township.totalUnits, state.township.totalFamilies])
 
   const handleAddProject = useCallback(() => {
-    const newProject = createInitialProject(state.township.name, state.projects.length)
-    const next = [...state.projects, newProject]
+    const safeProjects = state.projects.filter(Boolean)
+    const newProject = createInitialProject(state.township.name, safeProjects.length)
+    const next = [...safeProjects, newProject]
     updateProjects(next)
     setActiveProjectIdx(next.length - 1)
   }, [state.projects, state.township.name, updateProjects])
 
   const handleAddTower = useCallback((projectId: string) => {
-    const projectTowers = state.towers.filter(t => t.projectId === projectId)
+    const projectTowers = state.towers.filter(Boolean).filter(t => t.projectId === projectId)
     const newTower = createInitialTower(projectTowers.length, projectId)
-    const next = [...state.towers, newTower]
+    const next = [...state.towers.filter(Boolean), newTower]
     updateTowers(next)
     setActiveTowerIdx(next.filter(t => t.projectId === projectId).length - 1)
   }, [state.towers, updateTowers])
@@ -438,7 +445,7 @@ function BuilderContent() {
     const originalTower = state.towers.find(t => t.id === towerId)
     if (!originalTower) return
 
-    const newTowerId = `tower-${crypto.randomUUID()}`
+    const newTowerId = `tower-${uuidv4()}`
     const clonedTower: TowerData = {
       ...originalTower,
       id: newTowerId,
@@ -466,7 +473,7 @@ function BuilderContent() {
     const originalProject = state.projects.find(p => p.id === projectId)
     if (!originalProject) return
 
-    const newProjectId = `proj-${crypto.randomUUID()}`
+    const newProjectId = `proj-${uuidv4()}`
     const clonedProject: ProjectData = {
       ...originalProject,
       id: newProjectId,
@@ -481,7 +488,7 @@ function BuilderContent() {
     const towerIdMap: Record<string, string> = {}
     
     const finalClonedTowers = projectTowers.map(tower => {
-      const newTowerId = `tower-${crypto.randomUUID()}`
+      const newTowerId = `tower-${uuidv4()}`
       towerIdMap[tower.id] = newTowerId
       return { ...tower, id: newTowerId, projectId: newProjectId }
     })
@@ -571,10 +578,10 @@ function BuilderContent() {
       // Use the specialized Publish API if we have a draft ID
       if (draftIds.townshipId || draftIds.projectId || draftIds.towerId) {
         const rootDraftId = draftIds.townshipId || draftIds.projectId || draftIds.towerId;
-        const publishRes = await fetch(`/api/properties/${rootDraftId}/publish`, { method: 'POST' });
-        if (!publishRes.ok) {
-          const err = await publishRes.json();
-          throw new Error(err.error || "Failed to publish draft hierarchy");
+        const submitRes = await fetch(`/api/properties/${rootDraftId}/submit`, { method: 'POST' });
+        if (!submitRes.ok) {
+          const err = await submitRes.json();
+          throw new Error(err.error || "Failed to submit draft hierarchy for approval");
         }
       } else {
         // Fallback to legacy sequential creation for brand new, unsaved content
@@ -591,7 +598,7 @@ function BuilderContent() {
             name: rootName,
             location: rootLoc,
             details: state.township,
-            status: 'active'
+            status: 'pending'
           })
           
           for (const proj of state.projects) {
@@ -601,7 +608,7 @@ function BuilderContent() {
                name: proj.name || "Untitled Project",
                location: rootLoc,
                details: proj,
-               status: 'active'
+               status: 'pending'
              })
              projectIdMap[proj.id] = projectId
   
@@ -612,7 +619,7 @@ function BuilderContent() {
                   parentId: projectId,
                   name: tow.name || "Untitled Tower",
                   details: { ...tow, unitConfig: state.towerUnitConfigs.find(c => c.towerId === tow.id) },
-                  status: 'active'
+                  status: 'pending'
                 })
                 towerIdMap[tow.id] = towerId
              }
@@ -624,7 +631,7 @@ function BuilderContent() {
                name: rootProj?.name || "Untitled Project",
                location: rootLoc,
                details: rootProj,
-               status: 'active'
+               status: 'pending'
           })
           projectIdMap[rootProj?.id || ""] = projectId
           
@@ -634,7 +641,7 @@ function BuilderContent() {
                   parentId: projectId,
                   name: tow.name || "Untitled Tower",
                   details: { ...tow, unitConfig: state.towerUnitConfigs.find(c => c.towerId === tow.id) },
-                  status: 'active'
+                  status: 'pending'
               })
               towerIdMap[tow.id] = towerId
           }
@@ -644,7 +651,7 @@ function BuilderContent() {
                   type: 'tower',
                   name: rootTow?.name || "Untitled Tower",
                   details: { ...rootTow, unitConfig: state.towerUnitConfigs[0] },
-                  status: 'active'
+                  status: 'pending'
            })
            towerIdMap[rootTow?.id || ""] = towerId
         }
@@ -664,7 +671,7 @@ function BuilderContent() {
           const unitsRes = await fetch('/api/units/bulk', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ units: mappedUnits, status: 'available' })
+            body: JSON.stringify({ units: mappedUnits, status: 'pending' })
           });
           if (!unitsRes.ok) {
             console.error("Bulk unit creation failed in fallback:", await unitsRes.json())
@@ -809,11 +816,11 @@ function BuilderContent() {
             <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 overflow-x-auto scrollbar-hide">
               {/* Step 2: Projects Navigation */}
               {state?.currentStep === 2 && flowType === "township" && (
-                <>
+                <Fragment key="step2-projects">
                   <LayoutGrid className="w-4 h-4 text-slate-400 ml-1 mr-2" />
                   {state?.projects?.map((p, i) => (
                     <button
-                      key={p.id}
+                      key={p.id || `proj-${i}`}
                       onClick={() => setActiveProjectIdx(i)}
                       className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap border flex items-center gap-2 ${activeProjectIdx === i
                         ? "bg-[#1A3C8C] text-white border-[#1A3C8C] shadow-md shadow-blue-500/10"
@@ -830,14 +837,13 @@ function BuilderContent() {
                   >
                     <Plus className="w-3.5 h-3.5" /> Add Project
                   </button>
-                </>
+                </Fragment>
               )}
 
               {/* Step 3: Towers Navigation */}
               {state.currentStep === 3 && (flowType === "township" || flowType === "project") && (
-                <>
+                <Fragment key="step3-towers">
                   <LayoutGrid className="w-4 h-4 text-slate-400 ml-1 mr-2" />
-                  {/* Project Selector first */}
                   <select
                     className="bg-slate-50 border border-slate-200 text-[11px] font-bold rounded-lg px-2 py-1 outline-none text-slate-700"
                     value={activeProjectIdx}
@@ -847,14 +853,13 @@ function BuilderContent() {
                     }}
                   >
                     {state?.projects?.map((p, i) => (
-                      <option key={p.id} value={i}>{p.name || `Project ${i + 1}`}</option>
+                      <option key={p.id || `proj-opt-${i}`} value={i}>{p.name || `Project ${i + 1}`}</option>
                     ))}
                   </select>
                   <div className="w-px h-4 bg-slate-200 mx-2" />
-                  {/* Towers in active project */}
                   {state?.towers?.filter(t => t.projectId === state?.projects?.[activeProjectIdx]?.id).map((t, i) => (
                     <button
-                      key={t.id}
+                      key={t.id || `tower-${i}`}
                       onClick={() => setActiveTowerIdx(i)}
                       className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap border flex items-center gap-2 ${activeTowerIdx === i
                         ? "bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/10"
@@ -870,12 +875,12 @@ function BuilderContent() {
                   >
                     <Plus className="w-3.5 h-3.5" /> Add Tower
                   </button>
-                </>
+                </Fragment>
               )}
 
               {/* Step 4: Units Navigation */}
               {state.currentStep === 4 && (
-                <>
+                <Fragment key="step4-units">
                   <Layers className="w-4 h-4 text-slate-400 ml-1 mr-2" />
                   <button
                     onClick={() => { setActiveUnitProjectId("all"); setActiveUnitTowerId("global") }}
@@ -887,10 +892,9 @@ function BuilderContent() {
                     Global Pricing
                   </button>
                   <div className="w-px h-4 bg-slate-200 mx-2" />
-                  {/* Project Selector for units */}
                   {state.projects.map((p, i) => (
                     <button
-                      key={p.id}
+                      key={p.id || `unit-proj-${i}`}
                       onClick={() => {
                         setActiveUnitProjectId(p.id);
                         const pt = state.towers.filter(t => t.projectId === p.id);
@@ -906,7 +910,7 @@ function BuilderContent() {
                   ))}
 
                   {activeUnitProjectId !== "all" && (
-                    <>
+                    <Fragment key="unit-towers">
                       <div className="w-px h-4 bg-slate-200 mx-2" />
                       {state.towers.filter(t => t.projectId === activeUnitProjectId).map((t) => (
                         <button
@@ -920,9 +924,9 @@ function BuilderContent() {
                           {t.name || "Tower"}
                         </button>
                       ))}
-                    </>
+                    </Fragment>
                   )}
-                </>
+                </Fragment>
               )}
             </div>
           )}
@@ -980,7 +984,14 @@ function BuilderContent() {
           {flowType === "township" && state?.currentStep === 1 && (
             <TownshipFlowForm
               data={state?.township}
-              onChange={(data) => updateState("township", data)}
+              onChange={(updaterOrData) => {
+                setState(prev => {
+                  const next = typeof updaterOrData === "function"
+                    ? updaterOrData(prev.township)
+                    : updaterOrData
+                  return { ...prev, township: next }
+                })
+              }}
               user={currentUser}
             />
           )}
@@ -988,13 +999,24 @@ function BuilderContent() {
           {flowType === "project" && state?.currentStep === 2 && (
             <ProjectFlowForm
               data={state?.projects?.[0]}
-              onChange={(data) => {
-                const updated = [...(state?.projects || [])]
-                updated[0] = data
-                setState((prev) => ({ ...prev, projects: updated }))
+              onChange={(updaterOrData) => {
+                setState(prev => {
+                  const updated = [...(prev.projects || [])]
+                  updated[0] = typeof updaterOrData === "function"
+                    ? updaterOrData(updated[0])
+                    : updaterOrData
+                  return { ...prev, projects: updated }
+                })
               }}
               townshipData={state?.township}
-              onTownshipChange={(data) => updateState("township", data)}
+              onTownshipChange={(updaterOrData) => {
+                setState(prev => {
+                  const next = typeof updaterOrData === "function"
+                    ? updaterOrData(prev.township)
+                    : updaterOrData
+                  return { ...prev, township: next }
+                })
+              }}
               showCommonData={true}
               user={currentUser}
             />
@@ -1003,13 +1025,24 @@ function BuilderContent() {
           {flowType === "tower" && state?.currentStep === 3 && (
             <TowerFlowForm
               data={state?.towers?.[0]}
-              onChange={(data) => {
-                const updated = [...(state?.towers || [])]
-                updated[0] = data
-                setState((prev) => ({ ...prev, towers: updated }))
+              onChange={(updaterOrData) => {
+                setState(prev => {
+                  const updated = [...(prev.towers || [])]
+                  updated[0] = typeof updaterOrData === "function"
+                    ? updaterOrData(updated[0])
+                    : updaterOrData
+                  return { ...prev, towers: updated }
+                })
               }}
               townshipData={state?.township}
-              onTownshipChange={(data) => updateState("township", data)}
+              onTownshipChange={(updaterOrData) => {
+                setState(prev => {
+                  const next = typeof updaterOrData === "function"
+                    ? updaterOrData(prev.township)
+                    : updaterOrData
+                  return { ...prev, township: next }
+                })
+              }}
               showCommonData={true}
               user={currentUser}
             />

@@ -160,14 +160,14 @@ export async function publishProperty(draftId: string, builderId: string) {
   try {
     session.startTransaction();
 
-    const rootDraft = await Property.findOne({ _id: draftId, builderId, status: 'draft' }).session(session);
-    if (!rootDraft) throw new Error("Draft not found or unauthorized");
+    const rootDraft = await Property.findOne({ _id: draftId, builderId, status: { $in: ['draft', 'pending'] } }).session(session);
+    if (!rootDraft) throw new Error("Draft/Pending property not found or unauthorized");
 
     // 1. Collect all draft properties in hierarchy
     let allDrafts: any[] = [rootDraft];
     let idsToSearch = [draftId];
     while (idsToSearch.length > 0) {
-      const children = await Property.find({ parentId: { $in: idsToSearch }, status: 'draft' }).session(session).lean();
+      const children = await Property.find({ parentId: { $in: idsToSearch }, status: { $in: ['draft', 'pending'] } }).session(session).lean();
       if (children.length === 0) break;
       allDrafts.push(...children);
       idsToSearch = children.map(c => c._id.toString());
@@ -203,7 +203,10 @@ export async function publishProperty(draftId: string, builderId: string) {
         flowType: draft.flowType,
         location: resolvedLocation,
         details: draft.details,
-        status: 'active',
+        status: 'published',
+        isActive: true,
+        approvedAt: new Date(),
+        // Needs approvedBy to be passed later when admin router calls this
         builderId: draft.builderId,
         updatedBy: draft.updatedBy,
         slug: baseDataSlug,
@@ -260,7 +263,7 @@ export async function publishProperty(draftId: string, builderId: string) {
     // 4. Promote Units
     const draftPropIds = allDrafts.map(d => d._id);
     let units = await Unit.find({ 
-      status: 'draft', 
+      status: { $in: ['draft', 'pending'] }, 
       $or: [{ towerId: { $in: draftPropIds } }, { projectId: { $in: draftPropIds } }] 
     }).session(session);
 
@@ -276,7 +279,7 @@ export async function publishProperty(draftId: string, builderId: string) {
               towerId: draft._id, // Use real ObjectId
               projectId: draft.parentId, // Use real ObjectId
               parentId: draft._id, // Tower is parent
-              status: 'draft' // Mark as draft for processing below
+              status: 'pending' // Mark as pending for processing below or draft
             });
           });
         }
@@ -307,7 +310,7 @@ export async function publishProperty(draftId: string, builderId: string) {
         updatedBy: builderId,
       };
 
-      if (unit._id && unit.status === 'draft' && !unit.isNew) {
+      if (unit._id && (unit.status === 'draft' || unit.status === 'pending') && !unit.isNew) {
         // Update existing draft if it exists in DB
         if (unit.publishedId) {
           await Unit.findOneAndUpdate(
@@ -356,7 +359,7 @@ export async function clonePropertyToDraft(publishedId: string, builderId: strin
   try {
     session.startTransaction();
 
-    const rootPublished = await Property.findOne({ _id: publishedId, builderId, status: 'active' }).session(session);
+    const rootPublished = await Property.findOne({ _id: publishedId, builderId, status: 'published' }).session(session);
     if (!rootPublished) throw new Error("Published property not found or unauthorized");
 
     // If a draft already exists, just return it
@@ -372,7 +375,7 @@ export async function clonePropertyToDraft(publishedId: string, builderId: strin
     let allPublished: any[] = [rootPublished];
     let idsToSearch = [publishedId];
     while (idsToSearch.length > 0) {
-      const children = await Property.find({ parentId: { $in: idsToSearch }, status: 'active' }).session(session).lean();
+      const children = await Property.find({ parentId: { $in: idsToSearch }, status: 'published' }).session(session).lean();
       if (children.length === 0) break;
       allPublished.push(...children);
       idsToSearch = children.map(c => c._id.toString());
@@ -437,7 +440,7 @@ export async function clonePropertyToDraft(publishedId: string, builderId: strin
     // 4. Clone Units
     const pubPropIds = allPublished.map(p => p._id);
     const units = await Unit.find({ 
-      status: { $ne: 'draft' }, // include active, available, etc.
+      status: { $nin: ['draft', 'pending'] }, // include published, available, etc.
       $or: [{ towerId: { $in: pubPropIds } }, { projectId: { $in: pubPropIds } }] 
     }).session(session);
 
@@ -465,6 +468,68 @@ export async function clonePropertyToDraft(publishedId: string, builderId: strin
 
     await session.commitTransaction();
     return { success: true, draftId: publishedToDraftMap.get(publishedId) };
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
+}
+
+/**
+ * Submits a draft property for approval.
+ */
+export async function submitPropertyForApproval(draftId: string, builderId: string) {
+  const session = await mongoose.startSession();
+  try {
+    session.startTransaction();
+
+    const rootDraft = await Property.findOne({ _id: draftId, builderId, status: 'draft' }).session(session);
+    if (!rootDraft) throw new Error("Draft not found or unauthorized");
+
+    // Get all drafts in hierarchy
+    let allDrafts: any[] = [rootDraft];
+    let idsToSearch = [draftId];
+    while (idsToSearch.length > 0) {
+      const children = await Property.find({ parentId: { $in: idsToSearch }, status: 'draft' }).session(session);
+      if (children.length === 0) break;
+      allDrafts.push(...children);
+      idsToSearch = children.map(c => c._id.toString());
+    }
+
+    const draftIds = allDrafts.map(d => d._id);
+
+    // Update Properties
+    await Property.updateMany(
+      { _id: { $in: draftIds } },
+      { 
+        $set: { 
+          status: 'pending', 
+          submittedAt: new Date(),
+          rejectionReason: null 
+        } 
+      },
+      { session }
+    );
+
+    // Update Units
+    await Unit.updateMany(
+      { 
+        status: 'draft', 
+        $or: [{ towerId: { $in: draftIds } }, { projectId: { $in: draftIds } }] 
+      },
+      { 
+        $set: { 
+          status: 'pending',
+          submittedAt: new Date(),
+          rejectionReason: null
+        } 
+      },
+      { session }
+    );
+
+    await session.commitTransaction();
+    return { success: true };
   } catch (error) {
     await session.abortTransaction();
     throw error;

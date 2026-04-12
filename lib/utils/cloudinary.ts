@@ -48,7 +48,7 @@ export async function deleteCloudinaryFile(url: string): Promise<{ success: bool
       afterUpload = afterUpload.replace(/\.[^/.]+$/, "");
     }
 
-    publicId = afterUpload;
+    publicId = decodeURIComponent(afterUpload);
 
     if (!publicId) {
       return { success: false, error: "Could not extract public_id" };

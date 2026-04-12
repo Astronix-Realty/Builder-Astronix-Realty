@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { v4 as uuidv4 } from "uuid"
 import Image from "next/image"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,25 +13,27 @@ import { Badge } from "@/components/ui/badge"
 import {
   Building2, BarChart3, FileText, Film, Leaf, ShieldCheck,
   Plus, X, ChevronDown, ChevronUp, AlertCircle, CheckCircle,
-  Home, MapPin, Wifi, Star, Map as MapIcon, Globe, Info, Briefcase, Users, Upload
+  Home, MapPin, Wifi, Map as MapIcon, Globe, Info, Briefcase, Users, Upload
 } from "lucide-react"
 import type {
-  ProjectData, EcoFeature, AmenityItem, VideoGalleryItem,
+  ProjectData, EcoFeature, VideoGalleryItem,
   ApfDetail, TownshipData, ConnectivityItem, ReraPhase,
   MasterPlanHighlight, DevelopmentPhase, FaqItem, TestimonialItem
 } from "@/lib/builder-types"
 import { BannerUpload, GalleryUpload, VideoUpload, MasterPlanMapUpload, DocumentUpload, AboutImageUpload } from "@/components/ui/media-uploads"
-import { AmenitiesManager } from "@/components/builder/shared/AmenitiesManager"
 
 // ─────────────────────────────────────────
 // PROPS
 // ─────────────────────────────────────────
+type ProjectUpdater = ProjectData | ((prev: ProjectData) => ProjectData)
+type TownshipUpdater = TownshipData | ((prev: TownshipData) => TownshipData)
+
 interface ProjectFlowFormProps {
   data: ProjectData
-  onChange: (data: ProjectData) => void
-  townshipName?: string       // Show which township this belongs to
+  onChange: (updater: ProjectUpdater) => void
+  townshipName?: string
   townshipData?: TownshipData
-  onTownshipChange?: (data: TownshipData) => void
+  onTownshipChange?: (updater: TownshipUpdater) => void
   showCommonData?: boolean
   user?: any
 }
@@ -279,63 +282,63 @@ export function ProjectFlowForm({ data, onChange, townshipName, townshipData, on
   }, [isBuilder, user, townshipData?.builderName, townshipData?.builderLogo]);
 
   const update = <K extends keyof ProjectData>(field: K, value: ProjectData[K]) => {
-    onChange({ ...data, [field]: value })
+    onChange(prev => ({ ...prev, [field]: value }))
   }
 
   // --- TOWNSHIP UPDATE HELPERS ---
   const updateCommon = <K extends keyof TownshipData>(field: K, value: TownshipData[K]) => {
-    if (onTownshipChange && townshipData) {
-      onTownshipChange({ ...townshipData, [field]: value })
+    if (onTownshipChange) {
+      onTownshipChange(prev => ({ ...prev, [field]: value }))
     }
   }
 
   // Common Data Helpers
   const addConnectivity = () => {
     if (!townshipData) return
-    const item: ConnectivityItem = { id: crypto.randomUUID(), title: "", type: "custom", distanceKm: "", duration: "" }
-    updateCommon("connectivity", [...townshipData.connectivity, item])
+    const item: ConnectivityItem = { id: uuidv4(), title: "", type: "custom", distanceKm: "", duration: "" }
+    updateCommon("connectivity", [...(townshipData.connectivity || []), item])
   }
   const updateConnectivity = (id: string, patch: Partial<ConnectivityItem>) => {
     if (!townshipData) return
-    updateCommon("connectivity", townshipData.connectivity.map(x => x.id === id ? { ...x, ...patch } : x))
+    updateCommon("connectivity", (townshipData.connectivity || []).map(x => x.id === id ? { ...x, ...patch } : x))
   }
   const removeConnectivity = (id: string) => {
     if (!townshipData) return
-    updateCommon("connectivity", townshipData.connectivity.filter(x => x.id !== id))
+    updateCommon("connectivity", (townshipData.connectivity || []).filter(x => x.id !== id))
   }
 
 
   const addEcoCommon = () => {
     if (!townshipData) return
-    const item: EcoFeature = { id: crypto.randomUUID(), title: "", description: "", icon: "leaf" }
-    updateCommon("ecoFeatures", [...townshipData.ecoFeatures, item])
+    const item: EcoFeature = { id: uuidv4(), title: "", description: "", icon: "leaf" }
+    updateCommon("ecoFeatures", [...(townshipData.ecoFeatures || []), item])
   }
   const updateEcoCommon = (id: string, patch: Partial<EcoFeature>) => {
     if (!townshipData) return
-    updateCommon("ecoFeatures", townshipData.ecoFeatures.map(x => x.id === id ? { ...x, ...patch } : x))
+    updateCommon("ecoFeatures", (townshipData.ecoFeatures || []).map(x => x.id === id ? { ...x, ...patch } : x))
   }
   const removeEcoCommon = (id: string) => {
     if (!townshipData) return
-    updateCommon("ecoFeatures", townshipData.ecoFeatures.filter(x => x.id !== id))
+    updateCommon("ecoFeatures", (townshipData.ecoFeatures || []).filter(x => x.id !== id))
   }
 
   const addVideoGalleryItem = (type: VideoGalleryItem["type"]) => {
     if (!townshipData) return
-    const item: VideoGalleryItem = { id: crypto.randomUUID(), title: "", landscapeUrl: "", shortUrl: "", type }
-    updateCommon("videoGallery", [...townshipData.videoGallery, item])
+    const item: VideoGalleryItem = { id: uuidv4(), title: "", landscapeUrl: "", shortUrl: "", type }
+    updateCommon("videoGallery", [...(townshipData.videoGallery || []), item])
   }
   const updateVideoGalleryItem = (id: string, patch: Partial<VideoGalleryItem>) => {
     if (!townshipData) return
-    updateCommon("videoGallery", townshipData.videoGallery.map(x => x.id === id ? { ...x, ...patch } : x))
+    updateCommon("videoGallery", (townshipData.videoGallery || []).map(x => x.id === id ? { ...x, ...patch } : x))
   }
   const removeVideoGalleryItem = (id: string) => {
     if (!townshipData) return
-    updateCommon("videoGallery", townshipData.videoGallery.filter(x => x.id !== id))
+    updateCommon("videoGallery", (townshipData.videoGallery || []).filter(x => x.id !== id))
   }
 
   const addApfCommon = () => {
     if (!townshipData) return
-    const item: ApfDetail = { id: crypto.randomUUID(), bankName: "", apfNumber: "", certificateUrl: "" }
+    const item: ApfDetail = { id: uuidv4(), bankName: "", apfNumber: "", certificateUrl: "" }
     updateCommon("apfDetails", [...(townshipData.apfDetails || []), item])
   }
   const updateApfCommon = (id: string, patch: Partial<ApfDetail>) => {
@@ -349,15 +352,15 @@ export function ProjectFlowForm({ data, onChange, townshipName, townshipData, on
 
 
   // Gallery images
-  const addGallery = () => update("galleryImages", [...data.galleryImages, ""])
+  const addGallery = () => update("galleryImages", [...(data.galleryImages || []), ""])
   const updateGallery = (i: number, v: string) => {
-    const g = [...data.galleryImages]; g[i] = v; update("galleryImages", g)
+    const g = [...(data.galleryImages || [])]; g[i] = v; update("galleryImages", g)
   }
-  const removeGallery = (i: number) => update("galleryImages", data.galleryImages.filter((_, idx) => idx !== i))
+  const removeGallery = (i: number) => update("galleryImages", (data.galleryImages || []).filter((_, idx) => idx !== i))
 
   // Eco features
   const addEco = () => {
-    const item: EcoFeature = { id: crypto.randomUUID(), title: "", description: "", icon: "leaf" }
+    const item: EcoFeature = { id: uuidv4(), title: "", description: "", icon: "leaf" }
     update("ecoFeatures", [...(data.ecoFeatures || []), item])
   }
   const updateEco = (id: string, patch: Partial<EcoFeature>) =>
@@ -368,7 +371,7 @@ export function ProjectFlowForm({ data, onChange, townshipName, townshipData, on
 
   // Video gallery
   const addVideo = (type: VideoGalleryItem["type"]) => {
-    const item: VideoGalleryItem = { id: crypto.randomUUID(), title: "", landscapeUrl: "", shortUrl: "", type }
+    const item: VideoGalleryItem = { id: uuidv4(), title: "", landscapeUrl: "", shortUrl: "", type }
     update("videoGallery", [...(data.videoGallery || []), item])
   }
   const updateVideo = (id: string, patch: Partial<VideoGalleryItem>) =>
@@ -378,7 +381,7 @@ export function ProjectFlowForm({ data, onChange, townshipName, townshipData, on
 
   // APF Details
   const addApf = () => {
-    const item: ApfDetail = { id: crypto.randomUUID(), bankName: "", apfNumber: "", certificateUrl: "" }
+    const item: ApfDetail = { id: uuidv4(), bankName: "", apfNumber: "", certificateUrl: "" }
     update("apfDetails", [...(data.apfDetails || []), item])
   }
   const updateApf = (id: string, patch: Partial<ApfDetail>) =>
@@ -388,7 +391,7 @@ export function ProjectFlowForm({ data, onChange, townshipName, townshipData, on
 
   // Master Plan Highlights
   const addHighlight = () => {
-    const item: MasterPlanHighlight = { id: crypto.randomUUID(), label: "" }
+    const item: MasterPlanHighlight = { id: uuidv4(), label: "" }
     update("masterPlanHighlights", [...(data.masterPlanHighlights || []), item])
   }
   const removeHighlight = (id: string) =>
@@ -532,8 +535,8 @@ export function ProjectFlowForm({ data, onChange, townshipName, townshipData, on
           <Field label="Possession Date" hint="Eg: December 2026">
             <Input value={data.possessionDate ?? ""} onChange={e => update("possessionDate", e.target.value)} placeholder="December 2026" />
           </Field>
-          <Field label="Total Families (approx)" hint="Auto-calculated from Towers — can override">
-            <Input type="number" value={data.totalFamilies ?? ""} onChange={e => update("totalFamilies", Number(e.target.value))} placeholder="240" />
+          <Field label="Total Families (approx)" hint="Auto-synced from Units step">
+            <Input type="number" value={data.totalFamilies ?? ""} readOnly placeholder="0" className="bg-gray-50 cursor-not-allowed font-bold text-blue-600" />
           </Field>
         </Grid>
 
@@ -608,14 +611,7 @@ export function ProjectFlowForm({ data, onChange, townshipName, townshipData, on
         </div>
       </Section>
 
-      {/* ── 5. PROJECT AMENITIES ────────────────── */}
-      <Section id="proj-amenities" title="Project Amenities" description="Project-exclusive amenities — unique to this project" icon={Star} openIds={openIds} setOpenIds={setOpenIds}>
-        <p className="text-xs text-gray-500 mb-3">Township Amenities sabhi projects pe dikhenge. Yahan sirf is project ke exclusive amenities add karo.</p>
-        <AmenitiesManager 
-          amenities={data.amenities || []}
-          onChange={(val) => update("amenities", val)}
-        />
-      </Section>
+
       <Section id="proj-legal" title="Project Legal / RERA" description="RERA, CC, OC — Official documentation" icon={ShieldCheck} openIds={openIds} setOpenIds={setOpenIds}>
         <SectionTitle title="RERA Details" />
         <Grid cols={2}>
@@ -807,13 +803,6 @@ export function ProjectFlowForm({ data, onChange, townshipName, townshipData, on
             <Button type="button" variant="outline" size="sm" onClick={addConnectivity} className="w-full border-dashed text-xs h-9 bg-gray-50/50 hover:bg-gray-50">
               <Plus className="w-4 h-4 mr-1 text-blue-600" /> Add Connectivity Point
             </Button>
-          </Section>
-
-          <Section id="amenities-common" title="Lifestyle & Amenities" description="Social, Recreation, Community, Green, Security, General tabs" icon={Star} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-            <AmenitiesManager 
-              amenities={townshipData.amenities}
-              onChange={(val) => updateCommon("amenities", val)}
-            />
           </Section>
 
           <Section id="eco-common" title="Sustainability & Eco Features" description="Solar, Rainwater, Green Cover — Sustainability section" icon={Leaf} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>

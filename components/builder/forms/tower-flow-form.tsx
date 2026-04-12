@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { v4 as uuidv4 } from "uuid"
 import Image from "next/image"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,14 +13,13 @@ import { Badge } from "@/components/ui/badge"
 import {
   Building, BarChart3, FileText, Layers, MapPin, ShieldCheck,
   Plus, X, ChevronDown, ChevronUp, AlertCircle, CheckCircle,
-  Home, Wifi, Star, Map as MapIcon, Building2, Leaf, Film, Users
+  Home, Wifi, Map as MapIcon, Building2, Leaf, Film, Users
 } from "lucide-react"
 import type {
   TowerData, FloorBreakdown, TownshipData, ConnectivityItem,
-  AmenityItem, EcoFeature, ApfDetail, VideoGalleryItem, MasterPlanHighlight
+  EcoFeature, ApfDetail, VideoGalleryItem, MasterPlanHighlight
 } from "@/lib/builder-types"
 import { BannerUpload, GalleryUpload, VideoUpload, DocumentUpload, MasterPlanMapUpload, AboutImageUpload } from "@/components/ui/media-uploads"
-import { AmenitiesManager } from "@/components/builder/shared/AmenitiesManager"
 
 // ─────────────────────────────────────────
 // PROPS
@@ -299,7 +299,7 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
   // Common Data Helpers
   const addConnectivity = () => {
     if (!townshipData) return
-    const item: ConnectivityItem = { id: crypto.randomUUID(), title: "", type: "custom", distanceKm: "", duration: "" }
+    const item: ConnectivityItem = { id: uuidv4(), title: "", type: "custom", distanceKm: "", duration: "" }
     updateCommon("connectivity", [...townshipData.connectivity, item])
   }
   const updateConnectivity = (id: string, patch: Partial<ConnectivityItem>) => {
@@ -314,7 +314,7 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
 
   const addEcoCommon = () => {
     if (!townshipData) return
-    const item: EcoFeature = { id: crypto.randomUUID(), title: "", description: "", icon: "leaf" }
+    const item: EcoFeature = { id: uuidv4(), title: "", description: "", icon: "leaf" }
     updateCommon("ecoFeatures", [...townshipData.ecoFeatures, item])
   }
   const updateEcoCommon = (id: string, patch: Partial<EcoFeature>) => {
@@ -328,7 +328,7 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
 
   const addVideoGalleryItem = (type: VideoGalleryItem["type"]) => {
     if (!townshipData) return
-    const item: VideoGalleryItem = { id: crypto.randomUUID(), title: "", landscapeUrl: "", shortUrl: "", type }
+    const item: VideoGalleryItem = { id: uuidv4(), title: "", landscapeUrl: "", shortUrl: "", type }
     updateCommon("videoGallery", [...townshipData.videoGallery, item])
   }
   const updateVideoGalleryItem = (id: string, patch: Partial<VideoGalleryItem>) => {
@@ -342,7 +342,7 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
 
   const addApfCommon = () => {
     if (!townshipData) return
-    const item: ApfDetail = { id: crypto.randomUUID(), bankName: "", apfNumber: "", certificateUrl: "" }
+    const item: ApfDetail = { id: uuidv4(), bankName: "", apfNumber: "", certificateUrl: "" }
     updateCommon("apfDetails", [...(townshipData.apfDetails || []), item])
   }
   const updateApfCommon = (id: string, patch: Partial<ApfDetail>) => {
@@ -377,7 +377,7 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
 
   // Floor breakdown
   const addFloorBreakdown = () => {
-    const item: FloorBreakdown = { id: crypto.randomUUID(), floorType: "residential", fromFloor: "", toFloor: "", description: "" }
+    const item: FloorBreakdown = { id: uuidv4(), floorType: "residential", fromFloor: "", toFloor: "", description: "" }
     update("floorsBreakdown", [...data.floorsBreakdown, item])
   }
   const updateFloorBreakdown = (id: string, patch: Partial<FloorBreakdown>) =>
@@ -633,15 +633,6 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
         </div>
       </Section>
 
-      {/* ── 5. TOWER-SPECIFIC AMENITIES ─────────── */}
-      <Section id="tower-amenities" title="Tower Amenities" description="Tower-exclusive amenities — unique to this tower" icon={Star} openIds={openIds} setOpenIds={setOpenIds}>
-        <p className="text-xs text-gray-500 mb-3">Township/Project Amenities sabhi towers pe dikhenge. Yahan sirf is tower ke exclusive amenities add karo.</p>
-        <AmenitiesManager 
-          amenities={data.towerAmenities || []}
-          onChange={(val) => update("towerAmenities", val)}
-        />
-      </Section>
-
       {/* ── 6. TOWER LEGAL / RERA ────────────────── */}
       <Section id="tower-legal" title="Tower Legal / RERA" description="RERA, CC, OC — Tower-specific legal documents" icon={ShieldCheck} openIds={openIds} setOpenIds={setOpenIds}>
         <div className="flex items-start gap-2 px-3 py-2 bg-amber-50 rounded-lg mb-4">
@@ -839,13 +830,6 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
             <Button type="button" variant="outline" size="sm" onClick={addConnectivity} className="w-full border-dashed text-xs h-9 bg-gray-50/50 hover:bg-gray-50">
               <Plus className="w-4 h-4 mr-1 text-blue-600" /> Add Connectivity Point
             </Button>
-          </Section>
-
-          <Section id="amenities-common" title="Lifestyle & Amenities" description="Social, Recreation, Community, Green, Security, General tabs" icon={Star} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-            <AmenitiesManager 
-              amenities={townshipData.amenities}
-              onChange={(val) => updateCommon("amenities", val)}
-            />
           </Section>
 
           <Section id="eco-common" title="Sustainability & Eco Features" description="Solar, Rainwater, Green Cover — Sustainability section" icon={Leaf} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>

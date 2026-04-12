@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState } from "react"
+import { v4 as uuidv4 } from "uuid"
 import { Plus, X, Star, Users, Gamepad2, Home, Leaf, ShieldCheck, Info, ChevronDown, Check, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -64,7 +65,7 @@ export function AmenitiesManager({ amenities, onChange, title, description }: Am
     const addAmenity = (name: string, cat: AmenityItem["category"] = activeTab) => {
         if (!name.trim()) return
         const newItem: AmenityItem = {
-            id: crypto.randomUUID(),
+            id: uuidv4(),
             title: name.trim(),
             category: cat,
             image: ""

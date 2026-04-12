@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
+import { v4 as uuidv4 } from "uuid"
 import Image from "next/image"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -26,9 +27,11 @@ import { AmenitiesManager } from "@/components/builder/shared/AmenitiesManager"
 // ─────────────────────────────────────────
 // PROPS
 // ─────────────────────────────────────────
+type TownshipUpdater = TownshipData | ((prev: TownshipData) => TownshipData)
+
 interface TownshipFlowFormProps {
   data: TownshipData
-  onChange: (data: TownshipData) => void
+  onChange: (updater: TownshipUpdater) => void
   flowType?: "township"
   user?: any
 }
@@ -292,7 +295,7 @@ export function TownshipFlowForm({ data, onChange, user }: TownshipFlowFormProps
   }, [isBuilder, user, data.builderName, data.builderLogo]);
 
   const update = <K extends keyof TownshipData>(field: K, value: TownshipData[K]) => {
-    onChange({ ...data, [field]: value })
+    onChange(prev => ({ ...prev, [field]: value }))
   }
 
   // Auto-calculations
@@ -300,48 +303,48 @@ export function TownshipFlowForm({ data, onChange, user }: TownshipFlowFormProps
 
   // ── Connectivity ──────────────────────────
   const addConnectivity = () => {
-    const item: ConnectivityItem = { id: crypto.randomUUID(), title: "", type: "custom", distanceKm: "", duration: "" }
-    update("connectivity", [...data.connectivity, item])
+    const item: ConnectivityItem = { id: uuidv4(), title: "", type: "custom", distanceKm: "", duration: "" }
+    update("connectivity", [...(data.connectivity || []), item])
   }
   const updateConnectivity = (id: string, patch: Partial<ConnectivityItem>) =>
-    update("connectivity", data.connectivity.map(x => x.id === id ? { ...x, ...patch } : x))
+    update("connectivity", (data.connectivity || []).map(x => x.id === id ? { ...x, ...patch } : x))
   const removeConnectivity = (id: string) =>
-    update("connectivity", data.connectivity.filter(x => x.id !== id))
+    update("connectivity", (data.connectivity || []).filter(x => x.id !== id))
 
 
   // ── Eco Features ─────────────────────────
   const addEco = () => {
-    const item: EcoFeature = { id: crypto.randomUUID(), title: "", description: "", icon: "leaf" }
-    update("ecoFeatures", [...data.ecoFeatures, item])
+    const item: EcoFeature = { id: uuidv4(), title: "", description: "", icon: "leaf" }
+    update("ecoFeatures", [...(data.ecoFeatures || []), item])
   }
   const updateEco = (id: string, patch: Partial<EcoFeature>) =>
-    update("ecoFeatures", data.ecoFeatures.map(x => x.id === id ? { ...x, ...patch } : x))
+    update("ecoFeatures", (data.ecoFeatures || []).map(x => x.id === id ? { ...x, ...patch } : x))
   const removeEco = (id: string) =>
-    update("ecoFeatures", data.ecoFeatures.filter(x => x.id !== id))
+    update("ecoFeatures", (data.ecoFeatures || []).filter(x => x.id !== id))
 
   // ── Video Gallery ─────────────────────────
   const addVideo = (type: VideoGalleryItem["type"]) => {
-    const item: VideoGalleryItem = { id: crypto.randomUUID(), title: "", landscapeUrl: "", shortUrl: "", type }
-    update("videoGallery", [...data.videoGallery, item])
+    const item: VideoGalleryItem = { id: uuidv4(), title: "", landscapeUrl: "", shortUrl: "", type }
+    update("videoGallery", [...(data.videoGallery || []), item])
   }
   const updateVideo = (id: string, patch: Partial<VideoGalleryItem>) =>
-    update("videoGallery", data.videoGallery.map(x => x.id === id ? { ...x, ...patch } : x))
+    update("videoGallery", (data.videoGallery || []).map(x => x.id === id ? { ...x, ...patch } : x))
   const removeVideo = (id: string) =>
-    update("videoGallery", data.videoGallery.filter(x => x.id !== id))
+    update("videoGallery", (data.videoGallery || []).filter(x => x.id !== id))
 
   // ── RERA Phases ───────────────────────────
   const addRera = () => {
-    const item: ReraPhase = { id: crypto.randomUUID(), phaseName: "", reraNumber: "", validUntil: "" }
-    update("reraPhases", [...data.reraPhases, item])
+    const item: ReraPhase = { id: uuidv4(), phaseName: "", reraNumber: "", validUntil: "" }
+    update("reraPhases", [...(data.reraPhases || []), item])
   }
   const updateRera = (id: string, patch: Partial<ReraPhase>) =>
-    update("reraPhases", data.reraPhases.map(x => x.id === id ? { ...x, ...patch } : x))
+    update("reraPhases", (data.reraPhases || []).map(x => x.id === id ? { ...x, ...patch } : x))
   const removeRera = (id: string) =>
-    update("reraPhases", data.reraPhases.filter(x => x.id !== id))
+    update("reraPhases", (data.reraPhases || []).filter(x => x.id !== id))
 
   // ── APF Details ───────────────────────────
   const addApf = () => {
-    const item: ApfDetail = { id: crypto.randomUUID(), bankName: "", apfNumber: "", certificateUrl: "" }
+    const item: ApfDetail = { id: uuidv4(), bankName: "", apfNumber: "", certificateUrl: "" }
     update("apfDetails", [...(data.apfDetails || []), item])
   }
   const updateApf = (id: string, patch: Partial<ApfDetail>) =>
@@ -351,29 +354,29 @@ export function TownshipFlowForm({ data, onChange, user }: TownshipFlowFormProps
 
   // ── Master Plan Highlights ────────────────
   const addHighlight = () => {
-    const item: MasterPlanHighlight = { id: crypto.randomUUID(), label: "" }
-    update("masterPlanHighlights", [...data.masterPlanHighlights, item])
+    const item: MasterPlanHighlight = { id: uuidv4(), label: "" }
+    update("masterPlanHighlights", [...(data.masterPlanHighlights || []), item])
   }
   const removeHighlight = (id: string) =>
-    update("masterPlanHighlights", data.masterPlanHighlights.filter(x => x.id !== id))
+    update("masterPlanHighlights", (data.masterPlanHighlights || []).filter(x => x.id !== id))
 
   // ── Development Timeline ──────────────────
   const addPhase = () => {
-    const item: DevelopmentPhase = { id: crypto.randomUUID(), title: "", description: "", date: "", status: "planned" }
-    update("developmentTimeline", [...data.developmentTimeline, item])
+    const item: DevelopmentPhase = { id: uuidv4(), title: "", description: "", date: "", status: "planned" }
+    update("developmentTimeline", [...(data.developmentTimeline || []), item])
   }
   const updatePhase = (id: string, patch: Partial<DevelopmentPhase>) =>
-    update("developmentTimeline", data.developmentTimeline.map(x => x.id === id ? { ...x, ...patch } : x))
+    update("developmentTimeline", (data.developmentTimeline || []).map(x => x.id === id ? { ...x, ...patch } : x))
   const removePhase = (id: string) =>
-    update("developmentTimeline", data.developmentTimeline.filter(x => x.id !== id))
+    update("developmentTimeline", (data.developmentTimeline || []).filter(x => x.id !== id))
 
   // ── Gallery Images ────────────────────────
-  const addGalleryImage = () => update("galleryImages", [...data.galleryImages, ""])
+  const addGalleryImage = () => update("galleryImages", [...(data.galleryImages || []), ""])
   const updateGalleryImage = (i: number, val: string) => {
-    const g = [...data.galleryImages]; g[i] = val; update("galleryImages", g)
+    const g = [...(data.galleryImages || [])]; g[i] = val; update("galleryImages", g)
   }
   const removeGalleryImage = (i: number) =>
-    update("galleryImages", data.galleryImages.filter((_, idx) => idx !== i))
+    update("galleryImages", (data.galleryImages || []).filter((_, idx) => idx !== i))
 
   // ── FAQ ───────────────────────────────────
   const addFaq = () => {
@@ -534,7 +537,7 @@ export function TownshipFlowForm({ data, onChange, user }: TownshipFlowFormProps
             </Select>
           </Field>
           <Field label="Total Projects / Phases" hint="Auto-synced from Projects step">
-            <Input type="number" value={data.projectCount ?? ""} onChange={e => update("projectCount", Number(e.target.value))} placeholder="5" className="bg-gray-50/50" />
+            <Input type="number" value={data.projectCount ?? ""} readOnly placeholder="0" className="bg-gray-50 cursor-not-allowed font-bold text-blue-600" />
           </Field>
           <Field label="Total Towers" hint="Auto-synced from Towers step">
             <Input type="number" value={data.totalTowers ?? ""} readOnly placeholder="0" className="bg-gray-50 cursor-not-allowed font-bold text-blue-600" />
@@ -542,8 +545,8 @@ export function TownshipFlowForm({ data, onChange, user }: TownshipFlowFormProps
           <Field label="Total Units" hint="Auto-synced from Units step">
             <Input type="number" value={data.totalUnits ?? ""} readOnly placeholder="0" className="bg-gray-50 cursor-not-allowed font-bold text-blue-600" />
           </Field>
-          <Field label="Total Families" hint="Auto-calculated (can override)">
-            <Input type="number" value={data.totalFamilies ?? ""} onChange={e => update("totalFamilies", Number(e.target.value))} placeholder="2000" className="bg-gray-50/50" />
+          <Field label="Total Families" hint="Auto-synced from Units step">
+            <Input type="number" value={data.totalFamilies ?? ""} readOnly placeholder="0" className="bg-gray-50 cursor-not-allowed font-bold text-blue-600" />
           </Field>
           <Field label="Launch Date" hint="Eg: January 2022">
             <Input value={data.launchDate ?? ""} onChange={e => update("launchDate", e.target.value)} placeholder="January 2022" />

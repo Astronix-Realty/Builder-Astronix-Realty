@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { v4 as uuidv4 } from "uuid"
 import Image from "next/image"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -71,6 +72,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
+import { GalleryUpload, AboutImageUpload, VideoUpload } from "@/components/ui/media-uploads"
 
 import {
     defaultRoomDimensions,
@@ -731,37 +733,51 @@ function UnitConfigCard({
 
                             <Section id="media_core" title="Core Visual Assets" description="Banners and layout images" icon={FileText} openIds={openIds} setOpenIds={setOpenIds}>
                                 <Grid cols={2}>
-                                    <Field label="Hero Showcase Image">
-                                        <Input value={config.heroImage || ''} onChange={e => onChange({ heroImage: e.target.value })} placeholder="https://..." className="bg-white" />
-                                    </Field>
-                                    <Field label="Virtual Tour Link">
-                                        <Input value={(config as any).virtualTourLink || ''} onChange={e => onChange({ virtualTourLink: e.target.value } as any)} placeholder="https://..." className="bg-white" />
-                                    </Field>
-                                    <Field label="2D Layout Image">
-                                        <Input value={config.floorPlanImage2D || ''} onChange={e => onChange({ floorPlanImage2D: e.target.value })} placeholder="https://..." className="bg-white" />
-                                    </Field>
-                                    <Field label="3D Layout Image">
-                                        <Input value={config.floorPlanImage3D || ''} onChange={e => onChange({ floorPlanImage3D: e.target.value })} placeholder="https://..." className="bg-white" />
-                                    </Field>
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Hero Showcase Image</label>
+                                        <AboutImageUpload 
+                                            value={config.heroImage || ''} 
+                                            onChange={url => onChange({ heroImage: url })} 
+                                            title="Upload Hero Image" 
+                                            description="Best main photo for the banner" 
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Virtual Tour Link</label>
+                                        <VideoUpload
+                                            max={1}
+                                            videos={(config as any).virtualTourLink ? [{ id: "vt1", landscapeUrl: (config as any).virtualTourLink, title: "Virtual Tour", type: "walkthrough" }] : []}
+                                            onChange={v => onChange({ virtualTourLink: v[0]?.landscapeUrl || v[0]?.shortUrl || "" } as any)}
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">2D Layout Image</label>
+                                        <AboutImageUpload 
+                                            value={config.floorPlanImage2D || ''} 
+                                            onChange={url => onChange({ floorPlanImage2D: url })} 
+                                            title="Upload 2D Plan" 
+                                            description="High quality 2D floor plan layout" 
+                                        />
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">3D Layout Image</label>
+                                        <AboutImageUpload 
+                                            value={config.floorPlanImage3D || ''} 
+                                            onChange={url => onChange({ floorPlanImage3D: url })} 
+                                            title="Upload 3D Plan" 
+                                            description="Isometric 3D layout view" 
+                                        />
+                                    </div>
                                 </Grid>
                             </Section>
 
                             <Section id="media_gallery" title="Interior Gallery" description="Multi-shot room views" icon={LayoutGrid} openIds={openIds} setOpenIds={setOpenIds}>
-                                <div className="flex items-center justify-between mb-3 mt-1">
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-[#1A3C8C]">Interior Image URLs</p>
-                                    <div className="flex items-center gap-2">
-                                        <BulkImageInput onAdd={urls => onChange({ galleryImages: [...(config.galleryImages || []), ...urls] })} />
-                                        <Button variant="ghost" size="sm" onClick={addGallery} className="h-7 text-[10px] font-bold text-blue-600 hover:bg-blue-50">+ Add Item</Button>
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                    {(config.galleryImages || []).map((img, i) => (
-                                        <div key={i} className="relative group/img">
-                                            <Input value={img ?? ""} onChange={e => updateGalleryImg(i, e.target.value)} placeholder="URL" className="h-8 text-[9px] bg-white border border-gray-200" />
-                                            <Button variant="ghost" size="sm" onClick={() => removeGalleryImg(i)} className="absolute -top-2 -right-2 h-5 w-5 p-0 bg-white border border-gray-200 shadow-sm text-red-500 rounded-full opacity-0 group-hover/img:opacity-100 transition-opacity z-10"><X className="w-3 h-3" /></Button>
-                                        </div>
-                                    ))}
-                                    {(config.galleryImages || []).length === 0 && <p className="text-[10px] text-gray-400 italic py-2 col-span-full">No gallery images added.</p>}
+                                <div className="mt-4">
+                                    <GalleryUpload
+                                        images={config.galleryImages || []}
+                                        onChange={urls => onChange({ galleryImages: urls })}
+                                        max={20}
+                                    />
                                 </div>
                             </Section>
                         </TabsContent>
@@ -802,7 +818,7 @@ export function UnitFlowForm({
 
     // --- CONFIG HELPERS ---
     const addConfig = (type?: UnitConfiguration["type"], initialArea?: number) => {
-        const id = crypto.randomUUID()
+        const id = uuidv4()
         const targetType = type || "2BHK"
         const newConfig: UnitConfiguration = {
             id,
@@ -852,6 +868,7 @@ export function UnitFlowForm({
 
     // --- INVENTORY HELPERS ---
     const parseFloorRange = (range: string): number[] => {
+        if (!range) return []
         const floors: number[] = []
         const parseValue = (v: string) => {
             const clean = v.trim().toUpperCase()
@@ -891,7 +908,7 @@ export function UnitFlowForm({
         cloneFromGroupId?: string,
         floorPlanUrl?: string
     }) => {
-        const id = crypto.randomUUID()
+        const id = uuidv4()
         const slotsCount = config.unitsPerFloor
         const floors = parseFloorRange(config.floorRange)
 
@@ -903,7 +920,7 @@ export function UnitFlowForm({
             if (cloneGroup && cloneGroup.layout) {
                 layout = cloneGroup.layout.map((slot, i) => {
                     const originalConfig = data.configurations.find(c => c.id === slot.configId);
-                    const newConfigId = `config-${crypto.randomUUID()}`;
+                    const newConfigId = `config-${uuidv4()}`;
 
                     if (originalConfig) {
                         newConfigs.push({
@@ -914,7 +931,7 @@ export function UnitFlowForm({
 
                     return {
                         ...slot,
-                        id: `slot-${id}-${i}-${crypto.randomUUID()}`, // Generate new unique ID for the slot
+                        id: `slot-${id}-${i}-${uuidv4()}`, // Generate new unique ID for the slot
                         configId: originalConfig ? newConfigId : slot.configId
                     };
                 })
@@ -1062,7 +1079,21 @@ export function UnitFlowForm({
                                         </SelectContent>
                                     </Select>
                                     {data.otherChargesType === "rs" && (
-                                        <Input type="number" value={data.otherChargesAmount || ""} onChange={e => updateData({ otherChargesAmount: e.target.value })} placeholder="E.g. 5000" className="flex-1" />
+                                        <div className="flex flex-1 gap-2">
+                                            <Input 
+                                                value={data.otherChargesName || ""} 
+                                                onChange={e => updateData({ otherChargesName: e.target.value })} 
+                                                placeholder="Charge Name (e.g. Legal Fees)" 
+                                                className="flex-1" 
+                                            />
+                                            <Input 
+                                                type="number" 
+                                                value={data.otherChargesAmount || ""} 
+                                                onChange={e => updateData({ otherChargesAmount: e.target.value })} 
+                                                placeholder="E.g. 5000" 
+                                                className="w-32" 
+                                            />
+                                        </div>
                                     )}
                                 </div>
                             </Field>
@@ -1593,7 +1624,7 @@ export function UnitFlowForm({
                                                     existingConfig = availableOldConfigs[matchIdx]
                                                 }
 
-                                                const id = `config-${stats.groupId}-${stats.slotNumber}-${crypto.randomUUID()}`
+                                                const id = `config-${stats.groupId}-${stats.slotNumber}-${uuidv4()}`
                                                 const originalLabel = BHK_OPTIONS.find(o => o.toUpperCase().replace(/\s/g, "") === stats.type) || stats.originalTypeLabel
                                                 const initialArea = stats.area || 850
 
@@ -1837,7 +1868,7 @@ export function UnitFlowForm({
                                     </CardContent>
                                 </Card>
                             ))}
-                            <Button type="button" variant="outline" size="sm" onClick={() => updateData({ videoGallery: [...(data.videoGallery || []), { id: crypto.randomUUID(), title: "", type: "walkthrough", landscapeUrl: "", shortUrl: "" }] })} className="w-full border-dashed h-10">
+                            <Button type="button" variant="outline" size="sm" onClick={() => updateData({ videoGallery: [...(data.videoGallery || []), { id: uuidv4(), title: "", type: "walkthrough", landscapeUrl: "", shortUrl: "" }] })} className="w-full border-dashed h-10">
                                 <Plus className="w-4 h-4 mr-2" /> Add Video Tour
                             </Button>
                         </div>

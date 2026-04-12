@@ -118,21 +118,44 @@ export async function POST(req: NextRequest) {
 
     await dbConnect();
 
-    const finalSlug = generateRandomSlug(name, slug || "");
+    let newProperty = null;
+    let attempts = 0;
+    const maxAttempts = 3;
+    let lastError: any = null;
 
-    const newProperty = await Property.create({
-      builderId: decoded.userId,
-      type,
-      flowType: resolvedFlowType,
-      parentId: parentId || null,
-      name,
-      slug: finalSlug,
-      location: location || {},
-      status: status || "draft",
-      details: details || {},
-      createdBy: decoded.userId,
-      updatedBy: decoded.userId
-    });
+    while (attempts < maxAttempts) {
+      try {
+        const finalSlug = generateRandomSlug(name, slug || "");
+
+        newProperty = await Property.create({
+          builderId: decoded.userId,
+          type,
+          flowType: resolvedFlowType,
+          parentId: parentId || null,
+          name,
+          slug: finalSlug,
+          location: location || {},
+          status: status || "draft",
+          details: details || {},
+          createdBy: decoded.userId,
+          updatedBy: decoded.userId
+        });
+        break; // Success!
+      } catch (err: any) {
+        lastError = err;
+        // Check for duplicate key error (usually 11000)
+        if (err.code === 11000) {
+          attempts++;
+          console.warn(`[POST /api/properties] Slug collision on attempt ${attempts}. Retrying...`);
+        } else {
+          throw err; // Re-throw other errors
+        }
+      }
+    }
+
+    if (!newProperty) {
+      throw lastError || new Error("Failed to create property after max attempts");
+    }
 
     return NextResponse.json({ success: true, property: newProperty }, { status: 201 });
   } catch (error: any) {

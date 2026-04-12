@@ -34,7 +34,7 @@ interface Property {
   towers: number
   units: number
   location: string
-  status: "active" | "pending" | "completed"
+  status: "active" | "pending" | "draft" | "rejected" | "completed"
   totalValue: number
   createdDate: string
   flowType?: string
@@ -134,10 +134,14 @@ function DashboardContent() {
     }
 
     if (filterParam) {
-      if (filterParam === "drafts" || filterParam === "pending") {
+      if (filterParam === "drafts" || filterParam === "draft") {
+        setPropertyFilter("draft")
+      } else if (filterParam === "pending") {
         setPropertyFilter("pending")
       } else if (filterParam === "published" || filterParam === "active") {
         setPropertyFilter("active")
+      } else if (filterParam === "rejected") {
+        setPropertyFilter("rejected")
       }
     }
   }, [searchParams])
@@ -148,7 +152,7 @@ function DashboardContent() {
   }
 
   // Helper to map DB/Storage data to UI format
-  const mapProperty = (p: any, defaultStatus: 'active' | 'pending'): Property => {
+  const mapProperty = (p: any, defaultStatus: 'active' | 'pending' | 'draft' | 'rejected'): Property => {
     const details = p.details || {}
     const flowType = p.flowType || p.type
 
@@ -159,7 +163,7 @@ function DashboardContent() {
     let unitsCount = p.calculatedCounts?.unitsCount || 0
     let thumbnail = p.thumbnail || undefined
 
-    if (defaultStatus === "pending") {
+    if (defaultStatus === "draft" || defaultStatus === "pending" || defaultStatus === "rejected") {
       if (flowType === "township") {
         const ts = details.township
         if (ts) {
@@ -207,8 +211,10 @@ function DashboardContent() {
       details.generatedUnits?.reduce((sum: number, u: any) => sum + (u.price || 0), 0) ||
       unitsCount * 5000000
 
-    let finalStatus: 'active' | 'pending' = defaultStatus
-    if (p.status === 'draft') finalStatus = 'pending'
+    let finalStatus: Property['status'] = defaultStatus
+    if (p.status === 'draft') finalStatus = 'draft'
+    else if (p.status === 'pending') finalStatus = 'pending'
+    else if (p.status === 'rejected') finalStatus = 'rejected'
     else if (p.status === 'published' || p.status === 'active') finalStatus = 'active'
 
     return {
@@ -235,7 +241,7 @@ function DashboardContent() {
         const data = await res.json()
         if (data.properties) {
           const mapped = data.properties.map((p: any) => 
-            mapProperty(p, p.status === 'draft' ? 'pending' : 'active')
+            mapProperty(p, p.status === 'draft' ? 'draft' : p.status === 'pending' ? 'pending' : p.status === 'rejected' ? 'rejected' : 'active')
           )
           setProperties(mapped)
         }
@@ -393,7 +399,7 @@ function DashboardContent() {
 
   const [activeTab, setActiveTab] = useState<"properties" | "inventory" | "crm" | "chat" | "documents" | "team" | "offers" | "blog" | "settings">("properties")
   const [showAddProperty, setShowAddProperty] = useState(false)
-  const [propertyFilter, setPropertyFilter] = useState<'active' | 'pending'>('active')
+  const [propertyFilter, setPropertyFilter] = useState<'active' | 'pending' | 'draft' | 'rejected'>('active')
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
@@ -631,7 +637,27 @@ function DashboardContent() {
                     : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
                     }`}
                 >
-                  Drafts ({properties.filter(p => p.status === "pending").length})
+                  Pending ({properties.filter(p => p.status === "pending").length})
+                </button>
+
+                <button
+                  onClick={() => setPropertyFilter("draft")}
+                  className={`pb-1 transition-colors ${propertyFilter === "draft"
+                    ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
+                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                    }`}
+                >
+                  Drafts ({properties.filter(p => p.status === "draft").length})
+                </button>
+
+                <button
+                  onClick={() => setPropertyFilter("rejected")}
+                  className={`pb-1 transition-colors ${propertyFilter === "rejected"
+                    ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
+                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                    }`}
+                >
+                  Rejected ({properties.filter(p => p.status === "rejected").length})
                 </button>
               </div>
             )}
@@ -686,7 +712,17 @@ function DashboardContent() {
                   : "text-slate-600 dark:text-slate-400"
                   }`}
               >
-                Drafts ({properties.filter(p => p.status === "pending").length})
+                Pending ({properties.filter(p => p.status === "pending").length})
+              </button>
+
+              <button
+                onClick={() => setPropertyFilter("draft")}
+                className={`flex-1 py-2 text-sm rounded-md font-medium transition ${propertyFilter === "draft"
+                  ? "bg-white dark:bg-slate-900 text-blue-600 shadow"
+                  : "text-slate-600 dark:text-slate-400"
+                  }`}
+              >
+                Drafts ({properties.filter(p => p.status === "draft").length})
               </button>
             </div>
           )}
@@ -1000,7 +1036,10 @@ function DashboardContent() {
                   <Building2 className="h-16 w-16 text-slate-300 dark:text-slate-700 mx-auto mb-4" />
                   <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">No Properties Found</h3>
                   <p className="text-slate-600 dark:text-slate-400 mb-6">
-                    {propertyFilter === 'active' ? "You haven't published any properties yet." : "You don't have any drafts."}
+                    {propertyFilter === 'active' ? "You haven't published any properties yet." : 
+                     propertyFilter === 'pending' ? "You don't have any properties pending approval." :
+                     propertyFilter === 'rejected' ? "You don't have any rejected properties." :
+                     "You don't have any drafts."}
                   </p>
                   <button
                     onClick={() => setShowAddProperty(true)}

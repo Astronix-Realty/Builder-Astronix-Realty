@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
+import { v4 as uuidv4 } from "uuid"
 import Image from "next/image"
 import { Upload, X, Plus, Film, AlertCircle, FileText, Map as MapIcon, Eye, Download } from "lucide-react"
 
@@ -34,6 +35,9 @@ export function BannerUpload({ value, onChange }: { value: string; onChange: (ur
   const [error, setError] = useState("")
   const fileRef = useRef<HTMLInputElement>(null)
 
+  const onChangeRef = useRef(onChange)
+  useEffect(() => { onChangeRef.current = onChange }, [onChange])
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -42,7 +46,7 @@ export function BannerUpload({ value, onChange }: { value: string; onChange: (ur
       setIsUploading(true)
       const oldUrl = value
       const url = await uploadFileToServer(file)
-      onChange(url)
+      onChangeRef.current(url)
       deleteCloudinaryFile(oldUrl) // Delete old file after new upload succeeds
     } catch (err: any) {
       setError(err.message || "Upload failed")
@@ -55,57 +59,45 @@ export function BannerUpload({ value, onChange }: { value: string; onChange: (ur
   return (
     <div className="space-y-2">
       <div
-        className={`relative w-full h-[260px] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group ${value ? "border-transparent" : "border-blue-200 bg-blue-50/30 hover:bg-blue-50 hover:border-blue-300"
-          }`}
+        className={`relative w-full h-[200px] border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group ${value ? "border-transparent" : "border-blue-200 bg-blue-50/20 hover:bg-blue-50/50 hover:border-blue-400"}`}
         onClick={() => !isUploading && fileRef.current?.click()}
       >
         {isUploading ? (
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm font-semibold text-blue-600">Uploading...</span>
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-8 h-8 border-[3px] border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <span className="text-xs font-semibold text-blue-600">Uploading...</span>
           </div>
         ) : value ? (
           <>
             <Image src={value} alt="Banner" fill className="object-cover" unoptimized />
-            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-2 transition-opacity">
-              <Upload className="w-7 h-7 text-white" />
-              <span className="text-white font-semibold text-sm">Change Cover Image</span>
-            </div>
+            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-2 transition-opacity backdrop-blur-[2px]">
               <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); !isUploading && fileRef.current?.click() }}
+                className="bg-white text-gray-800 px-4 py-2 rounded-lg text-xs font-bold shadow-lg hover:bg-gray-50 flex items-center gap-1.5"
+              >
+                <Upload className="w-3.5 h-3.5 text-blue-600" /> Replace
+              </button>
+            </div>
+            <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); deleteCloudinaryFile(value); onChange("") }}
-              className="absolute top-3 right-3 bg-white/90 text-red-500 p-2 rounded-xl hover:bg-red-50 shadow opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => { e.stopPropagation(); deleteCloudinaryFile(value); onChangeRef.current("") }}
+              className="absolute top-2 right-2 bg-white/90 text-red-500 p-1.5 rounded-lg shadow hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity z-10"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           </>
         ) : (
-          <>
-            <div className="w-14 h-14 bg-white rounded-2xl shadow-md text-blue-500 flex items-center justify-center mb-4 transition-transform group-hover:scale-110">
-              <Upload className="w-7 h-7" />
+          <div className="flex flex-col items-center text-center px-4">
+            <div className="w-12 h-12 bg-blue-50 rounded-xl text-blue-500 flex items-center justify-center mb-3 transition-transform group-hover:scale-110 group-hover:-translate-y-1">
+              <Upload className="w-5 h-5" />
             </div>
-            <span className="font-bold text-gray-800 text-base">Upload Cover Image</span>
-            <span className="text-xs text-gray-500 mt-1">High quality banner for your township page</span>
-            <span className="text-[10px] text-gray-400 mt-3 bg-gray-100 px-3 py-1 rounded-full">JPEG, PNG, WEBP up to 10MB</span>
-          </>
+            <span className="font-semibold text-gray-700 text-sm">Upload Cover Image</span>
+            <span className="text-[11px] text-gray-400 mt-1">High quality banner for your page</span>
+            <span className="text-[10px] text-gray-400 mt-3 bg-gray-100 px-2.5 py-1 rounded-full">JPEG · PNG · WEBP</span>
+          </div>
         )}
         <input type="file" ref={fileRef} className="hidden" accept="image/*" onChange={handleFileChange} />
-      </div>
-
-      {/* URL fallback input */}
-      <div className="flex gap-2 items-center">
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="Or paste image URL..."
-          className="flex-1 text-xs px-3 py-2 border border-gray-200 rounded-lg text-gray-600 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-300"
-        />
-        {value && (
-          <button type="button" onClick={() => onChange("")} className="text-red-400 hover:text-red-600">
-            <X className="w-4 h-4" />
-          </button>
-        )}
       </div>
 
       {error && (
@@ -123,6 +115,9 @@ export function GalleryUpload({ images, onChange, max = 20 }: { images: string[]
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState("")
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const onChangeRef = useRef(onChange)
+  useEffect(() => { onChangeRef.current = onChange }, [onChange])
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
@@ -149,7 +144,7 @@ export function GalleryUpload({ images, onChange, max = 20 }: { images: string[]
           console.warn(`Skipped file ${files[i].name}:`, err.message)
         }
       }
-      onChange([...images, ...newUrls].slice(0, max))
+      onChangeRef.current([...images, ...newUrls].slice(0, max))
     } catch (err: any) {
       setError(err.message || "Upload failed")
     } finally {
@@ -162,17 +157,19 @@ export function GalleryUpload({ images, onChange, max = 20 }: { images: string[]
     <div className="space-y-3">
       <div className="flex flex-wrap gap-3 mt-2">
         {images.map((img, i) => (
+          img ? (
           <div key={i} className="relative w-28 h-28 rounded-xl border border-gray-200 overflow-hidden group shadow-sm">
             <Image src={img} alt={`Gallery ${i}`} fill className="object-cover" unoptimized />
             <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity" />
             <button
               type="button"
-              onClick={() => { deleteCloudinaryFile(images[i]); onChange(images.filter((_, idx) => idx !== i)) }}
+              onClick={() => { deleteCloudinaryFile(images[i]); onChangeRef.current(images.filter((_, idx) => idx !== i)) }}
               className="absolute top-1.5 right-1.5 bg-white/90 text-red-600 p-1 rounded-lg hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
             >
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
+          ) : null
         ))}
 
         {images.length < max && (
@@ -258,6 +255,9 @@ export function VideoUpload({ videos, onChange, max = 5 }: {
     setCurrentVideoType(null);
   };
 
+  const onChangeRef = useRef(onChange)
+  useEffect(() => { onChangeRef.current = onChange }, [onChange])
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -289,13 +289,13 @@ export function VideoUpload({ videos, onChange, max = 5 }: {
       const url = await uploadFileToServer(file)
 
       const newItem = {
-        id: crypto.randomUUID(),
+        id: uuidv4(),
         title: file.name.replace(/\.[^/.]+$/, ""),
         landscapeUrl: detectedType === "walkthrough" ? url : "",
         shortUrl: detectedType === "short" ? url : "",
         type: detectedType,
       }
-      onChange([...videos, newItem].slice(0, max))
+      onChangeRef.current([...videos, newItem].slice(0, max))
     } catch (err: any) {
       setError(err.message || "Upload failed")
     } finally {
@@ -319,164 +319,144 @@ export function VideoUpload({ videos, onChange, max = 5 }: {
     const isAutoShort = url.includes("shorts") || url.includes("tiktok.com") || url.includes("instagram.com/reel");
     const finalType = isAutoShort ? "short" : "walkthrough"
     const newItem = {
-      id: crypto.randomUUID(),
+      id: uuidv4(),
       title: "Video Link",
       landscapeUrl: finalType === "walkthrough" ? url : "",
       shortUrl: finalType === "short" ? url : "",
       type: finalType,
     }
-    onChange([...videos, newItem].slice(0, max))
+    onChangeRef.current([...videos, newItem].slice(0, max))
     setLinkInput("")
   }
 
   return (
-    <div className="space-y-4">
-      {/* Video Grid */}
-      <div className="flex flex-wrap gap-4 mt-2">
-        {videos.map((vid, i) => {
-          const src = vid.landscapeUrl || vid.shortUrl || ""
-          const isYT = src.includes("youtube.com") || src.includes("youtu.be")
-          const ytMatch = src.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([A-Za-z0-9_-]{11})/)
-          const ytThumb = isYT && ytMatch ? `https://img.youtube.com/vi/${ytMatch[1]}/mqdefault.jpg` : null
-          const isLocal = src.startsWith("/uploads")
-          const isShort = vid.type === "short"
+    <div className="space-y-3">
+      {/* ── Existing Videos ────────────────────────── */}
+      {videos.length > 0 && (
+        <div className="flex flex-wrap gap-3">
+          {videos.map((vid, i) => {
+            const src = vid.landscapeUrl || vid.shortUrl || ""
+            const isYT = src.includes("youtube.com") || src.includes("youtu.be")
+            const ytMatch = src.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([A-Za-z0-9_-]{11})/)
+            const ytThumb = isYT && ytMatch ? `https://img.youtube.com/vi/${ytMatch[1]}/mqdefault.jpg` : null
+            const isLocal = src.startsWith("/uploads") || src.includes("cloudinary.com")
 
-          return (
-            <div
-              key={vid.id || i}
-              className={`relative rounded-xl border border-gray-200 overflow-hidden group shadow-sm bg-gray-900 cursor-pointer ${isShort ? "w-24 h-36" : "w-36 h-28"
-                }`}
-              onClick={() => openVideoModal(vid)}
-            >
-              {/* Type Badge - Premium glassmorphism */}
-              <div className="absolute top-2 left-2 z-10">
-                <span className="bg-black/40 backdrop-blur-md border border-white/20 text-white text-[9px] font-bold px-2 py-1 rounded-full uppercase tracking-wider shadow-sm">
-                  {isShort ? "Short" : "Long"}
-                </span>
-              </div>
-
-              {/* YouTube thumbnail */}
-              {ytThumb && (
-                <img src={ytThumb} alt="thumbnail" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
-              )}
-              {/* Local uploaded video preview */}
-              {isLocal && (
-                <video src={src} className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity" muted preload="metadata" />
-              )}
-              {/* Generic URL preview */}
-              {!ytThumb && !isLocal && (
-                <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
-                  <Film className="w-8 h-8 text-gray-500" />
-                </div>
-              )}
-
-              {/* Play button overlay - Frosty glass */}
-              <div className="absolute inset-0 flex items-center justify-center transition-all bg-black/0 group-hover:bg-black/20">
-                <div className="w-10 h-10 rounded-full bg-white/30 backdrop-blur-sm border border-white/40 flex items-center justify-center shadow-xl transition-all group-hover:scale-110 group-hover:bg-white/40">
-                  <svg className="w-4 h-4 text-white ml-1 drop-shadow-md" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-                </div>
-              </div>
-
-              {/* Title info */}
-              {vid.title && (
-                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent pt-6 pb-2 px-3 text-white text-[10px] font-medium truncate">
-                  {vid.title}
-                </div>
-              )}
-
-              {/* Delete button */}
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onChange(videos.filter((_, idx) => idx !== i)) }}
-                className="absolute top-2 right-2 bg-white/90 text-red-600 p-1.5 rounded-full hover:bg-red-50 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-all shadow-sm z-10 hover:scale-110"
+            return (
+              <div
+                key={vid.id || i}
+                className="relative w-full h-[200px] rounded-xl border border-gray-200 overflow-hidden group shadow-sm bg-gray-900 cursor-pointer"
+                onClick={() => openVideoModal(vid)}
               >
-                <X className="w-3 h-3 stroke-[3]" />
-              </button>
-            </div>
-          )
-        })}
-      </div>
+                {/* Thumbnail */}
+                {ytThumb && <img src={ytThumb} alt="thumbnail" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />}
+                {isLocal && <video src={src} className="w-full h-full object-cover opacity-70 group-hover:opacity-90 transition-opacity" muted preload="metadata" />}
+                {!ytThumb && !isLocal && (
+                  <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex flex-col items-center justify-center gap-2">
+                    <Film className="w-10 h-10 text-gray-500" />
+                    <span className="text-[11px] text-gray-400 max-w-[180px] truncate text-center">{src}</span>
+                  </div>
+                )}
 
-      {/* Add New Video Panel - Premium Look */}
-      {videos.length < max && (
-        <div className="bg-gradient-to-br from-orange-50/60 to-white border border-orange-100 shadow-sm rounded-2xl p-5 relative overflow-hidden">
-          {/* Decorative background element */}
-          <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-gradient-to-bl from-orange-100/50 rounded-bl-full pointer-events-none" />
+                {/* Play overlay */}
+                <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-all">
+                  <div className="w-12 h-12 rounded-full bg-white/30 backdrop-blur-sm border border-white/40 flex items-center justify-center shadow-xl transition-all group-hover:scale-110">
+                    <svg className="w-5 h-5 text-white ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                  </div>
+                </div>
 
-          <div className="mb-4 pb-4 border-b border-orange-100/80">
-            <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
-              <div className="w-6 h-6 rounded-md bg-orange-100 flex items-center justify-center">
-                <Plus className="w-3.5 h-3.5 text-orange-600" />
+                {/* Type badge */}
+                <div className="absolute top-2 left-2 z-10">
+                  <span className="bg-black/50 backdrop-blur-md text-white text-[9px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">
+                    {vid.type === "short" ? "Short" : "Video"}
+                  </span>
+                </div>
+
+                {/* Title */}
+                {vid.title && (
+                  <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent pt-6 pb-2 px-3 text-white text-[11px] font-medium truncate">
+                    {vid.title}
+                  </div>
+                )}
+
+                {/* Delete */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    deleteCloudinaryFile(vid.landscapeUrl)
+                    deleteCloudinaryFile(vid.shortUrl)
+                    onChangeRef.current(videos.filter((_, idx) => idx !== i))
+                  }}
+                  className="absolute top-2 right-2 bg-white/90 text-red-600 p-1.5 rounded-lg hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all shadow-sm z-10"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
               </div>
-              Add Video Content
-              <span className="ml-2 text-[10px] font-normal text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full border border-gray-200">
-                Auto-detects Shorts & Landscape
-              </span>
-            </h4>
-          </div>
+            )
+          })}
+        </div>
+      )}
 
-          <div className="flex flex-col md:flex-row gap-5 items-center">
-            {/* Upload Button */}
+      {/* ── Add Video Panel ─────────────────────── */}
+      {videos.length < max && (
+        <div className={`relative w-full border-2 border-dashed rounded-xl overflow-hidden transition-all ${videos.length === 0 ? "h-[200px]" : "h-auto"} border-gray-200 bg-gray-50/30 hover:bg-gray-50/80 hover:border-gray-400`}>
+          {videos.length === 0 ? (
+            // Empty state — full-size card matching image boxes
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
+              <div className="w-12 h-12 bg-gray-100 rounded-xl text-gray-400 flex items-center justify-center mb-3">
+                <Film className="w-5 h-5" />
+              </div>
+              <span className="font-semibold text-gray-700 text-sm">Add Video or Link</span>
+              <span className="text-[11px] text-gray-400 mt-1">Upload a file or paste YouTube / MP4 link</span>
+              {/* Invisible click target */}
+              <button type="button" onClick={() => !isUploading && fileRef.current?.click()} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+            </div>
+          ) : null}
+
+          {/* Input row */}
+          <div className={`${videos.length === 0 ? "absolute bottom-0 inset-x-0 bg-white/80 backdrop-blur-sm border-t border-gray-200" : ""} flex gap-2 p-3`}>
             <button
               type="button"
               onClick={() => !isUploading && fileRef.current?.click()}
-              className="w-full md:w-auto flex-shrink-0 bg-white border border-gray-300 hover:border-orange-400 hover:bg-orange-50/30 text-gray-700 font-semibold px-5 py-2.5 rounded-xl text-sm shadow-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 group"
               disabled={isUploading}
+              className="flex-shrink-0 bg-white border border-gray-300 hover:border-gray-400 text-gray-700 font-semibold px-4 py-2 rounded-lg text-xs shadow-sm flex items-center gap-1.5 transition-all disabled:opacity-50"
             >
               {isUploading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
-                  Uploading...
-                </>
+                <><div className="w-3.5 h-3.5 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" /> Uploading...</>
               ) : (
-                <>
-                  <Upload className="w-4 h-4 text-gray-400 group-hover:text-orange-500 transition-colors" /> Upload File
-                </>
+                <><Upload className="w-3.5 h-3.5" /> Upload</>
               )}
             </button>
 
-            <div className="hidden md:flex flex-col items-center justify-center">
-              <div className="h-4 w-px bg-gray-200"></div>
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest my-1">OR</span>
-              <div className="h-4 w-px bg-gray-200"></div>
+            <div className="flex-1 flex items-center bg-white border border-gray-200 rounded-lg px-2.5 overflow-hidden focus-within:ring-2 focus-within:ring-blue-200 focus-within:border-blue-400 transition-all">
+              <Film className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+              <input
+                type="text"
+                value={linkInput}
+                onChange={(e) => setLinkInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAddLink()}
+                placeholder="Paste YouTube or MP4 link..."
+                className="flex-1 text-xs bg-transparent px-2 py-2 text-gray-700 placeholder-gray-400 focus:outline-none"
+              />
+              {linkInput && (
+                <button type="button" onClick={() => setLinkInput("")} className="text-gray-400 hover:text-gray-600">
+                  <X className="w-3 h-3" />
+                </button>
+              )}
             </div>
-            <div className="md:hidden flex items-center justify-center w-full">
-              <div className="h-px flex-1 bg-gray-200"></div>
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-3">OR</span>
-              <div className="h-px flex-1 bg-gray-200"></div>
-            </div>
-
-            {/* Link Input */}
-            <div className="flex-1 flex gap-2 w-full">
-              <div className="flex-1 flex items-center bg-white border border-gray-300 rounded-xl px-3 overflow-hidden focus-within:ring-2 focus-within:ring-orange-200 focus-within:border-orange-400 transition-all shadow-sm">
-                <Film className="w-4 h-4 text-gray-400 shrink-0" />
-                <input
-                  type="text"
-                  value={linkInput}
-                  onChange={(e) => setLinkInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleAddLink()}
-                  placeholder="Paste YouTube or MP4 link..."
-                  className="flex-1 text-sm bg-transparent px-3 py-2.5 text-gray-700 placeholder-gray-400 focus:outline-none"
-                />
-                {linkInput && (
-                  <button type="button" onClick={() => setLinkInput("")} className="text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 p-1 rounded-md transition-colors">
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={handleAddLink}
-                disabled={!linkInput.trim()}
-                className="flex-shrink-0 px-5 py-2.5 bg-gray-900 hover:bg-black disabled:bg-gray-300 disabled:text-gray-500 text-white text-sm font-semibold rounded-xl shadow-sm transition-all"
-              >
-                Add Link
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={handleAddLink}
+              disabled={!linkInput.trim()}
+              className="flex-shrink-0 px-4 py-2 bg-gray-900 hover:bg-black disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-bold rounded-lg transition-all"
+            >
+              Add
+            </button>
           </div>
-          <input type="file" ref={fileRef} className="hidden" accept="video/*" onChange={handleFileChange} />
         </div>
       )}
+
+      <input type="file" ref={fileRef} className="hidden" accept="video/*" onChange={handleFileChange} />
 
       {error && (
         <div className="flex items-center gap-2 text-red-500 text-sm bg-red-50 border border-red-100 px-4 py-3 rounded-lg">
@@ -553,6 +533,9 @@ export function DocumentUpload({
   const [error, setError] = useState("")
   const fileRef = useRef<HTMLInputElement>(null)
 
+  const onChangeRef = useRef(onChange)
+  useEffect(() => { onChangeRef.current = onChange }, [onChange])
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -569,7 +552,7 @@ export function DocumentUpload({
       setIsUploading(true)
       const oldUrl = value
       const url = await uploadFileToServer(file)
-      onChange(url)
+      onChangeRef.current(url)
       deleteCloudinaryFile(oldUrl) // Delete old PDF after new one uploads
     } catch (err: any) {
       setError(err.message || "Upload failed")
@@ -606,9 +589,8 @@ export function DocumentUpload({
               </div>
             </div>
 
-            {/* File name */}
-            <p className="text-sm font-semibold text-gray-800 max-w-[220px] truncate" title={value.split('/').pop()?.split('?')[0] || 'Document'}>
-              {value.split('/').pop()?.split('_').slice(0, -1).join('_') || value.split('/').pop()?.split('?')[0] || 'Document Uploaded'}
+            <p className="text-sm font-semibold text-gray-800 max-w-[220px] truncate" title={value?.split('/').pop()?.split('?')[0] || 'Document'}>
+              {value?.split('/').pop()?.split('_').slice(0, -1).join('_') || value?.split('/').pop()?.split('?')[0] || 'Document Uploaded'}
             </p>
 
             {/* Always-visible action buttons */}
@@ -616,7 +598,7 @@ export function DocumentUpload({
             <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); deleteCloudinaryFile(value); onChange("") }}
+              onClick={(e) => { e.stopPropagation(); deleteCloudinaryFile(value); onChangeRef.current("") }}
               className="absolute top-3 right-3 bg-white/90 text-red-500 p-1.5 rounded-xl hover:bg-red-50 shadow opacity-0 group-hover:opacity-100 transition-opacity z-10"
             >
               <X className="w-4 h-4" />
@@ -677,6 +659,9 @@ export function MasterPlanMapUpload({
   const [error, setError] = useState("")
   const fileRef = useRef<HTMLInputElement>(null)
 
+  const onChangeRef = useRef(onChange)
+  useEffect(() => { onChangeRef.current = onChange }, [onChange])
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -691,8 +676,10 @@ export function MasterPlanMapUpload({
 
     try {
       setIsUploading(true)
+      const oldUrl = value
       const url = await uploadFileToServer(file)
       onChange(url)
+      deleteCloudinaryFile(oldUrl) // Delete old file after new upload succeeds
     } catch (err: any) {
       setError(err.message || "Upload failed")
     } finally {
@@ -702,56 +689,49 @@ export function MasterPlanMapUpload({
   }
 
   return (
-    <div className="space-y-2 h-full">
+    <div className="space-y-2">
       <div
-        className={`relative w-full h-full min-h-[300px] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group ${value ? "border-transparent bg-gray-50" : "border-blue-200 bg-blue-50/20 hover:bg-blue-50/50 hover:border-blue-300"
-          }`}
+        className={`relative w-full h-[200px] border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group ${value ? "border-transparent bg-gray-50" : "border-blue-200 bg-blue-50/20 hover:bg-blue-50/50 hover:border-blue-400"}`}
         onClick={() => !isUploading && fileRef.current?.click()}
       >
         {isUploading ? (
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm font-semibold text-blue-600">Uploading...</span>
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-8 h-8 border-[3px] border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <span className="text-xs font-semibold text-blue-600">Uploading...</span>
           </div>
         ) : value ? (
           <>
-            <div className="absolute inset-0 p-2">
-              <div className="relative w-full h-full rounded-xl overflow-hidden border border-gray-200 bg-white">
+            <div className="absolute inset-0 p-1.5">
+              <div className="relative w-full h-full rounded-lg overflow-hidden border border-gray-200 bg-white">
                 <Image src={value} alt="Master Plan Map" fill className="object-contain" unoptimized />
               </div>
             </div>
-            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-3 transition-opacity backdrop-blur-sm rounded-2xl">
+            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-2 transition-opacity backdrop-blur-[2px]">
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); !isUploading && fileRef.current?.click() }}
-                className="bg-white text-gray-800 px-5 py-2.5 rounded-xl font-semibold shadow-xl hover:bg-gray-50 flex items-center gap-2 transition-transform transform hover:scale-105"
+                className="bg-white text-gray-800 px-4 py-2 rounded-lg text-xs font-bold shadow-lg hover:bg-gray-50 flex items-center gap-1.5"
               >
-                <Upload className="w-4 h-4 text-blue-600" /> Replace Image
+                <Upload className="w-3.5 h-3.5 text-blue-600" /> Replace
               </button>
             </div>
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); onChange("") }}
-              className="absolute top-3 right-3 bg-white/90 text-red-500 p-2 rounded-xl shadow-xl hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:scale-110"
+              onClick={(e) => { e.stopPropagation(); deleteCloudinaryFile(value); onChangeRef.current("") }}
+              className="absolute top-2 right-2 bg-white/90 text-red-500 p-1.5 rounded-lg shadow-lg hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity z-10"
               title="Remove Map"
             >
-              <X className="w-5 h-5" />
+              <X className="w-3.5 h-3.5" />
             </button>
           </>
         ) : (
-          <div className="flex flex-col items-center text-center p-6">
-            <div className="w-16 h-16 bg-blue-100 rounded-2xl shadow-sm text-blue-600 flex items-center justify-center mb-5 transition-transform group-hover:scale-110 group-hover:-translate-y-1">
-              <MapIcon className="w-8 h-8" />
+          <div className="flex flex-col items-center text-center px-4">
+            <div className="w-12 h-12 bg-blue-50 rounded-xl text-blue-500 flex items-center justify-center mb-3 transition-transform group-hover:scale-110 group-hover:-translate-y-1">
+              <MapIcon className="w-5 h-5" />
             </div>
-            <span className="font-bold text-gray-800 text-lg">{title}</span>
-            <span className="text-sm text-gray-500 mt-1.5 max-w-[250px]">{description}</span>
-
-            <div className="mt-6 flex flex-col gap-2 w-full max-w-[200px]">
-              <div className="bg-white border text-xs px-3 py-2 rounded-lg text-gray-500 shadow-sm flex items-center justify-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-                High Quality
-              </div>
-            </div>
+            <span className="font-semibold text-gray-700 text-sm">{title}</span>
+            <span className="text-[11px] text-gray-400 mt-1 max-w-[200px] leading-relaxed">{description}</span>
+            <span className="text-[10px] text-gray-400 mt-3 bg-gray-100 px-2.5 py-1 rounded-full">JPEG · PNG · WEBP</span>
           </div>
         )}
         <input type="file" ref={fileRef} className="hidden" accept="image/*" onChange={handleFileChange} />
@@ -783,6 +763,9 @@ export function AboutImageUpload({
   const [error, setError] = useState("")
   const fileRef = useRef<HTMLInputElement>(null)
 
+  const onChangeRef = useRef(onChange)
+  useEffect(() => { onChangeRef.current = onChange }, [onChange])
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -796,8 +779,10 @@ export function AboutImageUpload({
 
     try {
       setIsUploading(true)
+      const oldUrl = value
       const url = await uploadFileToServer(file)
-      onChange(url)
+      onChangeRef.current(url)
+      deleteCloudinaryFile(oldUrl) // Delete old file after new upload succeeds
     } catch (err: any) {
       setError(err.message || "Upload failed")
     } finally {
@@ -807,59 +792,52 @@ export function AboutImageUpload({
   }
 
   return (
-    <div className="space-y-2 h-full">
+    <div className="space-y-2">
       <div
-        className={`relative w-full h-full min-h-[350px] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group ${value ? "border-transparent bg-gray-50/50" : "border-gray-200 bg-gray-50/10 hover:bg-gray-50/50 hover:border-gray-300"
-          }`}
+        className={`relative w-full h-[200px] border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group ${value ? "border-transparent bg-gray-50" : "border-gray-200 bg-gray-50/30 hover:bg-gray-50/80 hover:border-gray-400"}`}
         onClick={() => !isUploading && fileRef.current?.click()}
       >
         {isUploading ? (
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-10 h-10 border-4 border-[#1A3C8C] border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm font-semibold text-[#1A3C8C]">Uploading...</span>
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-8 h-8 border-[3px] border-[#1A3C8C] border-t-transparent rounded-full animate-spin" />
+            <span className="text-xs font-semibold text-[#1A3C8C]">Uploading...</span>
           </div>
         ) : value ? (
           <>
-            <Image src={value} alt="About Image" fill className="object-cover" unoptimized />
-            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-3 transition-opacity backdrop-blur-sm rounded-2xl">
+            <Image src={value} alt="Uploaded" fill className="object-cover" unoptimized />
+            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-2 transition-opacity backdrop-blur-[2px]">
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); !isUploading && fileRef.current?.click() }}
-                className="bg-white text-gray-800 px-5 py-2.5 rounded-xl font-semibold shadow-xl hover:bg-gray-50 flex items-center gap-2 transition-transform transform hover:scale-105"
+                className="bg-white text-gray-800 px-4 py-2 rounded-lg text-xs font-bold shadow-lg hover:bg-gray-50 flex items-center gap-1.5"
               >
-                <Upload className="w-4 h-4 text-[#1A3C8C]" /> Replace Image
+                <Upload className="w-3.5 h-3.5 text-[#1A3C8C]" /> Replace
               </button>
             </div>
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); onChange("") }}
-              className="absolute top-3 right-3 bg-white/90 text-red-500 p-2 rounded-xl shadow-xl hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:scale-110"
+              onClick={(e) => { e.stopPropagation(); deleteCloudinaryFile(value); onChangeRef.current("") }}
+              className="absolute top-2 right-2 bg-white/90 text-red-500 p-1.5 rounded-lg shadow-lg hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity z-10"
               title="Remove Image"
             >
-              <X className="w-5 h-5" />
+              <X className="w-3.5 h-3.5" />
             </button>
           </>
         ) : (
-          <div className="flex flex-col items-center text-center p-6">
-            <div className="w-16 h-16 bg-[#1A3C8C]/10 rounded-2xl shadow-sm text-[#1A3C8C] flex items-center justify-center mb-5 transition-transform group-hover:scale-110 group-hover:-translate-y-1">
-              <FileText className="w-8 h-8" />
+          <div className="flex flex-col items-center text-center px-4">
+            <div className="w-12 h-12 bg-gray-100 rounded-xl text-gray-400 flex items-center justify-center mb-3 transition-transform group-hover:scale-110 group-hover:-translate-y-1">
+              <Upload className="w-5 h-5" />
             </div>
-            <span className="font-bold text-gray-800 text-lg">{title}</span>
-            <span className="text-sm text-gray-500 mt-1.5 max-w-[250px]">{description}</span>
-
-            <div className="mt-6 flex flex-col gap-2 w-full max-w-[200px]">
-              <div className="bg-white border text-xs px-3 py-2 rounded-lg text-gray-400 shadow-sm flex items-center justify-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#2BB673]"></span>
-                Best Perspective
-              </div>
-            </div>
+            <span className="font-semibold text-gray-700 text-sm">{title}</span>
+            <span className="text-[11px] text-gray-400 mt-1 max-w-[200px] leading-relaxed">{description}</span>
+            <span className="text-[10px] text-gray-400 mt-3 bg-gray-100 px-2.5 py-1 rounded-full">JPEG · PNG · WEBP</span>
           </div>
         )}
         <input type="file" ref={fileRef} className="hidden" accept="image/*" onChange={handleFileChange} />
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 text-red-500 text-xs bg-red-50 px-3 py-2 rounded-lg mt-2">
+        <div className="flex items-center gap-2 text-red-500 text-xs bg-red-50 px-3 py-2 rounded-lg">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{error}</span>
         </div>

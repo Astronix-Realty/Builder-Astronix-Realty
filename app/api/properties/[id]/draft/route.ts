@@ -32,12 +32,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (body.details !== undefined)       $set.details = body.details;
     if (body.lastSavedStep !== undefined) $set.lastSavedStep = body.lastSavedStep;
 
+    // If a property was "pending", editing it reverts it to "draft" so they must resubmit
+    $set.status = "draft";
+    $set.rejectionReason = null;
+    $set.submittedAt = null;
+
     const property = await Property.findOneAndUpdate(
       { 
         _id: id, 
         builderId: decoded.userId, 
         isDeleted: false,
-        status: "draft" // Only auto-save drafts, never overwrite published records
+        status: { $in: ["draft", "pending"] } // allow editing pending properties
       },
       { 
         $set,

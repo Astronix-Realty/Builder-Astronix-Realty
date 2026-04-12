@@ -91,6 +91,18 @@ export function useAutoDraft({
   const draftIdsRef = useRef<DraftIds>(draftIds)
   draftIdsRef.current = draftIds
 
+  // ── Sync from DB State if localStorage is empty ───────────────────────────
+  useEffect(() => {
+    if (state?._autoDraftIds) {
+      const currentIds = draftIdsRef.current
+      if (!currentIds.townshipId && !currentIds.projectId && !currentIds.towerId) {
+        setDraftIds(state._autoDraftIds)
+        draftIdsRef.current = state._autoDraftIds
+        saveDraftIdsToStorage(flowType, state._autoDraftIds)
+      }
+    }
+  }, [state, flowType])
+
   // ── Single entity save helper ──────────────────────────────────────────────
   const saveEntity = useCallback(async (
     entityType: "township" | "project" | "tower",
@@ -293,6 +305,20 @@ export function useAutoDraft({
         if (state.towers?.[0] && currentTowerMap[state.towers[0].id]) {
            newIds.towerId = currentTowerMap[state.towers[0].id];
         }
+      }
+      
+      // Perform one quick update to the root document to persist the completed `_autoDraftIds` map 
+      // safely inside `details` so it can survive clears of localStorage.
+      const rootId = flowType === "township" ? newIds.townshipId : (flowType === "project" ? newIds.projectId : newIds.towerId);
+      if (rootId) {
+         fetch(`/api/properties/${rootId}/draft`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              details: { ...fullStateSnapshot, _autoDraftIds: newIds },
+              lastSavedStep: currentStep
+            })
+         }).catch(e => console.error("Failed to commit draftIds", e));
       }
 
       setDraftIds(newIds)

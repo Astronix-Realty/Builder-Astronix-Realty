@@ -17,11 +17,12 @@ interface ProjectsFormProps {
 }
 
 export function ProjectsForm({ township, projects, onChange, onCloneProject, activeIdx, setActiveIdx }: ProjectsFormProps) {
-    const activeProject = projects[activeIdx]
+    const safeProjects = (projects || []).filter(Boolean)
+    const activeProject = safeProjects[activeIdx] ?? null
 
     const handleAdd = () => {
-        const newProject = createInitialProject(township.name, projects.length)
-        const next = [...projects, newProject]
+        const newProject = createInitialProject(township.name, safeProjects.length)
+        const next = [...safeProjects, newProject]
         onChange(next)
         setActiveIdx(next.length - 1)
     }
@@ -31,7 +32,7 @@ export function ProjectsForm({ township, projects, onChange, onCloneProject, act
     }
 
     const handleRemove = async (idx: number) => {
-        const projectToDelete = projects[idx];
+        const projectToDelete = safeProjects[idx];
         if (!confirm(`Are you sure you want to delete "${projectToDelete?.name || `Project ${idx + 1}`}"? This will also remove all related towers and units.`)) return;
         
         try {
@@ -40,7 +41,7 @@ export function ProjectsForm({ township, projects, onChange, onCloneProject, act
             console.error("API delete failed (might be a draft):", error);
         }
 
-        const next = projects.filter((_, i) => i !== idx)
+        const next = safeProjects.filter((_, i) => i !== idx)
         onChange(next)
         setActiveIdx(Math.max(0, idx - 1))
     }
@@ -57,12 +58,12 @@ export function ProjectsForm({ township, projects, onChange, onCloneProject, act
                 </div>
                 <div className="ml-auto flex items-center gap-6">
                     <div className="flex items-center gap-2">
-                        <span className="text-xl font-black text-[#1A3C8C]">{projects.length}</span>
+                        <span className="text-xl font-black text-[#1A3C8C]">{safeProjects.length}</span>
                         <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Projects</span>
                     </div>
                     <div className="flex items-center gap-2">
                         <span className="text-xl font-black text-emerald-600">
-                            {projects.filter(isComplete).length}
+                            {safeProjects.filter(isComplete).length}
                         </span>
                         <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Complete</span>
                     </div>
@@ -95,10 +96,12 @@ export function ProjectsForm({ township, projects, onChange, onCloneProject, act
 
                     <ProjectFlowForm
                         data={activeProject}
-                        onChange={(val) => {
-                            const next = [...projects]
-                            next[activeIdx] = val
-                            onChange(next)
+                        onChange={(updaterOrData) => {
+                            const next = [...safeProjects]
+                            next[activeIdx] = typeof updaterOrData === "function"
+                                ? updaterOrData(safeProjects[activeIdx])
+                                : updaterOrData
+                            onChange(next.filter(Boolean))
                         }}
                         townshipName={township.name}
                     />

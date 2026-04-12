@@ -256,7 +256,7 @@ export default function SeedPage() {
                         generatedUnits.push({
                             id: `unit-${t.id}-${floor}-${u}`,
                             towerId: t.id,
-                            unitNumber: `${t.name.split(' ')[0]}-${floor}${String(u).padStart(2, '0')}`,
+                            unitNumber: `${t.name?.split(' ')[0] || "T"}-${floor}${String(u).padStart(2, '0')}`,
                             floorNumber: floor,
                             floor,
                             configuration: "2BHK",
