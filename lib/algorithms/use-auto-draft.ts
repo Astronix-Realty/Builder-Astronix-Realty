@@ -28,6 +28,10 @@ function getDraftStorageKey(flowType: string, entity: string) {
 function loadDraftIds(flowType: string): DraftIds {
   if (typeof window === "undefined") return {}
   
+  // Extract editId from URL if present
+  const searchParams = new URLSearchParams(window.location.search)
+  const editId = searchParams.get("edit")
+  
   let projectMap = {}
   let towerMap = {}
   try {
@@ -40,13 +44,22 @@ function loadDraftIds(flowType: string): DraftIds {
      if (tStr) towerMap = JSON.parse(tStr)
   } catch (e) {}
 
-  return {
+  const ids: DraftIds = {
     townshipId: localStorage.getItem(getDraftStorageKey(flowType, "township")) ?? undefined,
     projectId:  localStorage.getItem(getDraftStorageKey(flowType, "project")) ?? undefined,
     towerId:    localStorage.getItem(getDraftStorageKey(flowType, "tower")) ?? undefined,
     projectMap,
     towerMap,
   }
+
+  // If we are in "edit" mode via URL, that ID MUST be our root draft ID
+  if (editId) {
+    if (flowType === "township") ids.townshipId = editId
+    else if (flowType === "project") ids.projectId = editId
+    else if (flowType === "tower") ids.towerId = editId
+  }
+
+  return ids
 }
 
 function saveDraftIdsToStorage(flowType: string, ids: DraftIds) {
@@ -93,12 +106,30 @@ export function useAutoDraft({
 
   // ── Sync from DB State if localStorage is empty ───────────────────────────
   useEffect(() => {
+    // Priority 1: Use IDs directly from state if it includes autoDraft metadata
     if (state?._autoDraftIds) {
       const currentIds = draftIdsRef.current
       if (!currentIds.townshipId && !currentIds.projectId && !currentIds.towerId) {
         setDraftIds(state._autoDraftIds)
         draftIdsRef.current = state._autoDraftIds
         saveDraftIdsToStorage(flowType, state._autoDraftIds)
+      }
+    } 
+    // Priority 2: If in edit mode, ensure the root ID is at least mapped to editId
+    else if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search)
+      const editId = searchParams.get("edit")
+      if (editId) {
+        const ids = { ...draftIdsRef.current }
+        if (flowType === "township" && !ids.townshipId) ids.townshipId = editId
+        else if (flowType === "project" && !ids.projectId) ids.projectId = editId
+        else if (flowType === "tower" && !ids.towerId) ids.towerId = editId
+        
+        if (ids.townshipId !== draftIdsRef.current.townshipId || ids.projectId !== draftIdsRef.current.projectId || ids.towerId !== draftIdsRef.current.towerId) {
+          setDraftIds(ids)
+          draftIdsRef.current = ids
+          saveDraftIdsToStorage(flowType, ids)
+        }
       }
     }
   }, [state, flowType])

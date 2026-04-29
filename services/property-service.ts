@@ -485,7 +485,15 @@ export async function submitPropertyForApproval(draftId: string, builderId: stri
     session.startTransaction();
 
     const rootDraft = await Property.findOne({ _id: draftId, builderId, status: 'draft' }).session(session);
-    if (!rootDraft) throw new Error("Draft not found or unauthorized");
+    if (!rootDraft) {
+        // Detailed check for error reporting
+        const exists = await Property.findById(draftId).session(session).lean();
+        if (!exists) throw new Error("DRAFT_NOT_FOUND: The draft you are trying to publish no longer exists.");
+        if ((exists as any).builderId.toString() !== builderId.toString()) throw new Error("UNAUTHORIZED_ACCESS: You do not have permission to publish this draft.");
+        if ((exists as any).status !== 'draft') throw new Error(`INVALID_STATUS: This property is already ${(exists as any).status}.`);
+        
+        throw new Error("Draft not found or unauthorized");
+    }
 
     // Get all drafts in hierarchy
     let allDrafts: any[] = [rootDraft];

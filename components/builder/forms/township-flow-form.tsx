@@ -139,7 +139,7 @@ function BankSelector({ banks, onChange }: { banks: string[]; onChange: (b: stri
       ))}
       <div className="flex gap-2 max-w-sm">
         <Input value={custom} onChange={e => setCustom(e.target.value)} placeholder="Add other bank..." className="h-10 text-sm bg-gray-50/50" />
-        <Button type="button" className="h-10 px-6 bg-[#1A3C8C] hover:bg-[#1A3C8C]/90 text-sm font-bold" onClick={() => { if (custom.trim()) { onChange([...banks, custom.trim()]); setCustom("") } }}>Add</Button>
+        <Button type="button" className="h-10 px-6 bg-[#1A3C8C] hover:bg-[#1A3C8C]/90 text-sm font-bold" onClick={() => { if (custom.trim()) { onChange([...(banks || []), custom.trim()]); setCustom("") } }}>Add</Button>
       </div>
     </div>
   )
@@ -237,7 +237,7 @@ function BulkImageInput({ onAdd }: { onAdd: (urls: string[]) => void }) {
   const [open, setOpen] = useState(false)
 
   const handleApply = () => {
-    const urls = text.split("\n").map(s => s.trim()).filter(s => s.length > 0)
+    const urls = (text || "").split("\n").map(s => s.trim()).filter(s => s.length > 0)
     onAdd(urls)
     setText("")
     setOpen(false)
@@ -460,9 +460,9 @@ export function TownshipFlowForm({ data, onChange, user }: TownshipFlowFormProps
               <Label className="text-xs font-semibold text-[#1A3C8C] uppercase tracking-wide">Gallery Images</Label>
               <p className="text-[11px] text-gray-400 mt-1">Showcase the property highlights.</p>
             </div>
-            <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-md">{data.galleryImages.length} / 20</span>
+            <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-md">{(data.galleryImages || []).length} / 20</span>
           </div>
-          <GalleryUpload images={data.galleryImages} onChange={imgs => update("galleryImages", imgs)} max={20} />
+          <GalleryUpload images={data.galleryImages || []} onChange={imgs => update("galleryImages", imgs)} max={20} />
         </div>
 
         <div className="border-t border-gray-100 pt-6 mt-6">
@@ -593,11 +593,11 @@ export function TownshipFlowForm({ data, onChange, user }: TownshipFlowFormProps
               <p className="text-xs text-gray-500 mb-3">Map labels (Clubhouse, Garden area etc.)</p>
 
               <div className="space-y-2 max-h-[160px] overflow-y-auto pr-2 custom-scrollbar">
-                {data.masterPlanHighlights.map(item => (
+                {(data.masterPlanHighlights || []).map(item => (
                   <div key={item.id} className="flex gap-2 group relative">
                     <Input
                       value={item.label}
-                      onChange={e => update("masterPlanHighlights", data.masterPlanHighlights.map(x => x.id === item.id ? { ...x, label: e.target.value } : x))}
+                      onChange={e => update("masterPlanHighlights", (data.masterPlanHighlights || []).map(x => x.id === item.id ? { ...x, label: e.target.value } : x))}
                       placeholder="e.g. Club House"
                       className="text-xs bg-white/50 pr-8"
                     />
@@ -610,7 +610,7 @@ export function TownshipFlowForm({ data, onChange, user }: TownshipFlowFormProps
                     </button>
                   </div>
                 ))}
-                {data.masterPlanHighlights.length === 0 && (
+                {(data.masterPlanHighlights || []).length === 0 && (
                   <p className="text-[11px] text-gray-400 italic text-center py-2 bg-gray-50 rounded-lg">No highlights added</p>
                 )}
               </div>
@@ -797,7 +797,7 @@ export function TownshipFlowForm({ data, onChange, user }: TownshipFlowFormProps
       {/* ── 4. CONNECTIVITY ─────────────────────── */}
       <Section id="connectivity" title="Connectivity" description="Airport, Railway, Metro, Hospital, Schools distance" icon={Wifi} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
         <p className="text-xs text-gray-500 mb-3">Yeh items sabhi pages (Project/Tower/Unit) pe dikhenge. Har ek important location ke liye ek item add karo.</p>
-        {data.connectivity.map(item => (
+        {(data.connectivity || []).map(item => (
           <Card key={item.id} className="mb-3 border-gray-100">
             <CardContent className="p-3">
               <Grid cols={2}>
@@ -843,7 +843,7 @@ export function TownshipFlowForm({ data, onChange, user }: TownshipFlowFormProps
       {/* ── 6. ECO / SUSTAINABILITY ─────────────── */}
       <Section id="eco" title="Sustainability & Eco Features" description="Solar, Rainwater, Green Cover — Sustainability section" icon={Leaf} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
         <SectionTitle title="Specific Eco Features" />
-        {data.ecoFeatures.map(item => (
+        {(data.ecoFeatures || []).map(item => (
           <Card key={item.id} className="mb-3 border-gray-100">
             <CardContent className="p-3">
               <Grid cols={3}>

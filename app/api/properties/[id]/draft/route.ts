@@ -95,9 +95,13 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     await dbConnect();
     
     // Ensure the property is actually a draft before letting the service delete it
-    const draftProp = await Property.findOne({ _id: id, builderId: decoded.userId, status: "draft" });
+    const draftProp = await Property.findOne({ _id: id, builderId: decoded.userId });
     if (!draftProp) {
         return NextResponse.json({ success: true, message: "Draft already removed or published" }, { status: 200 });
+    }
+
+    if (draftProp.status !== "draft") {
+        return NextResponse.json({ success: true, message: "Property is already active, cleaning up draft reference" }, { status: 200 });
     }
 
     const deleteResult = await secureDeleteProperty(id, decoded.userId);

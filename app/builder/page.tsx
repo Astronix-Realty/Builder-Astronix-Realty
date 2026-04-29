@@ -183,17 +183,42 @@ function BuilderContent() {
               const wizardData = data.property.details || data.property.data
               if (wizardData) {
                 const defaultState = getInitialState()
-                setState({
+                
+                // Deep merge to ensure nested structures like township and unitTemplate are preserved
+                // Use data.property.townshipName as a backup for the name if wizardData.township is partial
+                const newState: WizardState = {
                   ...defaultState,
                   ...wizardData,
-                  township: { ...defaultState.township, ...(wizardData.township || {}) },
-                  projects: (wizardData.projects || defaultState.projects).filter(Boolean),
-                  towers: (wizardData.towers || defaultState.towers).filter(Boolean),
-                  unitTemplate: { ...defaultState.unitTemplate, ...(wizardData.unitTemplate || {}) },
-                  towerUnitConfigs: (wizardData.towerUnitConfigs || defaultState.towerUnitConfigs).filter(Boolean),
+                  township: { 
+                    ...defaultState.township, 
+                    ...(wizardData.township || {}),
+                    name: wizardData.township?.name || data.property.townshipName || data.property.name || defaultState.township.name,
+                    totalValue: wizardData.township?.totalValue || data.property.totalValue || 0
+                  },
+                  projects: Array.isArray(wizardData.projects) && wizardData.projects.length > 0 
+                    ? wizardData.projects.filter(Boolean) 
+                    : defaultState.projects,
+                  towers: Array.isArray(wizardData.towers) && wizardData.towers.length > 0 
+                    ? wizardData.towers.filter(Boolean) 
+                    : defaultState.towers,
+                  unitTemplate: { 
+                    ...defaultState.unitTemplate, 
+                    ...(wizardData.unitTemplate || {}) 
+                  },
+                  towerUnitConfigs: Array.isArray(wizardData.towerUnitConfigs) 
+                    ? wizardData.towerUnitConfigs.filter(Boolean) 
+                    : (defaultState.towerUnitConfigs || []),
                   currentStep: wizardData.currentStep || data.property.lastSavedStep || defaultState.currentStep
+                }
+
+                setState(newState)
+                console.log("Loaded property data from MongoDB:", {
+                  id: data.property._id,
+                  type: data.property.type,
+                  flowType: data.property.flowType,
+                  step: newState.currentStep,
+                  townshipName: newState.township.name
                 })
-                console.log("Loaded property draft from MongoDB:", data.property)
               }
             }
           }
@@ -252,15 +277,15 @@ function BuilderContent() {
   // the user decrements the project count, preventing bloated databases.
   useEffect(() => {
     if (flowType !== "township") return
-    const currentCount = state.projects.filter(Boolean).length
+    const currentCount = (state.projects || []).filter(Boolean).length
     const targetCount = state.township.projectCount
     if (targetCount > currentCount) {
       const newProjects = Array.from({ length: targetCount - currentCount }, (_, i) =>
         createInitialProject(currentCount + i + 1),
       )
-      setState((prev) => ({ ...prev, projects: [...prev.projects.filter(Boolean), ...newProjects] }))
+      setState((prev) => ({ ...prev, projects: [...(prev.projects || []).filter(Boolean), ...newProjects] }))
     } else if (targetCount < currentCount) {
-      setState((prev) => ({ ...prev, projects: prev.projects.filter(Boolean).slice(0, targetCount) }))
+      setState((prev) => ({ ...prev, projects: (prev.projects || []).filter(Boolean).slice(0, targetCount) }))
     }
   }, [state.township.projectCount, flowType, state.projects.length])
 
@@ -380,7 +405,7 @@ function BuilderContent() {
   }, [])
 
   const updateProjects = useCallback((projects: ProjectData[]) => {
-    const safeProjects = projects.filter(Boolean)
+    const safeProjects = (projects || []).filter(Boolean)
     setState((prev) => ({
       ...prev,
       projects: safeProjects,
@@ -389,9 +414,9 @@ function BuilderContent() {
   }, [])
 
   const updateTowers = useCallback((towers: TowerData[]) => {
-    const safeTowers = towers.filter(Boolean)
+    const safeTowers = (towers || []).filter(Boolean)
     setState((prev) => {
-      const updatedProjects = prev.projects.filter(Boolean).map(p => ({
+      const updatedProjects = (prev.projects || []).filter(Boolean).map(p => ({
         ...p,
         totalTowers: safeTowers.filter(t => t.projectId === p.id).length,
       }))
@@ -575,18 +600,41 @@ function BuilderContent() {
         return (await res.json()).property._id
       }
 
-      // Use the specialized Publish API if we have a draft ID
-      if (draftIds.townshipId || draftIds.projectId || draftIds.towerId) {
-        const rootDraftId = draftIds.townshipId || draftIds.projectId || draftIds.towerId;
+      // ── STEP 1: FORCE SYNC BEFORE SUBMISSION ─────────────────────────────
+      // If we don't have draft IDs yet (e.g. user fills form and clicks Publish
+      // before the 10s auto-save kicks in), force a manual save now.
+      if (!draftIds.townshipId && !draftIds.projectId && !draftIds.towerId) {
+        console.log("[handleCreate] No draft IDs found. Forcing sync before submission...");
+        await saveNow();
+      }
+
+      // Re-read draft IDs after sync
+      const rootDraftId = draftIds.townshipId || draftIds.projectId || draftIds.towerId;
+
+      // ── STEP 2: SUBMIT VIA OPTIMIZED API ──────────────────────────────────
+      if (rootDraftId) {
+        console.log("[handleCreate] Submitting draft hierarchy:", rootDraftId);
         const submitRes = await fetch(`/api/properties/${rootDraftId}/submit`, { method: 'POST' });
+        
         if (!submitRes.ok) {
           const err = await submitRes.json();
-          throw new Error(err.error || "Failed to submit draft hierarchy for approval");
+          // Recovery: If the draft is "not found" (maybe purged or session expired),
+          // fallback to the legacy create logic to ensure the user's current 
+          // screen data is NOT lost.
+          if (submitRes.status === 404 || err.error?.includes("not found")) {
+             console.warn("[handleCreate] Draft not found on server. Falling back to manual creation...");
+             await performLegacyCreation();
+          } else {
+             throw new Error(err.error || "Failed to submit draft hierarchy for approval");
+          }
         }
       } else {
-        // Fallback to legacy sequential creation for brand new, unsaved content
-        // This handles cases where auto-save hasn't fired yet but the user clicks publish
-        const towerIdMap: Record<string, string> = {}
+        // ── STEP 3: LEGACY FALLBACK (Brand new, unsaved content) ─────────────
+        await performLegacyCreation();
+      }
+
+      async function performLegacyCreation() {
+        console.log("[handleCreate] Performing sequential entity creation fallback...");
         const projectIdMap: Record<string, string> = {}
         const rootLoc = { city: state.township?.city, state: state.township?.state }
 
@@ -682,14 +730,25 @@ function BuilderContent() {
       await new Promise((resolve) => setTimeout(resolve, 1500))
       setIsCreating(false)
       setIsComplete(true)
-      clearDraft() // Clear draft from localStorage on successful publish
+      
+      // Crucial: Clear draft from localStorage and DB on successful publish
+      // This prevents the "Resume Draft" banner from appearing for already published content.
+      clearDraft() 
+      
       setTimeout(() => {
         window.location.href = "/builder-dashboard?tab=properties&filter=active"
       }, 1500)
     } catch (error: any) {
       console.error("Error creating property:", error)
       setIsCreating(false)
-      alert(error.message || "Failed to create property structure. Please ensure all required fields are filled.")
+      
+      const msg = error.message || "";
+      if (msg.includes("unauthorized") || msg.includes("authenticated")) {
+         alert("Your session has expired. Please log in again to save your work.")
+         window.location.href = "/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search)
+      } else {
+         alert(msg || "Failed to create property structure. Please ensure all required fields are filled.")
+      }
     }
   }
 

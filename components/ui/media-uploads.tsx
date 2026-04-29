@@ -333,48 +333,73 @@ export function VideoUpload({ videos, onChange, max = 5 }: {
     <div className="space-y-3">
       {/* ── Existing Videos ────────────────────────── */}
       {videos.length > 0 && (
-        <div className="flex flex-wrap gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {videos.map((vid, i) => {
             const src = vid.landscapeUrl || vid.shortUrl || ""
             const isYT = src.includes("youtube.com") || src.includes("youtu.be")
             const ytMatch = src.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|shorts\/|embed\/))([A-Za-z0-9_-]{11})/)
-            const ytThumb = isYT && ytMatch ? `https://img.youtube.com/vi/${ytMatch[1]}/mqdefault.jpg` : null
+            const ytThumb = isYT && ytMatch ? `https://img.youtube.com/vi/${ytMatch[1]}/maxresdefault.jpg` : null
             const isLocal = src.startsWith("/uploads") || src.includes("cloudinary.com")
 
             return (
               <div
                 key={vid.id || i}
-                className="relative w-full h-[200px] rounded-xl border border-gray-200 overflow-hidden group shadow-sm bg-gray-900 cursor-pointer"
+                className="relative aspect-video rounded-2xl border border-gray-200 overflow-hidden group shadow-sm bg-gray-900 cursor-pointer ring-offset-2 hover:ring-2 hover:ring-blue-500 transition-all"
                 onClick={() => openVideoModal(vid)}
               >
                 {/* Thumbnail */}
-                {ytThumb && <img src={ytThumb} alt="thumbnail" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />}
-                {isLocal && <video src={src} className="w-full h-full object-cover opacity-70 group-hover:opacity-90 transition-opacity" muted preload="metadata" />}
-                {!ytThumb && !isLocal && (
+                {isYT ? (
+                  <div className="relative w-full h-full">
+                    <img 
+                      src={ytThumb || `https://img.youtube.com/vi/${ytMatch?.[1]}/mqdefault.jpg`} 
+                      alt="thumbnail" 
+                      className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" 
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = `https://img.youtube.com/vi/${ytMatch?.[1]}/mqdefault.jpg`;
+                      }}
+                    />
+                    <div className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-md">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 4-8 4z"/></svg>
+                    </div>
+                  </div>
+                ) : isLocal ? (
+                  <div className="relative w-full h-full">
+                    <video 
+                      src={src} 
+                      className="w-full h-full object-cover opacity-70 group-hover:opacity-90 transition-opacity" 
+                      muted 
+                      preload="metadata" 
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                ) : (
                   <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex flex-col items-center justify-center gap-2">
                     <Film className="w-10 h-10 text-gray-500" />
-                    <span className="text-[11px] text-gray-400 max-w-[180px] truncate text-center">{src}</span>
+                    <span className="text-[10px] text-gray-400 max-w-[150px] truncate text-center">{src}</span>
                   </div>
                 )}
 
                 {/* Play overlay */}
                 <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-all">
-                  <div className="w-12 h-12 rounded-full bg-white/30 backdrop-blur-sm border border-white/40 flex items-center justify-center shadow-xl transition-all group-hover:scale-110">
-                    <svg className="w-5 h-5 text-white ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                  <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shadow-2xl transition-all group-hover:scale-110 group-hover:bg-white/30">
+                    <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center shadow-lg">
+                      <svg className="w-5 h-5 text-white ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                    </div>
                   </div>
                 </div>
 
                 {/* Type badge */}
-                <div className="absolute top-2 left-2 z-10">
-                  <span className="bg-black/50 backdrop-blur-md text-white text-[9px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">
-                    {vid.type === "short" ? "Short" : "Video"}
+                <div className="absolute top-3 left-3 z-10">
+                  <span className={`backdrop-blur-md text-white text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest border border-white/20 shadow-sm ${vid.type === 'short' ? 'bg-orange-500/80' : 'bg-blue-600/80'}`}>
+                    {vid.type === "short" ? "Vertical" : "Landscape"}
                   </span>
                 </div>
 
                 {/* Title */}
                 {vid.title && (
-                  <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent pt-6 pb-2 px-3 text-white text-[11px] font-medium truncate">
-                    {vid.title}
+                  <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent pt-8 pb-3 px-4 text-white">
+                    <p className="text-xs font-bold truncate drop-shadow-md">{vid.title}</p>
                   </div>
                 )}
 
@@ -383,13 +408,15 @@ export function VideoUpload({ videos, onChange, max = 5 }: {
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation()
-                    deleteCloudinaryFile(vid.landscapeUrl)
-                    deleteCloudinaryFile(vid.shortUrl)
-                    onChangeRef.current(videos.filter((_, idx) => idx !== i))
+                    if (confirm("Are you sure you want to remove this video?")) {
+                      deleteCloudinaryFile(vid.landscapeUrl)
+                      deleteCloudinaryFile(vid.shortUrl)
+                      onChangeRef.current(videos.filter((_, idx) => idx !== i))
+                    }
                   }}
-                  className="absolute top-2 right-2 bg-white/90 text-red-600 p-1.5 rounded-lg hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all shadow-sm z-10"
+                  className="absolute top-3 right-3 bg-white/90 text-red-600 p-2 rounded-xl hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all shadow-xl z-20 hover:scale-110 active:scale-95"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             )
@@ -399,48 +426,58 @@ export function VideoUpload({ videos, onChange, max = 5 }: {
 
       {/* ── Add Video Panel ─────────────────────── */}
       {videos.length < max && (
-        <div className={`relative w-full border-2 border-dashed rounded-xl overflow-hidden transition-all ${videos.length === 0 ? "h-[200px]" : "h-auto"} border-gray-200 bg-gray-50/30 hover:bg-gray-50/80 hover:border-gray-400`}>
+        <div className={`relative w-full border-2 border-dashed rounded-2xl overflow-hidden transition-all duration-300 ${videos.length === 0 ? "h-[250px]" : "mt-4 h-auto"} border-gray-200 bg-gray-50/50 hover:bg-white hover:border-blue-300 hover:shadow-xl hover:shadow-blue-500/5 group`}>
           {videos.length === 0 ? (
-            // Empty state — full-size card matching image boxes
             <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
-              <div className="w-12 h-12 bg-gray-100 rounded-xl text-gray-400 flex items-center justify-center mb-3">
-                <Film className="w-5 h-5" />
+              <div className="w-16 h-16 bg-blue-50 rounded-2xl text-blue-500 flex items-center justify-center mb-4 transition-transform group-hover:scale-110 group-hover:-translate-y-1 shadow-sm">
+                <Film className="w-8 h-8" />
               </div>
-              <span className="font-semibold text-gray-700 text-sm">Add Video or Link</span>
-              <span className="text-[11px] text-gray-400 mt-1">Upload a file or paste YouTube / MP4 link</span>
-              {/* Invisible click target */}
+              <h4 className="font-bold text-gray-800 text-lg">Add Video Walkthrough</h4>
+              <p className="text-xs text-gray-500 mt-1.5 max-w-[300px]">Upload high-quality videos or paste links from YouTube to showcase your property.</p>
+              
+              <div className="flex gap-3 mt-6">
+                <span className="text-[10px] text-gray-600 bg-white border border-gray-200 px-3 py-1.5 rounded-full font-bold flex items-center gap-1.5 shadow-sm">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                  YouTube / MP4
+                </span>
+                <span className="text-[10px] text-gray-600 bg-white border border-gray-200 px-3 py-1.5 rounded-full font-bold flex items-center gap-1.5 shadow-sm">
+                  <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
+                  Max 100MB
+                </span>
+              </div>
+              {/* Invisible click target for the whole area */}
               <button type="button" onClick={() => !isUploading && fileRef.current?.click()} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
             </div>
           ) : null}
 
           {/* Input row */}
-          <div className={`${videos.length === 0 ? "absolute bottom-0 inset-x-0 bg-white/80 backdrop-blur-sm border-t border-gray-200" : ""} flex gap-2 p-3`}>
+          <div className={`${videos.length === 0 ? "absolute bottom-0 inset-x-0 bg-white/60 backdrop-blur-md border-t border-gray-100 p-4" : "p-4"} flex flex-col sm:flex-row gap-3`}>
             <button
               type="button"
               onClick={() => !isUploading && fileRef.current?.click()}
               disabled={isUploading}
-              className="flex-shrink-0 bg-white border border-gray-300 hover:border-gray-400 text-gray-700 font-semibold px-4 py-2 rounded-lg text-xs shadow-sm flex items-center gap-1.5 transition-all disabled:opacity-50"
+              className="flex-shrink-0 bg-white border border-gray-200 hover:border-blue-400 text-gray-800 font-bold px-5 py-2.5 rounded-xl text-sm shadow-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 hover:shadow-md active:scale-95"
             >
               {isUploading ? (
-                <><div className="w-3.5 h-3.5 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" /> Uploading...</>
+                <><div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /> Uploading...</>
               ) : (
-                <><Upload className="w-3.5 h-3.5" /> Upload</>
+                <><Upload className="w-4 h-4 text-blue-600" /> Upload File</>
               )}
             </button>
 
-            <div className="flex-1 flex items-center bg-white border border-gray-200 rounded-lg px-2.5 overflow-hidden focus-within:ring-2 focus-within:ring-blue-200 focus-within:border-blue-400 transition-all">
-              <Film className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+            <div className="flex-1 flex items-center bg-white border border-gray-200 rounded-xl px-3 overflow-hidden focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all shadow-sm">
+              <Film className="w-4 h-4 text-gray-400 shrink-0" />
               <input
                 type="text"
                 value={linkInput}
                 onChange={(e) => setLinkInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleAddLink()}
                 placeholder="Paste YouTube or MP4 link..."
-                className="flex-1 text-xs bg-transparent px-2 py-2 text-gray-700 placeholder-gray-400 focus:outline-none"
+                className="flex-1 text-sm bg-transparent px-3 py-3 text-gray-800 placeholder-gray-400 focus:outline-none"
               />
               {linkInput && (
-                <button type="button" onClick={() => setLinkInput("")} className="text-gray-400 hover:text-gray-600">
-                  <X className="w-3 h-3" />
+                <button type="button" onClick={() => setLinkInput("")} className="text-gray-400 hover:text-gray-600 p-1">
+                  <X className="w-4 h-4" />
                 </button>
               )}
             </div>
@@ -448,13 +485,14 @@ export function VideoUpload({ videos, onChange, max = 5 }: {
               type="button"
               onClick={handleAddLink}
               disabled={!linkInput.trim()}
-              className="flex-shrink-0 px-4 py-2 bg-gray-900 hover:bg-black disabled:bg-gray-200 disabled:text-gray-400 text-white text-xs font-bold rounded-lg transition-all"
+              className="flex-shrink-0 px-6 py-2.5 bg-[#1A3C8C] hover:bg-blue-900 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-black rounded-xl transition-all shadow-md active:scale-95"
             >
-              Add
+              Add Link
             </button>
           </div>
         </div>
       )}
+
 
       <input type="file" ref={fileRef} className="hidden" accept="video/*" onChange={handleFileChange} />
 
@@ -468,22 +506,26 @@ export function VideoUpload({ videos, onChange, max = 5 }: {
       {/* ── FULLSCREEN PLAYER MODAL ── */}
       {modalOpen && currentVideoUrl && (
         <div
-          className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center p-4"
+          className="fixed inset-0 z-[9999] bg-black/95 flex items-center justify-center p-4 sm:p-8 md:p-12 backdrop-blur-xl animate-in fade-in duration-300"
           onClick={closeVideoModal}
         >
-          <button
-            type="button"
-            onClick={closeVideoModal}
-            className="absolute top-4 right-4 text-white bg-white/10 hover:bg-white/25 p-2.5 rounded-full transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
+          <div className="absolute top-0 inset-x-0 h-20 bg-gradient-to-b from-black/60 to-transparent flex items-center justify-between px-6 md:px-12">
+             <div className="text-white font-bold text-lg drop-shadow-md">Video Preview</div>
+             <button
+              type="button"
+              onClick={closeVideoModal}
+              className="text-white bg-white/10 hover:bg-white/20 p-2.5 rounded-full transition-all hover:scale-110 active:scale-95"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
           <div
-            className={`w-full rounded-2xl overflow-hidden shadow-2xl bg-black ${currentVideoType === 'youtube' && currentVideoUrl.includes('shorts')
+            className={`w-full rounded-2xl overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.5)] bg-black ring-1 ring-white/10 transition-all duration-500 ${currentVideoType === 'youtube' && currentVideoUrl.includes('shorts')
                 ? 'max-w-md aspect-[9/16]'
                 : currentVideoType !== 'youtube' && videos.find(v => (v.landscapeUrl === currentVideoUrl || v.shortUrl === currentVideoUrl))?.type === 'short'
                   ? 'max-w-md aspect-[9/16]'
-                  : 'max-w-4xl aspect-video'
+                  : 'max-w-5xl aspect-video'
               }`}
             onClick={(e) => e.stopPropagation()}
           >
@@ -502,6 +544,10 @@ export function VideoUpload({ videos, onChange, max = 5 }: {
                 className="w-full h-full"
               />
             )}
+          </div>
+          
+          <div className="absolute bottom-8 text-white/40 text-[10px] font-medium tracking-widest uppercase pointer-events-none">
+            Astronix Realty Video Player
           </div>
         </div>
       )}

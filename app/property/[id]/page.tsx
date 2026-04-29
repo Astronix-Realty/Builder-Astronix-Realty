@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Image from "next/image"
-import { Building2, MapPin, Layers, DefaultIcon, ChevronRight, CheckCircle2, DollarSign, LayoutGrid } from "lucide-react"
+import { Building2, MapPin, Layers, DefaultIcon, ChevronRight, CheckCircle2, DollarSign, LayoutGrid, Film } from "lucide-react"
+import { VideoGallery } from "@/components/ui/video-gallery"
 
 export default function PropertyView() {
   const params = useParams()
@@ -83,6 +84,36 @@ export default function PropertyView() {
   const formatCurrency = (val: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val)
   const totalValue = details?.generatedUnits?.reduce((sum: any, u: any) => sum + (u.price || 0), 0) || 0
 
+  // Extract all videos from hierarchy
+  const allVideos: any[] = []
+  
+  // 1. Township videos
+  if (details?.township?.videoGallery?.length) {
+    allVideos.push(...details.township.videoGallery)
+  }
+  
+  // 2. Project videos
+  details?.projects?.forEach((proj: any) => {
+    if (proj.videoGallery?.length) {
+      allVideos.push(...proj.videoGallery.map((v: any) => ({ ...v, title: `${proj.name} - ${v.title || 'Video'}` })))
+    }
+  })
+  
+  // 3. Tower videos
+  details?.towers?.forEach((tower: any) => {
+    if (tower.videoGallery?.length) {
+      allVideos.push(...tower.videoGallery.map((v: any) => ({ ...v, title: `${tower.name} - ${v.title || 'Video'}` })))
+    }
+  })
+  
+  // 4. Fallback root videos
+  if (details?.videoGallery?.length) {
+    allVideos.push(...details.videoGallery)
+  }
+
+  // Remove duplicates by ID (if any)
+  const uniqueVideos = Array.from(new Map(allVideos.map(v => [v.id, v])).values())
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Hero Header */}
@@ -139,6 +170,13 @@ export default function PropertyView() {
               <div className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Estimated Value</div>
            </div>
         </div>
+
+        {/* Video Gallery Section */}
+        {uniqueVideos.length > 0 && (
+          <div className="mb-12 bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+            <VideoGallery videos={uniqueVideos} />
+          </div>
+        )}
 
         {/* Tree Render */}
         <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">

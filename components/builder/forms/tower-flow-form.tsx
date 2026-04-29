@@ -133,7 +133,7 @@ function BankSelector({ banks, onChange }: { banks: string[]; onChange: (b: stri
       ))}
       <div className="flex gap-2 max-w-sm">
         <Input value={custom} onChange={e => setCustom(e.target.value)} placeholder="Add other bank..." className="h-10 text-sm bg-gray-50/50" />
-        <Button type="button" className="h-10 px-6 bg-[#1A3C8C] hover:bg-[#1A3C8C]/90 text-sm font-bold" onClick={() => { if (custom.trim()) { onChange([...banks, custom.trim()]); setCustom("") } }}>Add</Button>
+        <Button type="button" className="h-10 px-6 bg-[#1A3C8C] hover:bg-[#1A3C8C]/90 text-sm font-bold" onClick={() => { if (custom.trim()) { onChange([...(banks || []), custom.trim()]); setCustom("") } }}>Add</Button>
       </div>
     </div>
   )
@@ -226,7 +226,7 @@ function BulkImageInput({ onAdd }: { onAdd: (urls: string[]) => void }) {
   const [open, setOpen] = useState(false)
 
   const handleApply = () => {
-    const urls = text.split("\n").map(s => s.trim()).filter(s => s.length > 0)
+    const urls = (text || "").split("\n").map(s => s.trim()).filter(s => s.length > 0)
     onAdd(urls)
     setText("")
     setOpen(false)
@@ -300,44 +300,44 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
   const addConnectivity = () => {
     if (!townshipData) return
     const item: ConnectivityItem = { id: uuidv4(), title: "", type: "custom", distanceKm: "", duration: "" }
-    updateCommon("connectivity", [...townshipData.connectivity, item])
+    updateCommon("connectivity", [...(townshipData.connectivity || []), item])
   }
   const updateConnectivity = (id: string, patch: Partial<ConnectivityItem>) => {
     if (!townshipData) return
-    updateCommon("connectivity", townshipData.connectivity.map(x => x.id === id ? { ...x, ...patch } : x))
+    updateCommon("connectivity", (townshipData.connectivity || []).map(x => x.id === id ? { ...x, ...patch } : x))
   }
   const removeConnectivity = (id: string) => {
     if (!townshipData) return
-    updateCommon("connectivity", townshipData.connectivity.filter(x => x.id !== id))
+    updateCommon("connectivity", (townshipData.connectivity || []).filter(x => x.id !== id))
   }
 
 
   const addEcoCommon = () => {
     if (!townshipData) return
     const item: EcoFeature = { id: uuidv4(), title: "", description: "", icon: "leaf" }
-    updateCommon("ecoFeatures", [...townshipData.ecoFeatures, item])
+    updateCommon("ecoFeatures", [...(townshipData.ecoFeatures || []), item])
   }
   const updateEcoCommon = (id: string, patch: Partial<EcoFeature>) => {
     if (!townshipData) return
-    updateCommon("ecoFeatures", townshipData.ecoFeatures.map(x => x.id === id ? { ...x, ...patch } : x))
+    updateCommon("ecoFeatures", (townshipData.ecoFeatures || []).map(x => x.id === id ? { ...x, ...patch } : x))
   }
   const removeEcoCommon = (id: string) => {
     if (!townshipData) return
-    updateCommon("ecoFeatures", townshipData.ecoFeatures.filter(x => x.id !== id))
+    updateCommon("ecoFeatures", (townshipData.ecoFeatures || []).filter(x => x.id !== id))
   }
 
   const addVideoGalleryItem = (type: VideoGalleryItem["type"]) => {
     if (!townshipData) return
     const item: VideoGalleryItem = { id: uuidv4(), title: "", landscapeUrl: "", shortUrl: "", type }
-    updateCommon("videoGallery", [...townshipData.videoGallery, item])
+    updateCommon("videoGallery", [...(townshipData.videoGallery || []), item])
   }
   const updateVideoGalleryItem = (id: string, patch: Partial<VideoGalleryItem>) => {
     if (!townshipData) return
-    updateCommon("videoGallery", townshipData.videoGallery.map(x => x.id === id ? { ...x, ...patch } : x))
+    updateCommon("videoGallery", (townshipData.videoGallery || []).map(x => x.id === id ? { ...x, ...patch } : x))
   }
   const removeVideoGalleryItem = (id: string) => {
     if (!townshipData) return
-    updateCommon("videoGallery", townshipData.videoGallery.filter(x => x.id !== id))
+    updateCommon("videoGallery", (townshipData.videoGallery || []).filter(x => x.id !== id))
   }
 
   const addApfCommon = () => {
@@ -378,12 +378,12 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
   // Floor breakdown
   const addFloorBreakdown = () => {
     const item: FloorBreakdown = { id: uuidv4(), floorType: "residential", fromFloor: "", toFloor: "", description: "" }
-    update("floorsBreakdown", [...data.floorsBreakdown, item])
+    update("floorsBreakdown", [...(data.floorsBreakdown || []), item])
   }
   const updateFloorBreakdown = (id: string, patch: Partial<FloorBreakdown>) =>
-    update("floorsBreakdown", data.floorsBreakdown.map(x => x.id === id ? { ...x, ...patch } : x))
+    update("floorsBreakdown", (data.floorsBreakdown || []).map(x => x.id === id ? { ...x, ...patch } : x))
   const removeFloorBreakdown = (id: string) =>
-    update("floorsBreakdown", data.floorsBreakdown.filter(x => x.id !== id))
+    update("floorsBreakdown", (data.floorsBreakdown || []).filter(x => x.id !== id))
 
 
   // Parse floor count from string like "G + 24"
@@ -553,7 +553,7 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
       {/* ── 4. FLOOR PLAN BREAKDOWN ─────────────── */}
       <Section id="tower-floors" title="Floor Distribution Breakdown" description="Parking, Podium, Refuge, Residential floors — Floor View Slider" icon={Layers} openIds={openIds} setOpenIds={setOpenIds}>
         <p className="text-xs text-gray-500 mb-3">Tower ke andar har floor type ki range define karo — visitor panel mein interactive floor view slider pe dikhega</p>
-        {data.floorsBreakdown.map(item => (
+        {(data.floorsBreakdown || []).map(item => (
           <Card key={item.id} className="mb-3 border-gray-100">
             <CardContent className="p-3">
               <Grid cols={2}>
@@ -797,7 +797,7 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
           </Section>
 
           <Section id="connectivity" title="Connectivity" description="Airport, Railway, Metro, Hospital, Schools distance" icon={Wifi} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-            {townshipData.connectivity.map(item => (
+            {(townshipData?.connectivity || []).map(item => (
               <Card key={item.id} className="mb-3 border-gray-100 shadow-none">
                 <CardContent className="p-3">
                   <Grid cols={2}>
@@ -835,7 +835,7 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
           <Section id="eco-common" title="Sustainability & Eco Features" description="Solar, Rainwater, Green Cover — Sustainability section" icon={Leaf} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
             <SectionTitle title="Specific Eco Features" />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {townshipData.ecoFeatures.map(item => (
+              {(townshipData?.ecoFeatures || []).map(item => (
                 <Card key={item.id} className="border-gray-100 shadow-none bg-gray-50/50">
                   <CardContent className="p-3">
                     <div className="flex items-center justify-between mb-2">
@@ -869,25 +869,25 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
             <div className="mb-6">
               <Label className="text-[10px] font-black uppercase text-gray-400 mb-3 block tracking-widest">Select Active Banks</Label>
               <BankSelector
-                banks={townshipData.approvedBanks}
+                banks={townshipData?.approvedBanks || []}
                 onChange={banks => updateCommon("approvedBanks", banks)}
               />
             </div>
             <SectionTitle title="Legal Trust & Score" />
             <Grid cols={2}>
               <Field label="Trust Score" hint="Out of 100">
-                <Input value={townshipData.legalTrustScore} onChange={e => updateCommon("legalTrustScore", e.target.value)} placeholder="100" />
+                <Input value={townshipData?.legalTrustScore} onChange={e => updateCommon("legalTrustScore", e.target.value)} placeholder="100" />
               </Field>
               <Field label="Approvals" hint="Eg: PMRDA / Municipal Corporation Approved">
-                <Input value={townshipData.approvals} onChange={e => updateCommon("approvals", e.target.value)} placeholder="Local Authority Approved" />
+                <Input value={townshipData?.approvals} onChange={e => updateCommon("approvals", e.target.value)} placeholder="Local Authority Approved" />
               </Field>
             </Grid>
             <Field label="Trust Description" hint="Eg: Clear Marketable Title with OC Received">
-              <Textarea value={townshipData.legalTrustDescription} onChange={e => updateCommon("legalTrustDescription", e.target.value)} rows={2} placeholder="This project has clear marketable titles and all necessary permissions." />
+              <Textarea value={townshipData?.legalTrustDescription} onChange={e => updateCommon("legalTrustDescription", e.target.value)} rows={2} placeholder="This project has clear marketable titles and all necessary permissions." />
             </Field>
             <SectionTitle title="Bank APF Certificates" />
             <div className="space-y-3">
-              {(townshipData.apfDetails || []).map(apf => (
+              {(townshipData?.apfDetails || []).map(apf => (
                 <div key={apf.id} className="grid grid-cols-2 gap-3 p-3 bg-gray-50 rounded-xl relative group border border-gray-100">
                   <Field label="Bank Name">
                     <Input value={apf.bankName} onChange={e => updateApfCommon(apf.id, { bankName: e.target.value })} placeholder="HDFC Bank" className="h-8 text-xs bg-white" />

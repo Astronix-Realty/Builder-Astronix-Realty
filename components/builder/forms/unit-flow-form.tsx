@@ -563,7 +563,7 @@ function UnitConfigCard({
                                     <Button variant="ghost" size="sm" onClick={addRoom} className="h-7 text-[10px] font-bold text-indigo-600 hover:bg-indigo-50">+ Add Room</Button>
                                 </div>
                                 <div className="space-y-2">
-                                    {config.roomDimensions.map(room => (
+                                    {(config.roomDimensions || []).map(room => (
                                         <div key={room.id} className="grid grid-cols-4 gap-2 bg-gray-50/50 p-2 rounded-xl group/room">
                                             <Input value={room.roomName ?? ""} onChange={e => updateRoom(room.id, { roomName: e.target.value })} placeholder="Room Name" className="h-8 text-[11px] bg-white border-0 shadow-sm" />
                                             <Input value={room.length ?? ""} onChange={e => updateRoom(room.id, { length: e.target.value })} placeholder="Len" className="h-8 text-[11px] bg-white border-0 shadow-sm text-center" />
@@ -574,7 +574,7 @@ function UnitConfigCard({
                                             </div>
                                         </div>
                                     ))}
-                                    {config.roomDimensions.length === 0 && <p className="text-[10px] text-gray-400 italic py-2 text-center">No dimensions added yet.</p>}
+                                    {(config.roomDimensions || []).length === 0 && <p className="text-[10px] text-gray-400 italic py-2 text-center">No dimensions added yet.</p>}
                                 </div>
                             </Section>
 
@@ -583,7 +583,7 @@ function UnitConfigCard({
                                     // Calculate Overall Score out of 10
                                     let totalEarned = 0;
                                     let totalPossible = 0;
-                                    config.vastuAnalysis.forEach(v => {
+                                    (config.vastuAnalysis || []).forEach(v => {
                                         if (v.direction && v.direction !== "N/A") {
                                             totalPossible += 1.0;
                                             totalEarned += getVastuDetails(v.element, v.direction, v.facing).score;
@@ -607,7 +607,7 @@ function UnitConfigCard({
                                             <div className="flex items-center justify-between mb-6 p-4 rounded-xl border bg-gray-50">
                                                 <div>
                                                     <h4 className="text-sm font-bold text-gray-900 mb-1">Overall Vastu Rating</h4>
-                                                    <p className="text-[11px] text-gray-500 max-w-sm">Evaluated based on standard directional sciences for {config.vastuAnalysis.length} plotted zones.</p>
+                                                    <p className="text-[11px] text-gray-500 max-w-sm">Evaluated based on standard directional sciences for {(config.vastuAnalysis || []).length} plotted zones.</p>
                                                     {totalPossible > 0 && <span className={`inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase border ${scoreColorClass}`}>{scoreLabel}</span>}
                                                 </div>
                                                 <div className="text-right">
@@ -625,7 +625,7 @@ function UnitConfigCard({
                                             <div className="flex items-center justify-between mb-3 border-b border-gray-100 pb-2">
                                                 <div className="flex items-center gap-2">
                                                     <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600">Spatial Mappings (Auto-curated for {config.type})</p>
-                                                    {config.vastuAnalysis.length > 0 && (
+                                                    {(config.vastuAnalysis || []).length > 0 && (
                                                         <Button variant="outline" size="sm" onClick={() => { if (confirm("Are you sure you want to reset Vastu elements to default for " + config.type + "? All current Vastu data will be lost.")) autoFillVastu(config.type); }} className="h-6 px-2 text-[9px] bg-emerald-50 text-emerald-600 border-emerald-200">
                                                             Reset / Auto-Fill ({config.type})
                                                         </Button>
@@ -634,7 +634,7 @@ function UnitConfigCard({
                                             </div>
 
                                             {/* Column Headings */}
-                                            {config.vastuAnalysis.length > 0 && (
+                                            {(config.vastuAnalysis || []).length > 0 && (
                                                 <div className="flex gap-2 items-center px-[14px] mb-1 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
                                                     <div className="flex-1 pl-3">Vastu Element</div>
                                                     <div className="w-32 pl-3">Location</div>
@@ -644,7 +644,7 @@ function UnitConfigCard({
                                             )}
 
                                             <div className="space-y-3">
-                                                {config.vastuAnalysis.map(v => {
+                                                {(config.vastuAnalysis || []).map(v => {
                                                     const details = getVastuDetails(v.element, v.direction, v.facing)
 
                                                     return (
@@ -696,7 +696,7 @@ function UnitConfigCard({
                                                         </div>
                                                     )
                                                 })}
-                                                {config.vastuAnalysis.length === 0 && (
+                                                {(config.vastuAnalysis || []).length === 0 && (
                                                     <div className="border border-dashed border-emerald-200 bg-emerald-50/50 rounded-xl p-6 text-center">
                                                         <Star className="w-6 h-6 text-emerald-300 mx-auto mb-2" />
                                                         <p className="text-xs font-semibold text-emerald-800">No Vastu Mapping Provided</p>
@@ -717,7 +717,7 @@ function UnitConfigCard({
                                     <Button variant="ghost" size="sm" onClick={addMoveIn} className="h-7 text-[10px] font-bold text-amber-600 hover:bg-amber-50">+ Add Item</Button>
                                 </div>
                                 <div className="space-y-2">
-                                    {config.moveInChecklist.map(m => (
+                                    {(config.moveInChecklist || []).map(m => (
                                         <div key={m.id} className="flex items-center gap-3 bg-gray-50/50 p-2 rounded-xl group/check">
                                             <Switch
                                                 checked={m.included}
@@ -727,7 +727,7 @@ function UnitConfigCard({
                                             <Button variant="ghost" size="sm" onClick={() => removeMoveIn(m.id)} className="h-8 w-8 p-0 text-red-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover/check:opacity-100 transition-opacity"><Trash2 className="w-4 h-4" /></Button>
                                         </div>
                                     ))}
-                                    {config.moveInChecklist.length === 0 && <p className="text-[10px] text-gray-400 italic py-2 text-center">No provisions added.</p>}
+                                    {(config.moveInChecklist || []).length === 0 && <p className="text-[10px] text-gray-400 italic py-2 text-center">No provisions added.</p>}
                                 </div>
                             </Section>
 
@@ -855,15 +855,15 @@ export function UnitFlowForm({
             floorPlanImage2D: "",
             countPerFloor: 1
         }
-        updateData({ configurations: [...data.configurations, newConfig] })
+        updateData({ configurations: [...(data.configurations || []), newConfig] })
     }
 
     const updateConfig = (id: string, patch: Partial<UnitConfiguration>) => {
-        updateData({ configurations: data.configurations.map(c => c.id === id ? { ...c, ...patch } : c) })
+        updateData({ configurations: (data.configurations || []).map(c => c.id === id ? { ...c, ...patch } : c) })
     }
 
     const removeConfig = (id: string) => {
-        updateData({ configurations: data.configurations.filter(c => c.id !== id) })
+        updateData({ configurations: (data.configurations || []).filter(c => c.id !== id) })
     }
 
     // --- INVENTORY HELPERS ---
@@ -913,13 +913,13 @@ export function UnitFlowForm({
         const floors = parseFloorRange(config.floorRange)
 
         let layout: UnitLayoutSlot[] = []
-        let newConfigs = [...data.configurations]
+        let newConfigs = [...(data.configurations || [])]
 
         if (config.cloneFromGroupId && config.cloneFromGroupId !== "none") {
-            const cloneGroup = data.floorGroups.find(g => g.id === config.cloneFromGroupId)
+            const cloneGroup = (data.floorGroups || []).find(g => g.id === config.cloneFromGroupId)
             if (cloneGroup && cloneGroup.layout) {
                 layout = cloneGroup.layout.map((slot, i) => {
-                    const originalConfig = data.configurations.find(c => c.id === slot.configId);
+                    const originalConfig = (data.configurations || []).find(c => c.id === slot.configId);
                     const newConfigId = `config-${uuidv4()}`;
 
                     if (originalConfig) {
@@ -954,31 +954,31 @@ export function UnitFlowForm({
             floorPlanUrl: config.floorPlanUrl
         }
         updateData({
-            floorGroups: [...data.floorGroups, newGroup],
+            floorGroups: [...(data.floorGroups || []), newGroup],
             configurations: newConfigs
         })
         setIsAddGroupModalOpen(false)
     }
 
     const copyDataFromGroup = (sourceGroupId: string, targetGroupId: string) => {
-        const sourceGroup = data.floorGroups.find(g => g.id === sourceGroupId);
-        const targetGroup = data.floorGroups.find(g => g.id === targetGroupId);
+        const sourceGroup = (data.floorGroups || []).find(g => g.id === sourceGroupId);
+        const targetGroup = (data.floorGroups || []).find(g => g.id === targetGroupId);
         if (!sourceGroup || !targetGroup) return;
 
-        const newConfigs = [...data.configurations];
-        const newFloorGroups = [...data.floorGroups];
+        const newConfigs = [...(data.configurations || [])];
+        const newFloorGroups = [...(data.floorGroups || [])];
         const targetGroupIndex = newFloorGroups.findIndex(g => g.id === targetGroupId);
         let updated = false;
 
         // Clone the whole layout mapping to decouple completely
-        const newLayout = [...targetGroup.layout]
+        const newLayout = [...(targetGroup.layout || [])]
 
         // Iterate by index to handle identical (dito) layouts perfectly even if slot numbers differ
         newLayout.forEach((targetSlot, index) => {
-            const sourceSlot = sourceGroup.layout[index];
+            const sourceSlot = (sourceGroup.layout || [])[index];
             if (!sourceSlot) return;
 
-            const sourceConfig = data.configurations.find(c => c.id === sourceSlot.configId);
+            const sourceConfig = (data.configurations || []).find(c => c.id === sourceSlot.configId);
 
             if (sourceConfig) {
                 // IMPORTANT: Generate a brand new isolated ID so they never share memory
@@ -1005,11 +1005,11 @@ export function UnitFlowForm({
     }
 
     const updateGroup = (id: string, patch: Partial<FloorGroup>) => {
-        updateData({ floorGroups: data.floorGroups.map(g => g.id === id ? { ...g, ...patch } : g) })
+        updateData({ floorGroups: (data.floorGroups || []).map(g => g.id === id ? { ...g, ...patch } : g) })
     }
 
     const removeGroup = (id: string) => {
-        updateData({ floorGroups: data.floorGroups.filter(g => g.id !== id) })
+        updateData({ floorGroups: (data.floorGroups || []).filter(g => g.id !== id) })
     }
 
 
@@ -1167,7 +1167,7 @@ export function UnitFlowForm({
 
                     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                         <div className="xl:col-span-2 space-y-6">
-                            {data.floorGroups.map((group, idx) => (
+                            {(data.floorGroups || []).map((group, idx) => (
                                 <Card key={group.id} className="border-2 border-gray-100 overflow-hidden rounded-2xl">
                                     <div className="bg-gray-50 px-5 py-3 border-b border-gray-100 flex items-center justify-between cursor-pointer hover:bg-gray-100/50 transition-colors" onClick={() => toggleGroupCollapse(group.id)}>
                                         <div className="flex items-center gap-3">
@@ -1183,7 +1183,7 @@ export function UnitFlowForm({
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <div className="flex items-center flex-wrap gap-1 max-w-[200px] justify-end" onClick={e => e.stopPropagation()}>
-                                                {group.groupTypes.map(t => (
+                                                {(group.groupTypes || []).map(t => (
                                                     <Badge key={t} variant="secondary" className="capitalize text-[8px] h-4 px-1">{t}</Badge>
                                                 ))}
                                             </div>
@@ -1223,7 +1223,7 @@ export function UnitFlowForm({
                                                 </Field>
 
                                                 {/* Dynamic Fields based on Group Type */}
-                                                {(group.groupTypes.includes('basement') || group.groupTypes.includes('podium')) && (
+                                                {(group.groupTypes || []).some(t => ['basement', 'podium'].includes(t)) && (
                                                     <>
                                                         <Grid cols={3}>
                                                             <Field label="Car Slots">
@@ -1261,7 +1261,7 @@ export function UnitFlowForm({
                                                     </>
                                                 )}
 
-                                                {(group.groupTypes.includes('amenity') || group.groupTypes.includes('podium')) && (
+                                                {(group.groupTypes || []).some(t => ['amenity', 'podium'].includes(t)) && (
                                                     <Field label="Amenities Highlight" hint="Key facilities on this level">
                                                         <Input
                                                             value={group.amenities || ""}
@@ -1272,7 +1272,7 @@ export function UnitFlowForm({
                                                     </Field>
                                                 )}
 
-                                                {group.groupTypes.includes('refuge') && (
+                                                {(group.groupTypes || []).includes('refuge') && (
                                                     <Field label="Refuge Area Size" hint="Sqm / Sqft area">
                                                         <Input
                                                             value={group.utilityInfo || ""}
@@ -1285,25 +1285,25 @@ export function UnitFlowForm({
                                             </Grid>
 
                                             <div className="flex items-end flex-wrap gap-1">
-                                                {group.floors.map(f => (
+                                                {(group.floors || []).map(f => (
                                                     <Badge key={f} className="bg-white text-gray-500 border-gray-200 text-[10px] px-1.5 h-5 font-medium">F{f}</Badge>
                                                 ))}
                                             </div>
 
                                             {/* ── CONDITIONAL INVENTORY LOGIC ── */}
-                                            {group.groupTypes.some(t => ['typical', 'ground', 'other'].includes(t)) ? (
+                                            {(group.groupTypes || []).some(t => ['typical', 'ground', 'other'].includes(t)) ? (
                                                 <>
-                                                    <SectionTitle title="Unit / Parking Slot Mapping" />
+                                                    <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest pt-4">Unit / Parking Slot Mapping</div>
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                        {group.layout.map((slot, sIdx) => {
-                                                            const config = data.configurations.find(c => c.id === slot.configId)
+                                                        {(group.layout || []).map((slot, sIdx) => {
+                                                            const config = (data.configurations || []).find(c => c.id === slot.configId)
                                                             const updateSlot = (patch: Partial<UnitLayoutSlot>) => {
-                                                                const newLayout = [...group.layout]
+                                                                const newLayout = [...(group.layout || [])]
                                                                 newLayout[sIdx] = { ...slot, ...patch }
                                                                 updateGroup(group.id, { layout: newLayout })
                                                             }
                                                             const removeSlot = () => {
-                                                                const newLayout = group.layout.filter((_, i) => i !== sIdx)
+                                                                const newLayout = (group.layout || []).filter((_, i) => i !== sIdx)
                                                                 updateGroup(group.id, { layout: newLayout })
                                                             }
                                                             return (
@@ -1319,9 +1319,9 @@ export function UnitFlowForm({
                                                                                     <span className="text-lg font-black text-[#1A3C8C]">#{sIdx + 1}</span>
                                                                                 </div>
                                                                                 <Select
-                                                                                    value={slot.configId ? data.configurations.find(c => c.id === slot.configId)?.type : slot.unitTypeOverride}
+                                                                                    value={slot.configId ? (data.configurations || []).find(c => c.id === slot.configId)?.type : slot.unitTypeOverride}
                                                                                     onValueChange={v => {
-                                                                                        const matchingConfig = data.configurations.find(c => c.type.toUpperCase().replace(/\s/g, "") === v.toUpperCase().replace(/\s/g, ""))
+                                                                                        const matchingConfig = (data.configurations || []).find(c => c.type.toUpperCase().replace(/\s/g, "") === v.toUpperCase().replace(/\s/g, ""))
                                                                                         if (matchingConfig) {
                                                                                             updateSlot({ configId: matchingConfig.id, unitTypeOverride: undefined })
                                                                                         } else {
@@ -1432,8 +1432,9 @@ export function UnitFlowForm({
                                                         <Button
                                                             variant="ghost"
                                                             onClick={() => {
-                                                                const newSlot: UnitLayoutSlot = { id: `slot-${Date.now()}`, slotNumber: (group.layout.length + 1).toString(), configId: data.configurations[0]?.id || "" }
-                                                                updateGroup(group.id, { layout: [...group.layout, newSlot] })
+                                                                const configs = data.configurations || []
+                                                                const newSlot: UnitLayoutSlot = { id: `slot-${Date.now()}`, slotNumber: ((group.layout?.length || 0) + 1).toString(), configId: configs[0]?.id || "" }
+                                                                updateGroup(group.id, { layout: [...(group.layout || []), newSlot] })
                                                             }}
                                                             className="h-auto min-h-[280px] border-2 border-dashed border-gray-100 rounded-[24px] hover:border-blue-200 hover:bg-blue-50/30 transition-all flex flex-col gap-3 group/add"
                                                         >
@@ -1444,11 +1445,11 @@ export function UnitFlowForm({
                                                         </Button>
                                                     </div>
                                                 </>
-                                            ) : (group.groupTypes.includes('basement') || group.groupTypes.includes('podium')) ? (
+                                            ) : (group.groupTypes || []).some(t => ['basement', 'podium'].includes(t)) ? (
                                                 <div className="p-8 bg-orange-50/20 rounded-2xl border border-orange-100 border-dashed text-center">
                                                     <Car className="w-8 h-8 text-orange-200 mx-auto mb-2" />
                                                     <p className="text-[11px] font-bold text-orange-900 uppercase tracking-widest">
-                                                        {group.groupTypes.includes('podium') ? 'Podium' : 'Basement'} Parking Capacity
+                                                        {(group.groupTypes || []).includes('podium') ? 'Podium' : 'Basement'} Parking Capacity
                                                     </p>
                                                     <p className="text-[10px] text-orange-600/60 mt-1">Individual slot mapping is not required for basement levels. Total counts are defined in the fields above.</p>
                                                 </div>
@@ -1473,22 +1474,22 @@ export function UnitFlowForm({
 
                                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-1.5 pb-10">
                                     {(() => {
-                                        if (data.floorGroups.length === 0) {
+                                        if ((data.floorGroups || []).length === 0) {
                                             return <div className="py-20 text-center text-gray-300 font-bold text-xs uppercase tracking-widest">No Floors yet</div>
                                         }
 
                                         const allFloorsSet = new Set<number>()
-                                        data.floorGroups.forEach(g => g.floors.forEach(f => allFloorsSet.add(f)))
+                                        ;(data.floorGroups || []).forEach(g => (g.floors || []).forEach(f => allFloorsSet.add(f)))
                                         const allFloors = Array.from(allFloorsSet).sort((a, b) => b - a)
 
                                         return allFloors.map(floor => {
-                                            const group = data.floorGroups.find(g => g.floors.includes(floor))
+                                            const group = (data.floorGroups || []).find(g => (g.floors || []).includes(floor))
                                             if (!group) return null
 
-                                            const isBasement = group.groupTypes.includes('basement')
-                                            const isPodium = group.groupTypes.includes('podium')
-                                            const isAmenity = group.groupTypes.includes('amenity')
-                                            const isRefuge = group.groupTypes.includes('refuge')
+                                            const isBasement = (group.groupTypes || []).includes('basement')
+                                            const isPodium = (group.groupTypes || []).includes('podium')
+                                            const isAmenity = (group.groupTypes || []).includes('amenity')
+                                            const isRefuge = (group.groupTypes || []).includes('refuge')
 
                                             let bgColor = "bg-white"
                                             let borderColor = "border-gray-200"
@@ -1518,14 +1519,24 @@ export function UnitFlowForm({
                                                             <div className={`flex items-center justify-center w-full gap-2 text-[10px] uppercase font-black tracking-widest ${textColor} border-l border-current/20`}>
                                                                 <Shield className="w-3.5 h-3.5 opacity-70" /> Refuge
                                                             </div>
-                                                        ) : group.layout && group.layout.length > 0 ? (
+                                                        ) : group.layout && (group.layout || []).length > 0 ? (
                                                             <div className="flex w-full items-center gap-1 border-l pl-2 border-gray-100">
-                                                                {group.layout.map((s, i) => {
-                                                                    const typ = s.configId ? data.configurations.find(c => c.id === s.configId)?.type : s.unitTypeOverride
+                                                                {(group.layout || []).map((s, i) => {
+                                                                    const typ = s.configId ? (data.configurations || []).find(c => c.id === s.configId)?.type : s.unitTypeOverride
                                                                     const shortTyp = typ ? typ.replace('BHK', '').substring(0, 3) : "U"
+                                                                    
+                                                                    // Real-world numbering logic: Floor + Slot (e.g. 5 + 01 = 501)
+                                                                    const slotNum = s.slotNumber || (i + 1).toString();
+                                                                    const paddedSlot = slotNum.length === 1 ? `0${slotNum}` : slotNum;
+                                                                    let unitDisplay = "";
+                                                                    
+                                                                    if (floor === 0) unitDisplay = `G${paddedSlot}`;
+                                                                    else if (floor < 0) unitDisplay = `B${Math.abs(floor)}${paddedSlot}`;
+                                                                    else unitDisplay = `${floor}${paddedSlot}`;
+
                                                                     return (
                                                                         <div key={i} className="flex-1 min-w-0 bg-[#F5F7FA] border border-gray-200 rounded flex flex-col items-center justify-center py-0.5 shadow-inner">
-                                                                            <span className="text-[9px] font-bold text-[#1A3C8C] leading-none">{s.slotNumber}</span>
+                                                                            <span className="text-[9px] font-bold text-[#1A3C8C] leading-none">{unitDisplay}</span>
                                                                             <span className="text-[6px] uppercase tracking-wider text-gray-400 font-bold">{shortTyp}</span>
                                                                         </div>
                                                                     )
@@ -1550,10 +1561,10 @@ export function UnitFlowForm({
                 {/* ── PART C: BHK MASTER BLUEPRINTS ── */}
                 <TabsContent value="configs" className="space-y-16 focus-visible:outline-none">
                     {(() => {
-                        const validSlots = data.floorGroups.flatMap(g =>
-                            g.layout.map(s => ({ ...s, groupId: g.id }))
+                        const validSlots = (data.floorGroups || []).flatMap(g =>
+                            (g.layout || []).map(s => ({ ...s, groupId: g.id }))
                         ).filter(s => {
-                            const typeStr = s.configId ? data.configurations.find(c => c.id === s.configId)?.type : s.unitTypeOverride
+                            const typeStr = s.configId ? (data.configurations || []).find(c => c.id === s.configId)?.type : s.unitTypeOverride
                             return !!typeStr
                         })
 
@@ -1561,8 +1572,8 @@ export function UnitFlowForm({
 
                         let isMismatch = false;
                         const slotsToSync = validSlots.map(slot => {
-                            const typeStr = slot.configId ? data.configurations.find(c => c.id === slot.configId)?.type : slot.unitTypeOverride
-                            const configObj = slot.configId ? data.configurations.find(c => c.id === slot.configId) : null
+                            const typeStr = slot.configId ? (data.configurations || []).find(c => c.id === slot.configId)?.type : slot.unitTypeOverride
+                            const configObj = slot.configId ? (data.configurations || []).find(c => c.id === slot.configId) : null
                             const areaVal = slot.carpetAreaOverride || configObj?.carpetArea || 0
                             const baseTypeStr = typeStr ? typeStr.toUpperCase().replace(/\s/g, "") : ""
 
@@ -1576,11 +1587,11 @@ export function UnitFlowForm({
                             }
                         })
 
-                        if (data.configurations.length !== slotsToSync.length) {
+                        if ((data.configurations || []).length !== slotsToSync.length) {
                             isMismatch = true;
                         } else {
                             slotsToSync.forEach((stats, index) => {
-                                const c = data.configurations[index]
+                                const c = (data.configurations || [])[index]
                                 if (!c) isMismatch = true
                                 else {
                                     const exBase = c.type.toUpperCase().replace(/\s/g, "")
@@ -1613,7 +1624,7 @@ export function UnitFlowForm({
                                     <Button
                                         onClick={() => {
                                             const updatedConfigs: UnitConfiguration[] = []
-                                            const availableOldConfigs = [...data.configurations]
+                                            const availableOldConfigs = [...(data.configurations || [])]
                                             const newMappings: { groupId: string, slotNumber: string, newConfigId: string }[] = []
 
                                             slotsToSync.forEach((stats) => {
@@ -1647,9 +1658,9 @@ export function UnitFlowForm({
                                                 newMappings.push({ groupId: stats.groupId, slotNumber: stats.slotNumber, newConfigId: id })
                                             })
 
-                                            const updatedFloorGroups = [...data.floorGroups]
+                                            const updatedFloorGroups = [...(data.floorGroups || [])]
                                             updatedFloorGroups.forEach(g => {
-                                                g.layout.forEach(slot => {
+                                                (g.layout || []).forEach(slot => {
                                                     const mapId = newMappings.find(m => m.groupId === g.id && m.slotNumber === slot.slotNumber)?.newConfigId
                                                     if (mapId) {
                                                         slot.configId = mapId
@@ -1678,15 +1689,15 @@ export function UnitFlowForm({
 
 
                     <div className="grid gap-6">
-                        {data.floorGroups.length === 0 ? (
-                            data.configurations.map((config, i) => (
+                        {(data.floorGroups || []).length === 0 ? (
+                            (data.configurations || []).map((config, i) => (
                                 <UnitConfigCard key={config.id} index={i} config={config} onChange={patch => updateConfig(config.id, patch)} onRemove={() => removeConfig(config.id)} />
                             ))
                         ) : (
                             <>
-                                {data.floorGroups.map((group, groupIndex) => {
-                                    const usedConfigIds = Array.from(new Set(group.layout.map(slot => slot.configId)))
-                                    const groupConfigs = data.configurations.filter(c => usedConfigIds.includes(c.id))
+                                {(data.floorGroups || []).map((group, groupIndex) => {
+                                    const usedConfigIds = Array.from(new Set((group.layout || []).map(slot => slot.configId)))
+                                    const groupConfigs = (data.configurations || []).filter(c => usedConfigIds.includes(c.id))
 
                                     if (groupConfigs.length === 0) return null
 
@@ -1714,7 +1725,7 @@ export function UnitFlowForm({
                                                         </div>
                                                     )}
                                                 </div>
-                                                {data.floorGroups.length > 1 && (
+                                                {(data.floorGroups || []).length > 1 && (
                                                     <div onClick={e => e.stopPropagation()}>
                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger className="h-8 gap-2 bg-blue-50 hover:bg-blue-100 text-[#1A3C8C] flex items-center px-3 rounded-md transition-all outline-none">
@@ -1723,7 +1734,7 @@ export function UnitFlowForm({
                                                             </DropdownMenuTrigger>
                                                             <DropdownMenuContent align="end" className="w-64 bg-white rounded-xl shadow-2xl border-gray-100 z-[9999] p-2">
                                                                 <div className="text-[10px] font-black uppercase text-gray-400 tracking-wider mb-2 px-2 pt-1">Select Source</div>
-                                                                {data.floorGroups.filter(g => g.id !== group.id).map(g => (
+                                                                {(data.floorGroups || []).filter(g => g.id !== group.id).map(g => (
                                                                     <DropdownMenuItem
                                                                         key={g.id}
                                                                         onClick={() => copyDataFromGroup(g.id, group.id)}
@@ -1753,8 +1764,8 @@ export function UnitFlowForm({
                                 })}
 
                                 {(() => {
-                                    const allUsedConfigIds = new Set(data.floorGroups.flatMap(g => g.layout.map(s => s.configId)))
-                                    const unassignedConfigs = data.configurations.filter(c => !allUsedConfigIds.has(c.id))
+                                    const allUsedConfigIds = new Set((data.floorGroups || []).flatMap(g => (g.layout || []).map(s => s.configId)))
+                                    const unassignedConfigs = (data.configurations || []).filter(c => !allUsedConfigIds.has(c.id))
 
                                     if (unassignedConfigs.length === 0) return null
 
@@ -1801,12 +1812,12 @@ export function UnitFlowForm({
                                 <div key={i} className="flex gap-2 items-start relative group">
                                     <div className="flex-1">
                                         <ImageField label={`Gallery image ${i + 1}`} value={img} onChange={v => {
-                                            const next = [...data.galleryImages]
+                                            const next = [...(data.galleryImages || [])]
                                             next[i] = v
                                             updateData({ galleryImages: next })
                                         }} />
                                     </div>
-                                    <button type="button" onClick={() => updateData({ galleryImages: data.galleryImages.filter((_, idx) => idx !== i) })} className="mt-8 p-1.5 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                                    <button type="button" onClick={() => updateData({ galleryImages: (data.galleryImages || []).filter((_, idx) => idx !== i) })} className="mt-8 p-1.5 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
                                         <X className="w-4 h-4" />
                                     </button>
                                 </div>
@@ -1828,21 +1839,21 @@ export function UnitFlowForm({
                                                 </div>
                                                 <span className="text-sm font-bold text-gray-700">Video #{i + 1}</span>
                                             </div>
-                                            <button type="button" onClick={() => updateData({ videoGallery: data.videoGallery.filter((_, idx) => idx !== i) })} className="text-[10px] font-black uppercase tracking-wider text-red-400 hover:text-red-600">
+                                            <button type="button" onClick={() => updateData({ videoGallery: (data.videoGallery || []).filter((_, idx) => idx !== i) })} className="text-[10px] font-black uppercase tracking-wider text-red-400 hover:text-red-600">
                                                 Remove Video
                                             </button>
                                         </div>
                                         <Grid cols={2}>
                                             <Field label="Video Title">
                                                 <Input value={item.title} onChange={e => {
-                                                    const next = [...data.videoGallery]
+                                                    const next = [...(data.videoGallery || [])]
                                                     next[i] = { ...item, title: e.target.value }
                                                     updateData({ videoGallery: next })
                                                 }} placeholder="Unit Walkthrough Tour" className="h-9 text-xs" />
                                             </Field>
                                             <Field label="Type">
                                                 <Select value={item.type || "walkthrough"} onValueChange={v => {
-                                                    const next = [...data.videoGallery]
+                                                    const next = [...(data.videoGallery || [])]
                                                     next[i] = { ...item, type: v as any }
                                                     updateData({ videoGallery: next })
                                                 }}>
@@ -1857,7 +1868,7 @@ export function UnitFlowForm({
                                             <div className="sm:col-span-2">
                                                 <Field label={item.type === "short" ? "Short URL (Vertical)" : "Landscape URL"} hint="YouTube, Vimeo or direct video link">
                                                     <Input value={item.type === "short" ? (item.shortUrl || '') : (item.landscapeUrl || '')} onChange={e => {
-                                                        const next = [...data.videoGallery]
+                                                        const next = [...(data.videoGallery || [])]
                                                         if (item.type === "short") next[i] = { ...item, shortUrl: e.target.value }
                                                         else next[i] = { ...item, landscapeUrl: e.target.value }
                                                         updateData({ videoGallery: next })
@@ -1882,10 +1893,10 @@ export function UnitFlowForm({
                 isOpen={isAddGroupModalOpen}
                 onClose={() => setIsAddGroupModalOpen(false)}
                 onAdd={confirmAddGroup}
-                configurations={data.configurations}
+                configurations={data.configurations || []}
                 defaultUnits={unitsPerFloor || 1}
                 defaultFloorRise={Number(data.floorRisePerFloor) || 0}
-                existingGroups={data.floorGroups}
+                existingGroups={data.floorGroups || []}
             />
         </div >
     )
@@ -1918,15 +1929,31 @@ function AddGroupModal({ isOpen, onClose, onAdd, configurations, defaultUnits, d
 
     useEffect(() => {
         if (isOpen) {
-            setFromFloor("0")
-            setToFloor("0")
+            // Find the highest floor already assigned
+            let highestFloor = -1; // Default to -1 so next starts at 0 (G)
+            if (existingGroups && existingGroups.length > 0) {
+                existingGroups.forEach(group => {
+                    if (group.floors && group.floors.length > 0) {
+                        const maxInGroup = Math.max(...group.floors);
+                        if (maxInGroup > highestFloor) {
+                            highestFloor = maxInGroup;
+                        }
+                    }
+                });
+            }
+            
+            const nextFloor = highestFloor + 1;
+            const nextFloorLabel = nextFloor === 0 ? "0" : (nextFloor < 0 ? `B${Math.abs(nextFloor)}` : `${nextFloor}`);
+            
+            setFromFloor(nextFloorLabel)
+            setToFloor(nextFloorLabel)
             setTypes(["typical"])
             setName("Typical Floors")
             setFloorRise(defaultFloorRise)
             setCloneGroupId("none")
             setFloorPlanUrl("")
         }
-    }, [isOpen, defaultFloorRise])
+    }, [isOpen, defaultFloorRise, existingGroups])
 
     useEffect(() => {
         if (types.length === 0) {
@@ -1998,15 +2025,21 @@ function AddGroupModal({ isOpen, onClose, onAdd, configurations, defaultUnits, d
 
         const displayValue = num === 0 ? "G" : (num < 0 ? `B${Math.abs(num)}` : `${num}`)
 
+        const isAlreadyAssigned = (n: number) => {
+            return (existingGroups || []).some(g => (g.floors || []).includes(n))
+        }
+
         const updateValue = (next: number) => {
             if (next === 0) onChange("0")
             else if (next < 0) onChange(`B${Math.abs(next)}`)
             else onChange(`${next}`)
         }
 
+        const isError = isAlreadyAssigned(num)
+
         return (
             <Field label={label} hint={hint}>
-                <div className="flex items-center gap-1 bg-gray-50 border border-gray-100 p-1 rounded-2xl">
+                <div className={`flex items-center gap-1 bg-gray-50 border p-1 rounded-2xl transition-colors ${isError ? 'border-red-300 bg-red-50' : 'border-gray-100'}`}>
                     <Button
                         variant="ghost"
                         size="icon"
@@ -2015,15 +2048,22 @@ function AddGroupModal({ isOpen, onClose, onAdd, configurations, defaultUnits, d
                     >
                         <Minus className="w-4 h-4" />
                     </Button>
-                    <Input
-                        value={displayValue}
-                        onChange={e => {
-                            const v = e.target.value.toUpperCase()
-                            if (v === 'G' || v === '0') onChange("0")
-                            else onChange(e.target.value)
-                        }}
-                        className="h-10 border-0 bg-transparent text-center font-bold text-sm focus-visible:ring-0 min-w-0"
-                    />
+                    <div className="flex-1 relative">
+                        <Input
+                            value={displayValue}
+                            onChange={e => {
+                                const v = e.target.value.toUpperCase()
+                                if (v === 'G' || v === '0') onChange("0")
+                                else onChange(e.target.value)
+                            }}
+                            className={`h-10 border-0 bg-transparent text-center font-bold text-sm focus-visible:ring-0 min-w-0 ${isError ? 'text-red-600' : ''}`}
+                        />
+                        {isError && (
+                            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2">
+                                <Badge className="bg-red-500 text-[8px] h-3 px-1 py-0 pointer-events-none">TAKEN</Badge>
+                            </div>
+                        )}
+                    </div>
                     <Button
                         variant="ghost"
                         size="icon"
@@ -2143,16 +2183,39 @@ function AddGroupModal({ isOpen, onClose, onAdd, configurations, defaultUnits, d
                     </div>
 
                     <div className="pt-2 sticky bottom-0 bg-white pb-2 overflow-hidden rounded-b-[32px]">
-                        <Button
-                            onClick={handleAdd}
-                            disabled={!fromFloor || !toFloor || types.length === 0}
-                            className="w-full h-16 bg-[#1A3C8C] hover:bg-[#1A3C8C]/90 text-white rounded-2xl font-black text-lg shadow-2xl shadow-blue-200 transition-all active:scale-[0.98] group relative overflow-hidden disabled:opacity-50"
-                        >
-                            <span className="relative z-10 flex items-center justify-center gap-3">
-                                Create Mixed-Use Group
-                                <CheckCircle className="w-6 h-6 opacity-50 group-hover:opacity-100 transition-opacity" />
-                            </span>
-                        </Button>
+                        {(() => {
+                            const start = parseInt(fromFloor.replace(/[^0-9-]/g, "")) || 0
+                            const end = parseInt(toFloor.replace(/[^0-9-]/g, "")) || 0
+                            const min = Math.min(start, end)
+                            const max = Math.max(start, end)
+                            let hasOverlap = false
+                            for (let i = min; i <= max; i++) {
+                                if ((existingGroups || []).some(g => (g.floors || []).includes(i))) {
+                                    hasOverlap = true
+                                    break
+                                }
+                            }
+
+                            return (
+                                <>
+                                    {hasOverlap && (
+                                        <p className="text-[10px] text-red-500 font-bold text-center mb-2 animate-bounce">
+                                            ⚠️ One or more floors in this range are already assigned!
+                                        </p>
+                                    )}
+                                    <Button
+                                        onClick={handleAdd}
+                                        disabled={!fromFloor || !toFloor || types.length === 0 || hasOverlap}
+                                        className="w-full h-16 bg-[#1A3C8C] hover:bg-[#1A3C8C]/90 text-white rounded-2xl font-black text-lg shadow-2xl shadow-blue-200 transition-all active:scale-[0.98] group relative overflow-hidden disabled:opacity-50"
+                                    >
+                                        <span className="relative z-10 flex items-center justify-center gap-3">
+                                            {hasOverlap ? "Floor Already Taken" : "Create Mixed-Use Group"}
+                                            <CheckCircle className="w-6 h-6 opacity-50 group-hover:opacity-100 transition-opacity" />
+                                        </span>
+                                    </Button>
+                                </>
+                            )
+                        })()}
                     </div>
                 </div>
             </DialogContent>

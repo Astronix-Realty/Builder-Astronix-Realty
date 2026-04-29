@@ -156,60 +156,42 @@ function DashboardContent() {
     const details = p.details || {}
     const flowType = p.flowType || p.type
 
-    let name = p.name || "Untitled Property"
-    let location = ""
+    // Use root property name or townshipName as fallback
+    let name = p.townshipName || p.name || "Untitled Property"
+    let location = p.location || "Location not set"
+    
+    // Prioritize server-calculated counts
     let projectsCount = p.calculatedCounts?.projectsCount || 0
     let towersCount = p.calculatedCounts?.towersCount || 0
     let unitsCount = p.calculatedCounts?.unitsCount || 0
     let thumbnail = p.thumbnail || undefined
-
-    if (defaultStatus === "draft" || defaultStatus === "pending" || defaultStatus === "rejected") {
+    
+    // Fallback for draft/pending if counts are missing in calculatedCounts
+    if (projectsCount === 0 && towersCount === 0 && unitsCount === 0) {
       if (flowType === "township") {
-        const ts = details.township
-        if (ts) {
-          name = ts.name || name
-          location = `${ts.city || ""}, ${ts.state || ""}`.replace(/^, |, $/, "")
-          projectsCount = details.projects?.length || 0
-          towersCount = details.towers?.length || 0
-        } else {
-          name = details.name || name
-          location = `${details.city || ""}, ${details.state || ""}`.replace(/^, |, $/, "")
-        }
+        projectsCount = details.projects?.length || 0
+        towersCount = details.towers?.length || 0
       } else if (flowType === "project") {
-        const proj = details.projects?.[0]
-        if (proj) {
-          name = proj.name || name
-          location = `${proj.city || ""}, ${proj.state || ""}`.replace(/^, |, $/, "")
-          projectsCount = 1
-          towersCount = details.towers?.length || 0
-        } else {
-          name = details.name || name
-          location = `${details.city || ""}, ${details.state || ""}`.replace(/^, |, $/, "")
-          projectsCount = 1
-        }
+        projectsCount = 1
+        towersCount = details.towers?.length || 0
       } else if (flowType === "tower") {
-        const tower = details.towers?.[0]
-        if (tower) {
-          name = tower.name || name
-          location = `${tower.city || ""}, ${tower.state || ""}`.replace(/^, |, $/, "")
-          towersCount = 1
-        } else {
-          name = details.name || name
-          location = `${details.city || ""}, ${details.state || ""}`.replace(/^, |, $/, "")
-          towersCount = 1
-        }
+        towersCount = 1
       }
       unitsCount = details.generatedUnits?.length || 0
     }
 
-    // Root-level location fallback
-    if (!location && p.location) {
-      location = `${p.location.city || ""}, ${p.location.state || ""}`.replace(/^, |, $/, "")
+    // Hero Image Discovery (Search hierarchy if thumbnail is missing)
+    if (!thumbnail) {
+      thumbnail = 
+        details?.township?.heroImage || 
+        details?.projects?.find((pr: any) => pr.heroImage)?.heroImage || 
+        details?.towers?.find((tw: any) => tw.heroImage)?.heroImage ||
+        details?.heroImage;
     }
 
-    const totalValue =
+    const totalValue = p.totalValue || 
       details.generatedUnits?.reduce((sum: number, u: any) => sum + (u.price || 0), 0) ||
-      unitsCount * 5000000
+      (unitsCount > 0 ? unitsCount * 5000000 : 0)
 
     let finalStatus: Property['status'] = defaultStatus
     if (p.status === 'draft') finalStatus = 'draft'
@@ -223,7 +205,7 @@ function DashboardContent() {
       projects: projectsCount,
       towers: towersCount,
       units: unitsCount,
-      location: location || "Location not set",
+      location: location,
       status: finalStatus,
       totalValue: totalValue || 0,
       createdDate: p.createdAt || new Date().toISOString(),
@@ -858,9 +840,9 @@ function DashboardContent() {
                     key={property.id}
                     className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col group"
                   >
-                    {/* Thumbnail Image Header - ONLY show if image exists */}
-                    {property.thumbnail ? (
-                      <div className="h-44 w-full relative bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-800 overflow-hidden">
+                    {/* Thumbnail Image Header */}
+                    <div className="h-44 w-full relative bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-800 overflow-hidden">
+                      {property.thumbnail ? (
                         <Image 
                           src={property.thumbnail} 
                           alt={property.townshipName} 
@@ -868,77 +850,59 @@ function DashboardContent() {
                           className="object-cover group-hover:scale-105 transition-transform duration-700" 
                           unoptimized 
                         />
-                        
-                        {/* Gradient Overlay for Text Readability */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20"></div>
-                        
-                        {/* Hierarchy Badge */}
-                        <div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/20 shadow-sm flex items-center gap-1.5 transition-all group-hover:bg-black/60">
-                          <span className="text-[10px] font-bold text-white uppercase tracking-widest">{property.flowType}</span>
-                          {property.flowType === "township" && (
-                             <>
-                               <ChevronRight className="h-3 w-3 text-white/50" />
-                               <Layers className="h-3 w-3 text-white/80" />
-                             </>
-                          )}
-                        </div>
-                        
-                        {/* Status Badge */}
-                        <div className="absolute top-4 right-4">
-                          <span className={`px-3 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest shadow-xl border backdrop-blur-sm ${
-                            property.status === "active" 
-                              ? "bg-emerald-500/80 text-white border-emerald-400/50" 
-                              : property.status === "pending" 
-                                ? "bg-amber-500/80 text-white border-amber-400/50" 
-                                : "bg-slate-500/80 text-white border-slate-400/50"
+                      ) : (
+                        <div className="absolute inset-0 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 flex items-center justify-center">
+                          <div className={`p-4 rounded-3xl ${
+                            property.flowType === 'township' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/40' :
+                            property.flowType === 'project' ? 'bg-teal-100 text-teal-600 dark:bg-teal-900/40' :
+                            'bg-orange-100 text-orange-600 dark:bg-orange-900/40'
                           }`}>
-                            {property.status === "active" ? "Published" : property.status === "pending" ? "Draft" : property.status}
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      /* Enhanced Empty State Form Factor Header */
-                      <div className="h-44 w-full relative bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 flex items-center justify-center p-6 text-center">
-                        <div className="absolute inset-0 bg-blue-50/50 dark:bg-blue-900/10" /> 
-                        <div className="relative z-10 flex flex-col items-center gap-2">
-                          <div className={`p-3 rounded-2xl shadow-sm ${
-                            property.flowType === 'township' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/50' :
-                            property.flowType === 'project' ? 'bg-teal-100 text-teal-600 dark:bg-teal-900/50' :
-                            'bg-orange-100 text-orange-600 dark:bg-orange-900/50'
-                          }`}>
-                            {property.flowType === 'township' ? <Home className="h-6 w-6" /> : 
-                             property.flowType === 'project' ? <Layers className="h-6 w-6" /> : 
-                             <Building className="h-6 w-6" />}
+                            {property.flowType === 'township' ? <Home className="h-10 w-10" /> : 
+                             property.flowType === 'project' ? <Layers className="h-10 w-10" /> : 
+                             <Building className="h-10 w-10" />}
                           </div>
-                          <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">{property.flowType}</span>
                         </div>
-                        
-                        {/* Status Badge */}
-                        <div className="absolute top-4 right-4 z-20">
-                          <span className={`px-3 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest shadow-sm border ${
-                            property.status === "active" 
-                              ? "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-900/40 dark:border-emerald-800" 
-                              : property.status === "pending" 
-                                ? "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/40 dark:border-amber-800"
-                                : "bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:border-slate-700"
-                          }`}>
-                            {property.status === "active" ? "Published" : property.status === "pending" ? "Draft" : property.status}
-                          </span>
-                        </div>
+                      )}
+                      
+                      {/* Gradient Overlay for Text Readability */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                      
+                      {/* Hierarchy Badge */}
+                      <div className="absolute top-4 left-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-1.5 z-20">
+                        <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 uppercase tracking-widest">{property.flowType}</span>
+                        {property.flowType === "township" && (
+                           <>
+                             <ChevronRight className="h-3 w-3 text-slate-400" />
+                             <Layers className="h-3 w-3 text-blue-500" />
+                           </>
+                        )}
                       </div>
-                    )}
+                      
+                      {/* Status Badge */}
+                      <div className="absolute top-4 right-4 z-20">
+                        <span className={`px-3 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest shadow-xl border backdrop-blur-sm ${
+                          property.status === "active" 
+                            ? "bg-emerald-500/80 text-white border-emerald-400/50" 
+                            : property.status === "pending" 
+                              ? "bg-amber-500/80 text-white border-amber-400/50" 
+                              : "bg-slate-500/80 text-white border-slate-400/50"
+                        }`}>
+                          {property.status === "active" ? "Published" : property.status === "pending" ? "Draft" : property.status}
+                        </span>
+                      </div>
+                    </div>
 
                     {/* Property Header */}
                     <div className="p-5 flex-1 min-w-0">
                       <div className="flex justify-between items-start gap-3 mb-3">
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight transition-colors group-hover:text-blue-600 dark:group-hover:text-blue-400 truncate" title={property.townshipName}>
-                            {property.townshipName}
+                          <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight transition-colors group-hover:text-blue-600 dark:group-hover:text-blue-400 truncate" title={property.townshipName || property.name}>
+                            {property.townshipName || property.name}
                           </h3>
                         </div>
                         <div className="shrink-0 text-right">
                            <div className="text-lg font-black text-blue-700 dark:text-blue-400 font-mono tracking-tight">
-                              {formatCurrency(property.totalValue)}
+                              {formatCurrency(property.totalValue || 0)}
                            </div>
                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">Total Inv. Value</p>
                         </div>
@@ -946,11 +910,10 @@ function DashboardContent() {
                       
                       <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs font-medium bg-slate-50 dark:bg-slate-800/40 p-2 rounded-lg">
                         <MapPin className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                        <span className="truncate">{property.location}</span>
+                        <span className="truncate">{property.location || 'Location N/A'}</span>
                       </div>
                     </div>
 
-                    {/* Property Stats - HIERARCHY INFORMED GRID */}
                     <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/40">
                       <div className={`grid gap-4 text-center ${
                         property.flowType === 'township' ? 'grid-cols-3' :
@@ -960,7 +923,7 @@ function DashboardContent() {
                         {/* Township always shows Projects */}
                         {property.flowType === 'township' && (
                           <div className="relative after:absolute after:right-[-8px] after:top-1/2 after:-translate-y-1/2 after:h-8 after:w-[1px] after:bg-slate-200 dark:after:bg-slate-800">
-                            <div className="text-xl font-black text-slate-800 dark:text-white">{property.projects}</div>
+                            <div className="text-xl font-black text-slate-800 dark:text-white">{property.calculatedCounts?.projectsCount || 0}</div>
                             <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Projects</div>
                           </div>
                         )}
@@ -968,14 +931,14 @@ function DashboardContent() {
                         {/* Township & Project show Towers */}
                         {(property.flowType === 'township' || property.flowType === 'project') && (
                           <div className={property.flowType === 'township' ? "relative after:absolute after:right-[-8px] after:top-1/2 after:-translate-y-1/2 after:h-8 after:w-[1px] after:bg-slate-200 dark:after:bg-slate-800" : ""}>
-                            <div className="text-xl font-black text-slate-800 dark:text-white">{property.towers}</div>
+                            <div className="text-xl font-black text-slate-800 dark:text-white">{property.calculatedCounts?.towersCount || 0}</div>
                             <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Towers</div>
                           </div>
                         )}
                         
                         {/* Everyone shows Units */}
                         <div>
-                          <div className="text-xl font-black text-blue-600 dark:text-blue-400">{property.units}</div>
+                          <div className="text-xl font-black text-blue-600 dark:text-blue-400">{property.calculatedCounts?.unitsCount || 0}</div>
                           <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Total Units</div>
                         </div>
                       </div>

@@ -6,6 +6,12 @@ import { submitPropertyForApproval } from "@/services/property-service";
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: draftId } = await params;
+
+    // Guard: invalid ObjectId format
+    if (!/^[a-f\d]{24}$/i.test(draftId)) {
+      return NextResponse.json({ error: "DRAFT_NOT_FOUND: Invalid draft ID format" }, { status: 404 });
+    }
+
     const token = getTokenFromRequest(req);
     if (!token) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 

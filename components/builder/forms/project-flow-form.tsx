@@ -136,7 +136,7 @@ function BankSelector({ banks, onChange }: { banks: string[]; onChange: (b: stri
       ))}
       <div className="flex gap-2 max-w-sm">
         <Input value={custom} onChange={e => setCustom(e.target.value)} placeholder="Add other bank..." className="h-10 text-sm bg-gray-50/50" />
-        <Button type="button" className="h-10 px-6 bg-[#1A3C8C] hover:bg-[#1A3C8C]/90 text-sm font-bold" onClick={() => { if (custom.trim()) { onChange([...banks, custom.trim()]); setCustom("") } }}>Add</Button>
+        <Button type="button" className="h-10 px-6 bg-[#1A3C8C] hover:bg-[#1A3C8C]/90 text-sm font-bold" onClick={() => { if (custom.trim()) { onChange([...(banks || []), custom.trim()]); setCustom("") } }}>Add</Button>
       </div>
     </div>
   )
@@ -224,7 +224,7 @@ function BulkImageInput({ onAdd }: { onAdd: (urls: string[]) => void }) {
   const [open, setOpen] = useState(false)
 
   const handleApply = () => {
-    const urls = text.split("\n").map(s => s.trim()).filter(s => s.length > 0)
+    const urls = (text || "").split("\n").map(s => s.trim()).filter(s => s.length > 0)
     onAdd(urls)
     setText("")
     setOpen(false)
@@ -453,9 +453,9 @@ export function ProjectFlowForm({ data, onChange, townshipName, townshipData, on
               <Label className="text-xs font-semibold text-[#1A3C8C] uppercase tracking-wide">Gallery Images</Label>
               <p className="text-[11px] text-gray-400 mt-1">Showcase the property highlights.</p>
             </div>
-            <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-md">{data.galleryImages.length} / 20</span>
+            <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-md">{(data.galleryImages || []).length} / 20</span>
           </div>
-          <GalleryUpload images={data.galleryImages} onChange={imgs => update("galleryImages", imgs)} max={20} />
+          <GalleryUpload images={data.galleryImages || []} onChange={imgs => update("galleryImages", imgs)} max={20} />
         </div>
 
         <div className="border-t border-gray-100 pt-6 mt-6">
@@ -770,7 +770,7 @@ export function ProjectFlowForm({ data, onChange, townshipName, townshipData, on
           </Section>
 
           <Section id="connectivity" title="Connectivity" description="Airport, Railway, Metro, Hospital, Schools distance" icon={Wifi} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-            {townshipData.connectivity.map(item => (
+            {(townshipData?.connectivity || []).map(item => (
               <Card key={item.id} className="mb-3 border-gray-100 shadow-none">
                 <CardContent className="p-3">
                   <Grid cols={2}>
@@ -808,7 +808,7 @@ export function ProjectFlowForm({ data, onChange, townshipName, townshipData, on
           <Section id="eco-common" title="Sustainability & Eco Features" description="Solar, Rainwater, Green Cover — Sustainability section" icon={Leaf} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
             <SectionTitle title="Specific Eco Features" />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {townshipData.ecoFeatures.map(item => (
+              {(townshipData?.ecoFeatures || []).map(item => (
                 <Card key={item.id} className="border-gray-100 shadow-none bg-gray-50/50">
                   <CardContent className="p-3">
                     <div className="flex items-center justify-between mb-2">
@@ -842,25 +842,25 @@ export function ProjectFlowForm({ data, onChange, townshipName, townshipData, on
             <div className="mb-6">
               <Label className="text-[10px] font-black uppercase text-gray-400 mb-3 block tracking-widest">Select Active Banks</Label>
               <BankSelector
-                banks={townshipData.approvedBanks}
+                banks={townshipData?.approvedBanks || []}
                 onChange={banks => updateCommon("approvedBanks", banks)}
               />
             </div>
             <SectionTitle title="Legal Trust & Score" />
             <Grid cols={2}>
               <Field label="Trust Score" hint="Out of 100">
-                <Input value={townshipData.legalTrustScore} onChange={e => updateCommon("legalTrustScore", e.target.value)} placeholder="100" />
+                <Input value={townshipData?.legalTrustScore} onChange={e => updateCommon("legalTrustScore", e.target.value)} placeholder="100" />
               </Field>
               <Field label="Approvals" hint="Eg: PMRDA / Municipal Corporation Approved">
-                <Input value={townshipData.approvals} onChange={e => updateCommon("approvals", e.target.value)} placeholder="Local Authority Approved" />
+                <Input value={townshipData?.approvals} onChange={e => updateCommon("approvals", e.target.value)} placeholder="Local Authority Approved" />
               </Field>
             </Grid>
             <Field label="Trust Description" hint="Eg: Clear Marketable Title with OC Received">
-              <Textarea value={townshipData.legalTrustDescription} onChange={e => updateCommon("legalTrustDescription", e.target.value)} rows={2} placeholder="This project has clear marketable titles and all necessary permissions." />
+              <Textarea value={townshipData?.legalTrustDescription} onChange={e => updateCommon("legalTrustDescription", e.target.value)} rows={2} placeholder="This project has clear marketable titles and all necessary permissions." />
             </Field>
             <SectionTitle title="Bank APF Certificates" />
             <div className="space-y-3">
-              {(townshipData.apfDetails || []).map(apf => (
+              {(townshipData?.apfDetails || []).map(apf => (
                 <div key={apf.id} className="grid grid-cols-2 gap-3 p-3 bg-gray-50 rounded-xl relative group border border-gray-100">
                   <Field label="Bank Name">
                     <Input value={apf.bankName} onChange={e => updateApfCommon(apf.id, { bankName: e.target.value })} placeholder="HDFC Bank" className="h-8 text-xs bg-white" />
