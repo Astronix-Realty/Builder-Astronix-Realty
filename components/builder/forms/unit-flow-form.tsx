@@ -49,7 +49,6 @@ import {
     Home,
     CheckCircle,
     Minus,
-    Film,
     Sparkles,
     Activity,
     Star,
@@ -72,7 +71,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
-import { GalleryUpload, AboutImageUpload, VideoUpload } from "@/components/ui/media-uploads"
+import { GalleryUpload, AboutImageUpload } from "@/components/ui/media-uploads"
 
 import {
     defaultRoomDimensions,
@@ -663,14 +662,6 @@ function UnitConfigCard({
                                             onChange={url => onChange({ heroImage: url })} 
                                             title="Upload Hero Image" 
                                             description="Best main photo for the banner" 
-                                        />
-                                    </div>
-                                    <div className="flex flex-col gap-2">
-                                        <label className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Virtual Tour Link</label>
-                                        <VideoUpload
-                                            max={1}
-                                            videos={(config as any).virtualTourLink ? [{ id: "vt1", landscapeUrl: (config as any).virtualTourLink, title: "Virtual Tour", type: "walkthrough" }] : []}
-                                            onChange={v => onChange({ virtualTourLink: v[0]?.landscapeUrl || v[0]?.shortUrl || "" } as any)}
                                         />
                                     </div>
                                     <div className="flex flex-col gap-2">
@@ -1762,62 +1753,6 @@ export function UnitFlowForm({
                             />
                         </div>
 
-                        <SectionTitle title="Video Gallery (Walkthroughs & Shorts)" />
-                        <div className="space-y-4">
-                            {(data.videoGallery || []).map((item, i) => (
-                                <Card key={item.id} className="border-gray-100 shadow-none bg-gray-50/30 overflow-hidden">
-                                    <CardContent className="p-4">
-                                        <div className="flex justify-between items-start mb-4">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
-                                                    <Film className="w-4 h-4 text-blue-600" />
-                                                </div>
-                                                <span className="text-sm font-bold text-gray-700">Video #{i + 1}</span>
-                                            </div>
-                                            <button type="button" onClick={() => updateData({ videoGallery: (data.videoGallery || []).filter((_, idx) => idx !== i) })} className="text-[10px] font-black uppercase tracking-wider text-red-400 hover:text-red-600">
-                                                Remove Video
-                                            </button>
-                                        </div>
-                                        <Grid cols={2}>
-                                            <Field label="Video Title">
-                                                <Input value={item.title} onChange={e => {
-                                                    const next = [...(data.videoGallery || [])]
-                                                    next[i] = { ...item, title: e.target.value }
-                                                    updateData({ videoGallery: next })
-                                                }} placeholder="Unit Walkthrough Tour" className="h-9 text-xs" />
-                                            </Field>
-                                            <Field label="Type">
-                                                <Select value={item.type || "walkthrough"} onValueChange={v => {
-                                                    const next = [...(data.videoGallery || [])]
-                                                    next[i] = { ...item, type: v as any }
-                                                    updateData({ videoGallery: next })
-                                                }}>
-                                                    <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
-                                                    <SelectContent>
-                                                        {["walkthrough", "aerial", "interior", "short"].map(t => (
-                                                            <SelectItem key={t} value={t} className="text-xs">{t.charAt(0).toUpperCase() + t.slice(1)}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </Field>
-                                            <div className="sm:col-span-2">
-                                                <Field label={item.type === "short" ? "Short URL (Vertical)" : "Landscape URL"} hint="YouTube, Vimeo or direct video link">
-                                                    <Input value={item.type === "short" ? (item.shortUrl || '') : (item.landscapeUrl || '')} onChange={e => {
-                                                        const next = [...(data.videoGallery || [])]
-                                                        if (item.type === "short") next[i] = { ...item, shortUrl: e.target.value }
-                                                        else next[i] = { ...item, landscapeUrl: e.target.value }
-                                                        updateData({ videoGallery: next })
-                                                    }} placeholder="https://..." className="h-9 text-xs" />
-                                                </Field>
-                                            </div>
-                                        </Grid>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                            <Button type="button" variant="outline" size="sm" onClick={() => updateData({ videoGallery: [...(data.videoGallery || []), { id: uuidv4(), title: "", type: "walkthrough", landscapeUrl: "", shortUrl: "" }] })} className="w-full border-dashed h-10">
-                                <Plus className="w-4 h-4 mr-2" /> Add Video Tour
-                            </Button>
-                        </div>
 
                     </Section>
 
