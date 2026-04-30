@@ -724,7 +724,7 @@ export function MasterPlanMapUpload({
       setIsUploading(true)
       const oldUrl = value
       const url = await uploadFileToServer(file)
-      onChange(url)
+      onChangeRef.current(url)
       deleteCloudinaryFile(oldUrl) // Delete old file after new upload succeeds
     } catch (err: any) {
       setError(err.message || "Upload failed")

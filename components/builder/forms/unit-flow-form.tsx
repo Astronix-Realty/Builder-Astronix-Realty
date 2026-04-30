@@ -167,84 +167,7 @@ function SectionTitle({ title }: { title: string }) {
     )
 }
 
-function ImageField({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
-    const [isValid, setIsValid] = useState(true)
-    const [isChecking, setIsChecking] = useState(false)
 
-    useEffect(() => {
-        if (!value) {
-            setIsValid(true)
-            return
-        }
-        const isUrl = /^(https?:\/\/|\/|data:image\/)\S+/.test(value)
-        if (!isUrl) {
-            setIsValid(false)
-            return
-        }
-
-        setIsChecking(true)
-        const img = new window.Image()
-        img.onload = () => { setIsValid(true); setIsChecking(false) }
-        img.onerror = () => { setIsValid(false); setIsChecking(false) }
-        img.src = value
-    }, [value])
-
-    return (
-        <Field label={label} hint={!isValid ? "⚠️ Please enter a valid image URL" : "Paste image URL or upload path"}>
-            <div className="relative">
-                {value && isValid && (
-                    <div className="relative w-full h-28 mb-2">
-                        <Image src={value} alt="preview" fill className="object-cover rounded-lg border shadow-sm" unoptimized />
-                        {isChecking && <div className="absolute inset-0 bg-white/50 animate-pulse rounded-lg" />}
-                    </div>
-                )}
-                <Input
-                    value={value ?? ""}
-                    onChange={e => onChange(e.target.value)}
-                    placeholder={placeholder || "https://..."}
-                    className={`text-xs ${!isValid && value ? "border-red-400 focus-visible:ring-red-400 bg-red-50/30" : ""}`}
-                />
-            </div>
-        </Field>
-    )
-}
-
-// ─────────────────────────────────────────
-// BULK IMAGE INPUT
-// ─────────────────────────────────────────
-function BulkImageInput({ onAdd }: { onAdd: (urls: string[]) => void }) {
-    const [text, setText] = useState("")
-    const [open, setOpen] = useState(false)
-
-    const handleApply = () => {
-        const urls = text.split("\n").map(s => s.trim()).filter(s => s.length > 0)
-        onAdd(urls)
-        setText("")
-        setOpen(false)
-    }
-
-    if (!open) return (
-        <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(true)} className="text-[10px] text-blue-600 font-bold uppercase py-0 h-6">
-            + Bulk Add URLs
-        </Button>
-    )
-
-    return (
-        <Card className="p-3 bg-blue-50/30 border-blue-100 mb-3 border-dashed shadow-none">
-            <Label className="text-[10px] font-bold uppercase text-blue-700 mb-2 block">Paste multiple URLs (One per line)</Label>
-            <Textarea
-                value={text}
-                onChange={e => setText(e.target.value)}
-                placeholder={"https://...img1.jpg\nhttps://...img2.jpg"}
-                className="h-20 text-xs bg-white font-mono"
-            />
-            <div className="flex justify-end gap-2 mt-2">
-                <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)} className="text-[10px] h-7 font-bold">CANCEL</Button>
-                <Button type="button" size="sm" onClick={handleApply} className="text-[10px] h-7 bg-blue-600 font-bold border-0">APPLY BATCH</Button>
-            </div>
-        </Card>
-    )
-}
 
 // ─────────────────────────────────────────
 // UNIT CONFIGURATION CARD
@@ -1801,30 +1724,42 @@ export function UnitFlowForm({
                 <TabsContent value="brochure" className="space-y-16 focus-visible:outline-none">
                     <Section id="marketing" title="Marketing Assets" icon={FileText} openIds={openIds} setOpenIds={setOpenIds}>
                         <Grid cols={3}>
-                            <ImageField label="Unit Hero Image" value={data.heroImage || ''} onChange={v => updateData({ heroImage: v })} placeholder="https://..." />
-                            <ImageField label="2D Floor Plan" value={data.floorPlan2DUrl || ''} onChange={v => updateData({ floorPlan2DUrl: v })} placeholder="https://..." />
-                            <ImageField label="3D Isometric Floor Plan" value={data.floorPlan3DUrl || ''} onChange={v => updateData({ floorPlan3DUrl: v })} placeholder="https://..." />
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Unit Hero Image</label>
+                                <AboutImageUpload 
+                                    value={data.heroImage || ''} 
+                                    onChange={v => updateData({ heroImage: v })} 
+                                    title="Upload Hero Image" 
+                                    description="Main photo for the unit banner" 
+                                />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">2D Floor Plan</label>
+                                <AboutImageUpload 
+                                    value={data.floorPlan2DUrl || ''} 
+                                    onChange={v => updateData({ floorPlan2DUrl: v })} 
+                                    title="Upload 2D Plan" 
+                                    description="High quality 2D floor plan layout" 
+                                />
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">3D Isometric Floor Plan</label>
+                                <AboutImageUpload 
+                                    value={data.floorPlan3DUrl || ''} 
+                                    onChange={v => updateData({ floorPlan3DUrl: v })} 
+                                    title="Upload 3D Plan" 
+                                    description="Isometric 3D layout view" 
+                                />
+                            </div>
                         </Grid>
 
                         <SectionTitle title="Photo Gallery (Multiple images)" />
-                        <div className="space-y-3">
-                            {(data.galleryImages || []).map((img, i) => (
-                                <div key={i} className="flex gap-2 items-start relative group">
-                                    <div className="flex-1">
-                                        <ImageField label={`Gallery image ${i + 1}`} value={img} onChange={v => {
-                                            const next = [...(data.galleryImages || [])]
-                                            next[i] = v
-                                            updateData({ galleryImages: next })
-                                        }} />
-                                    </div>
-                                    <button type="button" onClick={() => updateData({ galleryImages: (data.galleryImages || []).filter((_, idx) => idx !== i) })} className="mt-8 p-1.5 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                                        <X className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            ))}
-                            <Button type="button" variant="outline" size="sm" onClick={() => updateData({ galleryImages: [...(data.galleryImages || []), ""] })} className="w-full border-dashed h-10">
-                                <Plus className="w-4 h-4 mr-2" /> Add Gallery Photo
-                            </Button>
+                        <div className="mt-4">
+                            <GalleryUpload
+                                images={data.galleryImages || []}
+                                onChange={urls => updateData({ galleryImages: urls })}
+                                max={20}
+                            />
                         </div>
 
                         <SectionTitle title="Video Gallery (Walkthroughs & Shorts)" />
@@ -2155,12 +2090,15 @@ function AddGroupModal({ isOpen, onClose, onAdd, configurations, defaultUnits, d
                         </Grid>
 
                         <div className="bg-blue-50/50 p-4 rounded-2xl border-2 border-dashed border-blue-100/50">
-                            <ImageField
-                                label="Group Floor Plan Image"
-                                value={floorPlanUrl}
-                                onChange={setFloorPlanUrl}
-                                placeholder="Paste floor plan URL..."
-                            />
+                            <div className="flex flex-col gap-2">
+                                <label className="text-xs font-bold text-blue-900 uppercase tracking-wider mb-1">Group Floor Plan Image</label>
+                                <AboutImageUpload
+                                    value={floorPlanUrl}
+                                    onChange={setFloorPlanUrl}
+                                    title="Upload Group Floor Plan"
+                                    description="Common layout for this floor group"
+                                />
+                            </div>
                         </div>
 
                         {existingGroups.length > 0 && (

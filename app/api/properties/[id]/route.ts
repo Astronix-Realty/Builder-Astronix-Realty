@@ -78,22 +78,50 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           walk = parent as any;
       }
 
+      // ── EXTRACTOR HELPERS ───────────────────────────────────────────────────────────
+      const extractProjectData = (details: any, dbId: string, nameFallback: string) => {
+          if (!details) return {};
+          if (details.projects && Array.isArray(details.projects)) {
+              const match = details.projects.find((p: any) => p._dbId === dbId || p.id === dbId || p.name === nameFallback);
+              return match || details.projects[0] || {};
+          }
+          return details;
+      };
+
+      const extractTowerData = (details: any, dbId: string, nameFallback: string) => {
+          if (!details) return {};
+          if (details.towers && Array.isArray(details.towers)) {
+              const match = details.towers.find((t: any) => t._dbId === dbId || t.id === dbId || t.name === nameFallback);
+              return match || details.towers[0] || {};
+          }
+          return details;
+      };
+
       // ── DOWNWARD RECONSTRUCTION (Fill children) ─────────────────────────────────────────
+      // If we are editing a standalone project/tower, it might have common inherited data in its own details.township
+      if (!finalProperty.parentId && finalProperty.details?.township) {
+          wizardState.township = finalProperty.details.township;
+      }
+
       if (finalProperty.type === 'township') {
           wizardState.township = finalProperty.details?.township || finalProperty.details || {};
           
           const projects = await Property.find({ parentId: rootId, isDeleted: false, type: 'project' }).lean();
-          wizardState.projects = projects.map(p => ({ 
-            ...(p.details || {}), 
-            _dbId: p._id.toString(),
-            id: (p.details as any)?.id || `proj-${p._id}`
-          }));
+          wizardState.projects = projects.map(p => {
+              const pData = extractProjectData(p.details, p._id.toString(), (p as any).name);
+              return { 
+                ...pData, 
+                _dbId: p._id.toString(),
+                id: pData.id || `proj-${p._id}`
+              };
+          });
           
           const projectDbIds = projects.map(p => p._id);
           const towers = await Property.find({ parentId: { $in: projectDbIds }, isDeleted: false, type: 'tower' }).lean();
           
           wizardState.towers = towers.map(t => {
-              const { unitConfig, ...rest } = (t.details as any) || {};
+              const tData = extractTowerData(t.details, t._id.toString(), (t as any).name);
+              const { unitConfig, ...rest } = tData as any;
               const towerId = rest.id || `tower-${t._id}`;
               if (unitConfig) wizardState.towerUnitConfigs.push({ ...unitConfig, towerId });
               towerDbIds.push(t._id.toString());
@@ -101,12 +129,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           });
 
       } else if (finalProperty.type === 'project') {
-          const projDetails = finalProperty.details || {};
-          wizardState.projects = [{ ...projDetails, _dbId: id, id: (projDetails as any).id || `proj-${id}` }];
+          const projDetails = extractProjectData(finalProperty.details, id, finalProperty.name);
+          wizardState.projects = [{ ...projDetails, _dbId: id, id: projDetails.id || `proj-${id}` }];
           
           const towers = await Property.find({ parentId: rootId, isDeleted: false, type: 'tower' }).lean();
           wizardState.towers = towers.map(t => {
-              const { unitConfig, ...rest } = (t.details as any) || {};
+              const tData = extractTowerData(t.details, t._id.toString(), (t as any).name);
+              const { unitConfig, ...rest } = tData as any;
               const towerId = rest.id || `tower-${t._id}`;
               if (unitConfig) wizardState.towerUnitConfigs.push({ ...unitConfig, towerId });
               towerDbIds.push(t._id.toString());
@@ -114,7 +143,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           });
 
       } else if (finalProperty.type === 'tower') {
-          const { unitConfig, ...rest } = finalProperty.details || {};
+          const tData = extractTowerData(finalProperty.details, id, finalProperty.name);
+          const { unitConfig, ...rest } = tData as any;
           const towerId = rest.id || `tower-${id}`;
           wizardState.towers = [{ ...rest, id: towerId, _dbId: id }];
           if (unitConfig) wizardState.towerUnitConfigs.push({ ...unitConfig, towerId });
@@ -144,12 +174,29 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           wizardState.township = finalProperty.details || {};
       }
 
+      // Ensure unit configurations are preserved if they exist in details
+      if (finalProperty.details) {
+          if (finalProperty.details.unitTemplate) {
+              wizardState.unitTemplate = finalProperty.details.unitTemplate;
+          }
+          if (finalProperty.details.towerUnitConfigs && Array.isArray(finalProperty.details.towerUnitConfigs) && finalProperty.details.towerUnitConfigs.length > 0) {
+              wizardState.towerUnitConfigs = finalProperty.details.towerUnitConfigs;
+          }
+      }
+
       // Final merge: ensure details contains the reconstructed WizardState
       finalProperty.details = {
         ...wizardState,
         currentStep: finalProperty.lastSavedStep || 1,
         flowType: finalProperty.flowType || finalProperty.type
       };
+    }
+
+    if (finalProperty.details) {
+      console.log(`[API Debug] Sending property ${id} (isRecNeeded: ${isRecNeeded}). details.projects count:`, finalProperty.details.projects?.length);
+      if (finalProperty.details.projects?.length > 0) {
+        console.log(`[API Debug] Project 0 keys:`, Object.keys(finalProperty.details.projects[0]));
+      }
     }
 
     return NextResponse.json({ property: finalProperty }, { status: 200 });

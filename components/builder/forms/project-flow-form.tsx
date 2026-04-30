@@ -21,6 +21,7 @@ import type {
   MasterPlanHighlight, DevelopmentPhase, FaqItem, TestimonialItem
 } from "@/lib/builder-types"
 import { BannerUpload, GalleryUpload, VideoUpload, MasterPlanMapUpload, DocumentUpload, AboutImageUpload } from "@/components/ui/media-uploads"
+import { AmenitiesManager } from "@/components/builder/shared/AmenitiesManager"
 
 // ─────────────────────────────────────────
 // PROPS
@@ -834,6 +835,19 @@ export function ProjectFlowForm({ data, onChange, townshipName, townshipData, on
             <Button type="button" variant="outline" size="sm" onClick={addEcoCommon} className="w-full border-dashed mt-3 text-xs h-9">
               <Plus className="w-4 h-4 mr-1 text-green-600" /> Add Sustainability Feature
             </Button>
+          </Section>
+
+
+
+          <Section id="common-amenities" title="Amenities" description="Clubhouse, Pool, Gym, Security — All shared amenities" icon={Users} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
+            <div className="pt-1">
+              <AmenitiesManager
+                amenities={townshipData?.amenities || []}
+                onChange={amenities => updateCommon("amenities", amenities)}
+                title="Property Amenities"
+                description="Add all amenities available at this property — inherited by all projects and towers."
+              />
+            </div>
           </Section>
 
 

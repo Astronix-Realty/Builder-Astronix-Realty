@@ -20,17 +20,21 @@ import type {
   EcoFeature, ApfDetail, VideoGalleryItem, MasterPlanHighlight
 } from "@/lib/builder-types"
 import { BannerUpload, GalleryUpload, VideoUpload, DocumentUpload, MasterPlanMapUpload, AboutImageUpload } from "@/components/ui/media-uploads"
+import { AmenitiesManager } from "@/components/builder/shared/AmenitiesManager"
 
 // ─────────────────────────────────────────
 // PROPS
 // ─────────────────────────────────────────
+type TowerUpdater = TowerData | ((prev: TowerData) => TowerData)
+type TownshipUpdater = TownshipData | ((prev: TownshipData) => TownshipData)
+
 interface TowerFlowFormProps {
   data: TowerData
-  onChange: (data: TowerData) => void
+  onChange: (updater: TowerUpdater) => void
   projectName?: string
   townshipName?: string
   townshipData?: TownshipData
-  onTownshipChange?: (data: TownshipData) => void
+  onTownshipChange?: (updater: TownshipUpdater) => void
   showCommonData?: boolean
   user?: any
 }
@@ -286,13 +290,13 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
   }, [isBuilder, user, townshipData?.builderName, townshipData?.builderLogo]);
 
   const update = <K extends keyof TowerData>(field: K, value: TowerData[K]) => {
-    onChange({ ...data, [field]: value })
+    onChange(prev => ({ ...prev, [field]: value }))
   }
 
   // --- TOWNSHIP UPDATE HELPERS ---
   const updateCommon = <K extends keyof TownshipData>(field: K, value: TownshipData[K]) => {
-    if (onTownshipChange && townshipData) {
-      onTownshipChange({ ...townshipData, [field]: value })
+    if (onTownshipChange) {
+      onTownshipChange(prev => ({ ...prev, [field]: value }))
     }
   }
 
@@ -624,9 +628,15 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
 
             {data.refugeFloorPlanImage && (
                <div className="pt-2"> 
-                   <Field label="Refuge Floor Plan (Optional)">
-                      <Input value={data.refugeFloorPlanImage || ""} onChange={e => update("refugeFloorPlanImage", e.target.value)} placeholder="https://...refuge-floor-plan.jpg" />
-                   </Field>
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Refuge Floor Plan (Optional)</label>
+                      <AboutImageUpload
+                        value={data.refugeFloorPlanImage || ""}
+                        onChange={url => update("refugeFloorPlanImage", url)}
+                        title="Upload Refuge Floor Plan"
+                        description="Layout for the refuge level"
+                      />
+                    </div>
                </div>
             )}
           </div>
@@ -861,6 +871,19 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
             <Button type="button" variant="outline" size="sm" onClick={addEcoCommon} className="w-full border-dashed mt-3 text-xs h-9">
               <Plus className="w-4 h-4 mr-1 text-green-600" /> Add Sustainability Feature
             </Button>
+          </Section>
+
+
+
+          <Section id="common-amenities" title="Amenities" description="Clubhouse, Pool, Gym, Security — All shared amenities" icon={Users} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
+            <div className="pt-1">
+              <AmenitiesManager
+                amenities={townshipData?.amenities || []}
+                onChange={amenities => updateCommon("amenities", amenities)}
+                title="Property Amenities"
+                description="Add all amenities available at this property — inherited by all towers."
+              />
+            </div>
           </Section>
 
 

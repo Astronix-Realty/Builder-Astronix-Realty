@@ -273,8 +273,10 @@ function BuilderContent() {
   }, [flowType, getInitialState])
 
   // ── Auto-sync projects when township.projectCount changes ────────────────
-  // We automatically add default projects or cleanly slice orphaned ones if 
-  // the user decrements the project count, preventing bloated databases.
+  // DISABLED because projects are now fully manually managed via ProjectsForm (Step 2).
+  // The old effect was overwriting manually added projects by resetting to
+  // township.projectCount (which defaults to 0 or is read-only), causing projects to disappear on edit.
+  /*
   useEffect(() => {
     if (flowType !== "township") return
     const currentCount = (state.projects || []).filter(Boolean).length
@@ -288,6 +290,7 @@ function BuilderContent() {
       setState((prev) => ({ ...prev, projects: (prev.projects || []).filter(Boolean).slice(0, targetCount) }))
     }
   }, [state.township.projectCount, flowType, state.projects.length])
+  */
 
   // ── Tower sync useEffect DISABLED ──────────────────────────────────────────
   // Reason: Towers are now fully manually managed via TowersForm (Step 3).
