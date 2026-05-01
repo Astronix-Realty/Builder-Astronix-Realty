@@ -70,8 +70,12 @@ interface Unit {
 }
 
 // --- Component ---
+interface InventoryViewProps {
+    userRole?: "builder" | "mandate"
+}
 
-export function InventoryView() {
+export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
+    const storagePrefix = userRole === "mandate" ? "mandate_" : ""
     const [properties, setProperties] = useState<SavedProperty[]>([])
     const [selectedPropertyId, setSelectedPropertyId] = useState<string>("")
     const [selectedProjectId, setSelectedProjectId] = useState<string>("all")
@@ -110,7 +114,7 @@ export function InventoryView() {
     const loadProperties = () => {
         setLoading(true)
         try {
-            const saved = JSON.parse(localStorage.getItem("properties") || "[]")
+            const saved = JSON.parse(localStorage.getItem(`${storagePrefix}properties`) || "[]")
             setProperties(saved)
             if (saved.length > 0) {
                 setSelectedPropertyId(saved[0].id)
@@ -138,7 +142,7 @@ export function InventoryView() {
         })
 
         setProperties(updatedProperties)
-        localStorage.setItem("properties", JSON.stringify(updatedProperties))
+        localStorage.setItem(`${storagePrefix}properties`, JSON.stringify(updatedProperties))
     }
 
     const handleUnitClick = (unit: Unit) => {

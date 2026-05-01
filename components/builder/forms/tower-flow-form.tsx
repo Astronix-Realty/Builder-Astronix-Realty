@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import {
   Building, BarChart3, FileText, Layers, MapPin, ShieldCheck,
   Plus, X, ChevronDown, ChevronUp, AlertCircle, CheckCircle,
-  Home, Wifi, Map as MapIcon, Building2, Leaf, Film, Users
+  Home, Wifi, Map as MapIcon, Building2, Leaf, Film, Users, Info
 } from "lucide-react"
 import type {
   TowerData, FloorBreakdown, TownshipData, ConnectivityItem,
@@ -450,6 +450,42 @@ function TowerFlowFormBase({ data, onChange, projectName, townshipName, township
                 </SelectContent>
               </Select>
             </Field>
+          </div>
+        </div>
+
+        <div className="mt-8 pt-6 border-t border-gray-100">
+          <SectionTitle title="Pricing & Range" />
+          <Grid cols={3}>
+            <Field label="Minimum Price (₹)" hint="Starting price (e.g. 50L)">
+              <Input 
+                type="number" 
+                value={data.priceRangeMin || ""} 
+                onChange={e => update("priceRangeMin", Number(e.target.value))} 
+                placeholder="5000000" 
+                className="h-10 border-gray-200 focus-visible:ring-[#1A3C8C]"
+              />
+            </Field>
+            <Field label="Maximum Price (₹)" hint="Max price (e.g. 1.5Cr)">
+              <Input 
+                type="number" 
+                value={data.priceRangeMax || ""} 
+                onChange={e => update("priceRangeMax", Number(e.target.value))} 
+                placeholder="15000000" 
+                className="h-10 border-gray-200 focus-visible:ring-[#1A3C8C]"
+              />
+            </Field>
+            <Field label="Display Price Range" hint="Custom text display">
+              <Input 
+                value={data.priceLabel || ""} 
+                onChange={e => update("priceLabel", e.target.value)} 
+                placeholder="₹50L - ₹1.5Cr" 
+                className="h-10 border-gray-200 focus-visible:ring-[#1A3C8C]"
+              />
+            </Field>
+          </Grid>
+          <div className="flex items-center gap-2 mt-4 px-3 py-2 bg-blue-50/50 border border-blue-100/50 rounded-lg text-[10px] text-blue-600 font-bold uppercase tracking-tight">
+            <Info className="w-3 h-3" />
+            Auto-calculated range from units: ₹{(data.priceRangeMin / 100000).toFixed(0)}L – ₹{(data.priceRangeMax / 100000).toFixed(0)}L
           </div>
         </div>
 

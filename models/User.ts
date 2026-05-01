@@ -6,6 +6,8 @@ export interface IUser extends Document {
   role: 'builder' | 'mandate' | 'admin';
   status: 'active' | 'suspended' | 'pending';
   profile: Record<string, any>;
+  builderId?: string;
+  mandateId?: string;
   isDeleted: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -17,6 +19,8 @@ const UserSchema = new Schema<IUser>({
   role: { type: String, enum: ['builder', 'mandate', 'admin'], required: true },
   status: { type: String, enum: ['active', 'suspended', 'pending'], default: 'active' },
   profile: { type: Schema.Types.Mixed, default: {} }, 
+  builderId: { type: Schema.Types.ObjectId, ref: 'Builder' },
+  mandateId: { type: Schema.Types.ObjectId, ref: 'Mandate' },
   isDeleted: { type: Boolean, default: false }
 }, { 
   timestamps: true 

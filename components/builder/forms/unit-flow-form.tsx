@@ -172,25 +172,48 @@ function SectionTitle({ title }: { title: string }) {
 // UNIT CONFIGURATION CARD
 // ─────────────────────────────────────────
 function UnitConfigCard({
-    config, index, onChange, onRemove,
+    config, index, onChange, onRemove, globalLoadingFactor
 }: {
     config: UnitConfiguration
     index: number
     onChange: (patch: Partial<UnitConfiguration>) => void
     onRemove: () => void
+    globalLoadingFactor?: string
 }) {
     const [open, setOpen] = useState(index === 0)
 
-    // Auto-calculate derived fields
+    // Auto-calculate derived fields (initial defaults)
     useEffect(() => {
-        const builtUp = Math.round(config.carpetArea * 1.2)
-        const sbua = Math.round(config.carpetArea * 1.4)
-        const rate = config.carpetArea > 0 ? Math.round(config.basePrice / config.carpetArea) : 0
-        const loading = config.carpetArea > 0 ? Math.round(((config.superBuiltUpArea - config.carpetArea) / config.carpetArea) * 100) : 0
-        if (builtUp !== config.builtUpArea || rate !== config.ratePerSqft) {
-            onChange({ builtUpArea: builtUp, superBuiltUpArea: sbua, loadingFactor: loading, ratePerSqft: rate })
+        const loading = config.loadingFactor || parseFloat(globalLoadingFactor || "40") || 40
+        const builtUp = config.builtUpArea || Math.round(config.carpetArea * (1 + loading / 100))
+        const sbua = config.superBuiltUpArea || builtUp
+        
+        // If price is missing but area exists, use a default rate to help the user
+        if (config.carpetArea > 0 && !config.basePrice && !config.ratePerSqft) {
+            const defaultRate = 5000
+            const flatCost = defaultRate * builtUp
+            const gstAmt = flatCost * 0.05
+            const stampAmt = flatCost * 0.07
+            const reg = 30000
+            const park = 0
+            const other = 0
+            const taxes = gstAmt + stampAmt + reg
+            const allInclusive = flatCost + taxes
+            onChange({ 
+                builtUpArea: builtUp, 
+                superBuiltUpArea: sbua, 
+                loadingFactor: loading, 
+                ratePerSqft: defaultRate,
+                basePrice: flatCost,
+                gstAmount: Math.round(gstAmt),
+                stampDutyAmount: Math.round(stampAmt),
+                totalTaxes: Math.round(taxes),
+                allInclusivePrice: Math.round(allInclusive)
+            })
+        } else if (builtUp !== config.builtUpArea) {
+            onChange({ builtUpArea: builtUp, superBuiltUpArea: builtUp })
         }
-    }, [config.carpetArea, config.basePrice, config.builtUpArea, config.ratePerSqft, config.superBuiltUpArea, onChange])
+    }, [config.carpetArea, onChange])
 
     const addRoom = () => {
         const id = Date.now().toString()
@@ -337,7 +360,7 @@ function UnitConfigCard({
                     <div className="flex items-center gap-3">
                         <div className="text-right">
                             <p className="text-xs font-bold text-emerald-600">₹{((config.basePrice || 0) / 100000).toFixed(1)}L</p>
-                            <p className="text-[9px] text-gray-400 uppercase tracking-wider">Base Price</p>
+                            <p className="text-[9px] text-gray-400 uppercase tracking-wider">Flat Cost</p>
                         </div>
                         <button type="button" onClick={(e) => { e.stopPropagation(); onRemove(); }} className="p-1.5 rounded-md hover:bg-red-50 text-red-400">
                             <X className="w-4 h-4" />
@@ -384,10 +407,310 @@ function UnitConfigCard({
                                             </SelectContent>
                                         </Select>
                                     </Field>
-                                    <Field label="Carpet Area (sqft)" required><Input type="number" value={config.carpetArea ?? ""} onChange={e => onChange({ carpetArea: Number(e.target.value) })} placeholder="850" /></Field>
+                                    <Field label="Carpet Area (sqft)" required><Input type="number" value={config.carpetArea ?? ""} onChange={e => {
+                                        const area = Number(e.target.value)
+                                        const loading = config.loadingFactor || parseFloat(globalLoadingFactor || "40") || 40
+                                        const builtUp = Math.round(area * (1 + loading / 100))
+                                        const price = (config.ratePerSqft || 5000) * builtUp
+                                        const gst = config.gstPercentage ?? 5
+                                        const stamp = config.stampDutyPercentage ?? 6
+                                        const reg = config.registrationCharges ?? 30000
+                                        const park = config.parkingCharges ?? 0
+                                        const other = config.otherCharges ?? 0
+                                        const gstAmt = price * gst / 100
+                                        const stampAmt = price * stamp / 100
+                                        const taxes = gstAmt + stampAmt + reg
+                                        const allIn = price + taxes
+                                        onChange({ 
+                                            carpetArea: area, 
+                                            builtUpArea: builtUp, 
+                                            superBuiltUpArea: builtUp, 
+                                            basePrice: price, 
+                                            gstAmount: Math.round(gstAmt),
+                                            stampDutyAmount: Math.round(stampAmt),
+                                            totalTaxes: Math.round(taxes), 
+                                            allInclusivePrice: Math.round(allIn) 
+                                        })
+                                    }} placeholder="850" /></Field>
+                                    
+                                    <Field label="Base Rate (₹/sqft)">
+                                        <Input 
+                                            type="number" 
+                                            value={config.ratePerSqft || ""} 
+                                            onChange={e => {
+                                                const rate = Number(e.target.value)
+                                                const flatCost = rate * config.builtUpArea
+                                                const gst = config.gstPercentage ?? 5
+                                                const stamp = config.stampDutyPercentage ?? 6
+                                                const reg = config.registrationCharges ?? 30000
+                                                const park = config.parkingCharges ?? 0
+                                                const other = config.otherCharges ?? 0
+                                                const gstAmt = flatCost * gst / 100
+                                                const stampAmt = flatCost * stamp / 100
+                                                const taxes = gstAmt + stampAmt + reg
+                                                const allIn = flatCost + taxes
+                                                onChange({ 
+                                                    ratePerSqft: rate, 
+                                                    basePrice: flatCost, 
+                                                    gstAmount: Math.round(gstAmt),
+                                                    stampDutyAmount: Math.round(stampAmt),
+                                                    totalTaxes: Math.round(taxes), 
+                                                    allInclusivePrice: Math.round(allIn) 
+                                                })
+                                            }} 
+                                            placeholder="5000" 
+                                        />
+                                    </Field>
+                                    <Field label="Flat Cost (₹)">
+                                        <Input 
+                                            type="number" 
+                                            value={config.basePrice || ""} 
+                                            onChange={e => {
+                                                const price = Number(e.target.value)
+                                                const gst = config.gstPercentage ?? 5
+                                                const stamp = config.stampDutyPercentage ?? 6
+                                                const reg = config.registrationCharges ?? 30000
+                                                const park = config.parkingCharges ?? 0
+                                                const other = config.otherCharges ?? 0
+                                                const gstAmt = price * gst / 100
+                                                const stampAmt = price * stamp / 100
+                                                const taxes = gstAmt + stampAmt + reg
+                                                const allIn = price + taxes
+                                                onChange({ 
+                                                    basePrice: price, 
+                                                    ratePerSqft: config.builtUpArea > 0 ? Math.round(price / config.builtUpArea) : 0, 
+                                                    gstAmount: Math.round(gstAmt),
+                                                    stampDutyAmount: Math.round(stampAmt),
+                                                    totalTaxes: Math.round(taxes), 
+                                                    allInclusivePrice: Math.round(allIn) 
+                                                })
+                                            }} 
+                                            placeholder="5000000" 
+                                        />
+                                    </Field>
+
                                     <Field label="Built-Up Area" hint="Total slab area"><Input type="number" value={config.builtUpArea ?? ""} onChange={e => onChange({ builtUpArea: Number(e.target.value) })} placeholder="1020" /></Field>
-                                    <Field label="Super Built-Up" hint="Saleable area"><Input type="number" value={config.superBuiltUpArea ?? ""} onChange={e => onChange({ superBuiltUpArea: Number(e.target.value) })} placeholder="1190" /></Field>
-                                    <Field label="Loading Factor %"><Input type="number" value={config.loadingFactor ?? ""} onChange={e => onChange({ loadingFactor: Number(e.target.value) })} placeholder="40" /></Field>
+                                    <Field label="Loading Factor %"><Input type="number" value={config.loadingFactor ?? ""} onChange={e => {
+                                        const loading = Number(e.target.value) || parseFloat(globalLoadingFactor || "40") || 40
+                                        const builtUp = Math.round(config.carpetArea * (1 + loading / 100))
+                                        const price = (config.ratePerSqft || 5000) * builtUp
+                                        const gst = config.gstPercentage ?? 5
+                                        const stamp = config.stampDutyPercentage ?? 6
+                                        const reg = config.registrationCharges ?? 30000
+                                        const park = config.parkingCharges ?? 0
+                                        const other = config.otherCharges ?? 0
+                                        const gstAmt = price * gst / 100
+                                        const stampAmt = price * stamp / 100
+                                        const taxes = gstAmt + stampAmt + reg
+                                        const allIn = price + taxes
+                                        onChange({ 
+                                            loadingFactor: loading, 
+                                            builtUpArea: builtUp, 
+                                            superBuiltUpArea: builtUp, 
+                                            basePrice: price, 
+                                            gstAmount: Math.round(gstAmt),
+                                            stampDutyAmount: Math.round(stampAmt),
+                                            totalTaxes: Math.round(taxes), 
+                                            allInclusivePrice: Math.round(allIn) 
+                                        })
+                                    }} placeholder="40" /></Field>
+
+                                    <Field label="All Inclusive Price (₹)">
+                                        <Input 
+                                            type="number" 
+                                            value={config.allInclusivePrice || ""} 
+                                            onChange={e => {
+                                                const allIn = Number(e.target.value)
+                                                const flat = config.basePrice || 0
+                                                const taxes = allIn - flat
+                                                onChange({ allInclusivePrice: allIn, totalTaxes: Math.round(taxes) })
+                                            }} 
+                                            placeholder="5500000" 
+                                        />
+                                    </Field>
+
+                                    <Field label="GST (%)">
+                                        <Input 
+                                            type="number" 
+                                            value={config.gstPercentage ?? ""} 
+                                            onChange={e => {
+                                                const gst = Number(e.target.value)
+                                                const flat = config.basePrice || 0
+                                                const gstAmt = (flat * gst / 100)
+                                                const stamp = config.stampDutyPercentage ?? 7
+                                                const stampAmt = (flat * stamp / 100)
+                                                const reg = config.registrationCharges ?? 30000
+                                                const park = config.parkingCharges ?? 0
+                                                const other = config.otherCharges ?? 0
+                                                const taxes = gstAmt + stampAmt + reg
+                                                const allIn = flat + taxes
+                                                onChange({ 
+                                                    gstPercentage: gst, 
+                                                    gstAmount: Math.round(gstAmt), 
+                                                    stampDutyAmount: Math.round(stampAmt),
+                                                    totalTaxes: Math.round(taxes), 
+                                                    allInclusivePrice: Math.round(allIn) 
+                                                })
+                                            }} 
+                                            placeholder="5" 
+                                        />
+                                    </Field>
+                                    <Field label="GST Amount (₹)" hint="GST % of Flat Cost">
+                                        <Input 
+                                            type="number" 
+                                            value={config.gstAmount ?? ""} 
+                                            onChange={e => {
+                                                const gstAmt = Number(e.target.value)
+                                                const flat = config.basePrice || 0
+                                                const gst = flat > 0 ? (gstAmt / flat) * 100 : 0
+                                                const stampAmt = config.stampDutyAmount || 0
+                                                const reg = config.registrationCharges || 0
+                                                const park = config.parkingCharges || 0
+                                                const other = config.otherCharges || 0
+                                                const taxes = gstAmt + stampAmt + reg
+                                                const allIn = flat + taxes
+                                                onChange({ gstPercentage: Number(gst.toFixed(2)), gstAmount: gstAmt, totalTaxes: Math.round(taxes), allInclusivePrice: Math.round(allIn) })
+                                            }} 
+                                            placeholder="250000" 
+                                        />
+                                    </Field>
+
+                                    <Field label="Stamp Duty (%)">
+                                        <Input 
+                                            type="number" 
+                                            value={config.stampDutyPercentage ?? ""} 
+                                            onChange={e => {
+                                                const stamp = Number(e.target.value)
+                                                const flat = config.basePrice || 0
+                                                const gst = config.gstPercentage ?? 5
+                                                const gstAmt = (flat * gst / 100)
+                                                const stampAmt = (flat * stamp / 100)
+                                                const reg = config.registrationCharges ?? 30000
+                                                const park = config.parkingCharges ?? 0
+                                                const other = config.otherCharges ?? 0
+                                                const taxes = gstAmt + stampAmt + reg
+                                                const allIn = flat + taxes
+                                                onChange({ 
+                                                    stampDutyPercentage: stamp, 
+                                                    gstAmount: Math.round(gstAmt),
+                                                    stampDutyAmount: Math.round(stampAmt), 
+                                                    totalTaxes: Math.round(taxes), 
+                                                    allInclusivePrice: Math.round(allIn) 
+                                                })
+                                            }} 
+                                            placeholder="5" 
+                                        />
+                                    </Field>
+                                    <Field label="Stamp Duty Amount (₹)" hint="Stamp Duty % of Flat Cost">
+                                        <Input 
+                                            type="number" 
+                                            value={config.stampDutyAmount ?? ""} 
+                                            onChange={e => {
+                                                const stampAmt = Number(e.target.value)
+                                                const flat = config.basePrice || 0
+                                                const stamp = flat > 0 ? (stampAmt / flat) * 100 : 0
+                                                const gstAmt = config.gstAmount || 0
+                                                const reg = config.registrationCharges || 0
+                                                const park = config.parkingCharges || 0
+                                                const other = config.otherCharges || 0
+                                                const taxes = gstAmt + stampAmt + reg
+                                                const allIn = flat + taxes
+                                                onChange({ stampDutyPercentage: Number(stamp.toFixed(2)), stampDutyAmount: stampAmt, totalTaxes: Math.round(taxes), allInclusivePrice: Math.round(allIn) })
+                                            }} 
+                                            placeholder="350000" 
+                                        />
+                                    </Field>
+                                    <Field label="All Taxes (₹)">
+                                        <Input 
+                                            type="number" 
+                                            value={config.totalTaxes || ""} 
+                                            onChange={e => {
+                                                const taxes = Number(e.target.value)
+                                                const flat = config.basePrice || 0
+                                                const allIn = flat + taxes
+                                                onChange({ totalTaxes: taxes, allInclusivePrice: Math.round(allIn) })
+                                            }} 
+                                            placeholder="250000" 
+                                        />
+                                    </Field>
+                                    <Field label="Registration (₹)">
+                                        <Input 
+                                            type="number" 
+                                            value={config.registrationCharges ?? ""} 
+                                            onChange={e => {
+                                                const reg = Number(e.target.value)
+                                                const flat = config.basePrice || 0
+                                                const gst = config.gstPercentage ?? 5
+                                                const stamp = config.stampDutyPercentage ?? 7
+                                                const gstAmt = (flat * gst / 100)
+                                                const stampAmt = (flat * stamp / 100)
+                                                const park = config.parkingCharges ?? 0
+                                                const other = config.otherCharges ?? 0
+                                                const taxes = gstAmt + stampAmt + reg
+                                                const allIn = flat + taxes
+                                                onChange({ 
+                                                    registrationCharges: reg, 
+                                                    gstAmount: Math.round(gstAmt),
+                                                    stampDutyAmount: Math.round(stampAmt),
+                                                    totalTaxes: Math.round(taxes), 
+                                                    allInclusivePrice: Math.round(allIn) 
+                                                })
+                                            }} 
+                                            placeholder="30000" 
+                                        />
+                                    </Field>
+                                    <Field label="Parking (₹)">
+                                        <Input 
+                                            type="number" 
+                                            value={config.parkingCharges ?? ""} 
+                                            onChange={e => {
+                                                const park = Number(e.target.value)
+                                                const flat = config.basePrice || 0
+                                                const gst = config.gstPercentage ?? 5
+                                                const stamp = config.stampDutyPercentage ?? 7
+                                                const gstAmt = (flat * gst / 100)
+                                                const stampAmt = (flat * stamp / 100)
+                                                const reg = config.registrationCharges ?? 30000
+                                                const other = config.otherCharges ?? 0
+                                                const taxes = gstAmt + stampAmt + reg
+                                                const allIn = flat + taxes
+                                                onChange({ 
+                                                    parkingCharges: park, 
+                                                    gstAmount: Math.round(gstAmt),
+                                                    stampDutyAmount: Math.round(stampAmt),
+                                                    totalTaxes: Math.round(taxes), 
+                                                    allInclusivePrice: Math.round(allIn) 
+                                                })
+                                            }} 
+                                            placeholder="500000" 
+                                        />
+                                    </Field>
+                                    <Field label="Other Charges (₹)">
+                                        <Input 
+                                            type="number" 
+                                            value={config.otherCharges ?? ""} 
+                                            onChange={e => {
+                                                const other = Number(e.target.value)
+                                                const flat = config.basePrice || 0
+                                                const gst = config.gstPercentage ?? 5
+                                                const stamp = config.stampDutyPercentage ?? 7
+                                                const gstAmt = (flat * gst / 100)
+                                                const stampAmt = (flat * stamp / 100)
+                                                const reg = config.registrationCharges ?? 30000
+                                                const park = config.parkingCharges ?? 0
+                                                const taxes = gstAmt + stampAmt + reg
+                                                const allIn = flat + taxes
+                                                onChange({ 
+                                                    otherCharges: other, 
+                                                    gstAmount: Math.round(gstAmt),
+                                                    stampDutyAmount: Math.round(stampAmt),
+                                                    totalTaxes: Math.round(taxes), 
+                                                    allInclusivePrice: Math.round(allIn) 
+                                                })
+                                            }} 
+                                            placeholder="100000" 
+                                        />
+                                    </Field>
                                 </Grid>
                             </Section>
 
@@ -720,7 +1043,76 @@ export function UnitFlowForm({
     const [collapsedGroups, setCollapsedGroups] = useState<string[]>([])
     const [collapsedConfigGroups, setCollapsedConfigGroups] = useState<string[]>([])
 
-    const updateData = (patch: Partial<UnitTemplate>) => onChange({ ...data, ...patch })
+    const updateData = (patch: Partial<UnitTemplate>) => {
+        const newData = { ...data, ...patch }
+        
+        // Cascade global pricing changes to all units
+        const pricingFields = [
+            'baseRatePerSqft', 
+            'parkingCharges', 
+            'gstPercentage', 
+            'stampDutyPercentage', 
+            'registrationCharges', 
+            'loadingFactor',
+            'maintenancePerSqft',
+            'maintenanceType',
+            'otherChargesAmount',
+            'otherChargesType',
+            'defaultFlooringType',
+            'defaultWallFinish',
+            'defaultCeilingHeight',
+            'defaultFurnishingStatus'
+        ]
+        const hasPricingChange = pricingFields.some(field => field in patch)
+        
+        if (hasPricingChange && newData.configurations) {
+            newData.configurations = newData.configurations.map(config => {
+                const loading = parseFloat(newData.loadingFactor || "40") || 40
+                const builtUp = Math.round(config.carpetArea * (1 + loading / 100))
+                const rate = parseFloat(newData.baseRatePerSqft || "0")
+                const basePrice = Math.round(rate * builtUp)
+                
+                const gst = parseFloat(newData.gstPercentage || "5")
+                const stamp = parseFloat(newData.stampDutyPercentage || "7")
+                const reg = parseFloat(newData.registrationCharges || "30000")
+                
+                const gstAmt = Math.round(basePrice * gst / 100)
+                const stampAmt = Math.round(basePrice * stamp / 100)
+                const taxes = gstAmt + stampAmt + reg
+                const allInclusive = basePrice + taxes
+                
+                return {
+                    ...config,
+                    loadingFactor: loading,
+                    builtUpArea: builtUp,
+                    superBuiltUpArea: builtUp,
+                    ratePerSqft: rate,
+                    basePrice: basePrice,
+                    parkingCharges: parseFloat(newData.parkingCharges || "0"),
+                    gstPercentage: gst,
+                    gstAmount: gstAmt,
+                    stampDutyPercentage: stamp,
+                    stampDutyAmount: stampAmt,
+                    registrationCharges: reg,
+                    totalTaxes: taxes,
+                    allInclusivePrice: allInclusive,
+                    maintenancePerSqft: parseFloat(newData.maintenancePerSqft || "0"),
+                    maintenanceType: newData.maintenanceType || "monthly",
+                    otherCharges: newData.otherChargesType === "rs" 
+                        ? parseFloat(newData.otherChargesAmount || "0")
+                        : newData.otherChargesType === "stamp_duty_percentage"
+                            ? Math.round(basePrice * (parseFloat(newData.otherChargesAmount || "0") / 100))
+                            : 0,
+                    flooringType: newData.defaultFlooringType || config.flooringType,
+                    wallFinish: newData.defaultWallFinish || config.wallFinish,
+                    ceilingHeight: newData.defaultCeilingHeight || config.ceilingHeight,
+                    furnishingStatus: newData.defaultFurnishingStatus || config.furnishingStatus
+                }
+            })
+        }
+        
+        onChange(newData)
+    }
 
     const toggleGroupCollapse = (id: string) => {
         setCollapsedGroups(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -738,9 +1130,9 @@ export function UnitFlowForm({
             id,
             type: targetType,
             carpetArea: initialArea || 850,
-            builtUpArea: Math.round((initialArea || 850) * 1.2),
-            superBuiltUpArea: Math.round((initialArea || 850) * 1.4),
-            loadingFactor: 40,
+            builtUpArea: Math.round((initialArea || 850) * (1 + (parseFloat(data.loadingFactor) || 40) / 100)),
+            superBuiltUpArea: Math.round((initialArea || 850) * (1 + (parseFloat(data.loadingFactor) || 40) / 100)),
+            loadingFactor: parseFloat(data.loadingFactor) || 40,
             basePrice: 5000000,
             ratePerSqft: 0,
             parkingCharges: 500000,
@@ -983,9 +1375,10 @@ export function UnitFlowForm({
                                         <SelectContent>
                                             <SelectItem value="none">No charges</SelectItem>
                                             <SelectItem value="rs">Rs Amount</SelectItem>
+                                            <SelectItem value="stamp_duty_percentage">STAMp duty %</SelectItem>
                                         </SelectContent>
                                     </Select>
-                                    {data.otherChargesType === "rs" && (
+                                    {data.otherChargesType !== "none" && (
                                         <div className="flex flex-1 gap-2">
                                             <Input 
                                                 value={data.otherChargesName || ""} 
@@ -1004,6 +1397,7 @@ export function UnitFlowForm({
                                     )}
                                 </div>
                             </Field>
+                            <Field label="Loading Factor %"><Input type="number" value={data.loadingFactor ?? ""} onChange={e => updateData({ loadingFactor: e.target.value })} placeholder="40" /></Field>
                         </Grid>
                     </Section>
 
@@ -1551,8 +1945,9 @@ export function UnitFlowForm({
                                                 } else {
                                                     updatedConfigs.push({
                                                         id, type: originalLabel as any, carpetArea: initialArea,
-                                                        builtUpArea: Math.round(initialArea * 1.2), superBuiltUpArea: Math.round(initialArea * 1.4),
-                                                        loadingFactor: 40, basePrice: 5000000, ratePerSqft: 0, parkingCharges: 500000,
+                                                        builtUpArea: Math.round(initialArea * (1 + (parseFloat(data.loadingFactor) || 40) / 100)), 
+                                                        superBuiltUpArea: Math.round(initialArea * (1 + (parseFloat(data.loadingFactor) || 40) / 100)),
+                                                        loadingFactor: parseFloat(data.loadingFactor) || 40, basePrice: 5000000, ratePerSqft: 0, parkingCharges: 500000,
                                                         gstPercentage: 5, stampDutyPercentage: 7, registrationCharges: 30000,
                                                         maintenancePerSqft: 3.5, maintenanceType: "monthly", otherCharges: 0,
                                                         facingPremiums: { north: "0", south: "0", east: "0", west: "0", "north-east": "0", "north-west": "0", "south-east": "0", "south-west": "0" },
@@ -1598,7 +1993,7 @@ export function UnitFlowForm({
                     <div className="grid gap-6">
                         {(data.floorGroups || []).length === 0 ? (
                             (data.configurations || []).map((config, i) => (
-                                <UnitConfigCard key={config.id} index={i} config={config} onChange={patch => updateConfig(config.id, patch)} onRemove={() => removeConfig(config.id)} />
+                                <UnitConfigCard key={config.id} index={i} config={config} onChange={patch => updateConfig(config.id, patch)} onRemove={() => removeConfig(config.id)} globalLoadingFactor={data.loadingFactor} />
                             ))
                         ) : (
                             <>
@@ -1662,7 +2057,7 @@ export function UnitFlowForm({
                                             {!collapsedConfigGroups.includes(group.id) && (
                                                 <div className="grid gap-6 pl-2 md:pl-4 border-l-2 border-dashed border-gray-100/60 animate-in fade-in slide-in-from-top-2 duration-300">
                                                     {groupConfigs.map((config, i) => (
-                                                        <UnitConfigCard key={config.id} index={i} config={config} onChange={patch => updateConfig(config.id, patch)} onRemove={() => removeConfig(config.id)} />
+                                                        <UnitConfigCard key={config.id} index={i} config={config} onChange={patch => updateConfig(config.id, patch)} onRemove={() => removeConfig(config.id)} globalLoadingFactor={data.loadingFactor} />
                                                     ))}
                                                 </div>
                                             )}
@@ -1692,7 +2087,7 @@ export function UnitFlowForm({
                                             {!collapsedConfigGroups.includes("unassigned") && (
                                                 <div className="grid gap-6 pl-2 md:pl-4 border-l-2 border-dashed border-gray-100/60 opacity-80 hover:opacity-100 transition-opacity animate-in fade-in slide-in-from-top-2 duration-300">
                                                     {unassignedConfigs.map((config, i) => (
-                                                        <UnitConfigCard key={config.id} index={i} config={config} onChange={patch => updateConfig(config.id, patch)} onRemove={() => removeConfig(config.id)} />
+                                                        <UnitConfigCard key={config.id} index={i} config={config} onChange={patch => updateConfig(config.id, patch)} onRemove={() => removeConfig(config.id)} globalLoadingFactor={data.loadingFactor} />
                                                     ))}
                                                 </div>
                                             )}

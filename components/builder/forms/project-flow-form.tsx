@@ -441,10 +441,38 @@ function ProjectFlowFormBase({ data, onChange, townshipName, townshipData, onTow
         </div>
 
         <div className="border-t border-gray-100 pt-6 mb-6">
-          <SectionTitle title="Price Range (Auto from Units)" />
-          <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg text-xs text-gray-500">
-            <CheckCircle className="w-4 h-4 text-green-500" />
-            Price range auto-calculated from Unit configurations — ₹{(data.priceRangeMin / 100000).toFixed(0)}L – ₹{(data.priceRangeMax / 100000).toFixed(0)}L
+          <SectionTitle title="Pricing & Range" />
+          <Grid cols={3}>
+            <Field label="Minimum Price (₹)" hint="Starting price (e.g. 50L)">
+              <Input 
+                type="number" 
+                value={data.priceRangeMin || ""} 
+                onChange={e => update("priceRangeMin", Number(e.target.value))} 
+                placeholder="5000000" 
+                className="h-10 border-gray-200 focus-visible:ring-[#1A3C8C]"
+              />
+            </Field>
+            <Field label="Maximum Price (₹)" hint="Max price (e.g. 1.5Cr)">
+              <Input 
+                type="number" 
+                value={data.priceRangeMax || ""} 
+                onChange={e => update("priceRangeMax", Number(e.target.value))} 
+                placeholder="15000000" 
+                className="h-10 border-gray-200 focus-visible:ring-[#1A3C8C]"
+              />
+            </Field>
+            <Field label="Display Price Range" hint="Custom text display">
+              <Input 
+                value={data.priceLabel || ""} 
+                onChange={e => update("priceLabel", e.target.value)} 
+                placeholder="₹50L - ₹1.5Cr" 
+                className="h-10 border-gray-200 focus-visible:ring-[#1A3C8C]"
+              />
+            </Field>
+          </Grid>
+          <div className="flex items-center gap-2 mt-4 px-3 py-2 bg-blue-50/50 border border-blue-100/50 rounded-lg text-[10px] text-blue-600 font-bold uppercase tracking-tight">
+            <Info className="w-3 h-3" />
+            Auto-calculated range from units: ₹{(data.priceRangeMin / 100000).toFixed(0)}L – ₹{(data.priceRangeMax / 100000).toFixed(0)}L
           </div>
         </div>
 

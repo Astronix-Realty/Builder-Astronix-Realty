@@ -15,9 +15,9 @@ import { TeamView } from "@/components/builder/team/team-view"
 import { BlogView } from "@/components/builder/blog/blog-view"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-interface BuilderProfile {
+interface MandateProfile {
   companyName: string
-  developerName: string
+  fullName: string
   email: string
   phone: string
   address: string
@@ -25,6 +25,11 @@ interface BuilderProfile {
   reraNumber: string
   website: string
   logo?: string
+  panNumber?: string
+  aadharNumber?: string
+  specialization?: string
+  preferredAreas?: string
+  experience?: string
 }
 
 interface Property {
@@ -226,13 +231,13 @@ function DashboardContent() {
 
   // Load mock/local offers for now (Keep localStorage for non-critical settings)
   useEffect(() => {
-    const savedOffers = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem("builderOffers") || "[]") : []
+    const savedOffers = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem("mandateOffers") || "[]") : []
     setOffers(savedOffers)
   }, [])
 
-  const [profile, setProfile] = useState<BuilderProfile>({
+  const [profile, setProfile] = useState<MandateProfile>({
     companyName: "",
-    developerName: "",
+    fullName: "",
     email: "",
     phone: "",
     address: "",
@@ -256,7 +261,7 @@ function DashboardContent() {
 
     setProfile({
       companyName: p.companyName || "",
-      developerName: p.developerName || "",
+      fullName: p.fullName || p.developerName || "", // Fallback to developerName if legacy
       email: currentUser.email || p.email || "",
       phone: p.phone || "",
       address: fullAddress || "",
@@ -264,6 +269,11 @@ function DashboardContent() {
       reraNumber: p.reraNumber || "",
       website: p.website || "",
       logo: p.logo || "",
+      panNumber: p.panNumber || "",
+      aadharNumber: p.aadharNumber || "",
+      specialization: p.specialization || "",
+      preferredAreas: p.preferredAreas || "",
+      experience: p.experience || "",
     });
   }, [currentUser])
 
@@ -274,13 +284,18 @@ function DashboardContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           companyName: profile.companyName,
-          developerName: profile.developerName,
+          fullName: profile.fullName,
           phone: profile.phone,
           address: profile.address,
           description: profile.description,
           reraNumber: profile.reraNumber,
           website: profile.website,
           logo: profile.logo,
+          panNumber: profile.panNumber,
+          aadharNumber: profile.aadharNumber,
+          specialization: profile.specialization,
+          preferredAreas: profile.preferredAreas,
+          experience: profile.experience,
         }),
       });
 
@@ -361,7 +376,7 @@ function DashboardContent() {
     }
 
     setOffers(updatedOffers)
-    localStorage.setItem("builderOffers", JSON.stringify(updatedOffers))
+    localStorage.setItem("mandateOffers", JSON.stringify(updatedOffers))
     setShowAddOffer(false)
     setEditingOffer(null)
     setNewOffer({
@@ -385,7 +400,7 @@ function DashboardContent() {
     if (confirm("Are you sure you want to delete this offer?")) {
       const updatedOffers = offers.filter(o => o.id !== id)
       setOffers(updatedOffers)
-      localStorage.setItem("builderOffers", JSON.stringify(updatedOffers))
+      localStorage.setItem("mandateOffers", JSON.stringify(updatedOffers))
     }
   }
 
@@ -394,7 +409,7 @@ function DashboardContent() {
       o.id === id ? { ...o, isActive: !o.isActive } : o
     )
     setOffers(updatedOffers)
-    localStorage.setItem("builderOffers", JSON.stringify(updatedOffers))
+    localStorage.setItem("mandateOffers", JSON.stringify(updatedOffers))
   }
 
   const [activeTab, setActiveTab] = useState<"properties" | "inventory" | "crm" | "chat" | "documents" | "team" | "offers" | "blog" | "settings">("properties")
@@ -690,8 +705,8 @@ function DashboardContent() {
 
         {/* Content Scroll Area */}
         <div className="flex-1 overflow-y-auto p-8">
-          {activeTab === "inventory" && <InventoryView />}
-          {activeTab === "crm" && <CRMView />}
+          {activeTab === "inventory" && <InventoryView userRole="mandate" />}
+          {activeTab === "crm" && <CRMView userRole="mandate" />}
           {activeTab === "chat" && <ChatView />}
           {activeTab === "documents" && <DocumentsView />}
           {activeTab === "team" && <TeamView />}
@@ -1411,7 +1426,7 @@ function DashboardContent() {
 
                 <Tabs defaultValue="profile" className="space-y-6">
                   <TabsList className="bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-full md:w-auto inline-flex">
-                    <TabsTrigger value="profile" className="flex-1 md:w-48 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-950 data-[state=active]:shadow-sm px-4 py-2">Builder Profile</TabsTrigger>
+                    <TabsTrigger value="profile" className="flex-1 md:w-48 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-950 data-[state=active]:shadow-sm px-4 py-2">Mandate Profile</TabsTrigger>
                     <TabsTrigger value="preferences" className="flex-1 md:w-48 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-950 data-[state=active]:shadow-sm px-4 py-2">System Preferences</TabsTrigger>
                   </TabsList>
 
@@ -1423,7 +1438,7 @@ function DashboardContent() {
                           <ImageUpload
                             value={profile.logo}
                             onChange={(val) => setProfile({ ...profile, logo: val })}
-                            label="Builder Logo"
+                            label="Mandate Logo"
                             className="w-full"
                           />
                         </div>
@@ -1481,17 +1496,17 @@ function DashboardContent() {
                             <div>
                               <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
                                 <User className="h-5 w-5 text-slate-500 dark:text-slate-400" />
-                                Developer Information
+                                Mandate Information
                               </h3>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Developer Name</label>
+                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Full Name</label>
                                   <input
                                     type="text"
-                                    value={profile.developerName}
-                                    onChange={(e) => setProfile({ ...profile, developerName: e.target.value })}
+                                    value={profile.fullName}
+                                    onChange={(e) => setProfile({ ...profile, fullName: e.target.value })}
                                     className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="Full Name"
+                                    placeholder="Your Full Name"
                                   />
                                 </div>
                                 <div>
@@ -1502,6 +1517,70 @@ function DashboardContent() {
                                     onChange={(e) => setProfile({ ...profile, description: e.target.value })}
                                     className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     placeholder="Short bio or tagline"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Verification & Expertise */}
+                            <div>
+                              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                                <Shield className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                                Verification & Expertise
+                              </h3>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">PAN Number</label>
+                                  <input
+                                    type="text"
+                                    value={profile.panNumber}
+                                    onChange={(e) => setProfile({ ...profile, panNumber: e.target.value.toUpperCase() })}
+                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="ABCDE1234F"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Aadhar Number</label>
+                                  <input
+                                    type="text"
+                                    value={profile.aadharNumber}
+                                    onChange={(e) => setProfile({ ...profile, aadharNumber: e.target.value })}
+                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="1234 5678 9012"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Experience (Years)</label>
+                                  <input
+                                    type="text"
+                                    value={profile.experience}
+                                    onChange={(e) => setProfile({ ...profile, experience: e.target.value })}
+                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="e.g. 5"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Specialization</label>
+                                  <select
+                                    value={profile.specialization}
+                                    onChange={(e) => setProfile({ ...profile, specialization: e.target.value })}
+                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  >
+                                    <option value="">Select Specialization</option>
+                                    <option value="residential">Residential</option>
+                                    <option value="commercial">Commercial</option>
+                                    <option value="plots">Plots / Land</option>
+                                    <option value="all">All Types</option>
+                                  </select>
+                                </div>
+                                <div className="md:col-span-2">
+                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Preferred Areas</label>
+                                  <input
+                                    type="text"
+                                    value={profile.preferredAreas}
+                                    onChange={(e) => setProfile({ ...profile, preferredAreas: e.target.value })}
+                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="e.g. Baner, Wakad"
                                   />
                                 </div>
                               </div>

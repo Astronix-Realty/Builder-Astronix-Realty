@@ -9,6 +9,10 @@ const MandateSchema = new mongoose.Schema(
 
     // Mandate specific fields
     fullName: { type: String },
+    companyName: { type: String },
+    reraNumber: { type: String },
+    description: { type: String },
+    website: { type: String },
     panNumber: { type: String },
     aadharNumber: { type: String },
     specialization: { type: String },

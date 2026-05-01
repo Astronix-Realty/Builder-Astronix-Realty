@@ -301,6 +301,7 @@ export interface ProjectData {
   // ── PRICING ──────────────────────────────
   priceRangeMin: number         // 5000000 (auto from units)
   priceRangeMax: number         // 15000000 (auto from units)
+  priceLabel?: string           // "₹50L – ₹1.5Cr" (custom display)
 
   // ── LEGAL (PROJECT-SPECIFIC) ─────────────
   reraNumber: string            // Project-level RERA
@@ -398,6 +399,7 @@ export interface TowerData {
   totalUnits: number            // totalFloorsNum × unitsPerFloor
   priceRangeMin: number
   priceRangeMax: number
+  priceLabel?: string           // "₹50L – ₹1.5Cr" (custom display)
 }
 
 // ─────────────────────────────────────────
@@ -420,11 +422,15 @@ export interface UnitConfiguration {
   ratePerSqft: number           // auto: basePrice / carpetArea
   parkingCharges: number        // 500000
   gstPercentage: number         // 5
+  gstAmount: number             // GST in ₹
   stampDutyPercentage: number   // 5
+  stampDutyAmount: number       // Stamp Duty in ₹
   registrationCharges: number   // 30000
   maintenancePerSqft: number    // 3.5
   maintenanceType: "monthly" | "quarterly" | "annually"
   otherCharges: number          // PLC, EDC etc
+  allInclusivePrice: number     // Total package price
+  totalTaxes: number            // GST + Stamp Duty amount
 
   // ── FACING PREMIUM ───────────────────────
   facingPremiums: FacingPremium
@@ -530,8 +536,9 @@ export interface UnitTemplate {
   parkingCharges: string        // "500000"
   maintenancePerSqft: string    // "3.5"
   maintenanceType: "monthly" | "quarterly" | "annually"
+  loadingFactor: string         // "40" (%)
   otherChargesAmount?: string
-  otherChargesType?: "none" | "rs"
+  otherChargesType?: "none" | "rs" | "percentage" | "stamp_duty_percentage"
 
   // ── FACING PREMIUMS ──────────────────────
   facingPremiums: FacingPremium
@@ -951,11 +958,15 @@ export const createDefaultUnitConfig = (type: UnitConfiguration["type"], carpetA
   ratePerSqft: Math.round(basePrice / carpetArea),
   parkingCharges: 500000,
   gstPercentage: 5,
-  stampDutyPercentage: 5,
+  gstAmount: Math.round(basePrice * 0.05),
+  stampDutyPercentage: 7,
+  stampDutyAmount: Math.round(basePrice * 0.07),
   registrationCharges: 30000,
   maintenancePerSqft: 3.5,
   maintenanceType: "monthly",
   otherCharges: 0,
+  allInclusivePrice: Math.round(basePrice + (basePrice * 0.12) + 30000 + 500000),
+  totalTaxes: Math.round((basePrice * 0.12) + 30000 + 500000),
   facingPremiums: { ...defaultFacingPremiums },
   facing: "East",
   balconyCount: 2,
@@ -990,6 +1001,7 @@ export const createInitialUnitTemplate = (towerId: string): UnitTemplate => ({
   parkingCharges: "500000",
   maintenancePerSqft: "3.5",
   maintenanceType: "monthly",
+  loadingFactor: "40",
   facingPremiums: { ...defaultFacingPremiums },
   configurations: [
     {
@@ -1003,11 +1015,15 @@ export const createInitialUnitTemplate = (towerId: string): UnitTemplate => ({
       ratePerSqft: 6470,
       parkingCharges: 500000,
       gstPercentage: 5,
-      stampDutyPercentage: 5,
+      gstAmount: 275000,
+      stampDutyPercentage: 7,
+      stampDutyAmount: 385000,
       registrationCharges: 30000,
       maintenancePerSqft: 3.5,
       maintenanceType: "monthly",
       otherCharges: 0,
+      allInclusivePrice: 6690000,
+      totalTaxes: 1190000,
       facingPremiums: { ...defaultFacingPremiums },
       facing: "East",
       balconyCount: 2,

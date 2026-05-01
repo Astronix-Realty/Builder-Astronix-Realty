@@ -433,31 +433,108 @@ function BuilderContent() {
     })
   }, [])
 
-  // ── Auto-sync township counts ──────────────────────────────────────────
+  // ── Auto-sync township counts & pricing ──────────────────────────────────
   useEffect(() => {
     const towersCount = (state?.towers || []).filter(Boolean).length
-    const unitsCount = generatedUnits?.length || 0
+    const unitsCount = (state?.generatedUnits || []).length || 0
     const projectsCount = (state?.projects || []).filter(Boolean).length
     const familiesCount = unitsCount
 
-    if (
+    // Helper to format price in L/Cr
+    const formatPrice = (p: number) => {
+      if (p >= 10000000) return `₹${(p / 10000000).toFixed(2).replace(/\.00$/, "")} Cr`
+      if (p >= 100000) return `₹${(p / 100000).toFixed(0)} L`
+      return `₹${p.toLocaleString()}`
+    }
+
+    const getPriceLabel = (min: number, max: number) => {
+      if (!min || !max) return ""
+      if (min === max) return formatPrice(min)
+      return `${formatPrice(min)} – ${formatPrice(max)}`
+    }
+
+    // ── UPWARD PRICING SYNC ──
+    // 1. Calculate Tower Prices from Unit Configs
+    const updatedTowers = [...(state.towers || [])].map(tower => {
+      const config = state.towerUnitConfigs?.find(c => c.towerId === tower.id)
+      const configs = config?.configurations || []
+      if (configs.length > 0) {
+        const prices = configs.map(c => c.allInclusivePrice || 0).filter(p => p > 0)
+        if (prices.length > 0) {
+          const min = Math.min(...prices)
+          const max = Math.max(...prices)
+          const autoLabel = getPriceLabel(min, max)
+          if (tower.priceRangeMin !== min || tower.priceRangeMax !== max || tower.priceLabel !== autoLabel) {
+            return { ...tower, priceRangeMin: min, priceRangeMax: max, priceLabel: tower.priceLabel || autoLabel }
+          }
+        }
+      }
+      return tower
+    })
+
+    // 2. Calculate Project Prices from Towers
+    const updatedProjects = [...(state.projects || [])].map(proj => {
+      const projTowers = updatedTowers.filter(t => t.projectId === proj.id)
+      if (projTowers.length > 0) {
+        const mins = projTowers.map(t => t.priceRangeMin).filter(p => p > 0)
+        const maxs = projTowers.map(t => t.priceRangeMax).filter(p => p > 0)
+        if (mins.length > 0 && maxs.length > 0) {
+          const min = Math.min(...mins)
+          const max = Math.max(...maxs)
+          const autoLabel = getPriceLabel(min, max)
+          if (proj.priceRangeMin !== min || proj.priceRangeMax !== max || proj.priceLabel !== autoLabel) {
+            return { ...proj, priceRangeMin: min, priceRangeMax: max, priceLabel: proj.priceLabel || autoLabel }
+          }
+        }
+      }
+      return proj
+    })
+
+    // 3. Calculate Township Prices from Projects
+    let updatedTownship = { ...state.township }
+    if (updatedProjects.length > 0) {
+      const mins = updatedProjects.map(p => p.priceRangeMin).filter(p => p > 0)
+      const maxs = updatedProjects.map(p => p.priceRangeMax).filter(p => p > 0)
+      if (mins.length > 0 && maxs.length > 0) {
+        const min = Math.min(...mins)
+        const max = Math.max(...maxs)
+        const autoLabel = getPriceLabel(min, max)
+        if (updatedTownship.priceRangeMin !== min || updatedTownship.priceRangeMax !== max || updatedTownship.priceLabel !== autoLabel) {
+          updatedTownship.priceRangeMin = min
+          updatedTownship.priceRangeMax = max
+          updatedTownship.priceLabel = updatedTownship.priceLabel || autoLabel
+        }
+      }
+    }
+
+    // Check if any metadata or counts changed
+    const countsChanged = 
       state.township.projectCount !== projectsCount ||
       state.township.totalTowers !== towersCount ||
       state.township.totalUnits !== unitsCount ||
       state.township.totalFamilies !== familiesCount
-    ) {
+
+    const pricingChanged = 
+      JSON.stringify(state.towers) !== JSON.stringify(updatedTowers) ||
+      JSON.stringify(state.projects) !== JSON.stringify(updatedProjects) ||
+      state.township.priceRangeMin !== updatedTownship.priceRangeMin ||
+      state.township.priceRangeMax !== updatedTownship.priceRangeMax
+
+    if (countsChanged || pricingChanged) {
       setState(prev => ({
         ...prev,
         township: {
-          ...prev.township,
+          ...updatedTownship,
           projectCount: projectsCount,
           totalTowers: towersCount,
           totalUnits: unitsCount,
           totalFamilies: familiesCount
-        }
+        },
+        towers: updatedTowers,
+        projects: updatedProjects
       }))
     }
-  }, [state.projects.length, state.towers.length, generatedUnits.length, state.township.projectCount, state.township.totalTowers, state.township.totalUnits, state.township.totalFamilies])
+  }, [state.projects.length, state.towers.length, state.generatedUnits?.length, state.towerUnitConfigs, state.township.projectCount, state.township.totalTowers, state.township.totalUnits, state.township.totalFamilies])
 
   const handleAddProject = useCallback(() => {
     const safeProjects = state.projects.filter(Boolean)

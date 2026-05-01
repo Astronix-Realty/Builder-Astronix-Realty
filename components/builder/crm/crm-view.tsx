@@ -147,8 +147,12 @@ const INITIAL_LEADS: Lead[] = [
 ]
 
 // --- Components ---
+interface CRMViewProps {
+    userRole?: "builder" | "mandate"
+}
 
-export function CRMView() {
+export function CRMView({ userRole = "builder" }: CRMViewProps) {
+    const storagePrefix = userRole === "mandate" ? "mandate_" : ""
     const [viewMode, setViewMode] = useState<"pipeline" | "list" | "profile">("pipeline")
     const [leads, setLeads] = useState<Lead[]>(INITIAL_LEADS)
     const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null)
@@ -164,7 +168,7 @@ export function CRMView() {
 
     // Load Inventory
     useEffect(() => {
-        const savedProps = JSON.parse(localStorage.getItem("properties") || "[]")
+        const savedProps = JSON.parse(localStorage.getItem(`${storagePrefix}properties`) || "[]")
         setProperties(savedProps)
     }, [])
 
@@ -221,7 +225,7 @@ export function CRMView() {
         }
 
         setProperties(updatedProperties)
-        localStorage.setItem("properties", JSON.stringify(updatedProperties))
+        localStorage.setItem(`${storagePrefix}properties`, JSON.stringify(updatedProperties))
 
         // 3. Update Lead Timeline & Status
         const newEvent = {

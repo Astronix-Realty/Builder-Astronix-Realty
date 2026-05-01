@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import dbConnect from "@/lib/db"
 import User from "@/models/User"
+import Builder from "@/models/Builder"
+import Mandate from "@/models/Mandate"
 import { getTokenFromRequest, verifyToken } from "@/lib/auth"
 
 // PUT /api/auth/profile — Update current user's profile data
@@ -18,17 +20,21 @@ export async function PUT(req: NextRequest) {
 
     const body = await req.json()
 
-    // Whitelist allowed profile fields to prevent injection
+    // Whitelist allowed profile fields
     const allowedFields = [
-      "companyName", "developerName", "phone", "address",
+      "companyName", "developerName", "fullName", "phone", "address",
       "description", "reraNumber", "website", "logo",
-      "city", "state", "experience"
+      "city", "state", "experience", "panNumber", "aadharNumber",
+      "specialization", "preferredAreas"
     ]
 
     const profileUpdate: Record<string, any> = {}
+    const roleSpecificUpdate: Record<string, any> = {}
+
     for (const key of allowedFields) {
       if (body[key] !== undefined) {
         profileUpdate[`profile.${key}`] = body[key]
+        roleSpecificUpdate[key] = body[key]
       }
     }
 
@@ -38,6 +44,7 @@ export async function PUT(req: NextRequest) {
 
     await dbConnect()
 
+    // Update User model (fallback/sync)
     const updatedUser = await User.findByIdAndUpdate(
       decoded.userId,
       { $set: profileUpdate },
@@ -48,10 +55,20 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    const userData = updatedUser.toObject()
-    delete userData.passwordHash
+    // Update Role-Specific model
+    if (updatedUser.role === 'builder' && updatedUser.builderId) {
+      await Builder.findByIdAndUpdate(updatedUser.builderId, { $set: roleSpecificUpdate });
+    } else if (updatedUser.role === 'mandate' && updatedUser.mandateId) {
+      await Mandate.findByIdAndUpdate(updatedUser.mandateId, { $set: roleSpecificUpdate });
+    }
 
-    return NextResponse.json({ user: userData, message: "Profile updated successfully" }, { status: 200 })
+    // Refetch the merged user data
+    const finalUserRes = await fetch(`${req.nextUrl.origin}/api/auth/me`, {
+      headers: { Cookie: `${req.headers.get("cookie")}` }
+    });
+    const finalUserData = await finalUserRes.json();
+
+    return NextResponse.json({ user: finalUserData.user, message: "Profile updated successfully" }, { status: 200 })
   } catch (error: any) {
     console.error("[PUT /api/auth/profile] error:", error)
     return NextResponse.json({ error: error.message || "Failed to update profile" }, { status: 500 })
