@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, memo } from "react"
 import { v4 as uuidv4 } from "uuid"
 import Image from "next/image"
 import { Input } from "@/components/ui/input"
@@ -269,7 +269,7 @@ function BulkImageInput({ onAdd }: { onAdd: (urls: string[]) => void }) {
 // ─────────────────────────────────────────
 // MAIN FORM COMPONENT
 // ─────────────────────────────────────────
-export function TownshipFlowForm({ data, onChange, user }: TownshipFlowFormProps) {
+function TownshipFlowFormBase({ data, onChange, user }: TownshipFlowFormProps) {
   const [openIds, setOpenIds] = useState<SectionId[]>(["identity", "builder", "location"])
   const [openParts, setOpenParts] = useState<string[]>(["part-a", "part-b"])
 
@@ -938,5 +938,5 @@ export function TownshipFlowForm({ data, onChange, user }: TownshipFlowFormProps
   )
 }
 
-// Legacy export for backward compatibility
+export const TownshipFlowForm = memo(TownshipFlowFormBase)
 export default TownshipFlowForm

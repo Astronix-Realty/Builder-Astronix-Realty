@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, memo } from "react"
 import { v4 as uuidv4 } from "uuid"
 import Image from "next/image"
 import { Input } from "@/components/ui/input"
@@ -257,7 +257,7 @@ function BulkImageInput({ onAdd }: { onAdd: (urls: string[]) => void }) {
 // ─────────────────────────────────────────
 // MAIN FORM
 // ─────────────────────────────────────────
-export function ProjectFlowForm({ data, onChange, townshipName, townshipData, onTownshipChange, showCommonData, user }: ProjectFlowFormProps) {
+function ProjectFlowFormBase({ data, onChange, townshipName, townshipData, onTownshipChange, showCommonData, user }: ProjectFlowFormProps) {
   const [openIds, setOpenIds] = useState<string[]>(["builder", "proj-identity", "location"])
   const [openParts, setOpenParts] = useState<string[]>(["part-a", "part-b"])
 
@@ -924,4 +924,5 @@ export function ProjectFlowForm({ data, onChange, townshipName, townshipData, on
   )
 }
 
+export const ProjectFlowForm = memo(ProjectFlowFormBase)
 export default ProjectFlowForm

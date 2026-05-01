@@ -1051,6 +1051,7 @@ function BuilderContent() {
         <div className="mb-8 min-h-[50vh] pb-24">
           {flowType === "township" && state?.currentStep === 1 && (
             <TownshipFlowForm
+              key={state?.township?.id || "township-form"}
               data={state?.township}
               onChange={(updaterOrData) => {
                 setState(prev => {
@@ -1066,6 +1067,7 @@ function BuilderContent() {
 
           {flowType === "project" && state?.currentStep === 2 && (
             <ProjectFlowForm
+              key={state?.projects?.[0]?.id || "project-form"}
               data={state?.projects?.[0]}
               onChange={(updaterOrData) => {
                 setState(prev => {
@@ -1092,6 +1094,7 @@ function BuilderContent() {
 
           {flowType === "tower" && state?.currentStep === 3 && (
             <TowerFlowForm
+              key={state?.towers?.[0]?.id || "tower-form"}
               data={state?.towers?.[0]}
               onChange={(updaterOrData) => {
                 setState(prev => {

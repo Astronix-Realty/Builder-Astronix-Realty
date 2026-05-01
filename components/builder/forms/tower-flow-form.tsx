@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, memo } from "react"
 import { v4 as uuidv4 } from "uuid"
 import Image from "next/image"
 import { Input } from "@/components/ui/input"
@@ -264,7 +264,7 @@ function BulkImageInput({ onAdd }: { onAdd: (urls: string[]) => void }) {
 // ─────────────────────────────────────────
 // MAIN FORM
 // ─────────────────────────────────────────
-export function TowerFlowForm({ data, onChange, projectName, townshipName, townshipData, onTownshipChange, showCommonData, user }: TowerFlowFormProps) {
+function TowerFlowFormBase({ data, onChange, projectName, townshipName, townshipData, onTownshipChange, showCommonData, user }: TowerFlowFormProps) {
   const [openIds, setOpenIds] = useState<string[]>(["builder", "tower-identity", "location"])
   const [openParts, setOpenParts] = useState<string[]>(["part-a", "part-b"])
 
@@ -365,10 +365,12 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
     const floors = data.totalFloorsNum || parseInt(String(data.totalFloors || "").replace(/\D/g, "")) || 0
     const perFloor = parseInt(String(data.unitsPerFloor || "")) || 0
     const total = floors * perFloor
+    
     if (total !== data.totalUnits) {
-      onChange({ ...data, totalUnits: total })
+      onChange(prev => ({ ...prev, totalUnits: total }))
     }
-  }, [data.totalFloorsNum, data.unitsPerFloor, data.totalFloors, data.totalUnits, data, onChange])
+    // Only depend on the fields needed for calculation to prevent loops when other fields change
+  }, [data.totalFloorsNum, data.totalFloors, data.unitsPerFloor, data.totalUnits, onChange])
 
   // Gallery images
   const addGallery = () => update("galleryImages", [...(data.galleryImages || []), ""])
@@ -960,4 +962,5 @@ export function TowerFlowForm({ data, onChange, projectName, townshipName, towns
   )
 }
 
+export const TowerFlowForm = memo(TowerFlowFormBase)
 export default TowerFlowForm

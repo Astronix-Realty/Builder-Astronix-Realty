@@ -107,12 +107,17 @@ export function TowersForm({
                     </div>
 
                     <TowerFlowForm
+                        key={activeTower.id}
                         data={activeTower}
-                        onChange={(updated) => {
+                        onChange={(updaterOrData) => {
                             const next = [...towers]
                             const globalIdx = towers.findIndex(t => t.id === activeTower.id)
-                            if (globalIdx >= 0) next[globalIdx] = updated
-                            onTowersChange(next)
+                            if (globalIdx >= 0) {
+                                next[globalIdx] = typeof updaterOrData === "function"
+                                    ? updaterOrData(next[globalIdx])
+                                    : updaterOrData
+                                onTowersChange(next)
+                            }
                         }}
                         projectName={activeProject.name}
                     />
