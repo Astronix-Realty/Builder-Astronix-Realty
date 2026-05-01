@@ -1021,17 +1021,7 @@ function DashboardContent() {
                         Edit
                       </a>
 
-                      {property.status !== "pending" && (
-                        <a
-                          href={`/property/${property.id}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="px-3.5 py-2.5 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg font-semibold hover:bg-white dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-300 dark:hover:border-indigo-700 transition-all flex items-center justify-center shadow-sm"
-                          title="View Live Property"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </a>
-                      )}
+
 
                       <button
                         onClick={() => deleteProperty(property.id)}
