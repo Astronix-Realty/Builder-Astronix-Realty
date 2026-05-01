@@ -116,7 +116,7 @@ export async function GET(req: NextRequest) {
           ...p, 
           thumbnail,
           calculatedCounts: { projectsCount, towersCount, unitsCount },
-          townshipName: township.name || p.name,
+          townshipName: p.name || township.name,
           location: township.city || township.address || p.location?.city || 'Location N/A',
           totalValue: township.totalValue || 0
         };

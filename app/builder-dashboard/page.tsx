@@ -164,7 +164,7 @@ function DashboardContent() {
     const flowType = p.flowType || p.type
 
     // Use root property name or townshipName as fallback
-    let name = p.townshipName || p.name || "Untitled Property"
+    let name = p.name || p.townshipName || "Untitled Property"
     let location = p.location || "Location not set"
     
     // Prioritize server-calculated counts
@@ -976,7 +976,7 @@ function DashboardContent() {
                         {/* Township always shows Projects */}
                         {property.flowType === 'township' && (
                           <div className="relative after:absolute after:right-[-8px] after:top-1/2 after:-translate-y-1/2 after:h-8 after:w-[1px] after:bg-slate-200 dark:after:bg-slate-800">
-                            <div className="text-xl font-black text-slate-800 dark:text-white">{property.calculatedCounts?.projectsCount || 0}</div>
+                            <div className="text-xl font-black text-slate-800 dark:text-white">{property.projects || 0}</div>
                             <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Projects</div>
                           </div>
                         )}
@@ -984,14 +984,14 @@ function DashboardContent() {
                         {/* Township & Project show Towers */}
                         {(property.flowType === 'township' || property.flowType === 'project') && (
                           <div className={property.flowType === 'township' ? "relative after:absolute after:right-[-8px] after:top-1/2 after:-translate-y-1/2 after:h-8 after:w-[1px] after:bg-slate-200 dark:after:bg-slate-800" : ""}>
-                            <div className="text-xl font-black text-slate-800 dark:text-white">{property.calculatedCounts?.towersCount || 0}</div>
+                            <div className="text-xl font-black text-slate-800 dark:text-white">{property.towers || 0}</div>
                             <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Towers</div>
                           </div>
                         )}
                         
                         {/* Everyone shows Units */}
                         <div>
-                          <div className="text-xl font-black text-blue-600 dark:text-blue-400">{property.calculatedCounts?.unitsCount || 0}</div>
+                          <div className="text-xl font-black text-blue-600 dark:text-blue-400">{property.units || 0}</div>
                           <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Total Units</div>
                         </div>
                       </div>
