@@ -484,13 +484,13 @@ export async function submitPropertyForApproval(draftId: string, builderId: stri
   try {
     session.startTransaction();
 
-    const rootDraft = await Property.findOne({ _id: draftId, builderId, status: 'draft' }).session(session);
+    const rootDraft = await Property.findOne({ _id: draftId, builderId, status: { $in: ['draft', 'pending'] } }).session(session);
     if (!rootDraft) {
         // Detailed check for error reporting
         const exists = await Property.findById(draftId).session(session).lean();
         if (!exists) throw new Error("DRAFT_NOT_FOUND: The draft you are trying to publish no longer exists.");
         if ((exists as any).builderId.toString() !== builderId.toString()) throw new Error("UNAUTHORIZED_ACCESS: You do not have permission to publish this draft.");
-        if ((exists as any).status !== 'draft') throw new Error(`INVALID_STATUS: This property is already ${(exists as any).status}.`);
+        if ((exists as any).status !== 'draft' && (exists as any).status !== 'pending') throw new Error(`INVALID_STATUS: This property is already ${(exists as any).status}.`);
         
         throw new Error("Draft not found or unauthorized");
     }
@@ -499,7 +499,7 @@ export async function submitPropertyForApproval(draftId: string, builderId: stri
     let allDrafts: any[] = [rootDraft];
     let idsToSearch = [draftId];
     while (idsToSearch.length > 0) {
-      const children = await Property.find({ parentId: { $in: idsToSearch }, status: 'draft' }).session(session);
+      const children = await Property.find({ parentId: { $in: idsToSearch }, status: { $in: ['draft', 'pending'] } }).session(session);
       if (children.length === 0) break;
       allDrafts.push(...children);
       idsToSearch = children.map(c => c._id.toString());
@@ -523,7 +523,7 @@ export async function submitPropertyForApproval(draftId: string, builderId: stri
     // Update Units
     await Unit.updateMany(
       { 
-        status: 'draft', 
+        status: { $in: ['draft', 'pending'] }, 
         $or: [{ towerId: { $in: draftIds } }, { projectId: { $in: draftIds } }] 
       },
       { 

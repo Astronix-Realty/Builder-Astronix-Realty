@@ -152,10 +152,13 @@ function BuilderContent() {
 
   const editId = searchParams.get("edit")
 
+  const [isEditLoading, setIsEditLoading] = useState(!!editId)
+
   // Load data if editing
   useEffect(() => {
     const loadProperty = async () => {
       if (editId) {
+        setIsEditLoading(true)
         try {
           let targetId = editId
           const checkRes = await fetch(`/api/properties/${editId}`)
@@ -224,6 +227,8 @@ function BuilderContent() {
           }
         } catch (error) {
           console.error("Error loading property:", error)
+        } finally {
+          setIsEditLoading(false)
         }
       }
     }
@@ -237,7 +242,7 @@ function BuilderContent() {
     state,
     debounceMs: 10000,
     // Turn off auto-save when creating to prevent "draft already published" errors
-    enabled: !isAuthChecking && !isCreating && !isComplete,
+    enabled: !isAuthChecking && !isCreating && !isComplete && !isEditLoading,
   })
 
   // Theme management
@@ -267,10 +272,11 @@ function BuilderContent() {
 
   // Reset state when flow type changes
   useEffect(() => {
+    if (editId) return // Skip reset when editing — the edit-load effect handles state initialization
     setState(getInitialState())
     setIsComplete(false)
     setIsCreating(false)
-  }, [flowType, getInitialState])
+  }, [flowType, getInitialState, editId])
 
   // ── Auto-sync projects when township.projectCount changes ────────────────
   // DISABLED because projects are now fully manually managed via ProjectsForm (Step 2).

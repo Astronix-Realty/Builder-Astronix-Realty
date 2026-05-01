@@ -125,7 +125,31 @@ export function useAutoDraft({
         else if (flowType === "project" && !ids.projectId) ids.projectId = editId
         else if (flowType === "tower" && !ids.towerId) ids.towerId = editId
         
-        if (ids.townshipId !== draftIdsRef.current.townshipId || ids.projectId !== draftIdsRef.current.projectId || ids.towerId !== draftIdsRef.current.towerId) {
+        let needsUpdate = ids.townshipId !== draftIdsRef.current.townshipId || ids.projectId !== draftIdsRef.current.projectId || ids.towerId !== draftIdsRef.current.towerId
+
+        // Priority 3: Build projectMap/towerMap from _dbId fields on edit load
+        if (state?.projects || state?.towers) {
+          const newProjectMap = { ...(ids.projectMap || {}) }
+          const newTowerMap = { ...(ids.towerMap || {}) }
+          
+          for (const proj of state.projects || []) {
+            if (proj._dbId && proj.id && !newProjectMap[proj.id]) {
+              newProjectMap[proj.id] = proj._dbId
+              needsUpdate = true
+            }
+          }
+          for (const tower of state.towers || []) {
+            if (tower._dbId && tower.id && !newTowerMap[tower.id]) {
+              newTowerMap[tower.id] = tower._dbId
+              needsUpdate = true
+            }
+          }
+          
+          ids.projectMap = newProjectMap
+          ids.towerMap = newTowerMap
+        }
+
+        if (needsUpdate) {
           setDraftIds(ids)
           draftIdsRef.current = ids
           saveDraftIdsToStorage(flowType, ids)

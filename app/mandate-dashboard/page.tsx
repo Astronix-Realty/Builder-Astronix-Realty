@@ -3,7 +3,8 @@
 import { useState, useEffect, Suspense } from "react"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Plus, Building2, MapPin, DollarSign, ChevronRight, Edit2, Trash2, Home, Layers, Building, Eye, User, Save, Globe, Mail, Phone, FileText, Tag, Percent, Calendar, Clock, Gift, Paintbrush, Image as ImageIcon, LogOut, Settings, Menu, X, Palette, Bell, Shield, Lock, Headphones, Smartphone, MessageSquare, Users, Briefcase } from "lucide-react"
+import { Plus, Building2, MapPin, DollarSign, ChevronRight, Edit2, Trash2, Home, Layers, Building, Eye, User, Save, Globe, Mail, Phone, FileText, Tag, Percent, Calendar, Clock, Gift, Paintbrush, Image as ImageIcon, LogOut, Settings, Menu, X, Palette, Bell, Shield, Lock, Headphones, Smartphone, MessageSquare, Users, Briefcase, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 import BannerEditor from "@/components/BannerEditor"
 import { ImageUpload } from "@/components/ui/image-upload"
 import { InventoryView } from "@/components/builder/inventory/inventory-view"
@@ -55,6 +56,13 @@ function DashboardContent() {
   const router = useRouter()
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isSavingProfile, setIsSavingProfile] = useState(false)
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: ""
+  })
   const [properties, setProperties] = useState<Property[]>([])
   const [offers, setOffers] = useState<Offer[]>([])
   const [showAddOffer, setShowAddOffer] = useState(false)
@@ -234,52 +242,96 @@ function DashboardContent() {
   })
 
   useEffect(() => {
-    const savedProfile = localStorage.getItem("builderProfile")
-    if (savedProfile) {
-      setProfile(JSON.parse(savedProfile))
-    } else if (currentUser) {
-      // Auto-fill from currentUser if no profile exists
-      // Construct address from multiple fields if available
-      const fullAddress = [
-        currentUser.address,
-        currentUser.city,
-        currentUser.state
-      ].filter(Boolean).join(", ")
+    if (!currentUser) return;
 
-      setProfile(prev => ({
-        ...prev,
-        companyName: currentUser.companyName || prev.companyName,
-        developerName: currentUser.developerName || prev.developerName,
-        email: currentUser.email || prev.email,
-        phone: currentUser.phone || prev.phone,
-        address: fullAddress || prev.address,
-        reraNumber: currentUser.reraNumber || prev.reraNumber,
-        website: currentUser.website || prev.website,
-        logo: currentUser.logo || prev.logo,
-      }))
-    }
+    // Profile data lives inside currentUser.profile (from User model schema)
+    const p = currentUser.profile || {};
+
+    // Construct address from multiple fields if available
+    const fullAddress = [
+      p.address,
+      p.city,
+      p.state
+    ].filter(Boolean).join(", ");
+
+    setProfile({
+      companyName: p.companyName || "",
+      developerName: p.developerName || "",
+      email: currentUser.email || p.email || "",
+      phone: p.phone || "",
+      address: fullAddress || "",
+      description: p.description || "",
+      reraNumber: p.reraNumber || "",
+      website: p.website || "",
+      logo: p.logo || "",
+    });
   }, [currentUser])
 
-  const handleSaveProfile = () => {
-    // 1. Save to builderProfile (Profile State)
-    localStorage.setItem("builderProfile", JSON.stringify(profile))
+  const handleSaveProfile = async () => {
+    try {
+      const res = await fetch("/api/auth/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName: profile.companyName,
+          developerName: profile.developerName,
+          phone: profile.phone,
+          address: profile.address,
+          description: profile.description,
+          reraNumber: profile.reraNumber,
+          website: profile.website,
+          logo: profile.logo,
+        }),
+      });
 
-    // 2. Update currentUser session
-    const updatedUser = { ...currentUser, ...profile }
-    setCurrentUser(updatedUser)
-    localStorage.setItem("currentUser", JSON.stringify(updatedUser))
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentUser(data.user);
+        toast.success("Profile saved successfully!");
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        toast.error(errData.error || "Failed to save profile");
+      }
+    } catch (error) {
+      console.error("Error saving profile:", error);
+      toast.error("An error occurred while saving profile");
+    } finally {
+      setIsSavingProfile(false);
+    }
+  }
 
-    // 3. Update in registeredUsers "Database"
-    const allUsers = JSON.parse(localStorage.getItem("registeredUsers") || "[]")
-    const userIndex = allUsers.findIndex((u: any) => u.email === currentUser.email) // Assuming email is unique/stable identifier or use ID if available
-
-    if (userIndex !== -1) {
-      allUsers[userIndex] = { ...allUsers[userIndex], ...profile }
-      localStorage.setItem("registeredUsers", JSON.stringify(allUsers))
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error("New passwords do not match");
+      return;
     }
 
-    alert("Profile saved successfully!")
-    setActiveTab("properties")
+    setIsSavingProfile(true);
+    try {
+      const res = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword,
+        }),
+      });
+
+      if (res.ok) {
+        toast.success("Password changed successfully!");
+        setIsChangingPassword(false);
+        setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        toast.error(errData.error || "Failed to change password");
+      }
+    } catch (error) {
+      console.error("Error changing password:", error);
+      toast.error("An error occurred. Please try again.");
+    } finally {
+      setIsSavingProfile(false);
+    }
   }
 
   // Offer CRUD functions - SIMPLIFIED
@@ -406,8 +458,8 @@ function DashboardContent() {
         <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           {/* Branding */}
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 flex items-center justify-center relative">
-              <img src="/astronix-logo.png" alt="Astronix Logo" className="w-full h-full object-contain" />
+            <div className="w-12 h-12 flex-shrink-0 flex items-center justify-center relative rounded-full bg-[#050b18] border border-slate-700/50 shadow-xl overflow-hidden group transition-all duration-300 hover:border-blue-500/40">
+              <img src="/astronix-logo.png" alt="Astronix Logo" className="w-full h-full object-cover rounded-full transition-transform duration-500 group-hover:scale-110" />
             </div>
             <div>
               <h1 className="text-xl font-bold text-slate-900 dark:text-white leading-tight">Astronix Realty Mandate</h1>
@@ -487,14 +539,14 @@ function DashboardContent() {
         <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
           <div className="flex items-center gap-3 mb-3 px-2">
             <div className={`relative w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center border-2 border-white dark:border-slate-600 shadow-sm overflow-hidden`}>
-              {currentUser?.logo ? (
-                <Image src={currentUser.logo} alt="Builder Logo" fill className="object-cover" unoptimized />
+              {(currentUser?.profile?.logo || profile.logo) ? (
+                <Image src={currentUser?.profile?.logo || profile.logo} alt="Mandate Logo" fill className="object-cover" unoptimized />
               ) : (
                 <User className="h-5 w-5 text-slate-500 dark:text-slate-300" />
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{currentUser?.companyName || "Mandate Partner"}</p>
+              <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{currentUser?.profile?.companyName || profile.companyName || "Mandate Partner"}</p>
               <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{currentUser?.email || "mandate@astronix.com"}</p>
             </div>
           </div>
@@ -1372,7 +1424,7 @@ function DashboardContent() {
                     <TabsTrigger value="preferences" className="flex-1 md:w-48 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-950 data-[state=active]:shadow-sm px-4 py-2">System Preferences</TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="profile" className="focus-visible:outline-none animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
+                  <TabsContent value="profile" className="focus-visible:outline-none animate-in fade-in duration-300">
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                       {/* Left Col - Avatar & Basic */}
                       <div className="lg:col-span-1 space-y-6">
@@ -1514,10 +1566,14 @@ function DashboardContent() {
                             <div className="pt-6 border-t border-slate-200 dark:border-slate-800 mt-8 flex justify-end">
                               <button
                                 onClick={handleSaveProfile}
-                                className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+                                disabled={isSavingProfile}
+                                className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
-                                <Save className="h-5 w-5" />
-                                Save Profile
+                                {isSavingProfile ? (
+                                  <><Loader2 className="h-5 w-5 animate-spin" /> Saving...</>
+                                ) : (
+                                  <><Save className="h-5 w-5" /> Save Profile</>
+                                )}
                               </button>
                             </div>
                           </div>
@@ -1526,7 +1582,7 @@ function DashboardContent() {
                     </div>
                   </TabsContent>
 
-                  <TabsContent value="preferences" className="focus-visible:outline-none animate-in fade-in-50 slide-in-from-bottom-2 duration-300">
+                  <TabsContent value="preferences" className="focus-visible:outline-none animate-in fade-in duration-300">
                     <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
                       {/* Appearance */}
                       <div className="p-6 border-b border-slate-100 dark:border-slate-800">
@@ -1610,7 +1666,12 @@ function DashboardContent() {
                                 <p className="text-xs text-slate-500">Last changed 3 months ago</p>
                               </div>
                             </div>
-                            <button className="text-sm px-3 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700">Change</button>
+                            <button
+                                onClick={() => setIsChangingPassword(true)}
+                                className="text-sm px-3 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                              >
+                                Change
+                              </button>
                           </div>
 
                           <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
@@ -1654,6 +1715,77 @@ function DashboardContent() {
           />
         )
       }
+
+      {/* Password Change Modal */}
+      {isChangingPassword && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Change Password</h3>
+              <button onClick={() => setIsChangingPassword(false)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors">
+                <X className="h-5 w-5 text-slate-500" />
+              </button>
+            </div>
+
+            <form onSubmit={handlePasswordChange} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Current Password</label>
+                <input
+                  type="password"
+                  required
+                  value={passwordData.currentPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  placeholder="••••••••"
+                />
+              </div>
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">New Password</label>
+                <input
+                  type="password"
+                  required
+                  value={passwordData.newPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  placeholder="Min 8 characters"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Confirm New Password</label>
+                <input
+                  type="password"
+                  required
+                  value={passwordData.confirmPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  placeholder="••••••••"
+                />
+              </div>
+
+              <div className="pt-4 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsChangingPassword(false)}
+                  className="flex-1 px-4 py-2.5 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-medium rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingProfile}
+                  className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-all shadow-lg hover:shadow-xl disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isSavingProfile ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</>
+                  ) : (
+                    "Update Password"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div >
   )
 }
