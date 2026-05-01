@@ -52,7 +52,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // Reconstruct the split documents back into standard WizardState for editing
     // We do this if NOT draft, OR if it's a draft that was cloned (has publishedId) but has empty details.
-    const isRecNeeded = finalProperty.status !== "draft" || (finalProperty.publishedId && (!finalProperty.details?.projects || finalProperty.details.projects.length === 0));
+    const isRecNeeded = (finalProperty.status === "published" || finalProperty.status === "archived") || (finalProperty.publishedId && (!finalProperty.details?.projects || finalProperty.details.projects.length === 0));
 
     if (isRecNeeded) {
       let wizardState: any = {

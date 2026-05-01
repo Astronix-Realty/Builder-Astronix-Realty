@@ -930,7 +930,7 @@ export function UnitFlowForm({
     return (
         <div className="space-y-4">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid grid-cols-4 w-full h-14 bg-gray-100/50 p-1.5 rounded-2xl mb-8">
+                <TabsList className="grid grid-cols-3 w-full h-14 bg-gray-100/50 p-1.5 rounded-2xl mb-8">
                     <TabsTrigger value="pricing" className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-[#1A3C8C] gap-2">
                         <Settings2 className="w-4 h-4" />
                         <div className="flex flex-col items-start leading-none">
@@ -950,13 +950,6 @@ export function UnitFlowForm({
                         <div className="flex flex-col items-start leading-none">
                             <span className="text-[10px] uppercase font-black opacity-50">Section 3</span>
                             <span className="text-xs font-bold">Group Blueprints</span>
-                        </div>
-                    </TabsTrigger>
-                    <TabsTrigger value="brochure" className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-[#1A3C8C] gap-2">
-                        <Ruler className="w-4 h-4" />
-                        <div className="flex flex-col items-start leading-none">
-                            <span className="text-[10px] uppercase font-black opacity-50">Section 4</span>
-                            <span className="text-xs font-bold">Media & Assets</span>
                         </div>
                     </TabsTrigger>
                 </TabsList>
@@ -1709,53 +1702,59 @@ export function UnitFlowForm({
                             </>
                         )}
                     </div>
-                </TabsContent>
 
-                {/* ── PART D: MEDIA & ASSETS ── */}
-                <TabsContent value="brochure" className="space-y-16 focus-visible:outline-none">
-                    <Section id="marketing" title="Marketing Assets" icon={FileText} openIds={openIds} setOpenIds={setOpenIds}>
-                        <Grid cols={3}>
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Unit Hero Image</label>
-                                <AboutImageUpload 
-                                    value={data.heroImage || ''} 
-                                    onChange={v => updateData({ heroImage: v })} 
-                                    title="Upload Hero Image" 
-                                    description="Main photo for the unit banner" 
-                                />
+                    <div className="mt-24 pt-16 border-t-2 border-dashed border-gray-100">
+                        <div className="flex items-center gap-4 mb-10">
+                            <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center border border-blue-100">
+                                <FileText className="w-6 h-6 text-[#1A3C8C]" />
                             </div>
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">2D Floor Plan</label>
-                                <AboutImageUpload 
-                                    value={data.floorPlan2DUrl || ''} 
-                                    onChange={v => updateData({ floorPlan2DUrl: v })} 
-                                    title="Upload 2D Plan" 
-                                    description="High quality 2D floor plan layout" 
-                                />
+                            <div>
+                                <h3 className="text-2xl font-black text-[#1A3C8C] leading-none mb-1">Marketing Assets</h3>
+                                <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">Global Tower / Project Media</p>
                             </div>
-                            <div className="flex flex-col gap-2">
-                                <label className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">3D Isometric Floor Plan</label>
-                                <AboutImageUpload 
-                                    value={data.floorPlan3DUrl || ''} 
-                                    onChange={v => updateData({ floorPlan3DUrl: v })} 
-                                    title="Upload 3D Plan" 
-                                    description="Isometric 3D layout view" 
-                                />
-                            </div>
-                        </Grid>
-
-                        <SectionTitle title="Photo Gallery (Multiple images)" />
-                        <div className="mt-4">
-                            <GalleryUpload
-                                images={data.galleryImages || []}
-                                onChange={urls => updateData({ galleryImages: urls })}
-                                max={20}
-                            />
                         </div>
 
+                        <Section id="marketing" title="Marketing Assets" icon={FileText} openIds={openIds} setOpenIds={setOpenIds}>
+                            <Grid cols={3}>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Unit Hero Image</label>
+                                    <AboutImageUpload 
+                                        value={data.heroImage || ''} 
+                                        onChange={v => updateData({ heroImage: v })} 
+                                        title="Upload Hero Image" 
+                                        description="Main photo for the unit banner" 
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">2D Floor Plan</label>
+                                    <AboutImageUpload 
+                                        value={data.floorPlan2DUrl || ''} 
+                                        onChange={v => updateData({ floorPlan2DUrl: v })} 
+                                        title="Upload 2D Plan" 
+                                        description="High quality 2D floor plan layout" 
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">3D Isometric Floor Plan</label>
+                                    <AboutImageUpload 
+                                        value={data.floorPlan3DUrl || ''} 
+                                        onChange={v => updateData({ floorPlan3DUrl: v })} 
+                                        title="Upload 3D Plan" 
+                                        description="Isometric 3D layout view" 
+                                    />
+                                </div>
+                            </Grid>
 
-                    </Section>
-
+                            <SectionTitle title="Photo Gallery (Multiple images)" />
+                            <div className="mt-4">
+                                <GalleryUpload
+                                    images={data.galleryImages || []}
+                                    onChange={urls => updateData({ galleryImages: urls })}
+                                    max={20}
+                                />
+                            </div>
+                        </Section>
+                    </div>
                 </TabsContent>
             </Tabs>
 
