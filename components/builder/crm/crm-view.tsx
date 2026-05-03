@@ -275,9 +275,9 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
 
                             {/* Cards Area */}
                             <div className="p-2 flex-1 overflow-y-auto space-y-2 min-h-[100px]">
-                                {leads.filter(l => l.status === col).map(lead => (
+                                {leads.filter(l => l.status === col).map((lead, idx) => (
                                     <div
-                                        key={lead.id}
+                                        key={lead.id || `lead-${idx}`}
                                         draggable="true"
                                         onDragStart={(e) => handleDragStart(e, lead.id)}
                                         onClick={() => openProfile(lead.id)}
@@ -469,10 +469,10 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                             <SelectValue placeholder="Available Unit" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {availableUnits.map((u: any) => (
-                                                <SelectItem key={u.id} value={u.id}>{u.unitNumber} ({u.configuration})</SelectItem>
+                                            {availableUnits.map((u: any, idx: number) => (
+                                                <SelectItem key={u.id || `unit-${idx}`} value={u.id || `unit-${idx}`}>{u.unitNumber} ({u.configuration})</SelectItem>
                                             ))}
-                                            {availableUnits.length === 0 && <SelectItem value="none" disabled>No Units Available</SelectItem>}
+                                            {availableUnits.length === 0 && <SelectItem key="none" value="none" disabled>No Units Available</SelectItem>}
                                         </SelectContent>
                                     </Select>
 
@@ -535,8 +535,8 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {leads.map(lead => (
-                        <TableRow key={lead.id} className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900" onClick={() => openProfile(lead.id)}>
+                    {leads.map((lead, idx) => (
+                        <TableRow key={lead.id || `lead-row-${idx}`} className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900" onClick={() => openProfile(lead.id)}>
                             <TableCell className="font-medium">
                                 <div className="flex items-center gap-2">
                                     {lead.name}

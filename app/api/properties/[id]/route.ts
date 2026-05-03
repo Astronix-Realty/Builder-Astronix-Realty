@@ -124,7 +124,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           const towerId = rest.id || `tower-${t._id}`;
           if (unitConfig) wizardState.towerUnitConfigs.push({ ...unitConfig, towerId });
           towerDbIds.push(t._id.toString());
-          return { ...rest, id: towerId, _dbId: t._id.toString() };
+          return { ...rest, id: towerId, _dbId: t._id.toString(), projectId: t.parentId?.toString() };
         });
 
       } else if (finalProperty.type === 'project') {
@@ -138,7 +138,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           const towerId = rest.id || `tower-${t._id}`;
           if (unitConfig) wizardState.towerUnitConfigs.push({ ...unitConfig, towerId });
           towerDbIds.push(t._id.toString());
-          return { ...rest, id: towerId, _dbId: t._id.toString() };
+          return { ...rest, id: towerId, _dbId: t._id.toString(), projectId: t.parentId?.toString() };
         });
 
       } else if (finalProperty.type === 'tower') {
@@ -158,10 +158,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           towerId: (u as any).towerId?.toString(),
           projectId: (u as any).projectId?.toString(),
           unitNumber: u.unitNumber,
-          floor: u.floorNumber,
-          type: u.configuration,
-          carpetArea: u.area,
+          floorNumber: u.floorNumber,
+          configuration: u.configuration,
+          area: u.area,
           price: u.price,
+          ratePerSqft: u.ratePerSqft,
           facing: u.facing,
           status: u.status
         }));

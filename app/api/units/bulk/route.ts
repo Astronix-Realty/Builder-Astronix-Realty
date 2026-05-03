@@ -56,3 +56,39 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Failed to create units in bulk" }, { status: 500 });
   }
 }
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const token = getTokenFromRequest(req);
+    if (!token) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+    const decoded = verifyToken(token);
+    if (!decoded) return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+
+    const body = await req.json();
+    const { unitIds, status } = body;
+
+    if (!unitIds || !Array.isArray(unitIds) || unitIds.length === 0) {
+      return NextResponse.json({ error: "No unit IDs provided for bulk update" }, { status: 400 });
+    }
+
+    await dbConnect();
+
+    // Use bulk update
+    const result = await Unit.updateMany(
+      { 
+        $or: [
+          { _id: { $in: unitIds } },
+          { originalId: { $in: unitIds } }
+        ],
+        builderId: decoded.userId 
+      },
+      { $set: { status, updatedBy: decoded.userId } }
+    );
+
+    return NextResponse.json({ success: true, count: result.modifiedCount }, { status: 200 });
+  } catch (error: any) {
+    console.error("Bulk update units error:", error);
+    return NextResponse.json({ error: "Failed to update units in bulk" }, { status: 500 });
+  }
+}

@@ -40,9 +40,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 // --- Types ---
 
 interface SavedProperty {
+    _id: string
     id: string
     flowType: "township" | "project" | "tower"
-    data: {
+    name: string
+    details: {
         township?: any
         projects?: any[]
         towers: any[]
@@ -61,6 +63,7 @@ interface Unit {
     status: "available" | "sold" | "blocked" | "reserved"
     towerId: string
     area?: number
+    ratePerSqft?: number
 
     // Customer / Booking Details
     customerName?: string
@@ -75,7 +78,6 @@ interface InventoryViewProps {
 }
 
 export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
-    const storagePrefix = userRole === "mandate" ? "mandate_" : ""
     const [properties, setProperties] = useState<SavedProperty[]>([])
     const [selectedPropertyId, setSelectedPropertyId] = useState<string>("")
     const [selectedProjectId, setSelectedProjectId] = useState<string>("all")
@@ -111,13 +113,26 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
         loadProperties()
     }, [])
 
-    const loadProperties = () => {
+    useEffect(() => {
+        if (selectedPropertyId) {
+            fetchFullProperty(selectedPropertyId)
+        }
+    }, [selectedPropertyId])
+
+    const loadProperties = async () => {
         setLoading(true)
         try {
-            const saved = JSON.parse(localStorage.getItem(`${storagePrefix}properties`) || "[]")
-            setProperties(saved)
-            if (saved.length > 0) {
-                setSelectedPropertyId(saved[0].id)
+            const res = await fetch("/api/properties")
+            if (res.ok) {
+                const data = await res.json()
+                setProperties(data.properties || [])
+                
+                // If a property is already selected, refresh its full details too
+                if (selectedPropertyId) {
+                    fetchFullProperty(selectedPropertyId)
+                } else if (data.properties?.length > 0) {
+                    setSelectedPropertyId(data.properties[0]._id || data.properties[0].id)
+                }
             }
         } catch (e) {
             console.error("Failed to load properties", e)
@@ -126,25 +141,23 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
         }
     }
 
-    // Save changes to localStorage
-    const updatePropertyData = (propertyId: string, updatedUnits: Unit[]) => {
-        const updatedProperties = properties.map((p) => {
-            if (p.id === propertyId) {
-                return {
-                    ...p,
-                    data: {
-                        ...p.data,
-                        generatedUnits: updatedUnits,
-                    },
-                }
+    const fetchFullProperty = async (id: string) => {
+        if (!id) return
+        try {
+            const res = await fetch(`/api/properties/${id}`)
+            if (res.ok) {
+                const data = await res.json()
+                // Update the specific property in the list with its full details
+                setProperties(prev => prev.map(p => 
+                    (p.id === id || (p as any)._id === id) ? data.property : p
+                ))
             }
-            return p
-        })
-
-        setProperties(updatedProperties)
-        localStorage.setItem(`${storagePrefix}properties`, JSON.stringify(updatedProperties))
+        } catch (e) {
+            console.error("Failed to fetch full property", e)
+        }
     }
 
+    // Save changes to backend
     const handleUnitClick = (unit: Unit) => {
         if (isSelectionMode) {
             setSelectedUnitIds(prev =>
@@ -162,44 +175,58 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
         }
     }
 
-    const handleSingleStatusChange = (status: Unit['status']) => {
+    const handleSingleStatusChange = async (status: Unit['status']) => {
         if (!editingUnit || !currentProperty) return
 
-        const updatedUnits = currentProperty.data.generatedUnits.map((u: Unit) => {
-            if (u.id === editingUnit.id) {
-                return {
-                    ...u,
+        try {
+            const res = await fetch(`/api/units/${editingUnit.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
                     status,
-                    // If Sold/Reserved, save customer details. Else clear them?
-                    // Typically we keep record, but for availability reset we clear.
-                    customerName: status === "available" ? undefined : customerForm.name || u.customerName,
-                    customerPhone: status === "available" ? undefined : customerForm.phone || u.customerPhone,
-                    bookingAmount: status === "available" ? undefined : parseFloat(customerForm.amount) || u.bookingAmount,
-                    bookingDate: status === "available" ? undefined : (status === "sold" || status === "reserved" ? new Date().toISOString() : u.bookingDate)
-                }
-            }
-            return u
-        })
+                    customerName: status === "available" ? "" : customerForm.name || editingUnit.customerName,
+                    customerPhone: status === "available" ? "" : customerForm.phone || editingUnit.customerPhone,
+                    bookingAmount: status === "available" ? 0 : parseFloat(customerForm.amount) || editingUnit.bookingAmount,
+                    bookingDate: status === "available" ? null : (status === "sold" || status === "reserved" ? new Date().toISOString() : editingUnit.bookingDate)
+                })
+            })
 
-        updatePropertyData(currentProperty.id, updatedUnits)
-        setEditingUnit(null)
+            if (res.ok) {
+                // Refresh data
+                fetchFullProperty(selectedPropertyId)
+                setEditingUnit(null)
+            }
+        } catch (e) {
+            console.error("Failed to update unit status", e)
+        }
     }
 
-    const handleBulkStatusChange = (status: Unit['status']) => {
+    const handleBulkStatusChange = async (status: Unit['status']) => {
         if (!currentProperty || selectedUnitIds.length === 0) return
 
         if (!confirm(`Are you sure you want to mark ${selectedUnitIds.length} units as ${status}?`)) return
 
-        const updatedUnits = currentProperty.data.generatedUnits.map((u: Unit) =>
-            selectedUnitIds.includes(u.id) ? { ...u, status } : u
-        )
+        try {
+            const res = await fetch(`/api/units/bulk`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    unitIds: selectedUnitIds,
+                    status
+                })
+            })
 
-        updatePropertyData(currentProperty.id, updatedUnits)
-        setSelectedUnitIds([])
-        setIsSelectionMode(false)
+            if (res.ok) {
+                fetchFullProperty(selectedPropertyId)
+                setSelectedUnitIds([])
+                setIsSelectionMode(false)
+            }
+        } catch (e) {
+            console.error("Failed to update bulk status", e)
+        }
     }
 
-    const handleTowerPriceUpdate = () => {
+    const handleTowerPriceUpdate = async () => {
         if (!currentProperty || selectedTowerId === "all") return
 
         const rate = parseFloat(towerRateForm.rate)
@@ -208,33 +235,32 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
             return
         }
 
-        const updatedUnits = currentProperty.data.generatedUnits.map((u: Unit) => {
-            if (u.towerId === selectedTowerId) {
-                // Calculation: Price = Area * Rate
-                // If area is not available, we can't update price accurately, but usually it exists from builder
-                const area = u.area || 1000 // fallback
-                return {
-                    ...u,
-                    price: Math.round(area * rate),
-                    ratePerSqft: rate
-                }
-            }
-            return u
-        })
+        try {
+            const res = await fetch(`/api/towers/${selectedTowerId}/pricing`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ratePerSqft: rate })
+            })
 
-        updatePropertyData(currentProperty.id, updatedUnits)
-        setIsPricingDialogOpen(false)
-        setTowerRateForm({ rate: "", applyToAllConfigurations: true })
-        alert(`Successfully updated all units in tower to ₹${rate}/sqft`)
+            if (res.ok) {
+                fetchFullProperty(selectedPropertyId)
+                setIsPricingDialogOpen(false)
+                setTowerRateForm({ rate: "", applyToAllConfigurations: true })
+                alert(`Successfully updated all units in tower to ₹${rate}/sqft`)
+            }
+        } catch (e) {
+            console.error("Failed to update tower pricing", e)
+        }
     }
 
     // --- Derived Data ---
 
-    const currentProperty = properties.find((p) => p.id === selectedPropertyId)
+    const currentProperty = properties.find((p: any) => (p._id || p.id) === selectedPropertyId)
 
     // Hierarchy Options
-    const projects = currentProperty?.data.projects || []
-    const towers = currentProperty?.data.towers || []
+    const data = currentProperty?.details || {}
+    const projects = data.projects || []
+    const towers = data.towers || []
 
     // Filtered Towers based on Project Selection
     const visibleTowers = selectedProjectId === "all"
@@ -242,7 +268,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
         : towers.filter((t: any) => t.projectId === selectedProjectId)
 
     // Units Processing
-    const allUnits = currentProperty?.data.generatedUnits || []
+    const allUnits = data.generatedUnits || []
 
     const filteredUnits = allUnits.filter((unit: Unit) => {
         // Hierarchy
@@ -301,13 +327,13 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                             <SelectValue placeholder="Select Property" />
                         </SelectTrigger>
                         <SelectContent>
-                            {properties.map(p => {
-                                const data = p.data
-                                const name = data.township?.name ||
+                            {properties.map((p: any, idx: number) => {
+                                const data = p.details || {}
+                                const name = p.name || data.township?.name ||
                                     data.projects?.[0]?.name ||
                                     data.towers?.[0]?.name ||
-                                    `Property ${p.id.slice(-4)}`
-                                return <SelectItem key={p.id} value={p.id}>{name}</SelectItem>
+                                    `Property ${p._id?.slice(-4) || idx}`
+                                return <SelectItem key={p._id || idx} value={p._id || `prop-${idx}`}>{name}</SelectItem>
                             })}
                         </SelectContent>
                     </Select>
@@ -352,9 +378,9 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                             <SelectValue placeholder="All Towers" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="all">All Towers</SelectItem>
-                                            {visibleTowers.map((tw: any) => (
-                                                <SelectItem key={tw.id} value={tw.id}>{tw.name}</SelectItem>
+                                            <SelectItem key="all" value="all">All Towers</SelectItem>
+                                            {visibleTowers.map((tw: any, idx: number) => (
+                                                <SelectItem key={tw.id || `tower-${idx}`} value={tw.id || `tower-${idx}`}>{tw.name}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
@@ -383,9 +409,9 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                             <SelectValue placeholder="All Configs" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="all">Check All</SelectItem>
-                                            {Array.from(new Set(allUnits.map((u: any) => u.configuration))).map((cfg: any) => (
-                                                <SelectItem key={cfg} value={cfg}>{cfg}</SelectItem>
+                                            <SelectItem key="all" value="all">Check All</SelectItem>
+                                            {Array.from(new Set(allUnits.map((u: any) => u.configuration).filter(Boolean))).map((cfg: any, idx: number) => (
+                                                <SelectItem key={cfg || idx} value={cfg || `cfg-${idx}`}>{cfg}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
@@ -505,8 +531,8 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                         }, {} as Record<number, Unit[]>)
                                     )
                                         .sort(([a], [b]) => Number(b) - Number(a)) // Show highest floor at top
-                                        .map(([floor, floorUnits]: [string, any]) => (
-                                            <div key={floor} className="space-y-3">
+                                        .map(([floor, floorUnits]: [string, any], idx: number) => (
+                                            <div key={floor || idx} className="space-y-3">
                                                 <div className="flex items-center gap-3">
                                                     <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
                                                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-white dark:bg-slate-900 px-3 py-1 rounded-full border border-slate-100 dark:border-slate-800">
@@ -516,7 +542,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                                 </div>
 
                                                 <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-3">
-                                                    {floorUnits.map((unit: any) => {
+                                                    {floorUnits.map((unit: any, idx: number) => {
                                                         const status = unit.status || "available"
                                                         const isSelected = selectedUnitIds.includes(unit.id)
 
@@ -542,9 +568,11 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                                             colorClass += " ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-slate-950 scale-95"
                                                         }
 
+                                                        const unitKey = unit.id || `${unit.towerId}-${unit.unitNumber}-${idx}`
+
                                                         return (
                                                             <button
-                                                                key={unit.id}
+                                                                key={unitKey}
                                                                 onClick={() => handleUnitClick(unit)}
                                                                 className={`${baseClass} ${colorClass}`}
                                                             >
@@ -613,7 +641,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                     onClick={() => handleSingleStatusChange("available")}
                                 >
                                     <CheckCircle2 className="h-4 w-4 mr-2" />
-                                    Mark Available
+                                    Available
                                 </Button>
                                 <Button
                                     disabled={editingUnit?.status === "blocked"}
@@ -622,15 +650,24 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                     onClick={() => handleSingleStatusChange("blocked")}
                                 >
                                     <Lock className="h-4 w-4 mr-2" />
-                                    Block Unit
+                                    Block
+                                </Button>
+                                <Button
+                                    disabled={editingUnit?.status === "reserved"}
+                                    variant="outline"
+                                    className="border-amber-500 text-amber-600 hover:bg-amber-50"
+                                    onClick={() => handleSingleStatusChange("reserved")}
+                                >
+                                    <Clock className="h-4 w-4 mr-2" />
+                                    Reserve
                                 </Button>
                                 <Button
                                     disabled={editingUnit?.status === "sold"}
-                                    className="col-span-2 bg-red-600 hover:bg-red-700 text-white"
+                                    className="bg-red-600 hover:bg-red-700 text-white"
                                     onClick={() => handleSingleStatusChange("sold")}
                                 >
                                     <CircleDollarSign className="h-4 w-4 mr-2" />
-                                    Mark as Sold
+                                    Sold
                                 </Button>
                             </div>
 
