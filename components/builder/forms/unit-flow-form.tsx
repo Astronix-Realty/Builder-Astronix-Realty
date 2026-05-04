@@ -2098,58 +2098,7 @@ export function UnitFlowForm({
                         )}
                     </div>
 
-                    <div className="mt-24 pt-16 border-t-2 border-dashed border-gray-100 dark:border-slate-800">
-                        <div className="flex items-center gap-4 mb-10">
-                            <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center border border-blue-100">
-                                <FileText className="w-6 h-6 text-[#1A3C8C] dark:text-blue-400" />
-                            </div>
-                            <div>
-                                <h3 className="text-2xl font-black text-[#1A3C8C] dark:text-blue-400 leading-none mb-1">Marketing Assets</h3>
-                                <p className="text-xs text-gray-400 dark:text-slate-500 font-bold uppercase tracking-widest">Global Tower / Project Media</p>
-                            </div>
-                        </div>
 
-                        <Section id="marketing" title="Marketing Assets" icon={FileText} openIds={openIds} setOpenIds={setOpenIds}>
-                            <Grid cols={3}>
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-slate-400 tracking-wider">Unit Hero Image</label>
-                                    <AboutImageUpload 
-                                        value={data.heroImage || ''} 
-                                        onChange={v => updateData({ heroImage: v })} 
-                                        title="Upload Hero Image" 
-                                        description="Main photo for the unit banner" 
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-slate-400 tracking-wider">2D Floor Plan</label>
-                                    <AboutImageUpload 
-                                        value={data.floorPlan2DUrl || ''} 
-                                        onChange={v => updateData({ floorPlan2DUrl: v })} 
-                                        title="Upload 2D Plan" 
-                                        description="High quality 2D floor plan layout" 
-                                    />
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-slate-400 tracking-wider">3D Isometric Floor Plan</label>
-                                    <AboutImageUpload 
-                                        value={data.floorPlan3DUrl || ''} 
-                                        onChange={v => updateData({ floorPlan3DUrl: v })} 
-                                        title="Upload 3D Plan" 
-                                        description="Isometric 3D layout view" 
-                                    />
-                                </div>
-                            </Grid>
-
-                            <SectionTitle title="Photo Gallery (Multiple images)" />
-                            <div className="mt-4">
-                                <GalleryUpload
-                                    images={data.galleryImages || []}
-                                    onChange={urls => updateData({ galleryImages: urls })}
-                                    max={20}
-                                />
-                            </div>
-                        </Section>
-                    </div>
                 </TabsContent>
             </Tabs>
 
