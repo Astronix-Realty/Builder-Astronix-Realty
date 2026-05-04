@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Unit from "@/models/Unit";
 import { getTokenFromRequest, verifyToken } from "@/lib/auth";
+import { aggregateTowerPricing } from "@/lib/services/pricing-sync";
+
 
 export async function POST(req: NextRequest) {
   try {
@@ -50,7 +52,15 @@ export async function POST(req: NextRequest) {
       console.log(`[POST /api/units/bulk] inserted ${insertedUnits.length} units.`);
     }
 
+    // Trigger pricing aggregation for all unique towers affected
+    const towerIds = Array.from(new Set(insertedUnits.map(u => u.towerId?.toString()).filter(Boolean)));
+    // Fire and forget so we don't block the response
+    Promise.allSettled(towerIds.map(id => aggregateTowerPricing(id))).catch(err => 
+      console.error("Error triggering pricing aggregation after bulk insert:", err)
+    );
+
     return NextResponse.json({ success: true, count: insertedUnits.length }, { status: 201 });
+
   } catch (error: any) {
     console.error("Bulk create units error:", error);
     return NextResponse.json({ error: "Failed to create units in bulk" }, { status: 500 });
@@ -86,7 +96,25 @@ export async function PATCH(req: NextRequest) {
       { $set: { status, updatedBy: decoded.userId } }
     );
 
+    // Trigger pricing aggregation
+    // We need to find which towers were affected.
+    const updatedUnits = await Unit.find(
+      { 
+        $or: [
+          { _id: { $in: unitIds } },
+          { originalId: { $in: unitIds } }
+        ],
+        builderId: decoded.userId 
+      }
+    ).select("towerId").lean();
+
+    const towerIds = Array.from(new Set(updatedUnits.map(u => u.towerId?.toString()).filter(Boolean)));
+    Promise.allSettled(towerIds.map(id => aggregateTowerPricing(id))).catch(err => 
+      console.error("Error triggering pricing aggregation after bulk update:", err)
+    );
+
     return NextResponse.json({ success: true, count: result.modifiedCount }, { status: 200 });
+
   } catch (error: any) {
     console.error("Bulk update units error:", error);
     return NextResponse.json({ error: "Failed to update units in bulk" }, { status: 500 });

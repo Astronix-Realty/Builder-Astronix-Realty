@@ -118,23 +118,23 @@ function Section({
 }) {
     const isOpen = openIds.includes(id)
     return (
-        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <div className="rounded-2xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
             <button type="button"
                 onClick={() => setOpenIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])}
-                className="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
+                className="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-gray-50 dark:bg-slate-800/50 transition-colors"
             >
                 <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-xl bg-orange-50 flex items-center justify-center shrink-0">
                         <Icon className="w-4 h-4 text-orange-600" />
                     </div>
                     <div>
-                        <span className="font-semibold text-gray-900 text-sm">{title}</span>
-                        {description && <p className="text-xs text-gray-500 mt-0.5">{description}</p>}
+                        <span className="font-semibold text-gray-900 dark:text-white text-sm">{title}</span>
+                        {description && <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">{description}</p>}
                     </div>
                 </div>
-                {isOpen ? <ChevronUp className="w-4 h-4 text-gray-400 shrink-0" /> : <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />}
+                {isOpen ? <ChevronUp className="w-4 h-4 text-gray-400 dark:text-slate-500 shrink-0" /> : <ChevronDown className="w-4 h-4 text-gray-400 dark:text-slate-500 shrink-0" />}
             </button>
-            {isOpen && <div className="px-5 pb-5 pt-1 border-t border-gray-100">{children}</div>}
+            {isOpen && <div className="px-5 pb-5 pt-1 border-t border-gray-100 dark:border-slate-800">{children}</div>}
         </div>
     )
 }
@@ -142,11 +142,11 @@ function Section({
 function Field({ label, required, hint, children }: { label: string; required?: boolean; hint?: string; children: React.ReactNode }) {
     return (
         <div className="flex flex-col gap-1.5">
-            <Label className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+            <Label className="text-xs font-semibold text-gray-700 dark:text-slate-300 uppercase tracking-wide">
                 {label}{required && <span className="text-red-500 ml-0.5">*</span>}
             </Label>
             {children}
-            {hint && <p className="text-[11px] text-gray-400">{hint}</p>}
+            {hint && <p className="text-[11px] text-gray-400 dark:text-slate-500">{hint}</p>}
         </div>
     )
 }
@@ -159,9 +159,9 @@ function Grid({ cols = 2, children, className = "" }: { cols?: 1 | 2 | 3 | 4; ch
 function SectionTitle({ title }: { title: string }) {
     return (
         <div className="flex items-center gap-2 mt-5 mb-3">
-            <div className="h-px flex-1 bg-gray-100" />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{title}</span>
-            <div className="h-px flex-1 bg-gray-100" />
+            <div className="h-px flex-1 bg-gray-100 dark:bg-slate-800" />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500">{title}</span>
+            <div className="h-px flex-1 bg-gray-100 dark:bg-slate-800" />
         </div>
     )
 }
@@ -343,16 +343,16 @@ function UnitConfigCard({
     const [openIds, setOpenIds] = useState<string[]>(['unit_setup'])
 
     return (
-        <Card className={`border-2 transition-all duration-300 ${open ? "border-[#1A3C8C] shadow-lg" : "border-gray-100 hover:border-gray-200"}`}>
-            <CardHeader className="py-3 px-4 bg-gray-50/50 border-b border-gray-100">
+        <Card className={`border-2 transition-all duration-300 ${open ? "border-[#1A3C8C] shadow-lg" : "border-gray-100 dark:border-slate-800 hover:border-gray-200 dark:border-slate-700"}`}>
+            <CardHeader className="py-3 px-4 bg-gray-50 dark:bg-slate-800/50/50 border-b border-gray-100 dark:border-slate-800">
                 <div className="flex items-center justify-between cursor-pointer" onClick={() => setOpen(!open)}>
                     <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${open ? "bg-[#1A3C8C] text-white" : "bg-white text-[#1A3C8C] border border-[#1A3C8C]/20"}`}>
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${open ? "bg-[#1A3C8C] dark:bg-blue-600 text-white" : "bg-white dark:bg-slate-900 text-[#1A3C8C] dark:text-blue-400 border border-[#1A3C8C]/20"}`}>
                             {config.type.slice(0, 1)}
                         </div>
                         <div>
-                            <p className="text-sm font-bold text-gray-900 leading-none">{config.type} Variant</p>
-                            <p className="text-[10px] text-gray-400 mt-1">
+                            <p className="text-sm font-bold text-gray-900 dark:text-white leading-none">{config.type} Variant</p>
+                            <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-1">
                                 {config.carpetArea || 0} Sq.Ft • {config.facing || "No Facing"}
                             </p>
                         </div>
@@ -360,22 +360,22 @@ function UnitConfigCard({
                     <div className="flex items-center gap-3">
                         <div className="text-right">
                             <p className="text-xs font-bold text-emerald-600">₹{((config.basePrice || 0) / 100000).toFixed(1)}L</p>
-                            <p className="text-[9px] text-gray-400 uppercase tracking-wider">Flat Cost</p>
+                            <p className="text-[9px] text-gray-400 dark:text-slate-500 uppercase tracking-wider">Flat Cost</p>
                         </div>
                         <button type="button" onClick={(e) => { e.stopPropagation(); onRemove(); }} className="p-1.5 rounded-md hover:bg-red-50 text-red-400">
                             <X className="w-4 h-4" />
                         </button>
-                        {open ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+                        {open ? <ChevronUp className="w-4 h-4 text-gray-400 dark:text-slate-500" /> : <ChevronDown className="w-4 h-4 text-gray-400 dark:text-slate-500" />}
                     </div>
                 </div>
             </CardHeader>
             {open && (
                 <CardContent className="px-4 pb-4 pt-4 [&_input[type=number]::-webkit-inner-spin-button]:appearance-none [&_input[type=number]::-webkit-outer-spin-button]:appearance-none [&_input[type=number]]:[-moz-appearance:textfield]">
                     <Tabs defaultValue="specs" className="w-full">
-                        <TabsList className="grid grid-cols-3 w-full bg-gray-100/50 p-1 mb-6 rounded-xl">
-                            <TabsTrigger value="specs" className="text-xs rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">Specs & Pricing</TabsTrigger>
-                            <TabsTrigger value="canvas" className="text-xs rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">Dream Canvas</TabsTrigger>
-                            <TabsTrigger value="media" className="text-xs rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm">Media & Extras</TabsTrigger>
+                        <TabsList className="grid grid-cols-3 w-full bg-gray-100 dark:bg-slate-800/50 p-1 mb-6 rounded-xl">
+                            <TabsTrigger value="specs" className="text-xs rounded-lg data-[state=active]:bg-white dark:bg-slate-900 data-[state=active]:shadow-sm">Specs & Pricing</TabsTrigger>
+                            <TabsTrigger value="canvas" className="text-xs rounded-lg data-[state=active]:bg-white dark:bg-slate-900 data-[state=active]:shadow-sm">Dream Canvas</TabsTrigger>
+                            <TabsTrigger value="media" className="text-xs rounded-lg data-[state=active]:bg-white dark:bg-slate-900 data-[state=active]:shadow-sm">Media & Extras</TabsTrigger>
                         </TabsList>
 
                         <TabsContent value="specs" className="space-y-6 focus-visible:outline-none">
@@ -749,8 +749,8 @@ function UnitConfigCard({
                                         </Field>
                                     </Grid>
 
-                                    <div className="mt-4 pt-4 border-t border-gray-100">
-                                        <p className="text-[10px] font-bold text-gray-700 uppercase mb-3">Bonus Add-on Rooms</p>
+                                    <div className="mt-4 pt-4 border-t border-gray-100 dark:border-slate-800">
+                                        <p className="text-[10px] font-bold text-gray-700 dark:text-slate-300 uppercase mb-3">Bonus Add-on Rooms</p>
                                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                             {[
                                                 { key: "servantRoom", label: "Servant" },
@@ -763,13 +763,13 @@ function UnitConfigCard({
                                                     <div
                                                         key={key}
                                                         onClick={() => onChange({ [key]: !isSelected } as any)}
-                                                        className={`flex items-center px-3 py-2.5 rounded-lg border cursor-pointer transition-colors ${isSelected ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
+                                                        className={`flex items-center px-3 py-2.5 rounded-lg border cursor-pointer transition-colors ${isSelected ? 'bg-indigo-50 border-indigo-200' : 'bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:bg-slate-800/50'}`}
                                                     >
                                                         <div className="flex items-center gap-2">
-                                                            <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300 bg-white'}`}>
+                                                            <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300 bg-white dark:bg-slate-900'}`}>
                                                                 {isSelected && <Check className="w-3 h-3 text-white" />}
                                                             </div>
-                                                            <span className={`text-[10px] font-bold uppercase ${isSelected ? 'text-indigo-700' : 'text-gray-600'}`}>{label}</span>
+                                                            <span className={`text-[10px] font-bold uppercase ${isSelected ? 'text-indigo-700' : 'text-gray-600 dark:text-slate-400 dark:text-slate-400'}`}>{label}</span>
                                                         </div>
                                                     </div>
                                                 )
@@ -788,7 +788,7 @@ function UnitConfigCard({
                                             value={config.tagline ?? ""}
                                             onChange={e => onChange({ tagline: e.target.value })}
                                             placeholder="e.g. The Pinnacle of Luxury"
-                                            className="bg-white"
+                                            className="bg-white dark:bg-slate-900"
                                         />
                                     </Field>
                                     <Field label="Description">
@@ -796,7 +796,7 @@ function UnitConfigCard({
                                             value={config.description ?? ""}
                                             onChange={e => onChange({ description: e.target.value })}
                                             placeholder="Describe the unique selling point of this unit (e.g. Spacious 3 BHK with double height balcony)..."
-                                            className="min-h-[80px] bg-white resize-none"
+                                            className="min-h-[80px] bg-white dark:bg-slate-900 resize-none"
                                         />
                                     </Field>
                                 </div>
@@ -809,17 +809,17 @@ function UnitConfigCard({
                                 </div>
                                 <div className="space-y-2">
                                     {(config.roomDimensions || []).map(room => (
-                                        <div key={room.id} className="grid grid-cols-4 gap-2 bg-gray-50/50 p-2 rounded-xl group/room">
-                                            <Input value={room.roomName ?? ""} onChange={e => updateRoom(room.id, { roomName: e.target.value })} placeholder="Room Name" className="h-8 text-[11px] bg-white border-0 shadow-sm" />
-                                            <Input value={room.length ?? ""} onChange={e => updateRoom(room.id, { length: e.target.value })} placeholder="Len" className="h-8 text-[11px] bg-white border-0 shadow-sm text-center" />
-                                            <Input value={room.width ?? ""} onChange={e => updateRoom(room.id, { width: e.target.value })} placeholder="Wid" className="h-8 text-[11px] bg-white border-0 shadow-sm text-center" />
+                                        <div key={room.id} className="grid grid-cols-4 gap-2 bg-gray-50 dark:bg-slate-800/50/50 p-2 rounded-xl group/room">
+                                            <Input value={room.roomName ?? ""} onChange={e => updateRoom(room.id, { roomName: e.target.value })} placeholder="Room Name" className="h-8 text-[11px] bg-white dark:bg-slate-900 border-0 shadow-sm" />
+                                            <Input value={room.length ?? ""} onChange={e => updateRoom(room.id, { length: e.target.value })} placeholder="Len" className="h-8 text-[11px] bg-white dark:bg-slate-900 border-0 shadow-sm text-center" />
+                                            <Input value={room.width ?? ""} onChange={e => updateRoom(room.id, { width: e.target.value })} placeholder="Wid" className="h-8 text-[11px] bg-white dark:bg-slate-900 border-0 shadow-sm text-center" />
                                             <div className="flex items-center gap-1">
-                                                <span className="text-[10px] font-bold text-gray-400">FT</span>
+                                                <span className="text-[10px] font-bold text-gray-400 dark:text-slate-500">FT</span>
                                                 <Button variant="ghost" size="sm" onClick={() => removeRoom(room.id)} className="h-6 w-6 p-0 text-red-300 hover:text-red-500 hover:bg-red-50 ml-auto opacity-0 group-hover/room:opacity-100 transition-opacity"><Trash2 className="w-3 h-3" /></Button>
                                             </div>
                                         </div>
                                     ))}
-                                    {(config.roomDimensions || []).length === 0 && <p className="text-[10px] text-gray-400 italic py-2 text-center">No dimensions added yet.</p>}
+                                    {(config.roomDimensions || []).length === 0 && <p className="text-[10px] text-gray-400 dark:text-slate-500 italic py-2 text-center">No dimensions added yet.</p>}
                                 </div>
                             </Section>
 
@@ -849,17 +849,17 @@ function UnitConfigCard({
                                     return (
                                         <>
                                             {/* Top Scoring Header */}
-                                            <div className="flex items-center justify-between mb-6 p-4 rounded-xl border bg-gray-50">
+                                            <div className="flex items-center justify-between mb-6 p-4 rounded-xl border bg-gray-50 dark:bg-slate-800/50">
                                                 <div>
-                                                    <h4 className="text-sm font-bold text-gray-900 mb-1">Overall Vastu Rating</h4>
-                                                    <p className="text-[11px] text-gray-500 max-w-sm">Evaluated based on standard directional sciences for {(config.vastuAnalysis || []).length} plotted zones.</p>
+                                                    <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-1">Overall Vastu Rating</h4>
+                                                    <p className="text-[11px] text-gray-500 dark:text-slate-400 max-w-sm">Evaluated based on standard directional sciences for {(config.vastuAnalysis || []).length} plotted zones.</p>
                                                     {totalPossible > 0 && <span className={`inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase border ${scoreColorClass}`}>{scoreLabel}</span>}
                                                 </div>
                                                 <div className="text-right">
                                                     {totalPossible > 0 ? (
                                                         <div className="flex items-baseline gap-1">
                                                             <span className={`text-4xl font-extrabold tracking-tighter ${scoreColorClass.split(' ')[0]}`}>{overallScore}</span>
-                                                            <span className="text-sm font-bold text-gray-400">/10</span>
+                                                            <span className="text-sm font-bold text-gray-400 dark:text-slate-500">/10</span>
                                                         </div>
                                                     ) : (
                                                         <span className="text-xl font-bold text-gray-300">N/A</span>
@@ -867,7 +867,7 @@ function UnitConfigCard({
                                                 </div>
                                             </div>
 
-                                            <div className="flex items-center justify-between mb-3 border-b border-gray-100 pb-2">
+                                            <div className="flex items-center justify-between mb-3 border-b border-gray-100 dark:border-slate-800 pb-2">
                                                 <div className="flex items-center gap-2">
                                                     <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600">Spatial Mappings (Auto-curated for {config.type})</p>
                                                     {(config.vastuAnalysis || []).length > 0 && (
@@ -880,7 +880,7 @@ function UnitConfigCard({
 
                                             {/* Column Headings */}
                                             {(config.vastuAnalysis || []).length > 0 && (
-                                                <div className="flex gap-2 items-center px-[14px] mb-1 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                                                <div className="flex gap-2 items-center px-[14px] mb-1 text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-widest">
                                                     <div className="flex-1 pl-3">Vastu Element</div>
                                                     <div className="w-32 pl-3">Location</div>
                                                     <div className="w-32 pl-3">Facing (Opt.)</div>
@@ -893,16 +893,16 @@ function UnitConfigCard({
                                                     const details = getVastuDetails(v.element, v.direction, v.facing)
 
                                                     return (
-                                                        <div key={v.id} className="relative flex flex-col gap-2 bg-white border border-gray-100 p-3 rounded-xl shadow-sm group/vastu hover:border-emerald-200 transition-colors">
+                                                        <div key={v.id} className="relative flex flex-col gap-2 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 p-3 rounded-xl shadow-sm group/vastu hover:border-emerald-200 transition-colors">
                                                             <div className="flex gap-2 items-center">
-                                                                <div className="h-8 flex-1 bg-gray-50 flex items-center px-3 rounded-md border-0 text-[11px] font-semibold text-gray-700 shadow-sm truncate">
+                                                                <div className="h-8 flex-1 bg-gray-50 dark:bg-slate-800/50 flex items-center px-3 rounded-md border-0 text-[11px] font-semibold text-gray-700 dark:text-slate-300 shadow-sm truncate">
                                                                     {v.element}
                                                                 </div>
 
                                                                 <Select value={v.direction} onValueChange={val => updateVastu(v.id, { direction: val, status: getVastuDetails(v.element, val, v.facing).status as any })}>
-                                                                    <SelectTrigger className="h-8 text-[11px] w-32 bg-gray-50 border-0 shadow-sm"><SelectValue placeholder="Location" /></SelectTrigger>
-                                                                    <SelectContent className="bg-white">
-                                                                        <SelectItem value="N/A" className="text-gray-400 font-bold text-[11px]">Not Available (N/A)</SelectItem>
+                                                                    <SelectTrigger className="h-8 text-[11px] w-32 bg-gray-50 dark:bg-slate-800/50 border-0 shadow-sm"><SelectValue placeholder="Location" /></SelectTrigger>
+                                                                    <SelectContent className="bg-white dark:bg-slate-900">
+                                                                        <SelectItem value="N/A" className="text-gray-400 dark:text-slate-500 font-bold text-[11px]">Not Available (N/A)</SelectItem>
                                                                         {["North", "South", "East", "West", "North-East", "North-West", "South-East", "South-West", "Center"].map(dir => (
                                                                             <SelectItem key={dir} value={dir} className="text-[11px]">{dir}</SelectItem>
                                                                         ))}
@@ -910,9 +910,9 @@ function UnitConfigCard({
                                                                 </Select>
 
                                                                 <Select value={v.facing || "none"} onValueChange={val => updateVastu(v.id, { facing: val, status: getVastuDetails(v.element, v.direction, val).status as any })}>
-                                                                    <SelectTrigger className="h-8 text-[11px] w-32 bg-gray-50 border-0 shadow-sm"><SelectValue placeholder="Facing (Opt.)" /></SelectTrigger>
-                                                                    <SelectContent className="bg-white">
-                                                                        <SelectItem value="none" className="text-gray-400 text-[11px]">N/A</SelectItem>
+                                                                    <SelectTrigger className="h-8 text-[11px] w-32 bg-gray-50 dark:bg-slate-800/50 border-0 shadow-sm"><SelectValue placeholder="Facing (Opt.)" /></SelectTrigger>
+                                                                    <SelectContent className="bg-white dark:bg-slate-900">
+                                                                        <SelectItem value="none" className="text-gray-400 dark:text-slate-500 text-[11px]">N/A</SelectItem>
                                                                         {["North", "South", "East", "West", "North-East", "North-West", "South-East", "South-West"].map(dir => (
                                                                             <SelectItem key={dir} value={dir} className="text-[11px]">{dir}</SelectItem>
                                                                         ))}
@@ -923,7 +923,7 @@ function UnitConfigCard({
                                                                     ${details.status === 'excellent' ? 'bg-emerald-100/50 text-emerald-700 border-emerald-200/50' :
                                                                         details.status === 'good' ? 'bg-blue-100/50 text-blue-700' :
                                                                             details.status === 'avoid' ? 'bg-red-100/50 text-red-700' :
-                                                                                'bg-gray-100 text-gray-500'}`}
+                                                                                'bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400'}`}
                                                                 >
                                                                     {details.status}
                                                                 </div>
@@ -933,11 +933,11 @@ function UnitConfigCard({
                                                             {(v.element && v.direction) && (
                                                                 <div className="pl-1 pt-1.5 flex items-start gap-2">
                                                                     <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${details.status === 'excellent' ? 'bg-emerald-400' : details.status === 'good' ? 'bg-blue-400' : details.status === 'avoid' ? 'bg-red-400' : 'bg-gray-300'}`} />
-                                                                    <p className="text-[11px] text-gray-500 leading-relaxed italic">{details.note}</p>
+                                                                    <p className="text-[11px] text-gray-500 dark:text-slate-400 leading-relaxed italic">{details.note}</p>
                                                                 </div>
                                                             )}
 
-                                                            <Button variant="ghost" size="sm" onClick={() => removeVastu(v.id)} className="absolute top-2 right-2 h-7 w-7 p-0 text-red-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover/vastu:opacity-100 transition-opacity bg-white/80 backdrop-blur"><Trash2 className="w-3.5 h-3.5" /></Button>
+                                                            <Button variant="ghost" size="sm" onClick={() => removeVastu(v.id)} className="absolute top-2 right-2 h-7 w-7 p-0 text-red-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover/vastu:opacity-100 transition-opacity bg-white dark:bg-slate-900/80 backdrop-blur"><Trash2 className="w-3.5 h-3.5" /></Button>
                                                         </div>
                                                     )
                                                 })}
@@ -963,23 +963,23 @@ function UnitConfigCard({
                                 </div>
                                 <div className="space-y-2">
                                     {(config.moveInChecklist || []).map(m => (
-                                        <div key={m.id} className="flex items-center gap-3 bg-gray-50/50 p-2 rounded-xl group/check">
+                                        <div key={m.id} className="flex items-center gap-3 bg-gray-50 dark:bg-slate-800/50/50 p-2 rounded-xl group/check">
                                             <Switch
                                                 checked={m.included}
                                                 onCheckedChange={v => updateMoveIn(m.id, { included: v })}
                                             />
-                                            <Input value={m.item ?? ""} onChange={e => updateMoveIn(m.id, { item: e.target.value })} placeholder="Modular Kitchen" className="h-8 text-[11px] bg-white border-0 shadow-sm flex-1" />
+                                            <Input value={m.item ?? ""} onChange={e => updateMoveIn(m.id, { item: e.target.value })} placeholder="Modular Kitchen" className="h-8 text-[11px] bg-white dark:bg-slate-900 border-0 shadow-sm flex-1" />
                                             <Button variant="ghost" size="sm" onClick={() => removeMoveIn(m.id)} className="h-8 w-8 p-0 text-red-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover/check:opacity-100 transition-opacity"><Trash2 className="w-4 h-4" /></Button>
                                         </div>
                                     ))}
-                                    {(config.moveInChecklist || []).length === 0 && <p className="text-[10px] text-gray-400 italic py-2 text-center">No provisions added.</p>}
+                                    {(config.moveInChecklist || []).length === 0 && <p className="text-[10px] text-gray-400 dark:text-slate-500 italic py-2 text-center">No provisions added.</p>}
                                 </div>
                             </Section>
 
                             <Section id="media_core" title="Core Visual Assets" description="Banners and layout images" icon={FileText} openIds={openIds} setOpenIds={setOpenIds}>
                                 <Grid cols={2}>
                                     <div className="flex flex-col gap-2">
-                                        <label className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Hero Showcase Image</label>
+                                        <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-slate-400 tracking-wider">Hero Showcase Image</label>
                                         <AboutImageUpload 
                                             value={config.heroImage || ''} 
                                             onChange={url => onChange({ heroImage: url })} 
@@ -988,7 +988,7 @@ function UnitConfigCard({
                                         />
                                     </div>
                                     <div className="flex flex-col gap-2">
-                                        <label className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">2D Layout Image</label>
+                                        <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-slate-400 tracking-wider">2D Layout Image</label>
                                         <AboutImageUpload 
                                             value={config.floorPlanImage2D || ''} 
                                             onChange={url => onChange({ floorPlanImage2D: url })} 
@@ -997,7 +997,7 @@ function UnitConfigCard({
                                         />
                                     </div>
                                     <div className="flex flex-col gap-2">
-                                        <label className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">3D Layout Image</label>
+                                        <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-slate-400 tracking-wider">3D Layout Image</label>
                                         <AboutImageUpload 
                                             value={config.floorPlanImage3D || ''} 
                                             onChange={url => onChange({ floorPlanImage3D: url })} 
@@ -1322,22 +1322,22 @@ export function UnitFlowForm({
     return (
         <div className="space-y-4">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid grid-cols-3 w-full h-14 bg-gray-100/50 p-1.5 rounded-2xl mb-8">
-                    <TabsTrigger value="pricing" className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-[#1A3C8C] gap-2">
+                <TabsList className="grid grid-cols-3 w-full h-14 bg-gray-100 dark:bg-slate-800/50 p-1.5 rounded-2xl mb-8">
+                    <TabsTrigger value="pricing" className="rounded-xl data-[state=active]:bg-white dark:bg-slate-900 data-[state=active]:shadow-md data-[state=active]:text-[#1A3C8C] dark:text-blue-400 gap-2">
                         <Settings2 className="w-4 h-4" />
                         <div className="flex flex-col items-start leading-none">
                             <span className="text-[10px] uppercase font-black opacity-50">Section 1</span>
                             <span className="text-xs font-bold">Global Standards</span>
                         </div>
                     </TabsTrigger>
-                    <TabsTrigger value="inventory" className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-[#1A3C8C] gap-2">
+                    <TabsTrigger value="inventory" className="rounded-xl data-[state=active]:bg-white dark:bg-slate-900 data-[state=active]:shadow-md data-[state=active]:text-[#1A3C8C] dark:text-blue-400 gap-2">
                         <Grid3X3 className="w-4 h-4" />
                         <div className="flex flex-col items-start leading-none">
                             <span className="text-[10px] uppercase font-black opacity-50">Section 2</span>
                             <span className="text-xs font-bold">Tower Skeleton</span>
                         </div>
                     </TabsTrigger>
-                    <TabsTrigger value="configs" className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-[#1A3C8C] gap-2">
+                    <TabsTrigger value="configs" className="rounded-xl data-[state=active]:bg-white dark:bg-slate-900 data-[state=active]:shadow-md data-[state=active]:text-[#1A3C8C] dark:text-blue-400 gap-2">
                         <Layout className="w-4 h-4" />
                         <div className="flex flex-col items-start leading-none">
                             <span className="text-[10px] uppercase font-black opacity-50">Section 3</span>
@@ -1469,16 +1469,16 @@ export function UnitFlowForm({
                     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                         <div className="xl:col-span-2 space-y-6">
                             {(data.floorGroups || []).map((group, idx) => (
-                                <Card key={group.id} className="border-2 border-gray-100 overflow-hidden rounded-2xl">
-                                    <div className="bg-gray-50 px-5 py-3 border-b border-gray-100 flex items-center justify-between cursor-pointer hover:bg-gray-100/50 transition-colors" onClick={() => toggleGroupCollapse(group.id)}>
+                                <Card key={group.id} className="border-2 border-gray-100 dark:border-slate-800 overflow-hidden rounded-2xl">
+                                    <div className="bg-gray-50 dark:bg-slate-800/50 px-5 py-3 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between cursor-pointer hover:bg-gray-100 dark:bg-slate-800/50 transition-colors" onClick={() => toggleGroupCollapse(group.id)}>
                                         <div className="flex items-center gap-3">
-                                            {collapsedGroups.includes(group.id) ? <ChevronRight className="w-4 h-4 text-[#1A3C8C]" /> : <ChevronDown className="w-4 h-4 text-[#1A3C8C]" />}
-                                            <Badge variant="outline" className="bg-white text-[#1A3C8C] text-[10px] font-bold h-6 uppercase tracking-wider">Group {idx + 1}</Badge>
+                                            {collapsedGroups.includes(group.id) ? <ChevronRight className="w-4 h-4 text-[#1A3C8C] dark:text-blue-400" /> : <ChevronDown className="w-4 h-4 text-[#1A3C8C] dark:text-blue-400" />}
+                                            <Badge variant="outline" className="bg-white dark:bg-slate-900 text-[#1A3C8C] dark:text-blue-400 text-[10px] font-bold h-6 uppercase tracking-wider">Group {idx + 1}</Badge>
                                             <Input
                                                 value={group.name ?? ""}
                                                 onChange={e => updateGroup(group.id, { name: e.target.value })}
                                                 onClick={e => e.stopPropagation()}
-                                                className="h-8 text-base font-black text-[#1A3C8C] bg-transparent border-0 focus-visible:ring-0 p-0 w-64"
+                                                className="h-8 text-base font-black text-[#1A3C8C] dark:text-blue-400 bg-transparent border-0 focus-visible:ring-0 p-0 w-64"
                                                 placeholder="Standard Floors"
                                             />
                                         </div>
@@ -1502,7 +1502,7 @@ export function UnitFlowForm({
                                                             updateGroup(group.id, { floorRange: e.target.value, floors })
                                                         }}
                                                         placeholder="1-10, 12, 15-22"
-                                                        className="bg-white"
+                                                        className="bg-white dark:bg-slate-900"
                                                     />
                                                 </Field>
                                                 <Field label="Description / Usage" hint="Why this group? (Optional)">
@@ -1510,7 +1510,7 @@ export function UnitFlowForm({
                                                         value={group.description || ""}
                                                         onChange={e => updateGroup(group.id, { description: e.target.value })}
                                                         placeholder="Resident lobby and club access"
-                                                        className="bg-white"
+                                                        className="bg-white dark:bg-slate-900"
                                                     />
                                                 </Field>
                                                 <Field label="Floor Rise (₹/floor)" hint="Leave empty for global default">
@@ -1519,7 +1519,7 @@ export function UnitFlowForm({
                                                         value={group.floorRise !== undefined ? group.floorRise : ""}
                                                         onChange={e => updateGroup(group.id, { floorRise: e.target.value ? Number(e.target.value) : undefined })}
                                                         placeholder="50000"
-                                                        className="bg-white"
+                                                        className="bg-white dark:bg-slate-900"
                                                     />
                                                 </Field>
 
@@ -1547,10 +1547,10 @@ export function UnitFlowForm({
                                                         </Grid>
                                                         <Field label="Parking Type" hint="Type of parking arrangement">
                                                             <Select value={group.parkingType || "covered"} onValueChange={v => updateGroup(group.id, { parkingType: v })}>
-                                                                <SelectTrigger className="h-12 rounded-xl border-gray-100 bg-white hover:bg-gray-50 transition-all font-bold text-gray-700 shadow-sm border-2">
+                                                                <SelectTrigger className="h-12 rounded-xl border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-gray-50 dark:bg-slate-800/50 transition-all font-bold text-gray-700 dark:text-slate-300 shadow-sm border-2">
                                                                     <SelectValue placeholder="Select Parking Type" />
                                                                 </SelectTrigger>
-                                                                <SelectContent className="rounded-xl border-gray-100 shadow-2xl z-[100] bg-white">
+                                                                <SelectContent className="rounded-xl border-gray-100 dark:border-slate-800 shadow-2xl z-[100] bg-white dark:bg-slate-900">
                                                                     <SelectItem value="covered" className="rounded-lg my-0.5">Covered Parking</SelectItem>
                                                                     <SelectItem value="open" className="rounded-lg my-0.5">Open Parking</SelectItem>
                                                                     <SelectItem value="stilt" className="rounded-lg my-0.5">Stilt Parking</SelectItem>
@@ -1568,7 +1568,7 @@ export function UnitFlowForm({
                                                             value={group.amenities || ""}
                                                             onChange={e => updateGroup(group.id, { amenities: e.target.value })}
                                                             placeholder="Swimming Pool, Mini Theater, Gym"
-                                                            className="bg-white"
+                                                            className="bg-white dark:bg-slate-900"
                                                         />
                                                     </Field>
                                                 )}
@@ -1579,7 +1579,7 @@ export function UnitFlowForm({
                                                             value={group.utilityInfo || ""}
                                                             onChange={e => updateGroup(group.id, { utilityInfo: e.target.value })}
                                                             placeholder="250 Sq.Ft"
-                                                            className="bg-white"
+                                                            className="bg-white dark:bg-slate-900"
                                                         />
                                                     </Field>
                                                 )}
@@ -1587,14 +1587,14 @@ export function UnitFlowForm({
 
                                             <div className="flex items-end flex-wrap gap-1">
                                                 {(group.floors || []).map(f => (
-                                                    <Badge key={f} className="bg-white text-gray-500 border-gray-200 text-[10px] px-1.5 h-5 font-medium">F{f}</Badge>
+                                                    <Badge key={f} className="bg-white dark:bg-slate-900 text-gray-500 dark:text-slate-400 border-gray-200 dark:border-slate-700 text-[10px] px-1.5 h-5 font-medium">F{f}</Badge>
                                                 ))}
                                             </div>
 
                                             {/* ── CONDITIONAL INVENTORY LOGIC ── */}
                                             {(group.groupTypes || []).some(t => ['typical', 'ground', 'other'].includes(t)) ? (
                                                 <>
-                                                    <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest pt-4">Unit / Parking Slot Mapping</div>
+                                                    <div className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest pt-4">Unit / Parking Slot Mapping</div>
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                         {(group.layout || []).map((slot, sIdx) => {
                                                             const config = (data.configurations || []).find(c => c.id === slot.configId)
@@ -1608,8 +1608,8 @@ export function UnitFlowForm({
                                                                 updateGroup(group.id, { layout: newLayout })
                                                             }
                                                             return (
-                                                                <div key={slot.id} className="p-4 rounded-2xl border-2 border-slate-100 bg-white shadow-sm hover:shadow-2xl hover:border-blue-400/40 transition-all duration-300 relative group/unit">
-                                                                    <div className="absolute top-0 left-0 w-1.5 h-full bg-[#1A3C8C] opacity-0 group-hover:opacity-100 transition-opacity rounded-l-full" />
+                                                                <div key={slot.id} className="p-4 rounded-2xl border-2 border-slate-100 bg-white dark:bg-slate-900 shadow-sm hover:shadow-2xl hover:border-blue-400/40 transition-all duration-300 relative group/unit">
+                                                                    <div className="absolute top-0 left-0 w-1.5 h-full bg-[#1A3C8C] dark:bg-blue-600 opacity-0 group-hover:opacity-100 transition-opacity rounded-l-full" />
 
                                                                     <div className="flex flex-col gap-3">
                                                                         {/* Header Row: Slot and Delete */}
@@ -1617,7 +1617,7 @@ export function UnitFlowForm({
                                                                             <div className="flex items-center gap-3">
                                                                                 <div className="h-8 px-3 rounded-xl bg-slate-50 flex items-center justify-center">
                                                                                     <span className="text-[10px] font-black text-slate-400 uppercase mr-1.5 tracking-tighter">Slot</span>
-                                                                                    <span className="text-lg font-black text-[#1A3C8C]">#{sIdx + 1}</span>
+                                                                                    <span className="text-lg font-black text-[#1A3C8C] dark:text-blue-400">#{sIdx + 1}</span>
                                                                                 </div>
                                                                                 <Select
                                                                                     value={slot.configId ? (data.configurations || []).find(c => c.id === slot.configId)?.type : slot.unitTypeOverride}
@@ -1648,7 +1648,7 @@ export function UnitFlowForm({
                                                                         {/* Data Row: Large Inputs */}
                                                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                                             <div className="space-y-1.5">
-                                                                                <Label className="text-[10px] font-black text-[#1A3C8C] uppercase tracking-widest pl-1">Carpet Area (SQFT)</Label>
+                                                                                <Label className="text-[10px] font-black text-[#1A3C8C] dark:text-blue-400 uppercase tracking-widest pl-1">Carpet Area (SQFT)</Label>
                                                                                 <div className="relative">
                                                                                     <Input
                                                                                         type="number"
@@ -1661,7 +1661,7 @@ export function UnitFlowForm({
                                                                                 </div>
                                                                             </div>
                                                                             <div className="space-y-1.5">
-                                                                                <Label className="text-[10px] font-black text-[#1A3C8C] uppercase tracking-widest pl-1">Unit Identity (NO.)</Label>
+                                                                                <Label className="text-[10px] font-black text-[#1A3C8C] dark:text-blue-400 uppercase tracking-widest pl-1">Unit Identity (NO.)</Label>
                                                                                 <div className="relative">
                                                                                     <Input
                                                                                         value={slot.slotNumber ?? ""}
@@ -1684,7 +1684,7 @@ export function UnitFlowForm({
                                                                                     value={slot.facingOverride || ''}
                                                                                     onChange={e => updateSlot({ facingOverride: e.target.value })}
                                                                                     placeholder="East / North"
-                                                                                    className="h-10 w-full border-slate-200 bg-white text-base font-black text-[#1A3C8C] focus:ring-4 focus:ring-blue-100 px-3 rounded-xl"
+                                                                                    className="h-10 w-full border-slate-200 bg-white dark:bg-slate-900 text-base font-black text-[#1A3C8C] dark:text-blue-400 focus:ring-4 focus:ring-blue-100 px-3 rounded-xl"
                                                                                 />
                                                                             </div>
                                                                             <div className="space-y-1 bg-gradient-to-r from-indigo-50 to-white p-3 rounded-xl border-2 border-indigo-100/50">
@@ -1695,7 +1695,7 @@ export function UnitFlowForm({
                                                                                     value={slot.viewOverride || ""}
                                                                                     onValueChange={v => updateSlot({ viewOverride: v })}
                                                                                 >
-                                                                                    <SelectTrigger className="h-10 w-full border-slate-200 bg-white text-base font-black text-[#1A3C8C] focus:ring-4 focus:ring-indigo-100 px-3 rounded-xl">
+                                                                                    <SelectTrigger className="h-10 w-full border-slate-200 bg-white dark:bg-slate-900 text-base font-black text-[#1A3C8C] dark:text-blue-400 focus:ring-4 focus:ring-indigo-100 px-3 rounded-xl">
                                                                                         <SelectValue placeholder="Select View" />
                                                                                     </SelectTrigger>
                                                                                     <SelectContent className="rounded-xl shadow-2xl border-slate-100">
@@ -1716,7 +1716,7 @@ export function UnitFlowForm({
                                                                                 value={slot.vastuOverride || ""}
                                                                                 onValueChange={v => updateSlot({ vastuOverride: v })}
                                                                             >
-                                                                                <SelectTrigger className="h-10 w-full border-slate-200 bg-white text-base font-black text-[#1A3C8C] focus:ring-4 focus:ring-emerald-100 px-3 rounded-xl">
+                                                                                <SelectTrigger className="h-10 w-full border-slate-200 bg-white dark:bg-slate-900 text-base font-black text-[#1A3C8C] dark:text-blue-400 focus:ring-4 focus:ring-emerald-100 px-3 rounded-xl">
                                                                                     <SelectValue placeholder="Select Vastu Status" />
                                                                                 </SelectTrigger>
                                                                                 <SelectContent className="rounded-xl shadow-2xl border-slate-100">
@@ -1737,12 +1737,12 @@ export function UnitFlowForm({
                                                                 const newSlot: UnitLayoutSlot = { id: `slot-${Date.now()}`, slotNumber: ((group.layout?.length || 0) + 1).toString(), configId: configs[0]?.id || "" }
                                                                 updateGroup(group.id, { layout: [...(group.layout || []), newSlot] })
                                                             }}
-                                                            className="h-auto min-h-[280px] border-2 border-dashed border-gray-100 rounded-[24px] hover:border-blue-200 hover:bg-blue-50/30 transition-all flex flex-col gap-3 group/add"
+                                                            className="h-auto min-h-[280px] border-2 border-dashed border-gray-100 dark:border-slate-800 rounded-[24px] hover:border-blue-200 hover:bg-blue-50/30 transition-all flex flex-col gap-3 group/add"
                                                         >
-                                                            <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center border border-gray-100 group-hover/add:bg-blue-100 group-hover/add:border-blue-200 transition-all group-hover/add:scale-110">
-                                                                <Plus className="w-6 h-6 text-gray-400 group-hover/add:text-blue-600" />
+                                                            <div className="w-12 h-12 rounded-2xl bg-gray-50 dark:bg-slate-800/50 flex items-center justify-center border border-gray-100 dark:border-slate-800 group-hover/add:bg-blue-100 group-hover/add:border-blue-200 transition-all group-hover/add:scale-110">
+                                                                <Plus className="w-6 h-6 text-gray-400 dark:text-slate-500 group-hover/add:text-blue-600" />
                                                             </div>
-                                                            <span className="text-xs font-black text-gray-400 group-hover/add:text-blue-600 uppercase tracking-widest">Add Unit</span>
+                                                            <span className="text-xs font-black text-gray-400 dark:text-slate-500 group-hover/add:text-blue-600 uppercase tracking-widest">Add Unit</span>
                                                         </Button>
                                                     </div>
                                                 </>
@@ -1755,8 +1755,8 @@ export function UnitFlowForm({
                                                     <p className="text-[10px] text-orange-600/60 mt-1">Individual slot mapping is not required for basement levels. Total counts are defined in the fields above.</p>
                                                 </div>
                                             ) : (
-                                                <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 text-center py-8">
-                                                    <p className="text-[11px] text-gray-400">Inventory mapping is not required for this floor type.</p>
+                                                <div className="p-4 bg-gray-50 dark:bg-slate-800/50 rounded-xl border border-gray-100 dark:border-slate-800 text-center py-8">
+                                                    <p className="text-[11px] text-gray-400 dark:text-slate-500">Inventory mapping is not required for this floor type.</p>
                                                 </div>
                                             )}
                                         </CardContent>
@@ -1767,11 +1767,11 @@ export function UnitFlowForm({
 
                         {/* VISUAL TOWER MAP */}
                         <div className="xl:col-span-1 hidden xl:block relative">
-                            <div className="sticky top-6 bg-white rounded-[24px] border border-gray-100 shadow-xl overflow-hidden p-6 h-[calc(100vh-100px)] flex flex-col">
-                                <h3 className="text-[#1A3C8C] font-black text-lg mb-1 flex items-center gap-2">
+                            <div className="sticky top-6 bg-white dark:bg-slate-900 rounded-[24px] border border-gray-100 dark:border-slate-800 shadow-xl overflow-hidden p-6 h-[calc(100vh-100px)] flex flex-col">
+                                <h3 className="text-[#1A3C8C] dark:text-blue-400 font-black text-lg mb-1 flex items-center gap-2">
                                     <Building2 className="w-5 h-5 text-blue-500" /> Live Tower Map
                                 </h3>
-                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-4">Floor wise architecture</p>
+                                <p className="text-[10px] text-gray-400 dark:text-slate-500 font-bold uppercase tracking-widest mb-4">Floor wise architecture</p>
 
                                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-1.5 pb-10">
                                     {(() => {
@@ -1792,9 +1792,9 @@ export function UnitFlowForm({
                                             const isAmenity = (group.groupTypes || []).includes('amenity')
                                             const isRefuge = (group.groupTypes || []).includes('refuge')
 
-                                            let bgColor = "bg-white"
-                                            let borderColor = "border-gray-200"
-                                            let textColor = "text-gray-900"
+                                            let bgColor = "bg-white dark:bg-slate-900"
+                                            let borderColor = "border-gray-200 dark:border-slate-700"
+                                            let textColor = "text-gray-900 dark:text-white"
                                             if (isBasement) { bgColor = "bg-gray-800"; borderColor = "border-gray-900"; textColor = "text-white" }
                                             else if (isAmenity) { bgColor = "bg-teal-50"; borderColor = "border-teal-200"; textColor = "text-teal-900" }
                                             else if (isPodium) { bgColor = "bg-orange-50"; borderColor = "border-orange-200"; textColor = "text-orange-900" }
@@ -1804,7 +1804,7 @@ export function UnitFlowForm({
 
                                             return (
                                                 <div key={floor} className={`flex items-center gap-2 w-full border ${borderColor} ${bgColor} rounded-lg p-1.5 shadow-sm overflow-hidden transition-all hover:scale-[1.02]`}>
-                                                    <div className={`w-8 shrink-0 flex items-center justify-center font-black text-xs ${isBasement ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                    <div className={`w-8 shrink-0 flex items-center justify-center font-black text-xs ${isBasement ? 'text-gray-400 dark:text-slate-500' : 'text-gray-500 dark:text-slate-400'}`}>
                                                         {displayStr}
                                                     </div>
                                                     <div className="flex-1 flex gap-1 h-8">
@@ -1821,7 +1821,7 @@ export function UnitFlowForm({
                                                                 <Shield className="w-3.5 h-3.5 opacity-70" /> Refuge
                                                             </div>
                                                         ) : group.layout && (group.layout || []).length > 0 ? (
-                                                            <div className="flex w-full items-center gap-1 border-l pl-2 border-gray-100">
+                                                            <div className="flex w-full items-center gap-1 border-l pl-2 border-gray-100 dark:border-slate-800">
                                                                 {(group.layout || []).map((s, i) => {
                                                                     const typ = s.configId ? (data.configurations || []).find(c => c.id === s.configId)?.type : s.unitTypeOverride
                                                                     const shortTyp = typ ? typ.replace('BHK', '').substring(0, 3) : "U"
@@ -1836,15 +1836,15 @@ export function UnitFlowForm({
                                                                     else unitDisplay = `${floor}${paddedSlot}`;
 
                                                                     return (
-                                                                        <div key={i} className="flex-1 min-w-0 bg-[#F5F7FA] border border-gray-200 rounded flex flex-col items-center justify-center py-0.5 shadow-inner">
-                                                                            <span className="text-[9px] font-bold text-[#1A3C8C] leading-none">{unitDisplay}</span>
-                                                                            <span className="text-[6px] uppercase tracking-wider text-gray-400 font-bold">{shortTyp}</span>
+                                                                        <div key={i} className="flex-1 min-w-0 bg-[#F5F7FA] border border-gray-200 dark:border-slate-700 rounded flex flex-col items-center justify-center py-0.5 shadow-inner">
+                                                                            <span className="text-[9px] font-bold text-[#1A3C8C] dark:text-blue-400 leading-none">{unitDisplay}</span>
+                                                                            <span className="text-[6px] uppercase tracking-wider text-gray-400 dark:text-slate-500 font-bold">{shortTyp}</span>
                                                                         </div>
                                                                     )
                                                                 })}
                                                             </div>
                                                         ) : (
-                                                            <div className="flex items-center justify-center w-full text-[9px] font-bold text-gray-300 uppercase tracking-widest border-l border-gray-100">
+                                                            <div className="flex items-center justify-center w-full text-[9px] font-bold text-gray-300 uppercase tracking-widest border-l border-gray-100 dark:border-slate-800">
                                                                 No Units
                                                             </div>
                                                         )}
@@ -1973,9 +1973,9 @@ export function UnitFlowForm({
                                             })
                                             updateData({ configurations: updatedConfigs, floorGroups: updatedFloorGroups })
                                         }}
-                                        className="bg-[#1A3C8C] hover:bg-[#122b6b] text-white font-black h-16 px-10 rounded-[24px] shadow-2xl shadow-blue-200 transition-all active:scale-95 flex items-center gap-3 whitespace-nowrap group"
+                                        className="bg-[#1A3C8C] dark:bg-blue-600 hover:bg-[#122b6b] text-white font-black h-16 px-10 rounded-[24px] shadow-2xl shadow-blue-200 transition-all active:scale-95 flex items-center gap-3 whitespace-nowrap group"
                                     >
-                                        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover:rotate-12 transition-transform">
+                                        <div className="w-8 h-8 rounded-full bg-white dark:bg-slate-900/10 flex items-center justify-center group-hover:rotate-12 transition-transform">
                                             <Zap className="w-4 h-4 text-yellow-300" />
                                         </div>
                                         <div className="flex flex-col items-start leading-none">
@@ -2006,16 +2006,16 @@ export function UnitFlowForm({
                                     return (
                                         <div key={group.id} className="space-y-8">
                                             <div
-                                                className="flex items-center justify-between border-b border-gray-100 pb-3 cursor-pointer hover:bg-slate-50/50 transition-colors p-2 rounded-xl"
+                                                className="flex items-center justify-between border-b border-gray-100 dark:border-slate-800 pb-3 cursor-pointer hover:bg-slate-50/50 transition-colors p-2 rounded-xl"
                                                 onClick={() => toggleConfigGroupCollapse(group.id)}
                                             >
                                                 <div className="flex items-center gap-3">
                                                     {collapsedConfigGroups.includes(group.id) ? (
-                                                        <ChevronRight className="w-5 h-5 text-[#1A3C8C]" />
+                                                        <ChevronRight className="w-5 h-5 text-[#1A3C8C] dark:text-blue-400" />
                                                     ) : (
-                                                        <ChevronDown className="w-5 h-5 text-[#1A3C8C]" />
+                                                        <ChevronDown className="w-5 h-5 text-[#1A3C8C] dark:text-blue-400" />
                                                     )}
-                                                    <h4 className="text-xl font-black text-[#1A3C8C]">{group.name} Layouts</h4>
+                                                    <h4 className="text-xl font-black text-[#1A3C8C] dark:text-blue-400">{group.name} Layouts</h4>
                                                     <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">{group.floorRange}</span>
                                                     {group.floorRise !== undefined && (
                                                         <span className="text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-md uppercase tracking-wide">Rise: ₹{group.floorRise}</span>
@@ -2030,20 +2030,20 @@ export function UnitFlowForm({
                                                 {(data.floorGroups || []).length > 1 && (
                                                     <div onClick={e => e.stopPropagation()}>
                                                         <DropdownMenu>
-                                                            <DropdownMenuTrigger className="h-8 gap-2 bg-blue-50 hover:bg-blue-100 text-[#1A3C8C] flex items-center px-3 rounded-md transition-all outline-none">
+                                                            <DropdownMenuTrigger className="h-8 gap-2 bg-blue-50 hover:bg-blue-100 text-[#1A3C8C] dark:text-blue-400 flex items-center px-3 rounded-md transition-all outline-none">
                                                                 <Copy className="w-3.5 h-3.5" />
                                                                 <span className="text-xs font-bold">Copy Specs From...</span>
                                                             </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end" className="w-64 bg-white rounded-xl shadow-2xl border-gray-100 z-[9999] p-2">
-                                                                <div className="text-[10px] font-black uppercase text-gray-400 tracking-wider mb-2 px-2 pt-1">Select Source</div>
+                                                            <DropdownMenuContent align="end" className="w-64 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border-gray-100 dark:border-slate-800 z-[9999] p-2">
+                                                                <div className="text-[10px] font-black uppercase text-gray-400 dark:text-slate-500 tracking-wider mb-2 px-2 pt-1">Select Source</div>
                                                                 {(data.floorGroups || []).filter(g => g.id !== group.id).map(g => (
                                                                     <DropdownMenuItem
                                                                         key={g.id}
                                                                         onClick={() => copyDataFromGroup(g.id, group.id)}
                                                                         className="cursor-pointer py-2.5 px-3 rounded-lg hover:bg-blue-50 focus:bg-blue-50 transition-colors flex items-center justify-between group/item"
                                                                     >
-                                                                        <span className="truncate pr-2 text-xs font-bold text-[#1A3C8C]">{g.name}</span>
-                                                                        <span className="text-[10px] font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-md group-hover/item:bg-blue-100 group-hover/item:text-blue-600 transition-colors shrink-0">
+                                                                        <span className="truncate pr-2 text-xs font-bold text-[#1A3C8C] dark:text-blue-400">{g.name}</span>
+                                                                        <span className="text-[10px] font-bold text-gray-400 dark:text-slate-500 bg-gray-50 dark:bg-slate-800/50 px-2 py-1 rounded-md group-hover/item:bg-blue-100 group-hover/item:text-blue-600 transition-colors shrink-0">
                                                                             F: {g.floorRange}
                                                                         </span>
                                                                     </DropdownMenuItem>
@@ -2055,7 +2055,7 @@ export function UnitFlowForm({
                                             </div>
 
                                             {!collapsedConfigGroups.includes(group.id) && (
-                                                <div className="grid gap-6 pl-2 md:pl-4 border-l-2 border-dashed border-gray-100/60 animate-in fade-in slide-in-from-top-2 duration-300">
+                                                <div className="grid gap-6 pl-2 md:pl-4 border-l-2 border-dashed border-gray-100 dark:border-slate-800/60 animate-in fade-in slide-in-from-top-2 duration-300">
                                                     {groupConfigs.map((config, i) => (
                                                         <UnitConfigCard key={config.id} index={i} config={config} onChange={patch => updateConfig(config.id, patch)} onRemove={() => removeConfig(config.id)} globalLoadingFactor={data.loadingFactor} />
                                                     ))}
@@ -2074,18 +2074,18 @@ export function UnitFlowForm({
                                     return (
                                         <div className="space-y-12 mt-24">
                                             <div
-                                                className="flex items-center gap-3 border-b border-gray-100 pb-3 cursor-pointer hover:bg-slate-50/50 transition-colors p-2 rounded-xl"
+                                                className="flex items-center gap-3 border-b border-gray-100 dark:border-slate-800 pb-3 cursor-pointer hover:bg-slate-50/50 transition-colors p-2 rounded-xl"
                                                 onClick={() => toggleConfigGroupCollapse("unassigned")}
                                             >
                                                 {collapsedConfigGroups.includes("unassigned") ? (
-                                                    <ChevronRight className="w-5 h-5 text-gray-400" />
+                                                    <ChevronRight className="w-5 h-5 text-gray-400 dark:text-slate-500" />
                                                 ) : (
-                                                    <ChevronDown className="w-5 h-5 text-gray-400" />
+                                                    <ChevronDown className="w-5 h-5 text-gray-400 dark:text-slate-500" />
                                                 )}
-                                                <h4 className="text-xl font-black text-gray-400">Unassigned Units</h4>
+                                                <h4 className="text-xl font-black text-gray-400 dark:text-slate-500">Unassigned Units</h4>
                                             </div>
                                             {!collapsedConfigGroups.includes("unassigned") && (
-                                                <div className="grid gap-6 pl-2 md:pl-4 border-l-2 border-dashed border-gray-100/60 opacity-80 hover:opacity-100 transition-opacity animate-in fade-in slide-in-from-top-2 duration-300">
+                                                <div className="grid gap-6 pl-2 md:pl-4 border-l-2 border-dashed border-gray-100 dark:border-slate-800/60 opacity-80 hover:opacity-100 transition-opacity animate-in fade-in slide-in-from-top-2 duration-300">
                                                     {unassignedConfigs.map((config, i) => (
                                                         <UnitConfigCard key={config.id} index={i} config={config} onChange={patch => updateConfig(config.id, patch)} onRemove={() => removeConfig(config.id)} globalLoadingFactor={data.loadingFactor} />
                                                     ))}
@@ -2098,21 +2098,21 @@ export function UnitFlowForm({
                         )}
                     </div>
 
-                    <div className="mt-24 pt-16 border-t-2 border-dashed border-gray-100">
+                    <div className="mt-24 pt-16 border-t-2 border-dashed border-gray-100 dark:border-slate-800">
                         <div className="flex items-center gap-4 mb-10">
                             <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center border border-blue-100">
-                                <FileText className="w-6 h-6 text-[#1A3C8C]" />
+                                <FileText className="w-6 h-6 text-[#1A3C8C] dark:text-blue-400" />
                             </div>
                             <div>
-                                <h3 className="text-2xl font-black text-[#1A3C8C] leading-none mb-1">Marketing Assets</h3>
-                                <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">Global Tower / Project Media</p>
+                                <h3 className="text-2xl font-black text-[#1A3C8C] dark:text-blue-400 leading-none mb-1">Marketing Assets</h3>
+                                <p className="text-xs text-gray-400 dark:text-slate-500 font-bold uppercase tracking-widest">Global Tower / Project Media</p>
                             </div>
                         </div>
 
                         <Section id="marketing" title="Marketing Assets" icon={FileText} openIds={openIds} setOpenIds={setOpenIds}>
                             <Grid cols={3}>
                                 <div className="flex flex-col gap-2">
-                                    <label className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Unit Hero Image</label>
+                                    <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-slate-400 tracking-wider">Unit Hero Image</label>
                                     <AboutImageUpload 
                                         value={data.heroImage || ''} 
                                         onChange={v => updateData({ heroImage: v })} 
@@ -2121,7 +2121,7 @@ export function UnitFlowForm({
                                     />
                                 </div>
                                 <div className="flex flex-col gap-2">
-                                    <label className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">2D Floor Plan</label>
+                                    <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-slate-400 tracking-wider">2D Floor Plan</label>
                                     <AboutImageUpload 
                                         value={data.floorPlan2DUrl || ''} 
                                         onChange={v => updateData({ floorPlan2DUrl: v })} 
@@ -2130,7 +2130,7 @@ export function UnitFlowForm({
                                     />
                                 </div>
                                 <div className="flex flex-col gap-2">
-                                    <label className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">3D Isometric Floor Plan</label>
+                                    <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-slate-400 tracking-wider">3D Isometric Floor Plan</label>
                                     <AboutImageUpload 
                                         value={data.floorPlan3DUrl || ''} 
                                         onChange={v => updateData({ floorPlan3DUrl: v })} 
@@ -2303,11 +2303,11 @@ function AddGroupModal({ isOpen, onClose, onAdd, configurations, defaultUnits, d
 
         return (
             <Field label={label} hint={hint}>
-                <div className={`flex items-center gap-1 bg-gray-50 border p-1 rounded-2xl transition-colors ${isError ? 'border-red-300 bg-red-50' : 'border-gray-100'}`}>
+                <div className={`flex items-center gap-1 bg-gray-50 dark:bg-slate-800/50 border p-1 rounded-2xl transition-colors ${isError ? 'border-red-300 bg-red-50' : 'border-gray-100 dark:border-slate-800'}`}>
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="h-10 w-10 rounded-xl bg-white shadow-sm hover:bg-red-50 hover:text-red-600 transition-colors"
+                        className="h-10 w-10 rounded-xl bg-white dark:bg-slate-900 shadow-sm hover:bg-red-50 hover:text-red-600 transition-colors"
                         onClick={() => updateValue(Math.max(min, num - 1))}
                     >
                         <Minus className="w-4 h-4" />
@@ -2331,7 +2331,7 @@ function AddGroupModal({ isOpen, onClose, onAdd, configurations, defaultUnits, d
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="h-10 w-10 rounded-xl bg-white shadow-sm hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
+                        className="h-10 w-10 rounded-xl bg-white dark:bg-slate-900 shadow-sm hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
                         onClick={() => updateValue(num + 1)}
                     >
                         <Plus className="w-4 h-4" />
@@ -2343,13 +2343,13 @@ function AddGroupModal({ isOpen, onClose, onAdd, configurations, defaultUnits, d
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-xl rounded-[32px] border-0 shadow-2xl overflow-hidden p-0 bg-white">
+            <DialogContent className="sm:max-w-xl rounded-[32px] border-0 shadow-2xl overflow-hidden p-0 bg-white dark:bg-slate-900">
                 <DialogTitle className="sr-only">Add Floor Group</DialogTitle>
-                <div className="bg-[#1A3C8C] p-8 text-white relative">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-3xl" />
+                <div className="bg-[#1A3C8C] dark:bg-blue-600 p-8 text-white relative">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-white dark:bg-slate-900/5 rounded-full -mr-16 -mt-16 blur-3xl" />
                     <div className="relative z-10 flex items-center justify-between">
                         <div>
-                            <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-xl flex items-center justify-center mb-5 border border-white/20 shadow-xl">
+                            <div className="w-14 h-14 rounded-2xl bg-white dark:bg-slate-900/10 backdrop-blur-xl flex items-center justify-center mb-5 border border-white/20 shadow-xl">
                                 <Layers className="w-7 h-7 text-white" />
                             </div>
                             <h2 className="text-3xl font-black tracking-tight leading-none">Add Floor Group</h2>
@@ -2358,7 +2358,7 @@ function AddGroupModal({ isOpen, onClose, onAdd, configurations, defaultUnits, d
                     </div>
                 </div>
 
-                <div className="p-8 space-y-6 bg-white max-h-[75vh] overflow-y-auto custom-scrollbar">
+                <div className="p-8 space-y-6 bg-white dark:bg-slate-900 max-h-[75vh] overflow-y-auto custom-scrollbar">
                     <Grid cols={2} className="gap-6">
                         <Stepper
                             label="From Floor"
@@ -2375,7 +2375,7 @@ function AddGroupModal({ isOpen, onClose, onAdd, configurations, defaultUnits, d
                     </Grid>
 
                     <div className="space-y-4">
-                        <Label className="text-xs font-black text-gray-400 uppercase tracking-widest pl-1">Select Floor Usage (Multiple Allowed)</Label>
+                        <Label className="text-xs font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest pl-1">Select Floor Usage (Multiple Allowed)</Label>
                         <div className="grid grid-cols-2 gap-2">
                             {typeOptions.map((opt) => {
                                 const Icon = opt.icon
@@ -2384,9 +2384,9 @@ function AddGroupModal({ isOpen, onClose, onAdd, configurations, defaultUnits, d
                                     <button
                                         key={opt.id}
                                         onClick={() => toggleType(opt.id)}
-                                        className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left ${isActive ? 'bg-blue-50 border-[#1A3C8C] text-[#1A3C8C]' : 'bg-gray-50 border-gray-100 text-gray-500 hover:border-gray-200'}`}
+                                        className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left ${isActive ? 'bg-blue-50 border-[#1A3C8C] text-[#1A3C8C] dark:text-blue-400' : 'bg-gray-50 dark:bg-slate-800/50 border-gray-100 dark:border-slate-800 text-gray-500 dark:text-slate-400 hover:border-gray-200 dark:border-slate-700'}`}
                                     >
-                                        <div className={`p-2 rounded-lg ${isActive ? 'bg-[#1A3C8C] text-white' : 'bg-white text-gray-400 border border-gray-100'}`}>
+                                        <div className={`p-2 rounded-lg ${isActive ? 'bg-[#1A3C8C] dark:bg-blue-600 text-white' : 'bg-white dark:bg-slate-900 text-gray-400 dark:text-slate-500 border border-gray-100 dark:border-slate-800'}`}>
                                             <Icon className="w-4 h-4" />
                                         </div>
                                         <span className="text-xs font-bold leading-tight">{opt.label}</span>
@@ -2397,13 +2397,13 @@ function AddGroupModal({ isOpen, onClose, onAdd, configurations, defaultUnits, d
                         </div>
                     </div>
 
-                    <div className="space-y-6 border-t border-gray-100 pt-6">
+                    <div className="space-y-6 border-t border-gray-100 dark:border-slate-800 pt-6">
                         <Grid cols={2} className="gap-6">
                             <Field label="Group Label (Internal)">
                                 <Input
                                     value={name}
                                     onChange={e => setName(e.target.value)}
-                                    className="h-12 rounded-xl border-gray-100 bg-gray-50/50 hover:bg-white transition-all font-bold text-gray-700 border-2 shadow-sm focus:ring-[#1A3C8C]/20"
+                                    className="h-12 rounded-xl border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/50/50 hover:bg-white dark:bg-slate-900 transition-all font-bold text-gray-700 dark:text-slate-300 border-2 shadow-sm focus:ring-[#1A3C8C]/20"
                                     placeholder="E.g. Mixed Use L1"
                                 />
                             </Field>
@@ -2412,7 +2412,7 @@ function AddGroupModal({ isOpen, onClose, onAdd, configurations, defaultUnits, d
                                     type="number"
                                     value={floorRise}
                                     onChange={e => setFloorRise(Number(e.target.value))}
-                                    className="h-12 rounded-xl border-gray-100 bg-gray-50/50 hover:bg-white transition-all font-bold text-gray-700 border-2 shadow-sm focus:ring-[#1A3C8C]/20"
+                                    className="h-12 rounded-xl border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/50/50 hover:bg-white dark:bg-slate-900 transition-all font-bold text-gray-700 dark:text-slate-300 border-2 shadow-sm focus:ring-[#1A3C8C]/20"
                                     placeholder="50000"
                                 />
                             </Field>
@@ -2433,10 +2433,10 @@ function AddGroupModal({ isOpen, onClose, onAdd, configurations, defaultUnits, d
                         {existingGroups.length > 0 && (
                             <Field label="Copy Unit Map From (Optional)" hint="Save time by cloning an existing mapping">
                                 <Select value={cloneGroupId} onValueChange={setCloneGroupId}>
-                                    <SelectTrigger className="h-12 bg-gray-50/50 border-gray-100 border-2 rounded-xl font-bold text-gray-700">
+                                    <SelectTrigger className="h-12 bg-gray-50 dark:bg-slate-800/50/50 border-gray-100 dark:border-slate-800 border-2 rounded-xl font-bold text-gray-700 dark:text-slate-300">
                                         <SelectValue placeholder="Do not copy (Empty Basic Units)" />
                                     </SelectTrigger>
-                                    <SelectContent className="bg-white rounded-xl">
+                                    <SelectContent className="bg-white dark:bg-slate-900 rounded-xl">
                                         <SelectItem value="none">Create Blank Units Map</SelectItem>
                                         {existingGroups.map(g => (
                                             <SelectItem key={g.id} value={g.id}>
@@ -2449,7 +2449,7 @@ function AddGroupModal({ isOpen, onClose, onAdd, configurations, defaultUnits, d
                         )}
                     </div>
 
-                    <div className="pt-2 sticky bottom-0 bg-white pb-2 overflow-hidden rounded-b-[32px]">
+                    <div className="pt-2 sticky bottom-0 bg-white dark:bg-slate-900 pb-2 overflow-hidden rounded-b-[32px]">
                         {(() => {
                             const start = parseInt(fromFloor.replace(/[^0-9-]/g, "")) || 0
                             const end = parseInt(toFloor.replace(/[^0-9-]/g, "")) || 0
@@ -2473,7 +2473,7 @@ function AddGroupModal({ isOpen, onClose, onAdd, configurations, defaultUnits, d
                                     <Button
                                         onClick={handleAdd}
                                         disabled={!fromFloor || !toFloor || types.length === 0 || hasOverlap}
-                                        className="w-full h-16 bg-[#1A3C8C] hover:bg-[#1A3C8C]/90 text-white rounded-2xl font-black text-lg shadow-2xl shadow-blue-200 transition-all active:scale-[0.98] group relative overflow-hidden disabled:opacity-50"
+                                        className="w-full h-16 bg-[#1A3C8C] dark:bg-blue-600 hover:bg-[#1A3C8C] dark:bg-blue-600/90 text-white rounded-2xl font-black text-lg shadow-2xl shadow-blue-200 transition-all active:scale-[0.98] group relative overflow-hidden disabled:opacity-50"
                                     >
                                         <span className="relative z-10 flex items-center justify-center gap-3">
                                             {hasOverlap ? "Floor Already Taken" : "Create Mixed-Use Group"}

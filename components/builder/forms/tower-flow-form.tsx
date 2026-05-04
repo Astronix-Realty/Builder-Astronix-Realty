@@ -30,7 +30,9 @@ type TownshipUpdater = TownshipData | ((prev: TownshipData) => TownshipData)
 
 interface TowerFlowFormProps {
   data: TowerData
-  onChange: (updater: TowerUpdater) => void
+  unitConfig?: any;
+  unitTemplate?: any;
+  onChange: (data: Partial<TowerData> | ((prev: TowerData) => TowerData)) => void;
   projectName?: string
   townshipName?: string
   townshipData?: TownshipData
@@ -53,28 +55,28 @@ function Section({
 }) {
   const isOpen = openIds.includes(id)
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+    <div className="rounded-2xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
       <button
         type="button"
         onClick={() => setOpenIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])}
-        className="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-gray-50 transition-colors group"
+        className="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-gray-50 dark:bg-slate-800/50 transition-colors group"
       >
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-xl bg-[#1A3C8C]/10 flex items-center justify-center shrink-0">
-            <Icon className="w-4 h-4 text-[#1A3C8C]" />
+          <div className="w-9 h-9 rounded-xl bg-[#1A3C8C] dark:bg-blue-900/30 flex items-center justify-center shrink-0">
+            <Icon className="w-4 h-4 text-white dark:text-blue-300" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-gray-900 text-sm">{title}</span>
-              {badge && <Badge className="bg-[#2BB673]/10 text-[#2BB673] border-0 text-[10px] font-bold">{badge}</Badge>}
+              <span className="font-semibold text-gray-900 dark:text-white text-sm">{title}</span>
+              {badge && <Badge className="bg-[#2BB673]/10 text-[#2BB673] dark:text-emerald-400 border-0 text-[10px] font-bold">{badge}</Badge>}
             </div>
-            {description && <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{description}</p>}
+            {description && <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5 line-clamp-1">{description}</p>}
           </div>
         </div>
-        {isOpen ? <ChevronUp className="w-4 h-4 text-gray-400 shrink-0" /> : <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />}
+        {isOpen ? <ChevronUp className="w-4 h-4 text-gray-400 dark:text-slate-500 shrink-0" /> : <ChevronDown className="w-4 h-4 text-gray-400 dark:text-slate-500 shrink-0" />}
       </button>
       {isOpen && (
-        <div className="px-5 pb-5 pt-1 border-t border-gray-100">
+        <div className="px-5 pb-5 pt-1 border-t border-gray-100 dark:border-slate-800">
           {children}
         </div>
       )}
@@ -85,11 +87,11 @@ function Section({
 function Field({ label, required, hint, children }: { label: string; required?: boolean; hint?: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <Label className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+      <Label className="text-xs font-semibold text-gray-700 dark:text-slate-300 uppercase tracking-wide">
         {label}{required && <span className="text-red-500 ml-0.5">*</span>}
       </Label>
       {children}
-      {hint && <p className="text-[11px] text-gray-400">{hint}</p>}
+      {hint && <p className="text-[11px] text-gray-400 dark:text-slate-500">{hint}</p>}
     </div>
   )
 }
@@ -102,12 +104,15 @@ function Grid({ cols = 2, children }: { cols?: 1 | 2 | 3; children: React.ReactN
   )
 }
 
-function SectionTitle({ title }: { title: string }) {
+function SectionTitle({ title, action }: { title: string; action?: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2 mt-5 mb-3">
-      <div className="h-px flex-1 bg-gray-100" />
-      <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{title}</span>
-      <div className="h-px flex-1 bg-gray-100" />
+      <div className="h-px flex-1 bg-gray-100 dark:bg-slate-800" />
+      <div className="flex items-center gap-3">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-slate-500">{title}</span>
+        {action}
+      </div>
+      <div className="h-px flex-1 bg-gray-100 dark:bg-slate-800" />
     </div>
   )
 }
@@ -125,19 +130,19 @@ function BankSelector({ banks, onChange }: { banks: string[]; onChange: (b: stri
         {COMMON_BANKS.map(b => (
           <button key={b} type="button"
             onClick={() => onChange(banks.includes(b) ? banks.filter(x => x !== b) : [...banks, b])}
-            className={`text-xs px-4 py-2 rounded-xl border font-semibold transition-all shadow-sm ${banks.includes(b) ? "bg-[#1A3C8C] text-white border-transparent" : "bg-white text-gray-600 border-gray-100 hover:border-[#1A3C8C]"}`}
+            className={`text-xs px-4 py-2 rounded-xl border font-semibold transition-all shadow-sm ${banks.includes(b) ? "bg-[#1A3C8C] dark:bg-blue-600 text-white border-transparent" : "bg-white dark:bg-slate-900 text-gray-600 dark:text-slate-400 border-gray-100 dark:border-slate-800 hover:border-[#1A3C8C]"}`}
           >{b}</button>
         ))}
       </div>
       {banks.filter(b => !COMMON_BANKS.includes(b)).map(b => (
-        <Badge key={b} className="bg-[#2BB673]/10 text-[#2BB673] border-0 text-xs font-semibold py-1.5 px-3 rounded-lg gap-2">
+        <Badge key={b} className="bg-[#2BB673]/10 text-[#2BB673] dark:text-emerald-400 border-0 text-xs font-semibold py-1.5 px-3 rounded-lg gap-2">
           {b}
           <button onClick={() => onChange(banks.filter(x => x !== b))} className="hover:text-red-500 transition-colors"><X className="w-3 h-3" /></button>
         </Badge>
       ))}
       <div className="flex gap-2 max-w-sm">
-        <Input value={custom} onChange={e => setCustom(e.target.value)} placeholder="Add other bank..." className="h-10 text-sm bg-gray-50/50" />
-        <Button type="button" className="h-10 px-6 bg-[#1A3C8C] hover:bg-[#1A3C8C]/90 text-sm font-bold" onClick={() => { if (custom.trim()) { onChange([...(banks || []), custom.trim()]); setCustom("") } }}>Add</Button>
+        <Input value={custom} onChange={e => setCustom(e.target.value)} placeholder="Add other bank..." className="h-10 text-sm bg-gray-50 dark:bg-slate-800/50/50" />
+        <Button type="button" className="h-10 px-6 bg-[#1A3C8C] dark:bg-blue-600 hover:bg-[#1A3C8C] dark:bg-blue-600/90 text-sm font-bold" onClick={() => { if (custom.trim()) { onChange([...(banks || []), custom.trim()]); setCustom("") } }}>Add</Button>
       </div>
     </div>
   )
@@ -155,8 +160,8 @@ function PartCollapse({
     <div className={[
       "mb-4 sm:mb-6 2xl:mb-8 rounded-2xl sm:rounded-3xl border transition-all duration-500 overflow-hidden",
       isOpen
-        ? "bg-white border-blue-100 shadow-lg sm:shadow-xl shadow-blue-50/80"
-        : "bg-gray-50/70 border-gray-100 shadow-none"
+        ? "bg-white dark:bg-slate-900 border-blue-100 shadow-lg sm:shadow-xl shadow-blue-50/80"
+        : "bg-gray-50 dark:bg-slate-800/50/70 border-gray-100 dark:border-slate-800 shadow-none"
     ].join(" ")}>
 
       <button
@@ -170,9 +175,9 @@ function PartCollapse({
             "w-10 h-10 sm:w-12 sm:h-12 2xl:w-16 2xl:h-16",
             isOpen
               ? isPartA
-                ? "bg-[#1A3C8C] text-white shadow-lg shadow-blue-300/40"
+                ? "bg-[#1A3C8C] dark:bg-blue-600 text-white shadow-lg shadow-blue-300/40"
                 : "bg-[#2BB673] text-white shadow-lg shadow-emerald-300/40"
-              : "bg-white text-gray-400 border border-gray-100 shadow-sm group-hover:border-blue-100 group-hover:shadow-blue-50",
+              : "bg-white dark:bg-slate-900 text-gray-400 dark:text-slate-500 border border-gray-100 dark:border-slate-800 shadow-sm group-hover:border-blue-100 group-hover:shadow-blue-50",
           ].join(" ")}>
             <Icon className="w-5 h-5 sm:w-6 sm:h-6 2xl:w-8 2xl:h-8" />
           </div>
@@ -182,15 +187,15 @@ function PartCollapse({
               "block font-black uppercase tracking-[0.18em] mb-0.5 sm:mb-1",
               "text-[9px] sm:text-[10px] 2xl:text-xs",
               isOpen
-                ? isPartA ? "text-[#1A3C8C]" : "text-[#2BB673]"
-                : "text-gray-400"
+                ? isPartA ? "text-[#1A3C8C] dark:text-blue-400" : "text-[#2BB673] dark:text-emerald-400"
+                : "text-gray-400 dark:text-slate-500"
             ].join(" ")}>
               {isPartA ? "Phase One" : "Phase Two"}
             </span>
             <h2 className={[
               "font-bold tracking-tight leading-tight truncate transition-colors",
               "text-base sm:text-xl 2xl:text-3xl",
-              isOpen ? "text-gray-900" : "text-gray-500"
+              isOpen ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-slate-400"
             ].join(" ")}>
               {title}
             </h2>
@@ -202,14 +207,14 @@ function PartCollapse({
           "w-7 h-7 sm:w-9 sm:h-9 2xl:w-11 2xl:h-11",
           isOpen
             ? "bg-gray-900 border-gray-900 text-white rotate-180"
-            : "bg-white border-gray-200 text-gray-400 group-hover:border-gray-400"
+            : "bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700 text-gray-400 dark:text-slate-500 group-hover:border-gray-400"
         ].join(" ")}>
           <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 2xl:w-5 2xl:h-5" />
         </div>
       </button>
 
       {isOpen && (
-        <div className="px-4 pb-5 pt-0 sm:px-6 sm:pb-8 2xl:px-10 2xl:pb-12 space-y-4 sm:space-y-6 border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-300">
+        <div className="px-4 pb-5 pt-0 sm:px-6 sm:pb-8 2xl:px-10 2xl:pb-12 space-y-4 sm:space-y-6 border-t border-gray-100 dark:border-slate-800 animate-in fade-in slide-in-from-top-2 duration-300">
           {children}
         </div>
       )}
@@ -249,7 +254,7 @@ function BulkImageInput({ onAdd }: { onAdd: (urls: string[]) => void }) {
         value={text}
         onChange={e => setText(e.target.value)}
         placeholder={"https://...img1.jpg\nhttps://...img2.jpg"}
-        className="h-20 text-xs bg-white font-mono"
+        className="h-20 text-xs bg-white dark:bg-slate-900 font-mono"
       />
       <div className="flex justify-end gap-2 mt-2">
         <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)} className="text-[10px] h-7 font-bold">CANCEL</Button>
@@ -264,9 +269,54 @@ function BulkImageInput({ onAdd }: { onAdd: (urls: string[]) => void }) {
 // ─────────────────────────────────────────
 // MAIN FORM
 // ─────────────────────────────────────────
-function TowerFlowFormBase({ data, onChange, projectName, townshipName, townshipData, onTownshipChange, showCommonData, user }: TowerFlowFormProps) {
+function TowerFlowFormBase({ data, unitConfig, unitTemplate, onChange, projectName, townshipName, townshipData, onTownshipChange, showCommonData, user }: TowerFlowFormProps) {
   const [openIds, setOpenIds] = useState<string[]>(["builder", "tower-identity", "location"])
   const [openParts, setOpenParts] = useState<string[]>(["part-a", "part-b"])
+
+  const handleSyncPrices = () => {
+    let configs = unitConfig?.configurations || []
+    if (configs.length === 0 || !configs.some((c: any) => (c.allInclusivePrice || 0) > 0)) {
+      configs = unitTemplate?.configurations || []
+    }
+
+    if (configs.length > 0) {
+      const prices = configs.map((c: any) => c.allInclusivePrice || 0).filter((p: number) => p > 0)
+      if (prices.length > 0) {
+        const min = Math.min(...prices)
+        const max = Math.max(...prices)
+        
+        // Helper to format price in L/Cr
+        const formatPrice = (p: number) => {
+          if (p >= 10000000) return `₹${(p / 10000000).toFixed(2).replace(/\.00$/, "")} Cr`
+          if (p >= 100000) return `₹${(p / 100000).toFixed(0)} L`
+          return `₹${p.toLocaleString()}`
+        }
+
+        const autoLabel = min === max ? formatPrice(min) : `${formatPrice(min)} – ${formatPrice(max)}`
+        
+        onChange(prev => ({
+          ...prev,
+          priceRangeMin: min,
+          priceRangeMax: max,
+          priceLabel: autoLabel
+        }))
+      }
+    }
+  }
+
+  let configsForCalc = unitConfig?.configurations || []
+  if (configsForCalc.length === 0 || !configsForCalc.some((c: any) => (c.allInclusivePrice || 0) > 0)) {
+    configsForCalc = unitTemplate?.configurations || []
+  }
+
+  const configPrices = configsForCalc
+    .map((c: any) => c.allInclusivePrice || 0)
+    .filter((p: number) => p > 0)
+
+  const calculatedMin = configPrices.length > 0 ? Math.min(...configPrices) : 0
+  const calculatedMax = configPrices.length > 0 ? Math.max(...configPrices) : 0
+
+  const hasDiff = calculatedMin > 0 && (data.priceRangeMin !== calculatedMin || data.priceRangeMax !== calculatedMax)
 
   const isBuilder = user?.role === "builder" || user?.userType === "builder"
 
@@ -426,13 +476,13 @@ function TowerFlowFormBase({ data, onChange, projectName, townshipName, township
                 value={data.name || ""}
                 onChange={e => update("name", e.target.value)}
                 placeholder="e.g. Tower A - Skyline"
-                className="h-12 text-lg font-medium tracking-tight bg-white/50"
+                className="h-12 text-lg font-medium tracking-tight bg-white dark:bg-slate-900/50"
               />
             </Field>
 
             <Field label="Tower Type">
               <Select value={data.towerType || "residential"} onValueChange={v => update("towerType", v as TowerData["towerType"])}>
-                <SelectTrigger className="h-11 bg-white/50"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-11 bg-white dark:bg-slate-900/50"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="residential">Residential</SelectItem>
                   <SelectItem value="commercial">Commercial</SelectItem>
@@ -443,7 +493,7 @@ function TowerFlowFormBase({ data, onChange, projectName, townshipName, township
 
             <Field label="Construction Status" required hint="Determines if CC or OC is needed">
               <Select value={data.constructionStatus || "under-construction"} onValueChange={v => update("constructionStatus", v as TowerData["constructionStatus"])}>
-                <SelectTrigger className="h-11 bg-white/50"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-11 bg-white dark:bg-slate-900/50"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="under-construction">Under Construction</SelectItem>
                   <SelectItem value="ready-to-move">Ready to Move</SelectItem>
@@ -453,8 +503,23 @@ function TowerFlowFormBase({ data, onChange, projectName, townshipName, township
           </div>
         </div>
 
-        <div className="mt-8 pt-6 border-t border-gray-100">
-          <SectionTitle title="Pricing & Range" />
+        <div className="mt-8 pt-6 border-t border-gray-100 dark:border-slate-800">
+          <SectionTitle 
+            title="Pricing & Range" 
+            action={
+              hasDiff && (
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleSyncPrices}
+                  className="h-6 px-2 text-[9px] bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100 animate-pulse font-black uppercase tracking-wider"
+                >
+                  <BarChart3 className="w-2.5 h-2.5 mr-1" /> Auto-Sync from Units
+                </Button>
+              )
+            }
+          />
           <Grid cols={3}>
             <Field label="Minimum Price (₹)" hint="Starting price (e.g. 50L)">
               <Input 
@@ -462,7 +527,7 @@ function TowerFlowFormBase({ data, onChange, projectName, townshipName, township
                 value={data.priceRangeMin || ""} 
                 onChange={e => update("priceRangeMin", Number(e.target.value))} 
                 placeholder="5000000" 
-                className="h-10 border-gray-200 focus-visible:ring-[#1A3C8C]"
+                className={`h-10 border-gray-200 dark:border-slate-700 focus-visible:ring-[#1A3C8C] ${data.priceRangeMin !== calculatedMin && calculatedMin > 0 ? 'border-orange-200 bg-orange-50/20' : ''}`}
               />
             </Field>
             <Field label="Maximum Price (₹)" hint="Max price (e.g. 1.5Cr)">
@@ -471,7 +536,7 @@ function TowerFlowFormBase({ data, onChange, projectName, townshipName, township
                 value={data.priceRangeMax || ""} 
                 onChange={e => update("priceRangeMax", Number(e.target.value))} 
                 placeholder="15000000" 
-                className="h-10 border-gray-200 focus-visible:ring-[#1A3C8C]"
+                className={`h-10 border-gray-200 dark:border-slate-700 focus-visible:ring-[#1A3C8C] ${data.priceRangeMax !== calculatedMax && calculatedMax > 0 ? 'border-orange-200 bg-orange-50/20' : ''}`}
               />
             </Field>
             <Field label="Display Price Range" hint="Custom text display">
@@ -479,17 +544,18 @@ function TowerFlowFormBase({ data, onChange, projectName, townshipName, township
                 value={data.priceLabel || ""} 
                 onChange={e => update("priceLabel", e.target.value)} 
                 placeholder="₹50L - ₹1.5Cr" 
-                className="h-10 border-gray-200 focus-visible:ring-[#1A3C8C]"
+                className="h-10 border-gray-200 dark:border-slate-700 focus-visible:ring-[#1A3C8C]"
               />
             </Field>
           </Grid>
           <div className="flex items-center gap-2 mt-4 px-3 py-2 bg-blue-50/50 border border-blue-100/50 rounded-lg text-[10px] text-blue-600 font-bold uppercase tracking-tight">
             <Info className="w-3 h-3" />
-            Auto-calculated range from units: ₹{(data.priceRangeMin / 100000).toFixed(0)}L – ₹{(data.priceRangeMax / 100000).toFixed(0)}L
+            Auto-calculated range from units: ₹{(calculatedMin / 100000).toFixed(0)}L – ₹{(calculatedMax / 100000).toFixed(0)}L
+            {hasDiff && <span className="ml-auto text-orange-600">⚠️ Values mismatch - Use Auto-Sync</span>}
           </div>
         </div>
 
-        <div className="mt-8 pt-6 border-t border-gray-100">
+        <div className="mt-8 pt-6 border-t border-gray-100 dark:border-slate-800">
           <SectionTitle title="Photo Gallery" />
           <GalleryUpload
             images={data.galleryImages || []}
@@ -497,7 +563,7 @@ function TowerFlowFormBase({ data, onChange, projectName, townshipName, township
           />
         </div>
 
-        <div className="mt-8 pt-6 border-t border-gray-100">
+        <div className="mt-8 pt-6 border-t border-gray-100 dark:border-slate-800">
           <SectionTitle title="Tower Video Gallery" />
           <VideoUpload
             videos={data.videoGallery || []}
@@ -526,7 +592,7 @@ function TowerFlowFormBase({ data, onChange, projectName, townshipName, township
                 onChange={e => update("description", e.target.value)} 
                 rows={3} 
                 placeholder="Tower A is an iconic 25-storey residential tower with panoramic city views..." 
-                className="bg-white/50"
+                className="bg-white dark:bg-slate-900/50"
               />
             </Field>
             
@@ -536,7 +602,7 @@ function TowerFlowFormBase({ data, onChange, projectName, townshipName, township
                 onChange={e => update("visionStatement", e.target.value)} 
                 rows={4} 
                 placeholder="Tower A stands as a beacon of modern architecture, offering world-class amenities..." 
-                className="bg-white/50 border-blue-50 focus:border-blue-200"
+                className="bg-white dark:bg-slate-900/50 border-blue-50 focus:border-blue-200"
               />
             </Field>
           </div>
@@ -594,9 +660,9 @@ function TowerFlowFormBase({ data, onChange, projectName, townshipName, township
 
       {/* ── 4. FLOOR PLAN BREAKDOWN ─────────────── */}
       <Section id="tower-floors" title="Floor Distribution Breakdown" description="Parking, Podium, Refuge, Residential floors — Floor View Slider" icon={Layers} openIds={openIds} setOpenIds={setOpenIds}>
-        <p className="text-xs text-gray-500 mb-3">Tower ke andar har floor type ki range define karo — visitor panel mein interactive floor view slider pe dikhega</p>
+        <p className="text-xs text-gray-500 dark:text-slate-400 mb-3">Tower ke andar har floor type ki range define karo — visitor panel mein interactive floor view slider pe dikhega</p>
         {(data.floorsBreakdown || []).map(item => (
-          <Card key={item.id} className="mb-3 border-gray-100">
+          <Card key={item.id} className="mb-3 border-gray-100 dark:border-slate-800">
             <CardContent className="p-3">
               <Grid cols={2}>
                 <Field label="Floor Type">
@@ -644,7 +710,7 @@ function TowerFlowFormBase({ data, onChange, projectName, townshipName, township
           {/* Right: Description & Brochure */}
           <div className="flex-1 space-y-6">
             <Field label="Short Description" hint="Brief explanation of the layout">
-              <Textarea value={data.floorPlanDescription || ""} onChange={e => update("floorPlanDescription", e.target.value)} rows={3} placeholder="Brief description for listings..." className="bg-white/50" />
+              <Textarea value={data.floorPlanDescription || ""} onChange={e => update("floorPlanDescription", e.target.value)} rows={3} placeholder="Brief description for listings..." className="bg-white dark:bg-slate-900/50" />
             </Field>
 
             <div className="pt-2">
@@ -653,8 +719,8 @@ function TowerFlowFormBase({ data, onChange, projectName, townshipName, township
                   <FileText className="w-4 h-4 text-red-500" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-gray-900">Tower Brochure</p>
-                  <p className="text-xs text-[#2BB673]">Upload your comprehensive tower brochure</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">Tower Brochure</p>
+                  <p className="text-xs text-[#2BB673] dark:text-emerald-400">Upload your comprehensive tower brochure</p>
                 </div>
               </div>
               <DocumentUpload
@@ -667,7 +733,7 @@ function TowerFlowFormBase({ data, onChange, projectName, townshipName, township
             {data.refugeFloorPlanImage && (
                <div className="pt-2"> 
                     <div className="flex flex-col gap-2">
-                      <label className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Refuge Floor Plan (Optional)</label>
+                      <label className="text-[10px] uppercase font-bold text-gray-500 dark:text-slate-400 tracking-wider">Refuge Floor Plan (Optional)</label>
                       <AboutImageUpload
                         value={data.refugeFloorPlanImage || ""}
                         onChange={url => update("refugeFloorPlanImage", url)}
@@ -696,16 +762,16 @@ function TowerFlowFormBase({ data, onChange, projectName, townshipName, township
         </Grid>
 
         <SectionTitle title="Legal Documents" />
-        <p className="text-xs text-gray-400 mb-4 mt-[-8px]">Official certificates and approvals in PDF format.</p>
+        <p className="text-xs text-gray-400 dark:text-slate-500 mb-4 mt-[-8px]">Official certificates and approvals in PDF format.</p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* 1. RERA Certificate */}
-          <div className="bg-gray-50/50 rounded-2xl p-5 border border-gray-100 hover:border-gray-200 transition-colors shadow-sm flex flex-col h-full">
+          <div className="bg-gray-50 dark:bg-slate-800/50/50 rounded-2xl p-5 border border-gray-100 dark:border-slate-800 hover:border-gray-200 dark:border-slate-700 transition-colors shadow-sm flex flex-col h-full">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-7 h-7 bg-blue-100/50 rounded-lg flex items-center justify-center">
-                <ShieldCheck className="w-4 h-4 text-[#1A3C8C]" />
+                <ShieldCheck className="w-4 h-4 text-[#1A3C8C] dark:text-blue-400" />
               </div>
-              <Label className="text-[11px] font-bold uppercase tracking-wider text-[#1A3C8C]">RERA Certificate</Label>
+              <Label className="text-[11px] font-bold uppercase tracking-wider text-[#1A3C8C] dark:text-blue-400">RERA Certificate</Label>
               <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">Required</span>
             </div>
 
@@ -725,14 +791,14 @@ function TowerFlowFormBase({ data, onChange, projectName, townshipName, township
             <div className="bg-blue-50/20 rounded-2xl p-5 border border-blue-100/50 hover:border-blue-200 transition-colors shadow-sm flex flex-col h-full">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <FileText className="w-4 h-4 text-[#1A3C8C]" />
+                  <FileText className="w-4 h-4 text-[#1A3C8C] dark:text-blue-400" />
                 </div>
-                <Label className="text-[11px] font-bold uppercase tracking-wider text-[#1A3C8C]">Commencement (CC)</Label>
+                <Label className="text-[11px] font-bold uppercase tracking-wider text-[#1A3C8C] dark:text-blue-400">Commencement (CC)</Label>
                 <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">Required</span>
               </div>
               
               <div className="mb-4">
-                <Input value={data.ccNumber || ""} onChange={e => update("ccNumber", e.target.value)} placeholder="CC Number (e.g. CC/2023/102)" className="text-xs bg-white/50" />
+                <Input value={data.ccNumber || ""} onChange={e => update("ccNumber", e.target.value)} placeholder="CC Number (e.g. CC/2023/102)" className="text-xs bg-white dark:bg-slate-900/50" />
               </div>
 
               <div className="flex-1">
@@ -759,7 +825,7 @@ function TowerFlowFormBase({ data, onChange, projectName, townshipName, township
               </div>
 
               <div className="mb-4">
-                <Input value={data.ocNumber || ""} onChange={e => update("ocNumber", e.target.value)} placeholder="OC Number (e.g. OC/2024/099)" className="text-xs bg-white/50" />
+                <Input value={data.ocNumber || ""} onChange={e => update("ocNumber", e.target.value)} placeholder="OC Number (e.g. OC/2024/099)" className="text-xs bg-white dark:bg-slate-900/50" />
               </div>
 
               <div className="flex-1">
@@ -790,13 +856,13 @@ function TowerFlowFormBase({ data, onChange, projectName, townshipName, township
 
           {!isBuilder && (
           <Section id="builder" title="Developer / Builder Info" description="Builder name, logo, contact — Hero pe dikhta hai" icon={Building2} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-             <div className="bg-gray-50/50 p-4 sm:p-5 rounded-2xl border border-gray-100 flex flex-col gap-5">
+             <div className="bg-gray-50 dark:bg-slate-800/50/50 p-4 sm:p-5 rounded-2xl border border-gray-100 dark:border-slate-800 flex flex-col gap-5">
                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                  <Field label="Builder / Company Name" required hint="Registered company name (auto-filled for builders)">
-                   <Input value={townshipData.builderName} onChange={e => updateCommon("builderName", e.target.value)} placeholder="Astronix Realty" className="h-11 border-gray-200 bg-white shadow-sm focus-visible:ring-blue-500 rounded-xl" />
+                   <Input value={townshipData.builderName} onChange={e => updateCommon("builderName", e.target.value)} placeholder="Astronix Realty" className="h-11 border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm focus-visible:ring-blue-500 rounded-xl" />
                  </Field>
                  <Field label="Builder Logo URL" hint="A publicly accessible logo URL">
-                   <Input value={townshipData.builderLogo} onChange={e => updateCommon("builderLogo", e.target.value)} placeholder="https://..." className="h-11 border-gray-200 bg-white shadow-sm focus-visible:ring-blue-500 rounded-xl" />
+                   <Input value={townshipData.builderLogo} onChange={e => updateCommon("builderLogo", e.target.value)} placeholder="https://..." className="h-11 border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm focus-visible:ring-blue-500 rounded-xl" />
                  </Field>
                </div>
              </div>

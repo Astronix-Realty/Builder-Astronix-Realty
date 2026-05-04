@@ -34,7 +34,8 @@ interface Property {
   towers: number
   units: number
   location: string
-  status: "active" | "pending" | "draft" | "rejected" | "completed"
+  status: "published" | "pending" | "draft" | "rejected" | "archived" | "completed"
+
   totalValue: number
   createdDate: string
   flowType?: string
@@ -146,10 +147,11 @@ function DashboardContent() {
       } else if (filterParam === "pending") {
         setPropertyFilter("pending")
       } else if (filterParam === "published" || filterParam === "active") {
-        setPropertyFilter("active")
+        setPropertyFilter("published")
       } else if (filterParam === "rejected") {
         setPropertyFilter("rejected")
       }
+
     }
   }, [searchParams])
 
@@ -200,11 +202,13 @@ function DashboardContent() {
       details.generatedUnits?.reduce((sum: number, u: any) => sum + (u.price || 0), 0) ||
       (unitsCount > 0 ? unitsCount * 5000000 : 0)
 
-    let finalStatus: Property['status'] = defaultStatus
-    if (p.status === 'draft') finalStatus = 'draft'
+    let finalStatus: Property['status'] = p.status || defaultStatus
+    if (p.status === 'published' || p.status === 'active') finalStatus = 'published'
     else if (p.status === 'pending') finalStatus = 'pending'
     else if (p.status === 'rejected') finalStatus = 'rejected'
-    else if (p.status === 'published' || p.status === 'active') finalStatus = 'active'
+    else if (p.status === 'draft') finalStatus = 'draft'
+    else if (p.status === 'archived') finalStatus = 'archived'
+
 
     return {
       id: p._id || p.id,
@@ -230,8 +234,9 @@ function DashboardContent() {
         const data = await res.json()
         if (data.properties) {
           const mapped = data.properties.map((p: any) =>
-            mapProperty(p, p.status === 'draft' ? 'draft' : p.status === 'pending' ? 'pending' : p.status === 'rejected' ? 'rejected' : 'active')
+            mapProperty(p, p.status || 'draft')
           )
+
           setProperties(mapped)
         }
       } else {
@@ -434,7 +439,8 @@ function DashboardContent() {
 
   const [activeTab, setActiveTab] = useState<"properties" | "inventory" | "crm" | "chat" | "documents" | "team" | "offers" | "blog" | "settings">("properties")
   const [showAddProperty, setShowAddProperty] = useState(false)
-  const [propertyFilter, setPropertyFilter] = useState<'active' | 'pending' | 'draft' | 'rejected'>('active')
+  const [propertyFilter, setPropertyFilter] = useState<'published' | 'pending' | 'draft' | 'rejected'>('published')
+
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
@@ -656,14 +662,15 @@ function DashboardContent() {
             {activeTab === "properties" && (
               <div className="hidden md:flex items-center gap-6 text-sm font-medium absolute left-1/2 -translate-x-1/2">
                 <button
-                  onClick={() => setPropertyFilter("active")}
-                  className={`pb-1 transition-colors ${propertyFilter === "active"
+                  onClick={() => setPropertyFilter("published")}
+                  className={`pb-1 transition-colors ${propertyFilter === "published"
                     ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
                     : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
                     }`}
                 >
-                  Published ({properties.filter(p => p.status === "active").length})
+                  Published ({properties.filter(p => p.status === "published").length})
                 </button>
+
 
                 <button
                   onClick={() => setPropertyFilter("pending")}
@@ -731,14 +738,15 @@ function DashboardContent() {
           {activeTab === "properties" && (
             <div className="md:hidden mt-4 flex gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
               <button
-                onClick={() => setPropertyFilter("active")}
-                className={`flex-1 py-2 text-sm rounded-md font-medium transition ${propertyFilter === "active"
+                onClick={() => setPropertyFilter("published")}
+                className={`flex-1 py-2 text-sm rounded-md font-medium transition ${propertyFilter === "published"
                   ? "bg-white dark:bg-slate-900 text-blue-600 shadow"
                   : "text-slate-600 dark:text-slate-400"
                   }`}
               >
-                Published ({properties.filter(p => p.status === "active").length})
+                Published ({properties.filter(p => p.status === "published").length})
               </button>
+
 
               <button
                 onClick={() => setPropertyFilter("pending")}
@@ -932,14 +940,17 @@ function DashboardContent() {
 
                         {/* Status Badge */}
                         <div className="absolute top-4 right-4 z-20">
-                          <span className={`px-3 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest shadow-xl border backdrop-blur-sm ${property.status === "active"
+                          <span className={`px-3 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest shadow-xl border backdrop-blur-sm ${property.status === "published"
                               ? "bg-emerald-500/80 text-white border-emerald-400/50"
                               : property.status === "pending"
                                 ? "bg-amber-500/80 text-white border-amber-400/50"
-                                : "bg-slate-500/80 text-white border-slate-400/50"
+                                : property.status === "rejected"
+                                  ? "bg-red-500/80 text-white border-red-400/50"
+                                  : "bg-slate-500/80 text-white border-slate-400/50"
                             }`}>
-                            {property.status === "active" ? "Published" : property.status === "pending" ? "Draft" : property.status}
+                            {property.status === "published" ? "Published" : property.status === "pending" ? "Pending" : property.status === "draft" ? "Draft" : property.status}
                           </span>
+
                         </div>
                       </div>
 
@@ -1039,8 +1050,9 @@ function DashboardContent() {
                   <Building2 className="h-16 w-16 text-slate-300 dark:text-slate-700 mx-auto mb-4" />
                   <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">No Properties Found</h3>
                   <p className="text-slate-600 dark:text-slate-400 mb-6">
-                    {propertyFilter === 'active' ? "You haven't published any properties yet." :
+                    {propertyFilter === 'published' ? "You haven't published any properties yet." :
                       propertyFilter === 'pending' ? "You don't have any properties pending approval." :
+
                         propertyFilter === 'rejected' ? "You don't have any rejected properties." :
                           "You don't have any drafts."}
                   </p>

@@ -59,7 +59,7 @@ export function BannerUpload({ value, onChange }: { value: string; onChange: (ur
   return (
     <div className="space-y-2">
       <div
-        className={`relative w-full h-[200px] border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group ${value ? "border-transparent" : "border-blue-200 bg-blue-50/20 hover:bg-blue-50/50 hover:border-blue-400"}`}
+        className={`relative w-full h-[200px] border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group ${value ? "border-transparent" : "border-blue-200 dark:border-blue-900/50 bg-blue-50/20 dark:bg-blue-900/10 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 hover:border-blue-400"}`}
         onClick={() => !isUploading && fileRef.current?.click()}
       >
         {isUploading ? (
@@ -74,7 +74,7 @@ export function BannerUpload({ value, onChange }: { value: string; onChange: (ur
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); !isUploading && fileRef.current?.click() }}
-                className="bg-white text-gray-800 px-4 py-2 rounded-lg text-xs font-bold shadow-lg hover:bg-gray-50 flex items-center gap-1.5"
+                className="bg-white dark:bg-slate-900 text-gray-800 dark:text-white px-4 py-2 rounded-lg text-xs font-bold shadow-lg hover:bg-gray-50 dark:hover:bg-slate-800 flex items-center gap-1.5"
               >
                 <Upload className="w-3.5 h-3.5 text-blue-600" /> Replace
               </button>
@@ -89,12 +89,12 @@ export function BannerUpload({ value, onChange }: { value: string; onChange: (ur
           </>
         ) : (
           <div className="flex flex-col items-center text-center px-4">
-            <div className="w-12 h-12 bg-blue-50 rounded-xl text-blue-500 flex items-center justify-center mb-3 transition-transform group-hover:scale-110 group-hover:-translate-y-1">
+            <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 rounded-xl text-blue-500 flex items-center justify-center mb-3 transition-transform group-hover:scale-110 group-hover:-translate-y-1">
               <Upload className="w-5 h-5" />
             </div>
-            <span className="font-semibold text-gray-700 text-sm">Upload Cover Image</span>
-            <span className="text-[11px] text-gray-400 mt-1">High quality banner for your page</span>
-            <span className="text-[10px] text-gray-400 mt-3 bg-gray-100 px-2.5 py-1 rounded-full">JPEG · PNG · WEBP</span>
+            <span className="font-semibold text-gray-700 dark:text-slate-300 text-sm">Upload Cover Image</span>
+            <span className="text-[11px] text-gray-400 dark:text-slate-500 mt-1">High quality banner for your page</span>
+            <span className="text-[10px] text-gray-400 dark:text-slate-500 mt-3 bg-gray-100 dark:bg-slate-800 px-2.5 py-1 rounded-full">JPEG · PNG · WEBP</span>
           </div>
         )}
         <input type="file" ref={fileRef} className="hidden" accept="image/*" onChange={handleFileChange} />
@@ -158,7 +158,7 @@ export function GalleryUpload({ images, onChange, max = 20 }: { images: string[]
       <div className="flex flex-wrap gap-3 mt-2">
         {images.map((img, i) => (
           img ? (
-          <div key={i} className="relative w-28 h-28 rounded-xl border border-gray-200 overflow-hidden group shadow-sm">
+          <div key={i} className="relative w-28 h-28 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden group shadow-sm">
             <Image src={img} alt={`Gallery ${i}`} fill className="object-cover" unoptimized />
             <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity" />
             <button
@@ -175,8 +175,8 @@ export function GalleryUpload({ images, onChange, max = 20 }: { images: string[]
         {images.length < max && (
           <div
             className={`w-28 h-28 border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-colors ${isUploading
-                ? "border-blue-300 bg-blue-50"
-                : "border-gray-200 hover:border-blue-400 hover:bg-blue-50/30 text-gray-400"
+                ? "border-blue-300 bg-blue-50 dark:bg-blue-900/20"
+                : "border-gray-200 dark:border-slate-700 hover:border-blue-400 hover:bg-blue-50/30 dark:hover:bg-blue-900/10 text-gray-400"
               }`}
             onClick={() => !isUploading && fileRef.current?.click()}
           >
@@ -185,7 +185,7 @@ export function GalleryUpload({ images, onChange, max = 20 }: { images: string[]
             ) : (
               <>
                 <Plus className="w-7 h-7 mb-1" />
-                <span className="text-[11px] font-semibold text-gray-500">Add Photos</span>
+                <span className="text-[11px] font-semibold text-gray-500 dark:text-slate-400">Add Photos</span>
               </>
             )}
           </div>
@@ -193,7 +193,7 @@ export function GalleryUpload({ images, onChange, max = 20 }: { images: string[]
         <input type="file" multiple ref={fileRef} className="hidden" accept="image/*" onChange={handleFileChange} />
       </div>
       {error && (
-        <div className="flex items-center gap-2 text-red-500 text-xs bg-red-50 px-3 py-2 rounded-lg">
+        <div className="flex items-center gap-2 text-red-500 text-xs bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{error}</span>
         </div>
@@ -344,7 +344,7 @@ export function VideoUpload({ videos, onChange, max = 5 }: {
             return (
               <div
                 key={vid.id || i}
-                className="relative aspect-video rounded-2xl border border-gray-200 overflow-hidden group shadow-sm bg-gray-900 cursor-pointer ring-offset-2 hover:ring-2 hover:ring-blue-500 transition-all"
+                className="relative aspect-video rounded-2xl border border-gray-200 dark:border-slate-800 overflow-hidden group shadow-sm bg-gray-900 cursor-pointer ring-offset-2 dark:ring-offset-slate-900 hover:ring-2 hover:ring-blue-500 transition-all"
                 onClick={() => openVideoModal(vid)}
               >
                 {/* Thumbnail */}
@@ -426,21 +426,21 @@ export function VideoUpload({ videos, onChange, max = 5 }: {
 
       {/* ── Add Video Panel ─────────────────────── */}
       {videos.length < max && (
-        <div className={`relative w-full border-2 border-dashed rounded-2xl overflow-hidden transition-all duration-300 ${videos.length === 0 ? "h-[250px]" : "mt-4 h-auto"} border-gray-200 bg-gray-50/50 hover:bg-white hover:border-blue-300 hover:shadow-xl hover:shadow-blue-500/5 group`}>
+        <div className={`relative w-full border-2 border-dashed rounded-2xl overflow-hidden transition-all duration-300 ${videos.length === 0 ? "h-[250px]" : "mt-4 h-auto"} border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-900 hover:border-blue-300 dark:hover:border-blue-900 hover:shadow-xl hover:shadow-blue-500/5 group`}>
           {videos.length === 0 ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
-              <div className="w-16 h-16 bg-blue-50 rounded-2xl text-blue-500 flex items-center justify-center mb-4 transition-transform group-hover:scale-110 group-hover:-translate-y-1 shadow-sm">
+              <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/30 rounded-2xl text-blue-500 flex items-center justify-center mb-4 transition-transform group-hover:scale-110 group-hover:-translate-y-1 shadow-sm">
                 <Film className="w-8 h-8" />
               </div>
-              <h4 className="font-bold text-gray-800 text-lg">Add Video Walkthrough</h4>
-              <p className="text-xs text-gray-500 mt-1.5 max-w-[300px]">Upload high-quality videos or paste links from YouTube to showcase your property.</p>
+              <h4 className="font-bold text-gray-800 dark:text-white text-lg">Add Video Walkthrough</h4>
+              <p className="text-xs text-gray-500 dark:text-slate-400 mt-1.5 max-w-[300px]">Upload high-quality videos or paste links from YouTube to showcase your property.</p>
               
               <div className="flex gap-3 mt-6">
-                <span className="text-[10px] text-gray-600 bg-white border border-gray-200 px-3 py-1.5 rounded-full font-bold flex items-center gap-1.5 shadow-sm">
+                <span className="text-[10px] text-gray-600 dark:text-slate-400 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 px-3 py-1.5 rounded-full font-bold flex items-center gap-1.5 shadow-sm">
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
                   YouTube / MP4
                 </span>
-                <span className="text-[10px] text-gray-600 bg-white border border-gray-200 px-3 py-1.5 rounded-full font-bold flex items-center gap-1.5 shadow-sm">
+                <span className="text-[10px] text-gray-600 dark:text-slate-400 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 px-3 py-1.5 rounded-full font-bold flex items-center gap-1.5 shadow-sm">
                   <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
                   Max 100MB
                 </span>
@@ -451,12 +451,12 @@ export function VideoUpload({ videos, onChange, max = 5 }: {
           ) : null}
 
           {/* Input row */}
-          <div className={`${videos.length === 0 ? "absolute bottom-0 inset-x-0 bg-white/60 backdrop-blur-md border-t border-gray-100 p-4" : "p-4"} flex flex-col sm:flex-row gap-3`}>
+          <div className={`${videos.length === 0 ? "absolute bottom-0 inset-x-0 bg-white/60 dark:bg-slate-900/60 backdrop-blur-md border-t border-gray-100 dark:border-slate-800 p-4" : "p-4"} flex flex-col sm:flex-row gap-3`}>
             <button
               type="button"
               onClick={() => !isUploading && fileRef.current?.click()}
               disabled={isUploading}
-              className="flex-shrink-0 bg-white border border-gray-200 hover:border-blue-400 text-gray-800 font-bold px-5 py-2.5 rounded-xl text-sm shadow-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 hover:shadow-md active:scale-95"
+              className="flex-shrink-0 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 hover:border-blue-400 text-gray-800 dark:text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 hover:shadow-md active:scale-95"
             >
               {isUploading ? (
                 <><div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /> Uploading...</>
@@ -465,7 +465,7 @@ export function VideoUpload({ videos, onChange, max = 5 }: {
               )}
             </button>
 
-            <div className="flex-1 flex items-center bg-white border border-gray-200 rounded-xl px-3 overflow-hidden focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all shadow-sm">
+            <div className="flex-1 flex items-center bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-xl px-3 overflow-hidden focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 transition-all shadow-sm">
               <Film className="w-4 h-4 text-gray-400 shrink-0" />
               <input
                 type="text"
@@ -473,7 +473,7 @@ export function VideoUpload({ videos, onChange, max = 5 }: {
                 onChange={(e) => setLinkInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleAddLink()}
                 placeholder="Paste YouTube or MP4 link..."
-                className="flex-1 text-sm bg-transparent px-3 py-3 text-gray-800 placeholder-gray-400 focus:outline-none"
+                className="flex-1 text-sm bg-transparent px-3 py-3 text-gray-800 dark:text-white placeholder-gray-400 focus:outline-none"
               />
               {linkInput && (
                 <button type="button" onClick={() => setLinkInput("")} className="text-gray-400 hover:text-gray-600 p-1">
@@ -485,7 +485,7 @@ export function VideoUpload({ videos, onChange, max = 5 }: {
               type="button"
               onClick={handleAddLink}
               disabled={!linkInput.trim()}
-              className="flex-shrink-0 px-6 py-2.5 bg-[#1A3C8C] hover:bg-blue-900 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-black rounded-xl transition-all shadow-md active:scale-95"
+              className="flex-shrink-0 px-6 py-2.5 bg-[#1A3C8C] dark:bg-blue-600 hover:bg-blue-900 disabled:bg-gray-200 dark:disabled:bg-slate-800 disabled:text-gray-400 text-white text-sm font-black rounded-xl transition-all shadow-md active:scale-95"
             >
               Add Link
             </button>
@@ -497,7 +497,7 @@ export function VideoUpload({ videos, onChange, max = 5 }: {
       <input type="file" ref={fileRef} className="hidden" accept="video/*" onChange={handleFileChange} />
 
       {error && (
-        <div className="flex items-center gap-2 text-red-500 text-sm bg-red-50 border border-red-100 px-4 py-3 rounded-lg">
+        <div className="flex items-center gap-2 text-red-500 text-sm bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 px-4 py-3 rounded-lg">
           <AlertCircle className="w-5 h-5 shrink-0" />
           <span>{error}</span>
         </div>
@@ -610,10 +610,10 @@ export function DocumentUpload({
 
   return (
     <div className="space-y-3">
-      {label && <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide">{label}</div>}
+      {label && <div className="text-xs font-semibold text-gray-700 dark:text-slate-300 uppercase tracking-wide">{label}</div>}
 
       <div
-        className={`relative w-full min-h-[160px] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group p-6 ${value ? "border-green-200 bg-green-50/30" : "border-gray-200 bg-gray-50/50 hover:bg-gray-100 hover:border-gray-300"
+        className={`relative w-full min-h-[160px] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group p-6 ${value ? "border-green-200 dark:border-green-900/50 bg-green-50/30 dark:bg-green-900/10" : "border-gray-200 dark:border-slate-800 bg-gray-50/50 dark:bg-slate-800/50 hover:bg-gray-100 dark:hover:bg-slate-800 hover:border-gray-300 dark:hover:border-slate-700"
           }`}
         onClick={() => !isUploading && fileRef.current?.click()}
       >
@@ -626,7 +626,7 @@ export function DocumentUpload({
           // ── Uploaded state ──────────────────────────────────────
           <div className="flex flex-col items-center text-center gap-4 w-full py-2" onClick={(e) => e.stopPropagation()}>
             {/* PDF icon with success badge */}
-            <div className="relative w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center text-red-500 shadow-sm flex-shrink-0">
+            <div className="relative w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-2xl flex items-center justify-center text-red-500 shadow-sm flex-shrink-0">
               <FileText className="w-8 h-8" />
               <div className="absolute -top-2 -right-2 bg-green-500 text-white p-1 rounded-full shadow-sm">
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -635,7 +635,7 @@ export function DocumentUpload({
               </div>
             </div>
 
-            <p className="text-sm font-semibold text-gray-800 max-w-[220px] truncate" title={value?.split('/').pop()?.split('?')[0] || 'Document'}>
+            <p className="text-sm font-semibold text-gray-800 dark:text-white max-w-[220px] truncate" title={value?.split('/').pop()?.split('?')[0] || 'Document'}>
               {value?.split('/').pop()?.split('_').slice(0, -1).join('_') || value?.split('/').pop()?.split('?')[0] || 'Document Uploaded'}
             </p>
 
@@ -654,21 +654,21 @@ export function DocumentUpload({
           </div>
         ) : (
           <div className="flex flex-col items-center text-center">
-            <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center text-red-500 mb-4 transition-transform group-hover:scale-110 shadow-sm relative">
+            <div className="w-16 h-16 bg-red-50 dark:bg-red-900/30 rounded-2xl flex items-center justify-center text-red-500 mb-4 transition-transform group-hover:scale-110 shadow-sm relative">
               <FileText className="w-8 h-8" />
               <div className="absolute -bottom-2 right-0 bg-blue-500 text-white p-1.5 rounded-full shadow-md">
                 <Upload className="w-3.5 h-3.5" />
               </div>
             </div>
-            <span className="font-bold text-gray-800 text-base">{title}</span>
-            <span className="text-xs text-gray-500 mt-1 max-w-[250px]">{description}</span>
+            <span className="font-bold text-gray-800 dark:text-white text-base">{title}</span>
+            <span className="text-xs text-gray-500 dark:text-slate-400 mt-1 max-w-[250px]">{description}</span>
 
             <div className="flex gap-2 mt-4">
-              <span className="text-[10px] text-gray-600 bg-white border border-gray-200 px-3 py-1 rounded-full font-medium flex items-center gap-1.5">
+              <span className="text-[10px] text-gray-600 dark:text-slate-400 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 px-3 py-1 rounded-full font-medium flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
                 {accept.includes('pdf') ? 'PDF' : 'Any'} Format
               </span>
-              <span className="text-[10px] text-gray-600 bg-white border border-gray-200 px-3 py-1 rounded-full font-medium flex items-center gap-1.5">
+              <span className="text-[10px] text-gray-600 dark:text-slate-400 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 px-3 py-1 rounded-full font-medium flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
                 Max {maxSizeMB} MB
               </span>
@@ -737,7 +737,7 @@ export function MasterPlanMapUpload({
   return (
     <div className="space-y-2">
       <div
-        className={`relative w-full h-[200px] border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group ${value ? "border-transparent bg-gray-50" : "border-blue-200 bg-blue-50/20 hover:bg-blue-50/50 hover:border-blue-400"}`}
+        className={`relative w-full h-[200px] border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group ${value ? "border-transparent bg-gray-50 dark:bg-slate-800" : "border-blue-200 dark:border-blue-900/50 bg-blue-50/20 dark:bg-blue-900/10 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 hover:border-blue-400"}`}
         onClick={() => !isUploading && fileRef.current?.click()}
       >
         {isUploading ? (
@@ -748,7 +748,7 @@ export function MasterPlanMapUpload({
         ) : value ? (
           <>
             <div className="absolute inset-0 p-1.5">
-              <div className="relative w-full h-full rounded-lg overflow-hidden border border-gray-200 bg-white">
+              <div className="relative w-full h-full rounded-lg overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900">
                 <Image src={value} alt="Master Plan Map" fill className="object-contain" unoptimized />
               </div>
             </div>
@@ -772,12 +772,12 @@ export function MasterPlanMapUpload({
           </>
         ) : (
           <div className="flex flex-col items-center text-center px-4">
-            <div className="w-12 h-12 bg-blue-50 rounded-xl text-blue-500 flex items-center justify-center mb-3 transition-transform group-hover:scale-110 group-hover:-translate-y-1">
+            <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 rounded-xl text-blue-500 flex items-center justify-center mb-3 transition-transform group-hover:scale-110 group-hover:-translate-y-1">
               <MapIcon className="w-5 h-5" />
             </div>
-            <span className="font-semibold text-gray-700 text-sm">{title}</span>
-            <span className="text-[11px] text-gray-400 mt-1 max-w-[200px] leading-relaxed">{description}</span>
-            <span className="text-[10px] text-gray-400 mt-3 bg-gray-100 px-2.5 py-1 rounded-full">JPEG · PNG · WEBP</span>
+            <span className="font-semibold text-gray-700 dark:text-slate-300 text-sm">{title}</span>
+            <span className="text-[11px] text-gray-400 dark:text-slate-500 mt-1 max-w-[200px] leading-relaxed">{description}</span>
+            <span className="text-[10px] text-gray-400 dark:text-slate-500 mt-3 bg-gray-100 dark:bg-slate-800 px-2.5 py-1 rounded-full">JPEG · PNG · WEBP</span>
           </div>
         )}
         <input type="file" ref={fileRef} className="hidden" accept="image/*" onChange={handleFileChange} />
@@ -840,13 +840,13 @@ export function AboutImageUpload({
   return (
     <div className="space-y-2">
       <div
-        className={`relative w-full h-[200px] border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group ${value ? "border-transparent bg-gray-50" : "border-gray-200 bg-gray-50/30 hover:bg-gray-50/80 hover:border-gray-400"}`}
+        className={`relative w-full h-[200px] border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group ${value ? "border-transparent bg-gray-50 dark:bg-slate-800" : "border-gray-200 dark:border-slate-800 bg-gray-50/30 dark:bg-slate-800/30 hover:bg-gray-50/80 dark:hover:bg-slate-800 hover:border-gray-400 dark:hover:border-slate-600"}`}
         onClick={() => !isUploading && fileRef.current?.click()}
       >
         {isUploading ? (
           <div className="flex flex-col items-center gap-2">
-            <div className="w-8 h-8 border-[3px] border-[#1A3C8C] border-t-transparent rounded-full animate-spin" />
-            <span className="text-xs font-semibold text-[#1A3C8C]">Uploading...</span>
+            <div className="w-8 h-8 border-[3px] border-[#1A3C8C] dark:border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <span className="text-xs font-semibold text-[#1A3C8C] dark:text-blue-400">Uploading...</span>
           </div>
         ) : value ? (
           <>
@@ -855,9 +855,9 @@ export function AboutImageUpload({
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); !isUploading && fileRef.current?.click() }}
-                className="bg-white text-gray-800 px-4 py-2 rounded-lg text-xs font-bold shadow-lg hover:bg-gray-50 flex items-center gap-1.5"
+                className="bg-white dark:bg-slate-900 text-gray-800 dark:text-white px-4 py-2 rounded-lg text-xs font-bold shadow-lg hover:bg-gray-50 dark:hover:bg-slate-800 flex items-center gap-1.5"
               >
-                <Upload className="w-3.5 h-3.5 text-[#1A3C8C]" /> Replace
+                <Upload className="w-3.5 h-3.5 text-[#1A3C8C] dark:text-blue-400" /> Replace
               </button>
             </div>
             <button
@@ -871,12 +871,12 @@ export function AboutImageUpload({
           </>
         ) : (
           <div className="flex flex-col items-center text-center px-4">
-            <div className="w-12 h-12 bg-gray-100 rounded-xl text-gray-400 flex items-center justify-center mb-3 transition-transform group-hover:scale-110 group-hover:-translate-y-1">
+            <div className="w-12 h-12 bg-gray-100 dark:bg-slate-800 rounded-xl text-gray-400 flex items-center justify-center mb-3 transition-transform group-hover:scale-110 group-hover:-translate-y-1">
               <Upload className="w-5 h-5" />
             </div>
-            <span className="font-semibold text-gray-700 text-sm">{title}</span>
-            <span className="text-[11px] text-gray-400 mt-1 max-w-[200px] leading-relaxed">{description}</span>
-            <span className="text-[10px] text-gray-400 mt-3 bg-gray-100 px-2.5 py-1 rounded-full">JPEG · PNG · WEBP</span>
+            <span className="font-semibold text-gray-700 dark:text-slate-300 text-sm">{title}</span>
+            <span className="text-[11px] text-gray-400 dark:text-slate-500 mt-1 max-w-[200px] leading-relaxed">{description}</span>
+            <span className="text-[10px] text-gray-400 dark:text-slate-500 mt-3 bg-gray-100 dark:bg-slate-800 px-2.5 py-1 rounded-full">JPEG · PNG · WEBP</span>
           </div>
         )}
         <input type="file" ref={fileRef} className="hidden" accept="image/*" onChange={handleFileChange} />

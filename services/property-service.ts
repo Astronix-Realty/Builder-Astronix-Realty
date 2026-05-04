@@ -334,14 +334,19 @@ export async function publishProperty(draftId: string, builderId: string) {
       }
     }
 
-    // 5. Final Step: Clear Drafts (Optional: keep them? The user said "one draft and one published")
-    // If we keep the draft, we should update its status or just leave it.
-    // The user's request implies the draft remains linked to its published version.
-    // But usually after publish, the draft is synonymous with the active version.
-    // We'll mark them as promoted or just leave them as they are but linked.
+    // 5. Final Step: Clear Drafts to ensure linear promotion
+    // This prevents the "duplicate card" issue where both draft and published versions appear in the dashboard.
+    await Property.deleteMany({ _id: { $in: draftIds } }).session(session);
     
+    // Also delete the draft units that were promoted/copied
+    await Unit.deleteMany({ 
+      _id: { $in: units.filter((u: any) => u._id).map((u: any) => u._id) },
+      status: { $in: ['draft', 'pending'] }
+    }).session(session);
+
     await session.commitTransaction();
     return { success: true, publishedId: draftToPublishedMap.get(draftId) };
+
   } catch (error) {
     await session.abortTransaction();
     throw error;

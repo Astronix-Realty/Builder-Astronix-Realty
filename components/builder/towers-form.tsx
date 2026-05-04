@@ -8,6 +8,8 @@ import { createInitialTower, type TowerData, type ProjectData } from "@/lib/buil
 interface TowersFormProps {
     projects: ProjectData[]
     towers: TowerData[]
+    towerUnitConfigs: any[]
+    unitTemplate: any
     onTowersChange: (towers: TowerData[]) => void
     onCloneTower: (towerId: string) => void
     activeProjectIdx: number
@@ -17,7 +19,7 @@ interface TowersFormProps {
 }
 
 export function TowersForm({
-    projects, towers, onTowersChange, onCloneTower,
+    projects, towers, towerUnitConfigs, unitTemplate, onTowersChange, onCloneTower,
     activeProjectIdx, setActiveProjectIdx,
     activeTowerIdx, setActiveTowerIdx
 }: TowersFormProps) {
@@ -27,6 +29,7 @@ export function TowersForm({
         : []
 
     const activeTower = projectTowers[activeTowerIdx] || projectTowers[0]
+    const activeTowerConfig = towerUnitConfigs?.find(c => c.towerId === activeTower?.id)
 
     const handleAddTower = () => {
         if (!activeProject) return
@@ -63,19 +66,19 @@ export function TowersForm({
     return (
         <div className="space-y-0">
             {/* ── TOP STATS BANNER ─────────────────────────── */}
-            <div className="flex items-center gap-4 px-5 py-3 mb-6 bg-gradient-to-r from-[#1A3C8C]/5 via-blue-50 to-transparent rounded-2xl border border-blue-100">
+            <div className="flex items-center gap-4 px-5 py-3 mb-6 bg-gradient-to-r from-[#1A3C8C]/5 via-blue-50 to-transparent dark:from-slate-800 dark:via-slate-800/50 dark:to-transparent rounded-2xl border border-blue-100 dark:border-slate-700">
                 <div className="flex items-center gap-2">
-                    <Building className="w-5 h-5 text-[#1A3C8C]" />
-                    <span className="font-bold text-[#1A3C8C] text-sm">Towers Overview</span>
+                    <Building className="w-5 h-5 text-[#1A3C8C] dark:text-blue-400" />
+                    <span className="font-bold text-[#1A3C8C] dark:text-blue-400 text-sm">Towers Overview</span>
                 </div>
                 <div className="ml-auto flex items-center gap-6">
                     <div className="flex items-center gap-2">
-                        <span className="text-xl font-black text-[#1A3C8C]">{totalTowers}</span>
-                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Total Towers</span>
+                        <span className="text-xl font-black text-[#1A3C8C] dark:text-blue-400">{totalTowers}</span>
+                        <span className="text-[10px] text-gray-400 dark:text-slate-500 font-bold uppercase tracking-tight">Total Towers</span>
                     </div>
                     <div className="flex items-center gap-2">
                         <span className="text-xl font-black text-emerald-600">{completedTowers}</span>
-                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Complete</span>
+                        <span className="text-[10px] text-gray-400 dark:text-slate-500 font-bold uppercase tracking-tight">Complete</span>
                     </div>
                 </div>
             </div>
@@ -91,10 +94,10 @@ export function TowersForm({
                             <Building2 className="w-4 h-4" />
                         </div>
                         <div>
-                            <p className="font-bold text-gray-900 text-base leading-none">
+                            <p className="font-bold text-gray-900 dark:text-white text-base leading-none">
                                 {activeTower.name || `Tower ${activeTowerIdx + 1}`}
                             </p>
-                            <p className="text-xs text-gray-400 mt-0.5">
+                            <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">
                                 {activeProject.name} → Tower {activeTowerIdx + 1} of {projectTowers.length}
                                 {" · "}
                                 {isComplete(activeTower) ? "✅ Complete" : "⚠️ Name, Floors, Units/Floor, RERA required"}
@@ -109,6 +112,8 @@ export function TowersForm({
                     <TowerFlowForm
                         key={activeTower.id}
                         data={activeTower}
+                        unitConfig={activeTowerConfig}
+          unitTemplate={unitTemplate}
                         onChange={(updaterOrData) => {
                             const next = [...towers]
                             const globalIdx = towers.findIndex(t => t.id === activeTower.id)
@@ -123,12 +128,12 @@ export function TowersForm({
                     />
 
                     {/* Navigate prev / next tower */}
-                    <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100">
+                    <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100 dark:border-slate-800">
                         <button
                             type="button"
                             onClick={() => setActiveTowerIdx(Math.max(0, activeTowerIdx - 1))}
                             disabled={activeTowerIdx === 0}
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 dark:border-slate-700 text-sm font-medium text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:bg-slate-800/50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                         >
                             ← Previous
                         </button>
@@ -137,7 +142,7 @@ export function TowersForm({
                             <button
                                 type="button"
                                 onClick={handleClone}
-                                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-blue-200 bg-blue-50/50 text-blue-700 text-sm font-medium hover:bg-blue-100 transition-all"
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 text-sm font-medium hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-all"
                                 title="Duplicate this tower and its unit configs"
                             >
                                 <Copy className="w-4 h-4" /> Clone Tower
@@ -146,13 +151,13 @@ export function TowersForm({
                             <button
                                 type="button"
                                 onClick={() => handleRemove(activeTowerIdx)}
-                                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-red-200 bg-red-50 text-red-600 text-sm font-medium hover:bg-red-100 transition-all"
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-red-200 dark:border-red-800/50 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm font-medium hover:bg-red-100 dark:hover:bg-red-900/40 transition-all"
                                 title="Delete this tower"
                             >
                                 <Trash2 className="w-4 h-4" /> Delete
                             </button>
 
-                            <span className="text-[10px] text-gray-400 font-bold uppercase mx-2 whitespace-nowrap">
+                            <span className="text-[10px] text-gray-400 dark:text-slate-500 font-bold uppercase mx-2 whitespace-nowrap">
                                 Tower {activeTowerIdx + 1} / {projectTowers.length}
                             </span>
                         </div>
@@ -161,7 +166,7 @@ export function TowersForm({
                             <button
                                 type="button"
                                 onClick={() => setActiveTowerIdx(activeTowerIdx + 1)}
-                                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#1A3C8C] text-sm font-medium text-[#1A3C8C] hover:bg-blue-50 transition-all font-bold"
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#1A3C8C] text-sm font-medium text-[#1A3C8C] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all font-bold"
                             >
                                 Next Tower →
                             </button>
@@ -177,9 +182,9 @@ export function TowersForm({
                     </div>
                 </div>
             ) : (
-                <div className="text-center py-16 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 mt-4">
-                    <Building2 className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500 font-medium mb-4">
+                <div className="text-center py-16 bg-gray-50 dark:bg-slate-800/50 rounded-2xl border-2 border-dashed border-gray-200 dark:border-slate-700 mt-4">
+                    <Building2 className="w-10 h-10 text-gray-300 dark:text-slate-600 mx-auto mb-3" />
+                    <p className="text-gray-500 dark:text-slate-400 font-medium mb-4">
                         {projects.length === 0
                             ? "Pehle Step 2 mein koi project add karo"
                             : `${activeProject?.name} mein abhi koi tower nahi hai`}

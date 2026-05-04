@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Unit from "@/models/Unit";
 import { getTokenFromRequest, verifyToken } from "@/lib/auth";
+import { aggregateTowerPricing } from "@/lib/services/pricing-sync";
+
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -37,7 +39,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Unit not found or unauthorized" }, { status: 404 });
     }
 
+    // Trigger pricing aggregation for the affected tower
+    if (unit.towerId) {
+      // Fire and forget so we don't block the response
+      aggregateTowerPricing(unit.towerId).catch(err => 
+        console.error(`Error triggering pricing aggregation after updating unit ${id}:`, err)
+      );
+    }
+
     return NextResponse.json({ success: true, unit }, { status: 200 });
+
   } catch (error: any) {
     console.error("Update unit error:", error);
     return NextResponse.json({ error: "Failed to update unit" }, { status: 500 });

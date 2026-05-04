@@ -90,15 +90,15 @@ export function AmenitiesManager({ amenities, onChange, title, description }: Am
     return (
         <div className="space-y-6">
             <div className="flex flex-col gap-1">
-                {title && <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                {title && <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-blue-500" />
                     {title}
                 </h3>}
-                {description && <p className="text-xs text-gray-500">{description}</p>}
+                {description && <p className="text-xs text-gray-500 dark:text-slate-400">{description}</p>}
             </div>
 
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as AmenityItem["category"])} className="w-full">
-                <TabsList className="bg-gray-100/80 p-1 rounded-xl h-auto flex-wrap sm:flex-nowrap justify-start mb-6 gap-1">
+                <TabsList className="bg-gray-100/80 dark:bg-slate-800/80 p-1 rounded-xl h-auto flex-wrap sm:flex-nowrap justify-start mb-6 gap-1">
                     {CATEGORIES.map((cat) => {
                         const Icon = cat.icon
                         const count = amenities.filter(a => a.category === cat.id).length
@@ -106,12 +106,12 @@ export function AmenitiesManager({ amenities, onChange, title, description }: Am
                             <TabsTrigger 
                                 key={cat.id} 
                                 value={cat.id}
-                                className="px-3 py-2 rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-[#1A3C8C] text-xs font-semibold gap-2 flex-shink-0"
+                                className="px-3 py-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm data-[state=active]:text-[#1A3C8C] dark:data-[state=active]:text-blue-400 text-xs font-semibold gap-2 flex-shink-0"
                             >
                                 <Icon className="w-3.5 h-3.5" />
                                 {cat.label}
                                 {count > 0 && (
-                                    <span className="bg-blue-100 text-[#1A3C8C] px-1.5 py-0.5 rounded-full text-[10px] font-bold">
+                                    <span className="bg-blue-100 dark:bg-blue-900/30 text-[#1A3C8C] dark:text-blue-400 px-1.5 py-0.5 rounded-full text-[10px] font-bold">
                                         {count}
                                     </span>
                                 )}
@@ -140,7 +140,7 @@ export function AmenitiesManager({ amenities, onChange, title, description }: Am
                                                 addAmenity(inputValue)
                                             }
                                         }}
-                                        className="h-11 rounded-xl border-gray-200 bg-white shadow-sm focus-visible:ring-blue-500 pl-4"
+                                        className="h-11 rounded-xl border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm focus-visible:ring-blue-500 pl-4"
                                     />
                                     {inputValue && (
                                         <button 
@@ -154,7 +154,7 @@ export function AmenitiesManager({ amenities, onChange, title, description }: Am
                                 <Button 
                                     onClick={() => addAmenity(inputValue)}
                                     disabled={!inputValue.trim()}
-                                    className="h-11 px-6 rounded-xl bg-[#1A3C8C] hover:bg-[#1A3C8C]/90 text-white font-bold transition-all disabled:opacity-50"
+                                    className="h-11 px-6 rounded-xl bg-[#1A3C8C] dark:bg-blue-600 hover:bg-[#1A3C8C]/90 text-white font-bold transition-all disabled:opacity-50"
                                 >
                                     <Plus className="w-4 h-4 mr-2" />
                                     Add
@@ -163,7 +163,7 @@ export function AmenitiesManager({ amenities, onChange, title, description }: Am
 
                             {/* SUGGESTIONS POPUP */}
                             {showSuggestions && filteredSuggestions.length > 0 && (
-                                <Card className="absolute left-0 right-0 top-[110%] z-50 shadow-2xl border-blue-50 rounded-2xl overflow-hidden py-1">
+                                <Card className="absolute left-0 right-0 top-[110%] z-50 shadow-2xl border-blue-50 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-2xl overflow-hidden py-1">
                                     <CardContent className="p-0">
                                         <div className="px-3 py-2 border-b border-gray-50 flex items-center justify-between">
                                             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider uppercase tracking-widest">Quick Suggestions</span>
@@ -179,7 +179,7 @@ export function AmenitiesManager({ amenities, onChange, title, description }: Am
                                                 <button
                                                     key={s}
                                                     onClick={() => addAmenity(s)}
-                                                    className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors flex items-center justify-between group"
+                                                    className="w-full text-left px-4 py-3 text-sm text-gray-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-700 dark:hover:text-blue-400 transition-colors flex items-center justify-between group"
                                                 >
                                                     <span className="font-semibold">{s}</span>
                                                     <Plus className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -194,8 +194,8 @@ export function AmenitiesManager({ amenities, onChange, title, description }: Am
                         {/* LIST SECTION */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {amenities.filter(a => a.category === cat.id).length === 0 ? (
-                                <div className="col-span-full py-12 flex flex-col items-center justify-center text-center bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
-                                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm mb-3">
+                                <div className="col-span-full py-12 flex flex-col items-center justify-center text-center bg-gray-50/50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-gray-200 dark:border-slate-700">
+                                    <div className="w-12 h-12 bg-white dark:bg-slate-900 rounded-full flex items-center justify-center shadow-sm mb-3">
                                         <cat.icon className="w-6 h-6 text-gray-300" />
                                     </div>
                                     <p className="text-gray-500 font-medium">No {cat.label} amenities added yet.</p>
@@ -207,7 +207,7 @@ export function AmenitiesManager({ amenities, onChange, title, description }: Am
                                     .map((amenity) => (
                                         <div 
                                             key={amenity.id}
-                                            className="group relative flex items-center gap-4 bg-white p-3 rounded-2xl border border-gray-100 hover:border-blue-200 hover:shadow-md transition-all duration-300 animate-in zoom-in-95"
+                                            className="group relative flex items-center gap-4 bg-white dark:bg-slate-900 p-3 rounded-2xl border border-gray-100 dark:border-slate-800 hover:border-blue-200 hover:shadow-md transition-all duration-300 animate-in zoom-in-95"
                                         >
                                             <MiniImageUpload 
                                                 value={amenity.image} 
@@ -219,9 +219,9 @@ export function AmenitiesManager({ amenities, onChange, title, description }: Am
                                                     value={amenity.title}
                                                     onChange={(e) => updateAmenity(amenity.id, { title: e.target.value })}
                                                     placeholder="Amenity Name"
-                                                    className="h-8 border-none bg-transparent font-bold text-gray-900 placeholder:text-gray-300 focus-visible:ring-0 p-0 text-base"
+                                                    className="h-8 border-none bg-transparent font-bold text-gray-900 dark:text-white placeholder:text-gray-300 focus-visible:ring-0 p-0 text-base"
                                                 />
-                                                <div className="flex items-center gap-3 mt-1 text-[11px] text-[#2BB673] font-bold uppercase tracking-wider">
+                                                <div className="flex items-center gap-3 mt-1 text-[11px] text-[#2BB673] dark:text-emerald-400 font-bold uppercase tracking-wider">
                                                     <Check className="w-3 h-3" />
                                                     Ready to view
                                                 </div>

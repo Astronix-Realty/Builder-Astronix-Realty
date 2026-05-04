@@ -225,8 +225,8 @@ export function useAutoDraft({
   }, [flowType, currentStep])
 
   // ── Core save function ─────────────────────────────────────────────────────
-  const performSave = useCallback(async () => {
-    if (!enabled) return
+  const performSave = useCallback(async (): Promise<DraftIds | undefined> => {
+    if (!enabled) return undefined
 
     // Guard: skip if there is truly nothing worth saving yet so we don't
     // POST blank drafts on the very first render before the user types anything.
@@ -234,7 +234,8 @@ export function useAutoDraft({
       (flowType === "township" && (state.township?.name?.trim() || state.projects?.length > 0)) ||
       (flowType === "project"  && state.projects?.[0]?.name?.trim()) ||
       (flowType === "tower"    && state.towers?.[0]?.name?.trim())
-    if (!hasAnythingToSave) return
+    if (!hasAnythingToSave) return undefined
+
 
     setIsSaving(true)
     setDraftError(null)
@@ -379,13 +380,16 @@ export function useAutoDraft({
       setDraftIds(newIds)
       saveDraftIdsToStorage(flowType, newIds)
       setLastSaved(new Date())
+      return newIds
+
     } catch (err: any) {
       if (err.message === "Draft not found or already published" || err.message === "Auto-save patch failed") {
          // Gracefully handle race conditions where draft was just cleared or published.
          clearDraftIdsFromStorage(flowType)
          setDraftIds({})
-         return // Exit without angry console logs
+         return undefined // Exit without angry console logs
       }
+
       console.error("[useAutoDraft] Save failed:", err)
       setDraftError(err.message || "Auto-save failed")
     } finally {
@@ -404,10 +408,11 @@ export function useAutoDraft({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, currentStep, enabled])
 
-  const saveNow = useCallback(async () => {
+  const saveNow = useCallback(async (): Promise<DraftIds | undefined> => {
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
-    await performSave()
+    return await performSave()
   }, [performSave])
+
 
   const clearDraft = useCallback(() => {
     // ── Delete draft docs from MongoDB ─────────────────────────────────────

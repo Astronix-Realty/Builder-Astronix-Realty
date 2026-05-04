@@ -164,8 +164,9 @@ function BuilderContent() {
           const checkRes = await fetch(`/api/properties/${editId}`)
           if (checkRes.ok) {
             const checkData = await checkRes.json()
-            // If the property is NOT a draft, clone it to a draft first
-            if (checkData.property?.status !== 'draft') {
+            // If the property is PUBLISHED or ARCHIVED, clone it to a draft first before editing.
+            // PENDING and REJECTED properties are already staging records and should be edited directly.
+            if (checkData.property?.status === 'published' || checkData.property?.status === 'archived') {
               console.log("Property is active. Cloning to draft before editing...")
               const cloneRes = await fetch(`/api/properties/${editId}/clone-to-draft`, { method: 'POST' })
               if (cloneRes.ok) {
@@ -457,15 +458,30 @@ function BuilderContent() {
     // 1. Calculate Tower Prices from Unit Configs
     const updatedTowers = [...(state.towers || [])].map(tower => {
       const config = state.towerUnitConfigs?.find(c => c.towerId === tower.id)
-      const configs = config?.configurations || []
+      let configs = config?.configurations || []
+      
+      // Fallback to global template if tower config is empty or has no prices
+      if (configs.length === 0 || !configs.some(c => (c.allInclusivePrice || 0) > 0)) {
+        configs = state.unitTemplate?.configurations || []
+      }
+
       if (configs.length > 0) {
         const prices = configs.map(c => c.allInclusivePrice || 0).filter(p => p > 0)
         if (prices.length > 0) {
           const min = Math.min(...prices)
           const max = Math.max(...prices)
           const autoLabel = getPriceLabel(min, max)
-          if (tower.priceRangeMin !== min || tower.priceRangeMax !== max || tower.priceLabel !== autoLabel) {
-            return { ...tower, priceRangeMin: min, priceRangeMax: max, priceLabel: tower.priceLabel || autoLabel }
+          
+          // Sync min/max always, but only sync label if it was empty or matches old auto-generated pattern
+          const shouldUpdateLabel = !tower.priceLabel || tower.priceLabel.includes("L") || tower.priceLabel.includes("Cr")
+          
+          if (tower.priceRangeMin !== min || tower.priceRangeMax !== max || (shouldUpdateLabel && tower.priceLabel !== autoLabel)) {
+            return { 
+              ...tower, 
+              priceRangeMin: min, 
+              priceRangeMax: max, 
+              priceLabel: shouldUpdateLabel ? autoLabel : tower.priceLabel 
+            }
           }
         }
       }
@@ -482,8 +498,15 @@ function BuilderContent() {
           const min = Math.min(...mins)
           const max = Math.max(...maxs)
           const autoLabel = getPriceLabel(min, max)
-          if (proj.priceRangeMin !== min || proj.priceRangeMax !== max || proj.priceLabel !== autoLabel) {
-            return { ...proj, priceRangeMin: min, priceRangeMax: max, priceLabel: proj.priceLabel || autoLabel }
+          const shouldUpdateLabel = !proj.priceLabel || proj.priceLabel.includes("L") || proj.priceLabel.includes("Cr")
+          
+          if (proj.priceRangeMin !== min || proj.priceRangeMax !== max || (shouldUpdateLabel && proj.priceLabel !== autoLabel)) {
+            return { 
+              ...proj, 
+              priceRangeMin: min, 
+              priceRangeMax: max, 
+              priceLabel: shouldUpdateLabel ? autoLabel : proj.priceLabel 
+            }
           }
         }
       }
@@ -499,10 +522,12 @@ function BuilderContent() {
         const min = Math.min(...mins)
         const max = Math.max(...maxs)
         const autoLabel = getPriceLabel(min, max)
-        if (updatedTownship.priceRangeMin !== min || updatedTownship.priceRangeMax !== max || updatedTownship.priceLabel !== autoLabel) {
+        const shouldUpdateLabel = !updatedTownship.priceLabel || updatedTownship.priceLabel.includes("L") || updatedTownship.priceLabel.includes("Cr")
+        
+        if (updatedTownship.priceRangeMin !== min || updatedTownship.priceRangeMax !== max || (shouldUpdateLabel && updatedTownship.priceLabel !== autoLabel)) {
           updatedTownship.priceRangeMin = min
           updatedTownship.priceRangeMax = max
-          updatedTownship.priceLabel = updatedTownship.priceLabel || autoLabel
+          updatedTownship.priceLabel = shouldUpdateLabel ? autoLabel : updatedTownship.priceLabel
         }
       }
     }
@@ -518,7 +543,8 @@ function BuilderContent() {
       JSON.stringify(state.towers) !== JSON.stringify(updatedTowers) ||
       JSON.stringify(state.projects) !== JSON.stringify(updatedProjects) ||
       state.township.priceRangeMin !== updatedTownship.priceRangeMin ||
-      state.township.priceRangeMax !== updatedTownship.priceRangeMax
+      state.township.priceRangeMax !== updatedTownship.priceRangeMax ||
+      state.township.priceLabel !== updatedTownship.priceLabel
 
     if (countsChanged || pricingChanged) {
       setState(prev => ({
@@ -534,7 +560,7 @@ function BuilderContent() {
         projects: updatedProjects
       }))
     }
-  }, [state.projects.length, state.towers.length, state.generatedUnits?.length, state.towerUnitConfigs, state.township.projectCount, state.township.totalTowers, state.township.totalUnits, state.township.totalFamilies])
+  }, [state.projects, state.towers, state.towerUnitConfigs, state.township.name])
 
   const handleAddProject = useCallback(() => {
     const safeProjects = state.projects.filter(Boolean)
@@ -689,13 +715,17 @@ function BuilderContent() {
       // ── STEP 1: FORCE SYNC BEFORE SUBMISSION ─────────────────────────────
       // If we don't have draft IDs yet (e.g. user fills form and clicks Publish
       // before the 10s auto-save kicks in), force a manual save now.
+      let currentDraftIds = draftIds;
       if (!draftIds.townshipId && !draftIds.projectId && !draftIds.towerId) {
         console.log("[handleCreate] No draft IDs found. Forcing sync before submission...");
-        await saveNow();
+        const newIds = await saveNow();
+        if (newIds) {
+          currentDraftIds = newIds;
+        }
       }
 
-      // Re-read draft IDs after sync
-      const rootDraftId = draftIds.townshipId || draftIds.projectId || draftIds.towerId;
+      // Re-read draft IDs securely using the resolved variable
+      const rootDraftId = currentDraftIds.townshipId || currentDraftIds.projectId || currentDraftIds.towerId;
 
       // ── STEP 2: SUBMIT VIA OPTIMIZED API ──────────────────────────────────
       if (rootDraftId) {
@@ -716,8 +746,10 @@ function BuilderContent() {
         }
       } else {
         // ── STEP 3: LEGACY FALLBACK (Brand new, unsaved content) ─────────────
+        console.warn("[handleCreate] No root draft ID could be established. Proceeding with legacy creation.");
         await performLegacyCreation();
       }
+
 
       async function performLegacyCreation() {
         console.log("[handleCreate] Performing sequential entity creation fallback...");
@@ -822,8 +854,9 @@ function BuilderContent() {
       clearDraft() 
       
       setTimeout(() => {
-        window.location.href = "/builder-dashboard?tab=properties&filter=active"
+        window.location.href = "/builder-dashboard?tab=properties&filter=pending"
       }, 1500)
+
     } catch (error: any) {
       console.error("Error creating property:", error)
       setIsCreating(false)
@@ -1212,6 +1245,8 @@ function BuilderContent() {
             <TowersForm
               projects={state?.projects}
               towers={state?.towers}
+              towerUnitConfigs={state.towerUnitConfigs}
+              unitTemplate={state.unitTemplate}
               onTowersChange={updateTowers}
               onCloneTower={handleCloneTower}
               activeProjectIdx={activeProjectIdx}

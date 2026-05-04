@@ -77,19 +77,19 @@ export function UnitsForm({
     return (
         <div className="space-y-0">
             {/* ── TOP STATS BANNER ─────────────────────────── */}
-            <div className="flex items-center gap-4 px-5 py-3 mb-6 bg-gradient-to-r from-amber-50 via-orange-50 to-transparent rounded-2xl border border-amber-100">
+            <div className="flex items-center gap-4 px-5 py-3 mb-6 bg-gradient-to-r from-amber-50 via-orange-50 to-transparent dark:from-amber-900/30 dark:via-orange-900/20 dark:to-transparent rounded-2xl border border-amber-100 dark:border-amber-900/50">
                 <div className="flex items-center gap-2">
-                    <Layers className="w-5 h-5 text-amber-600" />
-                    <span className="font-bold text-amber-700 text-sm">Units Configuration</span>
+                    <Layers className="w-5 h-5 text-amber-600 dark:text-amber-500" />
+                    <span className="font-bold text-amber-700 dark:text-amber-400 text-sm">Units Configuration</span>
                 </div>
                 <div className="ml-auto flex items-center gap-6">
                     <div className="flex items-center gap-2">
-                        <span className="text-xl font-black text-amber-700">{towers.length}</span>
-                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Towers</span>
+                        <span className="text-xl font-black text-amber-700 dark:text-amber-400">{towers.length}</span>
+                        <span className="text-[10px] text-gray-400 dark:text-slate-500 font-bold uppercase tracking-tight">Towers</span>
                     </div>
                     <div className="flex items-center gap-2">
-                        <span className="text-xl font-black text-emerald-600 font-black">{totalConfigured}</span>
-                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">Configured</span>
+                        <span className="text-xl font-black text-emerald-600 dark:text-emerald-500 font-black">{totalConfigured}</span>
+                        <span className="text-[10px] text-gray-400 dark:text-slate-500 font-bold uppercase tracking-tight">Configured</span>
                     </div>
                 </div>
             </div>
@@ -106,8 +106,8 @@ export function UnitsForm({
                                 <Layers className="w-4 h-4" />
                             </div>
                             <div>
-                                <p className="font-bold text-gray-900 text-base leading-none">Global Settings</p>
-                                <p className="text-xs text-gray-400 mt-0.5">
+                                <p className="font-bold text-gray-900 dark:text-white text-base leading-none">Global Settings</p>
+                                <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">
                                     Yeh settings sabhi towers pe apply hongi jab tak override na karo
                                 </p>
                             </div>
@@ -127,10 +127,10 @@ export function UnitsForm({
                                         <Building2 className="w-4 h-4" />
                                     </div>
                                     <div>
-                                        <p className="font-bold text-gray-900 text-base leading-none">
+                                        <p className="font-bold text-gray-900 dark:text-white text-base leading-none">
                                             {tower.name}
                                         </p>
-                                        <p className="text-xs text-gray-400 mt-0.5">
+                                        <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">
                                             {getProjectLabel(tower.projectId || "")} ·{" "}
                                             {tower.totalFloors} Floors · {tower.unitsPerFloor} Units/Floor ·{" "}
                                             Total {tower.totalUnits} units
@@ -167,7 +167,7 @@ export function UnitsForm({
 
 
                                 {/* Navigate prev / next tower */}
-                                <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100">
+                                <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100 dark:border-slate-800">
                                     <button
                                         type="button"
                                         onClick={() => {
@@ -175,11 +175,11 @@ export function UnitsForm({
                                             if (idx > 0) setActiveTowerId(visibleTowers[idx - 1].id)
                                             else setActiveTowerId("global")
                                         }}
-                                        className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-all"
+                                        className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 dark:border-slate-700 text-sm font-medium text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 transition-all"
                                     >
                                         ← Previous
                                     </button>
-                                    <span className="text-xs text-gray-400 font-medium">
+                                    <span className="text-xs text-gray-400 dark:text-slate-500 font-medium">
                                         Tower {visibleTowers.findIndex(t => t.id === activeTowerId) + 1} / {visibleTowers.length}
                                     </span>
                                     {visibleTowers.findIndex(t => t.id === activeTowerId) < visibleTowers.length - 1 ? (
@@ -189,12 +189,12 @@ export function UnitsForm({
                                                 const idx = visibleTowers.findIndex(t => t.id === activeTowerId)
                                                 if (idx < visibleTowers.length - 1) setActiveTowerId(visibleTowers[idx + 1].id)
                                             }}
-                                            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#1A3C8C] text-sm font-medium text-[#1A3C8C] hover:bg-blue-50 transition-all"
+                                            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#1A3C8C] dark:border-blue-500 text-sm font-medium text-[#1A3C8C] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all"
                                         >
                                             Next Tower →
                                         </button>
                                     ) : (
-                                        <span className="text-xs text-emerald-600 font-medium px-4 py-2">
+                                        <span className="text-xs text-emerald-600 dark:text-emerald-500 font-medium px-4 py-2">
                                             ✅ Saare towers configured!
                                         </span>
                                     )}
@@ -206,15 +206,15 @@ export function UnitsForm({
             </div>
 
             {/* Info box */}
-            <div className="p-6 bg-blue-50/50 border border-blue-100/50 rounded-3xl flex items-start gap-4 mt-32 shadow-sm">
-                <div className="w-10 h-10 rounded-2xl bg-blue-100 flex items-center justify-center shrink-0 shadow-sm ring-4 ring-blue-50">
-                    <AlertCircle className="w-5 h-5 text-blue-600" />
+            <div className="p-6 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100/50 dark:border-blue-900/50 rounded-3xl flex items-start gap-4 mt-32 shadow-sm">
+                <div className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center shrink-0 shadow-sm ring-4 ring-blue-50 dark:ring-blue-900/20">
+                    <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                 </div>
-                <div className="text-[13px] text-blue-700 leading-relaxed font-medium">
-                    <p className="font-black text-blue-900 mb-1.5 uppercase tracking-wider text-[11px]">Pricing kaise kaam karta hai:</p>
-                    <p className="mb-1">1. <span className="font-black text-[#1A3C8C]">Global Settings</span> → Sabhi towers ke liye default pricing/configs inherit honge.</p>
-                    <p className="mb-1">2. <span className="font-black text-[#1A3C8C]">Tower Override</span> → Specific tower ki alag pricing ya unit types override kar sakte hain.</p>
-                    <p>3. <span className="font-black text-[#1A3C8C]">Floor rise (0.5% after 5th floor) + Facing premiums</span> → Final summary mein auto-calculate honge.</p>
+                <div className="text-[13px] text-blue-700 dark:text-blue-300 leading-relaxed font-medium">
+                    <p className="font-black text-blue-900 dark:text-blue-200 mb-1.5 uppercase tracking-wider text-[11px]">Pricing kaise kaam karta hai:</p>
+                    <p className="mb-1">1. <span className="font-black text-[#1A3C8C] dark:text-blue-400">Global Settings</span> → Sabhi towers ke liye default pricing/configs inherit honge.</p>
+                    <p className="mb-1">2. <span className="font-black text-[#1A3C8C] dark:text-blue-400">Tower Override</span> → Specific tower ki alag pricing ya unit types override kar sakte hain.</p>
+                    <p>3. <span className="font-black text-[#1A3C8C] dark:text-blue-400">Floor rise (0.5% after 5th floor) + Facing premiums</span> → Final summary mein auto-calculate honge.</p>
                 </div>
             </div>
         </div>

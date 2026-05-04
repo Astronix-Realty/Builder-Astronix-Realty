@@ -62,7 +62,7 @@ export function MiniImageUpload({ value, onChange, size = 48, className }: MiniI
     return (
         <div className={`relative shrink-0 ${className}`} style={{ width: size, height: size }}>
             <div
-                className={`w-full h-full rounded-lg border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center overflow-hidden cursor-pointer transition-all hover:border-blue-400 group relative ${isLoading ? "opacity-50 pointer-events-none" : ""}`}
+                className={`w-full h-full rounded-lg border border-dashed border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 flex items-center justify-center overflow-hidden cursor-pointer transition-all hover:border-blue-400 group relative ${isLoading ? "opacity-50 pointer-events-none" : ""}`}
                 onClick={() => fileInputRef.current?.click()}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}

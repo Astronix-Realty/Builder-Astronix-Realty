@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
     // Process properties to attach accurate counts and thumbnails
     const properties = await Promise.all(rawProperties.map(async (p: any) => {
       // 1. Handle Active/Published/Pending properties (Split DB rows)
-      if (p.status === "published" || p.status === "archived") {
+      if (p.status === "published" || p.status === "archived" || p.status === "pending" || p.status === "rejected") {
         let projectsCount = 0, towersCount = 0, unitsCount = 0;
         let thumbnail = p.details?.heroImage || null;
 

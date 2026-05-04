@@ -49,9 +49,9 @@ export function ProgressBar({ steps, currentStep }: ProgressBarProps) {
                   "w-9 h-9 sm:w-10 sm:h-10 2xl:w-12 2xl:h-12",
                   // State colors
                   isCompleted
-                    ? "bg-[#1A3C8C] border-[#1A3C8C] text-white shadow-lg shadow-blue-500/30"
+                    ? "bg-[#1A3C8C] dark:bg-blue-600 border-[#1A3C8C] dark:border-blue-600 text-white shadow-lg shadow-blue-500/30"
                     : isActive
-                    ? "bg-white dark:bg-slate-900 border-[#1A3C8C] text-[#1A3C8C] shadow-[0_0_0_4px_rgba(26,60,140,0.15)] dark:shadow-[0_0_0_4px_rgba(26,60,140,0.3)] scale-110"
+                    ? "bg-white dark:bg-slate-900 border-[#1A3C8C] dark:border-blue-500 text-[#1A3C8C] dark:text-blue-400 shadow-[0_0_0_4px_rgba(26,60,140,0.15)] dark:shadow-[0_0_0_4px_rgba(26,60,140,0.3)] scale-110"
                     : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-400"
                 )}
               >
@@ -63,7 +63,7 @@ export function ProgressBar({ steps, currentStep }: ProgressBarProps) {
 
                 {/* Active pulse ring */}
                 {isActive && (
-                  <span className="absolute inset-0 rounded-full animate-ping bg-[#1A3C8C]/20 pointer-events-none" />
+                  <span className="absolute inset-0 rounded-full animate-ping bg-[#1A3C8C]/20 dark:bg-blue-400/20 pointer-events-none" />
                 )}
               </div>
 
