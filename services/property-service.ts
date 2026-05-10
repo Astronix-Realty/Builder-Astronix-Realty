@@ -9,7 +9,7 @@ import { generateRandomSlug } from "@/lib/utils/slug";
  * Securely deletes a property and all its descendants (Projects, Towers, Units).
  * Executes a MongoDB transaction to avoid partial DB failures.
  * Cross-references Cloudinary URLs to prevent deleting shared/cloned media.
- * 
+ *
  * @param propertyId ID of the root property to delete.
  * @param builderId Ensures ownership constraints.
  */
@@ -24,13 +24,6 @@ export async function secureDeleteProperty(propertyId: string, builderId: string
     throw new Error("Property not found or unauthorized");
   }
 
-  // Get project IDs (direct children) to recursively find towers
-  // Note: For a 3-level deep structure (Township -> Project -> Tower),
-  // a Township's parentId is null, Project's parentId is Township,
-  // Tower's parentId is Project.
-  // The simple `parentId: propertyId` above only fetches direct children.
-  // We need a loop to get all nested levels safely.
-
   let allPropertyIds = new Set<string>([propertyId]);
   let idsToSearch = [propertyId];
 
@@ -38,14 +31,10 @@ export async function secureDeleteProperty(propertyId: string, builderId: string
   while (idsToSearch.length > 0) {
     const children = await Property.find({ parentId: { $in: idsToSearch } }, { _id: 1 }).lean();
     const childrenIds = children.map(c => c._id.toString());
-    
-    // Break if no more children
+
     if (childrenIds.length === 0) break;
 
-    // Add new children to the master collected set
     childrenIds.forEach(id => allPropertyIds.add(id));
-    
-    // Next iteration searches for children of these children
     idsToSearch = childrenIds;
   }
 
@@ -54,8 +43,7 @@ export async function secureDeleteProperty(propertyId: string, builderId: string
   // Fetch all full property documents to analyze their URLs
   const fullProperties = await Property.find({ _id: { $in: allCollectedPropertyIds } }).lean();
 
-  // Step 2: Fetch related Units (Units map to projects or towers)
-  // We grab units mapping to ANY of the property IDs in the cascade
+  // Step 2: Fetch related Units
   const unitsToDelete = await Unit.find({
     $or: [
       { projectId: { $in: allCollectedPropertyIds } },
@@ -77,28 +65,20 @@ export async function secureDeleteProperty(propertyId: string, builderId: string
   const urlsToCheck = Array.from(cloudinaryUrls);
 
   // Step 4: Validate URLs to prevent shared-media deletion (Orphan Check)
-  // Check if any of these URLs are used by properties/units OUTSIDE this deletion scope
   const safeToDeleteUrls: string[] = [];
 
   for (const url of urlsToCheck) {
-    // Escaped string for basic regex (safe enough for standard URLs)
     const urlRegex = new RegExp(url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
 
-    // Is it used in another Property?
     const isSharedProperty = await Property.exists({
       _id: { $nin: allCollectedPropertyIds },
-      // Ideally, we search a stringified representation or specific fields.
-      // Easiest is to search the entire document via a text index or regex.
-      // Since `details` holds most data:
       details: { $regex: urlRegex }
     });
 
-    if (isSharedProperty) continue; // Skip to next URL
+    if (isSharedProperty) continue;
 
-    // Is it used in another Unit?
     const isSharedUnit = await Unit.exists({
       _id: { $nin: unitIds },
-      // Units have simpler schemas, check top level keys containing URLs
       $or: [
         { floorPlanImage2D: { $regex: urlRegex } },
         { floorPlanImage3D: { $regex: urlRegex } },
@@ -107,26 +87,23 @@ export async function secureDeleteProperty(propertyId: string, builderId: string
       ]
     });
 
-    if (isSharedUnit) continue; // Skip
+    if (isSharedUnit) continue;
 
     safeToDeleteUrls.push(url);
   }
 
-  // Step 5: Execute atomic Database Transaction (Rollback protected)
+  // Step 5: Execute atomic Database Transaction
   const session = await mongoose.startSession();
-  
+
   try {
     session.startTransaction();
 
-    // The transaction only covers Mongoose operations. 
-    // If DB fails here, it aborts, and properties remain intact.
     const deletedPropertiesResult = await Property.deleteMany({ _id: { $in: allCollectedPropertyIds } }).session(session);
     const deletedUnitsResult = await Unit.deleteMany({ _id: { $in: unitIds } }).session(session);
 
     await session.commitTransaction();
 
     // Step 6: Post-DB Commit Cleanup (Cloudinary)
-    // Runs sequentially or in parallel without threatening DB integrity
     const cloudinaryDeletes = safeToDeleteUrls.map(url => deleteCloudinaryFile(url));
     const cloudinaryResults = await Promise.allSettled(cloudinaryDeletes);
 
@@ -152,8 +129,13 @@ export async function secureDeleteProperty(propertyId: string, builderId: string
 }
 
 /**
- * Promotes a draft property and its hierarchy to 'active' status.
- * Reconciles with existing published records if publishedId is present.
+ * Promotes a draft property and its hierarchy to 'published' status.
+ * 
+ * FIX (Orphan Prevention): Instead of always creating a new published document,
+ * we now use findOneAndUpdate with upsert=false first, falling back to create
+ * only when truly no published record exists. We also query by `publishedId`
+ * back-reference to catch cases where the draft's `publishedId` field is stale
+ * but a published doc still exists that was created from this draft.
  */
 export async function publishProperty(draftId: string, builderId: string) {
   const session = await mongoose.startSession();
@@ -192,11 +174,6 @@ export async function publishProperty(draftId: string, builderId: string) {
       }
       resolvedLocations.set(draft._id.toString(), resolvedLocation);
 
-      let publishedProp: any;
-      const isNew = !draft.publishedId;
-
-      let baseDataSlug = draft.slug;
-      
       const baseData: any = {
         name: draft.name,
         type: draft.type,
@@ -206,36 +183,62 @@ export async function publishProperty(draftId: string, builderId: string) {
         status: 'published',
         isActive: true,
         approvedAt: new Date(),
-        // Needs approvedBy to be passed later when admin router calls this
         builderId: draft.builderId,
         updatedBy: draft.updatedBy,
-        slug: baseDataSlug,
       };
 
-      if (!isNew) {
-        // Find existing published to preserve its slug
-        const existingPub = await Property.findOne({ _id: draft.publishedId }).session(session).lean();
-        if (existingPub) baseData.slug = existingPub.slug;
+      let publishedProp: any = null;
 
-        publishedProp = await Property.findOneAndUpdate(
-          { _id: draft.publishedId, builderId },
-          { $set: baseData, $unset: { draftId: "" } }, // Remove draft link from published since it's promoted
-          { session, new: true }
-        );
-      } 
-      
-      if (isNew || !publishedProp) {
-        // Generate a fresh unique slug for the newly published property to avoid colliding with the active draft
+      // --- FIX 5: Find published doc by publishedId (forward link on draft) ---
+      if (draft.publishedId) {
+        // Try to update the existing published document referenced by this draft
+        const existingPub = await Property.findOne({ _id: draft.publishedId, builderId }).session(session).lean();
+        if (existingPub) {
+          // Preserve the existing slug to keep URLs stable
+          baseData.slug = existingPub.slug;
+          publishedProp = await Property.findOneAndUpdate(
+            { _id: draft.publishedId, builderId },
+            { $set: baseData, $unset: { draftId: "" } },
+            { session, new: true }
+          );
+        } else {
+          // publishedId is stale — the published doc was deleted externally.
+          // Clear the stale reference and fall through to create a new one below.
+          console.warn(`[publishProperty] Draft ${draft._id} has stale publishedId=${draft.publishedId}. Will create fresh published doc.`);
+        }
+      }
+
+      // --- Fallback: No publishedId or stale — try to find by draft back-reference ---
+      if (!publishedProp) {
+        // Check if any published doc already claims this draft as its source
+        // (handles edge case where draft.publishedId was cleared but published doc still exists)
+        const existingByDraftRef = await Property.findOne({
+          draftSourceId: draft._id,
+          builderId,
+          status: 'published',
+        }).session(session).lean();
+
+        if (existingByDraftRef) {
+          baseData.slug = existingByDraftRef.slug;
+          publishedProp = await Property.findOneAndUpdate(
+            { _id: existingByDraftRef._id, builderId },
+            { $set: baseData, $unset: { draftId: "" } },
+            { session, new: true }
+          );
+        }
+      }
+
+      // --- Final fallback: Create brand new published document ---
+      if (!publishedProp) {
         baseData.slug = generateRandomSlug(draft.name, "active");
-
-        // Create new active record
-        publishedProp = await Property.create([{
+        const created = await Property.create([{
           ...baseData,
           createdBy: draft.createdBy,
+          draftSourceId: draft._id, // Back-reference for future idempotency
         }], { session });
-        publishedProp = publishedProp[0];
+        publishedProp = created[0];
 
-        // Link draft to the new published record
+        // Link draft → published for future edits
         await Property.updateOne(
           { _id: draft._id },
           { $set: { publishedId: publishedProp._id } },
@@ -262,9 +265,9 @@ export async function publishProperty(draftId: string, builderId: string) {
 
     // 4. Promote Units
     const draftPropIds = allDrafts.map(d => d._id);
-    let units = await Unit.find({ 
-      status: { $in: ['draft', 'pending'] }, 
-      $or: [{ towerId: { $in: draftPropIds } }, { projectId: { $in: draftPropIds } }] 
+    let units = await Unit.find({
+      status: { $in: ['draft', 'pending'] },
+      $or: [{ towerId: { $in: draftPropIds } }, { projectId: { $in: draftPropIds } }]
     }).session(session);
 
     // If no units found in Unit collection, extract from details of towers
@@ -276,10 +279,10 @@ export async function publishProperty(draftId: string, builderId: string) {
           towerUnits.forEach((u: any) => {
             extractedUnits.push({
               ...u,
-              towerId: draft._id, // Use real ObjectId
-              projectId: draft.parentId, // Use real ObjectId
-              parentId: draft._id, // Tower is parent
-              status: 'pending' // Mark as pending for processing below or draft
+              towerId: draft._id,
+              projectId: draft.parentId,
+              parentId: draft._id,
+              status: 'pending'
             });
           });
         }
@@ -288,7 +291,6 @@ export async function publishProperty(draftId: string, builderId: string) {
     }
 
     for (const unit of units) {
-      // Map temporary IDs to real ObjectIds if necessary
       const activeTowerId = draftToPublishedMap.get(unit.towerId?.toString()) || unit.towerId;
       const activeProjectId = draftToPublishedMap.get(unit.projectId?.toString()) || unit.projectId;
       const activeParentId = draftToPublishedMap.get(unit.parentId?.toString()) || unit.parentId;
@@ -311,7 +313,6 @@ export async function publishProperty(draftId: string, builderId: string) {
       };
 
       if (unit._id && (unit.status === 'draft' || unit.status === 'pending') && !unit.isNew) {
-        // Update existing draft if it exists in DB
         if (unit.publishedId) {
           await Unit.findOneAndUpdate(
             { _id: unit.publishedId },
@@ -326,7 +327,6 @@ export async function publishProperty(draftId: string, builderId: string) {
           await Unit.updateOne({ _id: unit._id }, { $set: { publishedId: newUnit[0]._id } }, { session });
         }
       } else {
-        // Create new unit (from extracted data)
         await Unit.create([{
           ...unitData,
           createdBy: unit.createdBy || builderId,
@@ -334,12 +334,11 @@ export async function publishProperty(draftId: string, builderId: string) {
       }
     }
 
-    // 5. Final Step: Clear Drafts to ensure linear promotion
-    // This prevents the "duplicate card" issue where both draft and published versions appear in the dashboard.
+    // 5. Final Step: Delete draft docs to prevent dual-card appearance
+    const draftIds = allDrafts.map(d => d._id);
     await Property.deleteMany({ _id: { $in: draftIds } }).session(session);
-    
-    // Also delete the draft units that were promoted/copied
-    await Unit.deleteMany({ 
+
+    await Unit.deleteMany({
       _id: { $in: units.filter((u: any) => u._id).map((u: any) => u._id) },
       status: { $in: ['draft', 'pending'] }
     }).session(session);
@@ -357,7 +356,11 @@ export async function publishProperty(draftId: string, builderId: string) {
 
 /**
  * Clones a published property and its hierarchy to 'draft' status.
- * If a draft already exists, returns the existing draft.
+ *
+ * FIX (Idempotency): Three-layer guard to prevent creating duplicate draft docs:
+ * 1. Check rootPublished.draftId and verify the doc still exists.
+ * 2. Query for any draft with publishedId === this published doc's _id (catches stale links).
+ * 3. Only create a new clone if both checks come up empty.
  */
 export async function clonePropertyToDraft(publishedId: string, builderId: string) {
   const session = await mongoose.startSession();
@@ -367,14 +370,39 @@ export async function clonePropertyToDraft(publishedId: string, builderId: strin
     const rootPublished = await Property.findOne({ _id: publishedId, builderId, status: 'published' }).session(session);
     if (!rootPublished) throw new Error("Published property not found or unauthorized");
 
-    // If a draft already exists, just return it
+    // --- Guard Layer 1: Check forward link on published doc ---
     if (rootPublished.draftId) {
       const existingDraft = await Property.findOne({ _id: rootPublished.draftId, status: 'draft' }).session(session);
       if (existingDraft) {
         await session.commitTransaction();
+        console.log(`[clonePropertyToDraft] Returning existing draft via draftId link: ${existingDraft._id}`);
         return { success: true, draftId: existingDraft._id };
       }
+      // Stale link — clear it and continue to create a fresh clone
+      console.warn(`[clonePropertyToDraft] Stale draftId=${rootPublished.draftId} on published doc ${publishedId}. Clearing and re-cloning.`);
+      await Property.updateOne({ _id: publishedId }, { $unset: { draftId: "" } }, { session });
     }
+
+    // --- Guard Layer 2: Query back-reference (publishedId field on draft docs) ---
+    const existingDraftByBackRef = await Property.findOne({
+      publishedId: publishedId,
+      builderId,
+      status: 'draft',
+    }).session(session);
+
+    if (existingDraftByBackRef) {
+      // Also repair the forward link on the published doc
+      await Property.updateOne(
+        { _id: publishedId },
+        { $set: { draftId: existingDraftByBackRef._id } },
+        { session }
+      );
+      await session.commitTransaction();
+      console.log(`[clonePropertyToDraft] Returning existing draft via back-reference query: ${existingDraftByBackRef._id}`);
+      return { success: true, draftId: existingDraftByBackRef._id };
+    }
+
+    // --- No existing draft found — proceed with cloning ---
 
     // 1. Collect all published properties in hierarchy
     let allPublished: any[] = [rootPublished];
@@ -391,7 +419,6 @@ export async function clonePropertyToDraft(publishedId: string, builderId: strin
 
     // 2. Clone properties (Top-down)
     for (const prop of allPublished) {
-      // Inherit location from parent if missing
       let resolvedLocation = prop.location || {};
       if (prop.parentId) {
         const parentLocation = resolvedLocations.get(prop.parentId.toString());
@@ -424,7 +451,7 @@ export async function clonePropertyToDraft(publishedId: string, builderId: strin
       draft = draft[0];
       publishedToDraftMap.set(prop._id.toString(), draft._id.toString());
 
-      // Update original with draftId
+      // Set forward link on published doc → draft
       await Property.updateOne({ _id: prop._id }, { $set: { draftId: draft._id } }, { session });
     }
 
@@ -444,14 +471,14 @@ export async function clonePropertyToDraft(publishedId: string, builderId: strin
 
     // 4. Clone Units
     const pubPropIds = allPublished.map(p => p._id);
-    const units = await Unit.find({ 
-      status: { $nin: ['draft', 'pending'] }, // include published, available, etc.
-      $or: [{ towerId: { $in: pubPropIds } }, { projectId: { $in: pubPropIds } }] 
+    const units = await Unit.find({
+      status: { $nin: ['draft', 'pending'] },
+      $or: [{ towerId: { $in: pubPropIds } }, { projectId: { $in: pubPropIds } }]
     }).session(session);
 
     for (const unit of units) {
-      const draftTowerId = publishedToDraftMap.get(unit.towerId);
-      const draftProjectId = publishedToDraftMap.get(unit.projectId);
+      const draftTowerId = publishedToDraftMap.get(unit.towerId?.toString());
+      const draftProjectId = publishedToDraftMap.get(unit.projectId?.toString());
 
       const draftUnitData = {
         unitNumber: unit.unitNumber,
@@ -472,7 +499,10 @@ export async function clonePropertyToDraft(publishedId: string, builderId: strin
     }
 
     await session.commitTransaction();
-    return { success: true, draftId: publishedToDraftMap.get(publishedId) };
+    const newDraftId = publishedToDraftMap.get(publishedId);
+    console.log(`[clonePropertyToDraft] Created fresh draft hierarchy. Root draft: ${newDraftId}`);
+    return { success: true, draftId: newDraftId };
+
   } catch (error) {
     await session.abortTransaction();
     throw error;
@@ -491,12 +521,11 @@ export async function submitPropertyForApproval(draftId: string, builderId: stri
 
     const rootDraft = await Property.findOne({ _id: draftId, builderId, status: { $in: ['draft', 'pending'] } }).session(session);
     if (!rootDraft) {
-        // Detailed check for error reporting
         const exists = await Property.findById(draftId).session(session).lean();
         if (!exists) throw new Error("DRAFT_NOT_FOUND: The draft you are trying to publish no longer exists.");
         if ((exists as any).builderId.toString() !== builderId.toString()) throw new Error("UNAUTHORIZED_ACCESS: You do not have permission to publish this draft.");
         if ((exists as any).status !== 'draft' && (exists as any).status !== 'pending') throw new Error(`INVALID_STATUS: This property is already ${(exists as any).status}.`);
-        
+
         throw new Error("Draft not found or unauthorized");
     }
 
@@ -512,31 +541,31 @@ export async function submitPropertyForApproval(draftId: string, builderId: stri
 
     const draftIds = allDrafts.map(d => d._id);
 
-    // Update Properties
+    // Update Properties to pending
     await Property.updateMany(
       { _id: { $in: draftIds } },
-      { 
-        $set: { 
-          status: 'pending', 
+      {
+        $set: {
+          status: 'pending',
           submittedAt: new Date(),
-          rejectionReason: null 
-        } 
+          rejectionReason: null
+        }
       },
       { session }
     );
 
-    // Update Units
+    // Update Units to pending
     await Unit.updateMany(
-      { 
-        status: { $in: ['draft', 'pending'] }, 
-        $or: [{ towerId: { $in: draftIds } }, { projectId: { $in: draftIds } }] 
+      {
+        status: { $in: ['draft', 'pending'] },
+        $or: [{ towerId: { $in: draftIds } }, { projectId: { $in: draftIds } }]
       },
-      { 
-        $set: { 
+      {
+        $set: {
           status: 'pending',
           submittedAt: new Date(),
           rejectionReason: null
-        } 
+        }
       },
       { session }
     );

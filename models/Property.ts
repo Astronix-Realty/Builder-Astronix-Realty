@@ -20,6 +20,7 @@ export interface IProperty extends Document {
   autoSaveVersion: number;      // Increments on each auto-save
   publishedId: mongoose.Types.ObjectId | null;  // For drafts: linked published record
   draftId: mongoose.Types.ObjectId | null;      // For published: linked draft record
+  draftSourceId: mongoose.Types.ObjectId | null; // For published: the draft _id that first created this published doc (immutable back-reference for idempotency)
   createdBy: mongoose.Types.ObjectId;
   updatedBy: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -53,6 +54,7 @@ const PropertySchema = new Schema<IProperty>({
   autoSaveVersion: { type: Number, default: 0 },
   publishedId: { type: Schema.Types.ObjectId, ref: 'Property', default: null },
   draftId: { type: Schema.Types.ObjectId, ref: 'Property', default: null },
+  draftSourceId: { type: Schema.Types.ObjectId, ref: 'Property', default: null },
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   updatedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true }
 }, { 
@@ -66,6 +68,7 @@ PropertySchema.index({ builderId: 1, type: 1 });
 PropertySchema.index({ builderId: 1, publishedId: 1, status: 1 });
 PropertySchema.index({ publishedId: 1 });
 PropertySchema.index({ draftId: 1 });
+PropertySchema.index({ draftSourceId: 1 }); // For idempotent publish lookup
 
 // Pre-save hook for hierarchy validation
 PropertySchema.pre('save', async function (next) {

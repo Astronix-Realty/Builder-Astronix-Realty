@@ -353,7 +353,7 @@ function UnitConfigCard({
                         <div>
                             <p className="text-sm font-bold text-gray-900 dark:text-white leading-none">{config.type} Variant</p>
                             <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-1">
-                                {config.carpetArea || 0} Sq.Ft • {config.facing || "No Facing"}
+                                {config.carpetArea || 0} Sq.Ft • {config.facing || "No Facing"} • ₹{config.ratePerSqft || 0}/sqft
                             </p>
                         </div>
                     </div>
@@ -362,8 +362,8 @@ function UnitConfigCard({
                             <p className="text-xs font-bold text-emerald-600">₹{((config.basePrice || 0) / 100000).toFixed(1)}L</p>
                             <p className="text-[9px] text-gray-400 dark:text-slate-500 uppercase tracking-wider">Flat Cost</p>
                         </div>
-                        <button type="button" onClick={(e) => { e.stopPropagation(); onRemove(); }} className="p-1.5 rounded-md hover:bg-red-50 text-red-400">
-                            <X className="w-4 h-4" />
+                        <button type="button" onClick={(e) => { e.stopPropagation(); onRemove(); }} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-400 hover:text-red-600 transition-all active:scale-90">
+                            <Trash2 className="w-4 h-4" />
                         </button>
                         {open ? <ChevronUp className="w-4 h-4 text-gray-400 dark:text-slate-500" /> : <ChevronDown className="w-4 h-4 text-gray-400 dark:text-slate-500" />}
                     </div>
@@ -434,32 +434,43 @@ function UnitConfigCard({
                                     }} placeholder="850" /></Field>
                                     
                                     <Field label="Base Rate (₹/sqft)">
-                                        <Input 
-                                            type="number" 
-                                            value={config.ratePerSqft || ""} 
-                                            onChange={e => {
-                                                const rate = Number(e.target.value)
-                                                const flatCost = rate * config.builtUpArea
-                                                const gst = config.gstPercentage ?? 5
-                                                const stamp = config.stampDutyPercentage ?? 6
-                                                const reg = config.registrationCharges ?? 30000
-                                                const park = config.parkingCharges ?? 0
-                                                const other = config.otherCharges ?? 0
-                                                const gstAmt = flatCost * gst / 100
-                                                const stampAmt = flatCost * stamp / 100
-                                                const taxes = gstAmt + stampAmt + reg
-                                                const allIn = flatCost + taxes
-                                                onChange({ 
-                                                    ratePerSqft: rate, 
-                                                    basePrice: flatCost, 
-                                                    gstAmount: Math.round(gstAmt),
-                                                    stampDutyAmount: Math.round(stampAmt),
-                                                    totalTaxes: Math.round(taxes), 
-                                                    allInclusivePrice: Math.round(allIn) 
-                                                })
-                                            }} 
-                                            placeholder="5000" 
-                                        />
+                                        <div className="relative">
+                                            <Input 
+                                                type="number" 
+                                                value={config.ratePerSqft || ""} 
+                                                onChange={e => {
+                                                    const rate = Number(e.target.value)
+                                                    const flatCost = rate * config.builtUpArea
+                                                    const gst = config.gstPercentage ?? 5
+                                                    const stamp = config.stampDutyPercentage ?? 6
+                                                    const reg = config.registrationCharges ?? 30000
+                                                    const gstAmt = flatCost * gst / 100
+                                                    const stampAmt = flatCost * stamp / 100
+                                                    const taxes = gstAmt + stampAmt + reg
+                                                    const allIn = flatCost + taxes
+                                                    onChange({ 
+                                                        ratePerSqft: rate, 
+                                                        basePrice: flatCost, 
+                                                        gstAmount: Math.round(gstAmt),
+                                                        stampDutyAmount: Math.round(stampAmt),
+                                                        totalTaxes: Math.round(taxes), 
+                                                        allInclusivePrice: Math.round(allIn),
+                                                        isRateOverridden: true
+                                                    })
+                                                }} 
+                                                placeholder="5000" 
+                                                className={config.isRateOverridden ? "border-amber-200 bg-amber-50/30" : ""}
+                                            />
+                                            {config.isRateOverridden && (
+                                                <button 
+                                                    onClick={() => onChange({ isRateOverridden: false })}
+                                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-amber-600 hover:text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded shadow-sm transition-colors"
+                                                    title="Click to inherit from Global Standards"
+                                                >
+                                                    RESET
+                                                </button>
+                                            )}
+                                        </div>
                                     </Field>
                                     <Field label="Flat Cost (₹)">
                                         <Input 
@@ -815,7 +826,7 @@ function UnitConfigCard({
                                             <Input value={room.width ?? ""} onChange={e => updateRoom(room.id, { width: e.target.value })} placeholder="Wid" className="h-8 text-[11px] bg-white dark:bg-slate-900 border-0 shadow-sm text-center" />
                                             <div className="flex items-center gap-1">
                                                 <span className="text-[10px] font-bold text-gray-400 dark:text-slate-500">FT</span>
-                                                <Button variant="ghost" size="sm" onClick={() => removeRoom(room.id)} className="h-6 w-6 p-0 text-red-300 hover:text-red-500 hover:bg-red-50 ml-auto opacity-0 group-hover/room:opacity-100 transition-opacity"><Trash2 className="w-3 h-3" /></Button>
+                                                <Button variant="ghost" size="sm" onClick={() => removeRoom(room.id)} className="h-6 w-6 p-0 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 ml-auto opacity-0 group-hover/room:opacity-100 transition-all active:scale-90"><Trash2 className="w-3 h-3" /></Button>
                                             </div>
                                         </div>
                                     ))}
@@ -937,7 +948,7 @@ function UnitConfigCard({
                                                                 </div>
                                                             )}
 
-                                                            <Button variant="ghost" size="sm" onClick={() => removeVastu(v.id)} className="absolute top-2 right-2 h-7 w-7 p-0 text-red-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover/vastu:opacity-100 transition-opacity bg-white dark:bg-slate-900/80 backdrop-blur"><Trash2 className="w-3.5 h-3.5" /></Button>
+                                                            <Button variant="ghost" size="sm" onClick={() => removeVastu(v.id)} className="absolute top-2 right-2 h-7 w-7 p-0 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover/vastu:opacity-100 transition-all active:scale-90 bg-white dark:bg-slate-900/80 backdrop-blur"><Trash2 className="w-3.5 h-3.5" /></Button>
                                                         </div>
                                                     )
                                                 })}
@@ -969,7 +980,7 @@ function UnitConfigCard({
                                                 onCheckedChange={v => updateMoveIn(m.id, { included: v })}
                                             />
                                             <Input value={m.item ?? ""} onChange={e => updateMoveIn(m.id, { item: e.target.value })} placeholder="Modular Kitchen" className="h-8 text-[11px] bg-white dark:bg-slate-900 border-0 shadow-sm flex-1" />
-                                            <Button variant="ghost" size="sm" onClick={() => removeMoveIn(m.id)} className="h-8 w-8 p-0 text-red-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover/check:opacity-100 transition-opacity"><Trash2 className="w-4 h-4" /></Button>
+                                            <Button variant="ghost" size="sm" onClick={() => removeMoveIn(m.id)} className="h-8 w-8 p-0 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover/check:opacity-100 transition-all active:scale-90"><Trash2 className="w-4 h-4" /></Button>
                                         </div>
                                     ))}
                                     {(config.moveInChecklist || []).length === 0 && <p className="text-[10px] text-gray-400 dark:text-slate-500 italic py-2 text-center">No provisions added.</p>}
@@ -1034,7 +1045,7 @@ const BHK_OPTIONS: UnitConfiguration["type"][] = ["1BHK", "2BHK", "3BHK", "4BHK"
 // MAIN FORM
 // ─────────────────────────────────────────
 export function UnitFlowForm({
-    data, onChange, towerName, projectName, townshipName,
+data, onChange, towerName, projectName, townshipName,
     totalFloors, unitsPerFloor
 }: UnitFlowFormProps) {
     const [activeTab, setActiveTab] = useState("pricing")
@@ -1065,11 +1076,14 @@ export function UnitFlowForm({
         ]
         const hasPricingChange = pricingFields.some(field => field in patch)
         
-        if (hasPricingChange && newData.configurations) {
+        // Always sync non-overridden units to ensure consistency and fix RESET functionality
+        if (newData.configurations) {
             newData.configurations = newData.configurations.map(config => {
                 const loading = parseFloat(newData.loadingFactor || "40") || 40
                 const builtUp = Math.round(config.carpetArea * (1 + loading / 100))
-                const rate = parseFloat(newData.baseRatePerSqft || "0")
+                
+                // Use global rate if not overridden
+                const rate = config.isRateOverridden ? (config.ratePerSqft || 0) : parseFloat(newData.baseRatePerSqft || "0")
                 const basePrice = Math.round(rate * builtUp)
                 
                 const gst = parseFloat(newData.gstPercentage || "5")
@@ -1098,6 +1112,7 @@ export function UnitFlowForm({
                     allInclusivePrice: allInclusive,
                     maintenancePerSqft: parseFloat(newData.maintenancePerSqft || "0"),
                     maintenanceType: newData.maintenanceType || "monthly",
+                    isRateOverridden: config.isRateOverridden ?? false,
                     otherCharges: newData.otherChargesType === "rs" 
                         ? parseFloat(newData.otherChargesAmount || "0")
                         : newData.otherChargesType === "stamp_duty_percentage"
@@ -1323,21 +1338,21 @@ export function UnitFlowForm({
         <div className="space-y-4">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="grid grid-cols-3 w-full h-14 bg-gray-100 dark:bg-slate-800/50 p-1.5 rounded-2xl mb-8">
-                    <TabsTrigger value="pricing" className="rounded-xl data-[state=active]:bg-white dark:bg-slate-900 data-[state=active]:shadow-md data-[state=active]:text-[#1A3C8C] dark:text-blue-400 gap-2">
+                    <TabsTrigger value="pricing" className="rounded-2xl data-[state=active]:bg-white dark:bg-slate-900 data-[state=active]:shadow-md data-[state=active]:text-[#1A3C8C] dark:text-blue-400 gap-2">
                         <Settings2 className="w-4 h-4" />
                         <div className="flex flex-col items-start leading-none">
                             <span className="text-[10px] uppercase font-black opacity-50">Section 1</span>
                             <span className="text-xs font-bold">Global Standards</span>
                         </div>
                     </TabsTrigger>
-                    <TabsTrigger value="inventory" className="rounded-xl data-[state=active]:bg-white dark:bg-slate-900 data-[state=active]:shadow-md data-[state=active]:text-[#1A3C8C] dark:text-blue-400 gap-2">
+                    <TabsTrigger value="inventory" className="rounded-2xl data-[state=active]:bg-white dark:bg-slate-900 data-[state=active]:shadow-md data-[state=active]:text-[#1A3C8C] dark:text-blue-400 gap-2">
                         <Grid3X3 className="w-4 h-4" />
                         <div className="flex flex-col items-start leading-none">
                             <span className="text-[10px] uppercase font-black opacity-50">Section 2</span>
                             <span className="text-xs font-bold">Tower Skeleton</span>
                         </div>
                     </TabsTrigger>
-                    <TabsTrigger value="configs" className="rounded-xl data-[state=active]:bg-white dark:bg-slate-900 data-[state=active]:shadow-md data-[state=active]:text-[#1A3C8C] dark:text-blue-400 gap-2">
+                    <TabsTrigger value="configs" className="rounded-2xl data-[state=active]:bg-white dark:bg-slate-900 data-[state=active]:shadow-md data-[state=active]:text-[#1A3C8C] dark:text-blue-400 gap-2">
                         <Layout className="w-4 h-4" />
                         <div className="flex flex-col items-start leading-none">
                             <span className="text-[10px] uppercase font-black opacity-50">Section 3</span>
@@ -1488,7 +1503,7 @@ export function UnitFlowForm({
                                                     <Badge key={t} variant="secondary" className="capitalize text-[8px] h-4 px-1">{t}</Badge>
                                                 ))}
                                             </div>
-                                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); removeGroup(group.id); }} className="h-7 w-7 p-0 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4" /></Button>
+                                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); removeGroup(group.id); }} className="h-8 w-8 p-0 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all active:scale-90"><Trash2 className="w-4.5 h-4.5" /></Button>
                                         </div>
                                     </div>
                                     {!collapsedGroups.includes(group.id) && (
@@ -1639,6 +1654,12 @@ export function UnitFlowForm({
                                                                                         ))}
                                                                                     </SelectContent>
                                                                                 </Select>
+                                                                                {config && (
+                                                                                    <div className="flex flex-col items-end leading-none">
+                                                                                        <span className="text-[10px] font-bold text-emerald-600">₹{((config.allInclusivePrice || 0) / 100000).toFixed(1)}L</span>
+                                                                                        <span className="text-[8px] text-gray-400 uppercase tracking-tighter">All In</span>
+                                                                                    </div>
+                                                                                )}
                                                                             </div>
                                                                             <Button variant="ghost" size="sm" onClick={removeSlot} className="h-8 w-8 text-red-200 hover:text-red-500 hover:bg-red-50 rounded-lg">
                                                                                 <Trash2 className="w-4 h-4" />
@@ -1737,12 +1758,12 @@ export function UnitFlowForm({
                                                                 const newSlot: UnitLayoutSlot = { id: `slot-${Date.now()}`, slotNumber: ((group.layout?.length || 0) + 1).toString(), configId: configs[0]?.id || "" }
                                                                 updateGroup(group.id, { layout: [...(group.layout || []), newSlot] })
                                                             }}
-                                                            className="h-auto min-h-[280px] border-2 border-dashed border-gray-100 dark:border-slate-800 rounded-[24px] hover:border-blue-200 hover:bg-blue-50/30 transition-all flex flex-col gap-3 group/add"
+                                                            className="h-auto min-h-[280px] border-2 border-dashed border-blue-100 dark:border-blue-900/30 bg-blue-50/10 dark:bg-blue-900/5 rounded-[24px] hover:border-blue-300 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-all flex flex-col gap-3 group/add shadow-sm"
                                                         >
-                                                            <div className="w-12 h-12 rounded-2xl bg-gray-50 dark:bg-slate-800/50 flex items-center justify-center border border-gray-100 dark:border-slate-800 group-hover/add:bg-blue-100 group-hover/add:border-blue-200 transition-all group-hover/add:scale-110">
-                                                                <Plus className="w-6 h-6 text-gray-400 dark:text-slate-500 group-hover/add:text-blue-600" />
+                                                            <div className="w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-900/40 flex items-center justify-center border border-blue-100 dark:border-blue-800 group-hover/add:bg-blue-600 group-hover/add:border-blue-600 transition-all group-hover/add:scale-110 shadow-sm">
+                                                                <Plus className="w-8 h-8 text-[#1A3C8C] dark:text-blue-400 group-hover/add:text-white" />
                                                             </div>
-                                                            <span className="text-xs font-black text-gray-400 dark:text-slate-500 group-hover/add:text-blue-600 uppercase tracking-widest">Add Unit</span>
+                                                            <span className="text-sm font-black text-[#1A3C8C] dark:text-blue-400 uppercase tracking-widest">Add Unit</span>
                                                         </Button>
                                                     </div>
                                                 </>
@@ -1865,18 +1886,29 @@ export function UnitFlowForm({
                         const validSlots = (data.floorGroups || []).flatMap(g =>
                             (g.layout || []).map(s => ({ ...s, groupId: g.id }))
                         ).filter(s => {
-                            const typeStr = s.configId ? (data.configurations || []).find(c => c.id === s.configId)?.type : s.unitTypeOverride
-                            return !!typeStr
+                            // If configId exists, check if it's in configurations. If not, it's an orphaned slot that NEEDS sync.
+                            if (s.configId) {
+                                const exists = (data.configurations || []).some(c => c.id === s.configId)
+                                if (!exists) return true // Orphans need sync!
+                                return true // Exists, but logic below will check for mismatch
+                            }
+                            // If no configId, check for unitTypeOverride
+                            return !!s.unitTypeOverride
                         })
 
                         if (validSlots.length === 0) return null
 
                         let isMismatch = false;
                         const slotsToSync = validSlots.map(slot => {
-                            const typeStr = slot.configId ? (data.configurations || []).find(c => c.id === slot.configId)?.type : slot.unitTypeOverride
+                            let typeStr = slot.configId ? (data.configurations || []).find(c => c.id === slot.configId)?.type : slot.unitTypeOverride
+                            
+                            // Fallback for orphaned slots (if we deleted the default config)
+                            if (!typeStr && slot.configId?.includes('2bhk')) typeStr = "2BHK"
+                            if (!typeStr) typeStr = "2BHK" // Absolute fallback to avoid sync failure
+
                             const configObj = slot.configId ? (data.configurations || []).find(c => c.id === slot.configId) : null
-                            const areaVal = slot.carpetAreaOverride || configObj?.carpetArea || 0
-                            const baseTypeStr = typeStr ? typeStr.toUpperCase().replace(/\s/g, "") : ""
+                            const areaVal = slot.carpetAreaOverride || configObj?.carpetArea || 850
+                            const baseTypeStr = typeStr.toUpperCase().replace(/\s/g, "")
 
                             return {
                                 groupId: slot.groupId,
@@ -1947,14 +1979,20 @@ export function UnitFlowForm({
                                                         id, type: originalLabel as any, carpetArea: initialArea,
                                                         builtUpArea: Math.round(initialArea * (1 + (parseFloat(data.loadingFactor) || 40) / 100)), 
                                                         superBuiltUpArea: Math.round(initialArea * (1 + (parseFloat(data.loadingFactor) || 40) / 100)),
-                                                        loadingFactor: parseFloat(data.loadingFactor) || 40, basePrice: 5000000, ratePerSqft: 0, parkingCharges: 500000,
-                                                        gstPercentage: 5, stampDutyPercentage: 7, registrationCharges: 30000,
-                                                        maintenancePerSqft: 3.5, maintenanceType: "monthly", otherCharges: 0,
+                                                        loadingFactor: parseFloat(data.loadingFactor) || 40, 
+                                                        basePrice: Math.round((parseFloat(data.baseRatePerSqft) || 5000) * Math.round(initialArea * (1 + (parseFloat(data.loadingFactor) || 40) / 100))), 
+                                                        ratePerSqft: parseFloat(data.baseRatePerSqft) || 5000, 
+                                                        parkingCharges: parseFloat(data.parkingCharges) || 500000,
+                                                        gstPercentage: parseFloat(data.gstPercentage) || 5, 
+                                                        stampDutyPercentage: parseFloat(data.stampDutyPercentage) || 7, 
+                                                        registrationCharges: parseFloat(data.registrationCharges) || 30000,
+                                                        maintenancePerSqft: parseFloat(data.maintenancePerSqft) || 3.5, 
+                                                        maintenanceType: data.maintenanceType || "monthly", otherCharges: 0,
                                                         facingPremiums: { north: "0", south: "0", east: "0", west: "0", "north-east": "0", "north-west": "0", "south-east": "0", "south-west": "0" },
                                                         facing: "East", balconyCount: 1, bathroomCount: 2, servantRoom: false, studyRoom: false, poojaRoom: false, dryBalcony: true,
                                                         flooringType: data.defaultFlooringType || "", wallFinish: data.defaultWallFinish || "", ceilingHeight: data.defaultCeilingHeight || "10.5 Ft",
                                                         furnishingStatus: data.defaultFurnishingStatus || "unfurnished", viewType: "City View", roomDimensions: [], vastuAnalysis: [], moveInChecklist: [],
-                                                        floorPlanImage2D: "", countPerFloor: 1
+                                                        floorPlanImage2D: "", countPerFloor: 1, isRateOverridden: false
                                                     })
                                                 }
                                                 newMappings.push({ groupId: stats.groupId, slotNumber: stats.slotNumber, newConfigId: id })
@@ -1992,9 +2030,39 @@ export function UnitFlowForm({
 
                     <div className="grid gap-6">
                         {(data.floorGroups || []).length === 0 ? (
-                            (data.configurations || []).map((config, i) => (
-                                <UnitConfigCard key={config.id} index={i} config={config} onChange={patch => updateConfig(config.id, patch)} onRemove={() => removeConfig(config.id)} globalLoadingFactor={data.loadingFactor} />
-                            ))
+                            <div className="flex flex-col items-center justify-center py-24 text-center gap-6 bg-slate-50/60 dark:bg-slate-800/20 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-700">
+                                <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700">
+                                    <Layers className="w-8 h-8 text-slate-400 dark:text-slate-500" />
+                                </div>
+                                <div className="space-y-2 max-w-sm">
+                                    <h4 className="text-lg font-black text-slate-700 dark:text-slate-300">No Floor Groups Yet</h4>
+                                    <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                                        Group Blueprints are generated from your Tower Skeleton. Please go to <span className="font-bold text-[#1A3C8C] dark:text-blue-400">Section 2 → Tower Skeleton</span> and add at least one floor group first.
+                                    </p>
+                                </div>
+                            </div>
+                        ) : (data.configurations || []).length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-24 text-center gap-6 bg-blue-50/30 dark:bg-blue-900/10 rounded-3xl border-2 border-dashed border-blue-100 dark:border-blue-900/30 shadow-inner">
+                                <div className="w-16 h-16 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center border border-blue-100 dark:border-blue-800 shadow-sm">
+                                    <Sparkles className="w-8 h-8 text-blue-400 animate-pulse" />
+                                </div>
+                                <div className="space-y-2 max-w-md px-6">
+                                    <h4 className="text-lg font-black text-blue-900 dark:text-blue-200">No Blueprints Generated</h4>
+                                    <p className="text-sm text-blue-700/60 dark:text-blue-400/60 leading-relaxed">
+                                        Aapne floor groups toh bana diye hain, par abhi tak unke <span className="font-bold text-blue-600">Unit Types</span> (2BHK, 3BHK etc.) define nahi kiye.
+                                    </p>
+                                    <div className="pt-4 flex flex-col gap-2 items-center">
+                                        <div className="text-[11px] font-bold text-blue-500 bg-blue-50 dark:bg-blue-900/40 px-4 py-2 rounded-lg border border-blue-100 dark:border-blue-800 uppercase tracking-widest">
+                                            How to fix:
+                                        </div>
+                                        <p className="text-xs text-gray-500 dark:text-slate-400">
+                                            1. Go to <span className="font-bold">Tower Skeleton</span> tab.<br/>
+                                            2. Click on a floor group and add <span className="font-bold">Units</span>.<br/>
+                                            3. Return here and click <span className="font-bold text-[#1A3C8C] dark:text-blue-400">Execute Smart Sync</span>.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
                         ) : (
                             <>
                                 {(data.floorGroups || []).map((group, groupIndex) => {
@@ -2299,7 +2367,7 @@ function AddGroupModal({ isOpen, onClose, onAdd, configurations, defaultUnits, d
                     <div className="relative z-10 flex items-center justify-between">
                         <div>
                             <div className="w-14 h-14 rounded-2xl bg-white dark:bg-slate-900/10 backdrop-blur-xl flex items-center justify-center mb-5 border border-white/20 shadow-xl">
-                                <Layers className="w-7 h-7 text-white" />
+                                <Layers className="w-7 h-7 text-[#1A3C8C] dark:text-white" />
                             </div>
                             <h2 className="text-3xl font-black tracking-tight leading-none">Add Floor Group</h2>
                             <p className="text-blue-100/70 mt-3 text-sm font-medium">Mixed-use floors? Select multiple purposes below.</p>

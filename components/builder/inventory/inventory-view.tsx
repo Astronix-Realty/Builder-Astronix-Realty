@@ -122,16 +122,30 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
     const loadProperties = async () => {
         setLoading(true)
         try {
-            const res = await fetch("/api/properties")
+            // Root-level fix: Fetch only published properties for Inventory
+            const res = await fetch("/api/properties?status=published")
             if (res.ok) {
                 const data = await res.json()
-                setProperties(data.properties || [])
+                
+                // Additional safety filter: Ensure only published/active properties enter inventory state
+                const publishedOnly = (data.properties || []).filter((p: any) => 
+                    p.status === "published" || p.status === "active"
+                )
+                
+                setProperties(publishedOnly)
                 
                 // If a property is already selected, refresh its full details too
                 if (selectedPropertyId) {
-                    fetchFullProperty(selectedPropertyId)
-                } else if (data.properties?.length > 0) {
-                    setSelectedPropertyId(data.properties[0]._id || data.properties[0].id)
+                    const isStillValid = publishedOnly.some((p: any) => (p._id || p.id) === selectedPropertyId)
+                    if (isStillValid) {
+                        fetchFullProperty(selectedPropertyId)
+                    } else {
+                        setSelectedPropertyId(publishedOnly.length > 0 ? (publishedOnly[0]._id || publishedOnly[0].id) : "")
+                    }
+                } else if (publishedOnly.length > 0) {
+                    setSelectedPropertyId(publishedOnly[0]._id || publishedOnly[0].id)
+                } else {
+                    setSelectedPropertyId("")
                 }
             }
         } catch (e) {
@@ -147,10 +161,25 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
             const res = await fetch(`/api/properties/${id}`)
             if (res.ok) {
                 const data = await res.json()
-                // Update the specific property in the list with its full details
-                setProperties(prev => prev.map(p => 
-                    (p.id === id || (p as any)._id === id) ? data.property : p
-                ))
+                const updatedProperty = data.property
+                
+                // Root-level fix: Ensure the property is still published before keeping it in inventory
+                const isValid = updatedProperty.status === "published" || updatedProperty.status === "active"
+                
+                setProperties(prev => {
+                    const newProps = prev.map(p => 
+                        (p.id === id || (p as any)._id === id) ? updatedProperty : p
+                    ).filter(p => p.status === "published" || p.status === "active")
+                    
+                    // If the selected property was just filtered out, reset selection
+                    if (!isValid && selectedPropertyId === id) {
+                        setTimeout(() => {
+                            setSelectedPropertyId(newProps.length > 0 ? (newProps[0]._id || newProps[0].id) : "")
+                        }, 0)
+                    }
+                    
+                    return newProps
+                })
             }
         } catch (e) {
             console.error("Failed to fetch full property", e)
@@ -307,8 +336,8 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
     if (properties.length === 0) return (
         <div className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed rounded-xl m-8">
             <Building className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No Properties Found</h3>
-            <p className="text-muted-foreground">Inventory will prevent once properties are created.</p>
+            <h3 className="text-xl font-semibold mb-2">No Published Properties</h3>
+            <p className="text-muted-foreground">Inventory only shows properties that have been approved and published.</p>
         </div>
     )
 

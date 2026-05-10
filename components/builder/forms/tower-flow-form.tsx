@@ -410,17 +410,34 @@ function TowerFlowFormBase({ data, unitConfig, unitTemplate, onChange, projectNa
 
 
 
-  // Auto-calculate total units
+  const configsStr = JSON.stringify(unitConfig?.configurations || unitTemplate?.configurations || [])
+
+  // Auto-calculate total units and units per floor
   useEffect(() => {
     const floors = data.totalFloorsNum || parseInt(String(data.totalFloors || "").replace(/\D/g, "")) || 0
-    const perFloor = parseInt(String(data.unitsPerFloor || "")) || 0
+    
+    let configs = unitConfig?.configurations || []
+    if (configs.length === 0 || !configs.some((c: any) => (c.allInclusivePrice || 0) > 0)) {
+      configs = unitTemplate?.configurations || []
+    }
+    const calculatedPerFloor = configs.reduce((sum: number, c: any) => sum + (Number(c.countPerFloor) || 0), 0)
+    
+    // Always strictly use the calculated per floor value now that it's read-only
+    const perFloor = calculatedPerFloor
     const total = floors * perFloor
     
+    const updates: Partial<TowerData> = {}
     if (total !== data.totalUnits) {
-      onChange(prev => ({ ...prev, totalUnits: total }))
+      updates.totalUnits = total
     }
-    // Only depend on the fields needed for calculation to prevent loops when other fields change
-  }, [data.totalFloorsNum, data.totalFloors, data.unitsPerFloor, data.totalUnits, onChange])
+    if (String(calculatedPerFloor) !== String(data.unitsPerFloor)) {
+      updates.unitsPerFloor = String(calculatedPerFloor)
+    }
+    
+    if (Object.keys(updates).length > 0) {
+      onChange(prev => ({ ...prev, ...updates }))
+    }
+  }, [data.totalFloorsNum, data.totalFloors, data.unitsPerFloor, data.totalUnits, configsStr, onChange])
 
   // Gallery images
   const addGallery = () => update("galleryImages", [...(data.galleryImages || []), ""])
@@ -504,54 +521,38 @@ function TowerFlowFormBase({ data, unitConfig, unitTemplate, onChange, projectNa
         </div>
 
         <div className="mt-8 pt-6 border-t border-gray-100 dark:border-slate-800">
-          <SectionTitle 
-            title="Pricing & Range" 
-            action={
-              hasDiff && (
-                <Button 
-                  type="button"
-                  variant="outline" 
-                  size="sm" 
-                  onClick={handleSyncPrices}
-                  className="h-6 px-2 text-[9px] bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100 animate-pulse font-black uppercase tracking-wider"
-                >
-                  <BarChart3 className="w-2.5 h-2.5 mr-1" /> Auto-Sync from Units
-                </Button>
-              )
-            }
-          />
+          <SectionTitle title="Pricing & Range" />
           <Grid cols={3}>
-            <Field label="Minimum Price (₹)" hint="Starting price (e.g. 50L)">
+            <Field label="Minimum Price (₹)" hint="Auto-synced from units">
               <Input 
                 type="number" 
                 value={data.priceRangeMin || ""} 
-                onChange={e => update("priceRangeMin", Number(e.target.value))} 
-                placeholder="5000000" 
-                className={`h-10 border-gray-200 dark:border-slate-700 focus-visible:ring-[#1A3C8C] ${data.priceRangeMin !== calculatedMin && calculatedMin > 0 ? 'border-orange-200 bg-orange-50/20' : ''}`}
+                readOnly
+                placeholder="—" 
+                className="h-10 bg-gray-50 dark:bg-slate-800/50 cursor-not-allowed font-bold text-blue-600 dark:text-blue-400 border-gray-200 dark:border-slate-700"
               />
             </Field>
-            <Field label="Maximum Price (₹)" hint="Max price (e.g. 1.5Cr)">
+            <Field label="Maximum Price (₹)" hint="Auto-synced from units">
               <Input 
                 type="number" 
                 value={data.priceRangeMax || ""} 
-                onChange={e => update("priceRangeMax", Number(e.target.value))} 
-                placeholder="15000000" 
-                className={`h-10 border-gray-200 dark:border-slate-700 focus-visible:ring-[#1A3C8C] ${data.priceRangeMax !== calculatedMax && calculatedMax > 0 ? 'border-orange-200 bg-orange-50/20' : ''}`}
+                readOnly
+                placeholder="—" 
+                className="h-10 bg-gray-50 dark:bg-slate-800/50 cursor-not-allowed font-bold text-blue-600 dark:text-blue-400 border-gray-200 dark:border-slate-700"
               />
             </Field>
-            <Field label="Display Price Range" hint="Custom text display">
+            <Field label="Display Price Range" hint="Auto-generated label">
               <Input 
                 value={data.priceLabel || ""} 
-                onChange={e => update("priceLabel", e.target.value)} 
-                placeholder="₹50L - ₹1.5Cr" 
-                className="h-10 border-gray-200 dark:border-slate-700 focus-visible:ring-[#1A3C8C]"
+                readOnly
+                placeholder="—" 
+                className="h-10 bg-gray-50 dark:bg-slate-800/50 cursor-not-allowed font-bold text-blue-600 dark:text-blue-400 border-gray-200 dark:border-slate-700"
               />
             </Field>
           </Grid>
-          <div className="flex items-center gap-2 mt-4 px-3 py-2 bg-blue-50/50 border border-blue-100/50 rounded-lg text-[10px] text-blue-600 font-bold uppercase tracking-tight">
-            <Info className="w-3 h-3" />
-            Auto-calculated range from units: ₹{(calculatedMin / 100000).toFixed(0)}L – ₹{(calculatedMax / 100000).toFixed(0)}L
-            {hasDiff && <span className="ml-auto text-orange-600">⚠️ Values mismatch - Use Auto-Sync</span>}
+          <div className="flex items-center gap-2 mt-4 px-3 py-2 bg-emerald-50/50 dark:bg-emerald-900/20 border border-emerald-100/50 dark:border-emerald-800/30 rounded-lg text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-tight">
+            <CheckCircle className="w-3 h-3" />
+            Auto-synced from unit configurations · ₹{(calculatedMin / 100000).toFixed(0)}L – ₹{(calculatedMax / 100000).toFixed(0)}L
           </div>
         </div>
 
@@ -632,8 +633,8 @@ function TowerFlowFormBase({ data, unitConfig, unitTemplate, onChange, projectNa
           <Field label="Lobby Details">
             <Input value={data.lobbyDetails ?? ""} onChange={e => update("lobbyDetails", e.target.value)} placeholder="Double-Height Grand Lobby with Concierge" />
           </Field>
-          <Field label="Units Per Floor" required hint="Used for total units calculation">
-            <Input type="number" value={data.unitsPerFloor ?? ""} onChange={e => update("unitsPerFloor", e.target.value)} placeholder="8" />
+          <Field label="Units Per Floor" required hint="Auto-synced from unit configurations">
+            <Input type="number" value={data.unitsPerFloor ?? ""} readOnly placeholder="—" className="bg-gray-50 dark:bg-slate-800/50 cursor-not-allowed font-bold text-blue-600 dark:text-blue-400 border-gray-200 dark:border-slate-700" />
           </Field>
         </Grid>
 

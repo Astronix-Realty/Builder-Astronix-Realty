@@ -475,6 +475,9 @@ export interface UnitConfiguration {
   // ── COUNT PER FLOOR ──────────────────────
   countPerFloor: number         // How many of this type per floor
 
+  // ── OVERRIDE FLAGS ────────────────────────
+  isRateOverridden?: boolean    // If true, global base rate changes won't affect this unit
+
   // ── COMMERCIAL & SPECIAL FIELDS ──────────
   frontage?: string             // "15 Ft"
   depth?: string                // "40 Ft"
@@ -993,61 +996,17 @@ export const createDefaultUnitConfig = (type: UnitConfiguration["type"], carpetA
 
 export const createInitialUnitTemplate = (towerId: string): UnitTemplate => ({
   towerId,
-  baseRatePerSqft: "5500",
-  floorRisePerFloor: 50000,
-  gstPercentage: "5",
-  stampDutyPercentage: "5",
-  registrationCharges: "30000",
-  parkingCharges: "500000",
-  maintenancePerSqft: "3.5",
+  baseRatePerSqft: "",
+  floorRisePerFloor: 0,
+  gstPercentage: "",
+  stampDutyPercentage: "",
+  registrationCharges: "",
+  parkingCharges: "",
+  maintenancePerSqft: "",
   maintenanceType: "monthly",
-  loadingFactor: "40",
+  loadingFactor: "",
   facingPremiums: { ...defaultFacingPremiums },
-  configurations: [
-    {
-      id: "default-2bhk",
-      type: "2BHK",
-      carpetArea: 850,
-      builtUpArea: 1020,
-      superBuiltUpArea: 1190,
-      loadingFactor: 40,
-      basePrice: 5500000,
-      ratePerSqft: 6470,
-      parkingCharges: 500000,
-      gstPercentage: 5,
-      gstAmount: 275000,
-      stampDutyPercentage: 7,
-      stampDutyAmount: 385000,
-      registrationCharges: 30000,
-      maintenancePerSqft: 3.5,
-      maintenanceType: "monthly",
-      otherCharges: 0,
-      allInclusivePrice: 6690000,
-      totalTaxes: 1190000,
-      facingPremiums: { ...defaultFacingPremiums },
-      facing: "East",
-      balconyCount: 2,
-      bathroomCount: 2,
-      servantRoom: false,
-      studyRoom: false,
-      poojaRoom: true,
-      dryBalcony: true,
-      flooringType: "Vitrified Tiles (800x800)",
-      wallFinish: "2-Coat OBD Premium Paint",
-      ceilingHeight: "10",
-      furnishingStatus: "unfurnished",
-      viewType: "Garden View",
-      roomDimensions: [...defaultRoomDimensions],
-      vastuAnalysis: [...defaultVastu],
-      moveInChecklist: [...defaultMoveIn],
-      countPerFloor: 4,
-      floorPlanImage2D: "",
-      floorPlanImage3D: "",
-      heroImage: "",
-      galleryImages: [],
-      reraNumber: "",
-    }
-  ],
+  configurations: [],
   approvedBanks: ["HDFC Bank", "SBI", "ICICI Bank", "Axis Bank"],
   floorPlan2DUrl: "",
   floorPlan3DUrl: "",
@@ -1175,8 +1134,8 @@ export const initialProjectTemplate: Partial<ProjectData> = {
 
 export const initialTowerTemplate: Partial<TowerData> = {
   totalFloors: "G + 20",
-  unitsPerFloor: "4",
-  liftsConfiguration: "3 High-Speed Lifts + 1 Service Lift",
+  unitsPerFloor: "",
+  liftsConfiguration: "",
   constructionStatus: "under-construction",
 }
 

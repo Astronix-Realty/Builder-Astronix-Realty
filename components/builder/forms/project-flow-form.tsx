@@ -443,36 +443,36 @@ function ProjectFlowFormBase({ data, onChange, townshipName, townshipData, onTow
         <div className="border-t border-gray-100 dark:border-slate-800 pt-6 mb-6">
           <SectionTitle title="Pricing & Range" />
           <Grid cols={3}>
-            <Field label="Minimum Price (₹)" hint="Starting price (e.g. 50L)">
+            <Field label="Minimum Price (₹)" hint="Auto-synced from towers">
               <Input 
                 type="number" 
                 value={data.priceRangeMin || ""} 
-                onChange={e => update("priceRangeMin", Number(e.target.value))} 
-                placeholder="5000000" 
-                className="h-10 border-gray-200 dark:border-slate-700 focus-visible:ring-[#1A3C8C]"
+                readOnly
+                placeholder="—" 
+                className="h-10 bg-gray-50 dark:bg-slate-800/50 cursor-not-allowed font-bold text-blue-600 dark:text-blue-400 border-gray-200 dark:border-slate-700"
               />
             </Field>
-            <Field label="Maximum Price (₹)" hint="Max price (e.g. 1.5Cr)">
+            <Field label="Maximum Price (₹)" hint="Auto-synced from towers">
               <Input 
                 type="number" 
                 value={data.priceRangeMax || ""} 
-                onChange={e => update("priceRangeMax", Number(e.target.value))} 
-                placeholder="15000000" 
-                className="h-10 border-gray-200 dark:border-slate-700 focus-visible:ring-[#1A3C8C]"
+                readOnly
+                placeholder="—" 
+                className="h-10 bg-gray-50 dark:bg-slate-800/50 cursor-not-allowed font-bold text-blue-600 dark:text-blue-400 border-gray-200 dark:border-slate-700"
               />
             </Field>
-            <Field label="Display Price Range" hint="Custom text display">
+            <Field label="Display Price Range" hint="Auto-generated label">
               <Input 
                 value={data.priceLabel || ""} 
-                onChange={e => update("priceLabel", e.target.value)} 
-                placeholder="₹50L - ₹1.5Cr" 
-                className="h-10 border-gray-200 dark:border-slate-700 focus-visible:ring-[#1A3C8C]"
+                readOnly
+                placeholder="—" 
+                className="h-10 bg-gray-50 dark:bg-slate-800/50 cursor-not-allowed font-bold text-blue-600 dark:text-blue-400 border-gray-200 dark:border-slate-700"
               />
             </Field>
           </Grid>
-          <div className="flex items-center gap-2 mt-4 px-3 py-2 bg-blue-50/50 border border-blue-100/50 rounded-lg text-[10px] text-blue-600 font-bold uppercase tracking-tight">
-            <Info className="w-3 h-3" />
-            Auto-calculated range from units: ₹{(data.priceRangeMin / 100000).toFixed(0)}L – ₹{(data.priceRangeMax / 100000).toFixed(0)}L
+          <div className="flex items-center gap-2 mt-4 px-3 py-2 bg-emerald-50/50 dark:bg-emerald-900/20 border border-emerald-100/50 dark:border-emerald-800/30 rounded-lg text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-tight">
+            <CheckCircle className="w-3 h-3" />
+            Auto-synced from tower configurations · ₹{((data.priceRangeMin || 0) / 100000).toFixed(0)}L – ₹{((data.priceRangeMax || 0) / 100000).toFixed(0)}L
           </div>
         </div>
 

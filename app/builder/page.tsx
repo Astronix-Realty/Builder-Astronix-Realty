@@ -113,12 +113,16 @@ function BuilderContent() {
     return baseState
   }, [flowType, stepOffset])
 
+  const editId = searchParams.get("edit")
   const [state, setState] = useState<WizardState>(() => getInitialState())
   const [isComplete, setIsComplete] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [isAuthChecking, setIsAuthChecking] = useState(true)
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [showResumeBanner, setShowResumeBanner] = useState(true)
+  const [showResumeBanner, setShowResumeBanner] = useState(!editId)
+  // FIX 4: After clone-to-draft resolves, store the real draftId here so
+  // useAutoDraft can immediately use it instead of the stale publishedId from URL.
+  const [resolvedDraftId, setResolvedDraftId] = useState<string | null>(null)
 
   // Verify Auth on Client Mount explicitly (Bonus)
   useEffect(() => {
@@ -150,8 +154,6 @@ function BuilderContent() {
   const [activeUnitTowerId, setActiveUnitTowerId] = useState<string>("global")
   const [activeUnitProjectId, setActiveUnitProjectId] = useState<string>("all")
 
-  const editId = searchParams.get("edit")
-
   const [isEditLoading, setIsEditLoading] = useState(!!editId)
 
   // Load data if editing
@@ -172,11 +174,21 @@ function BuilderContent() {
               if (cloneRes.ok) {
                 const cloneData = await cloneRes.json()
                 targetId = cloneData.draftId
-                // Update URL without full reload to prevent infinite loop but ensure refresh uses the draft ID
+                // FIX 4: Immediately tell useAutoDraft about the real draftId.
+                // This MUST happen before the 10s auto-save debounce fires, otherwise
+                // auto-save will use the old publishedId and create a duplicate document.
+                setResolvedDraftId(targetId)
+                // Update URL without full reload to prevent infinite loop
                 const newUrl = new URL(window.location.href)
                 newUrl.searchParams.set("edit", targetId)
                 window.history.replaceState({}, "", newUrl.toString())
+              } else {
+                console.error("[loadProperty] clone-to-draft failed:", await cloneRes.json().catch(() => ({})))
               }
+            } else {
+              // For draft/pending/rejected properties, the editId IS the draft id.
+              // Inject it immediately so useAutoDraft doesn't re-read a stale localStorage value.
+              setResolvedDraftId(editId)
             }
           }
 
@@ -212,7 +224,10 @@ function BuilderContent() {
                   towerUnitConfigs: Array.isArray(wizardData.towerUnitConfigs) 
                     ? wizardData.towerUnitConfigs.filter(Boolean) 
                     : (defaultState.towerUnitConfigs || []),
-                  currentStep: wizardData.currentStep || data.property.lastSavedStep || defaultState.currentStep
+                  currentStep: Math.max(
+                    wizardData.currentStep || data.property.lastSavedStep || defaultState.currentStep,
+                    defaultState.currentStep
+                  )
                 }
 
                 setState(newState)
@@ -244,6 +259,9 @@ function BuilderContent() {
     debounceMs: 10000,
     // Turn off auto-save when creating to prevent "draft already published" errors
     enabled: !isAuthChecking && !isCreating && !isComplete && !isEditLoading,
+    // FIX 4: Pass the resolved draftId so the hook immediately uses the correct
+    // draft document ID instead of the stale publishedId from the URL on first load.
+    forcedDraftId: resolvedDraftId,
   })
 
   // Theme management
@@ -889,6 +907,15 @@ function BuilderContent() {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
         <p className="ml-3 text-slate-600 font-medium">Verifying secure builder session...</p>
+      </div>
+    )
+  }
+
+  if (isEditLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
+        <p className="ml-3 text-slate-600 font-medium">Loading property data...</p>
       </div>
     )
   }
