@@ -241,6 +241,46 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   }
 }
 
+// PATCH /api/properties/[id] - Update specific fields of a property (e.g., status)
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params;
+    const token = getTokenFromRequest(req);
+    if (!token) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+    const decoded = verifyToken(token);
+    if (!decoded) return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+
+    const body = await req.json();
+
+    await dbConnect();
+
+    // Only allow specific safe PATCH updates, primarily status transitions like "Move to Draft"
+    const allowedFields = ["status"];
+    const updateData: any = { updatedBy: decoded.userId };
+    
+    for (const key of Object.keys(body)) {
+      if (allowedFields.includes(key)) {
+        updateData[key] = body[key];
+      }
+    }
+
+    const property = await Property.findOneAndUpdate(
+      { _id: id, builderId: decoded.userId, isDeleted: false },
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
+
+    if (!property) {
+      return NextResponse.json({ error: "Property not found or unauthorized" }, { status: 404 });
+    }
+
+    return NextResponse.json({ property }, { status: 200 });
+  } catch (error: any) {
+    return NextResponse.json({ error: "Failed to apply PATCH update" }, { status: 500 });
+  }
+}
+
 // DELETE /api/properties/[id] - Delete a property
 // Hard deletes properties and any associated units + orphaned Cloudinary media securely.
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

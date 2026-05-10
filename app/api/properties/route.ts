@@ -91,7 +91,9 @@ export async function GET(req: NextRequest) {
           calculatedCounts: { projectsCount, towersCount, unitsCount },
           thumbnail: thumbnail || null,
           totalValue: p.details?.totalValue || 0,
-          location: p.location?.city || p.location?.address || 'Location N/A'
+          location: p.location?.city || p.location?.address || 'Location N/A',
+          rejectionReason: p.rejectionReason || null,
+          updatedAt: p.updatedAt
         };
       }
 
@@ -118,7 +120,9 @@ export async function GET(req: NextRequest) {
           calculatedCounts: { projectsCount, towersCount, unitsCount },
           townshipName: p.name || township.name,
           location: township.city || township.address || p.location?.city || 'Location N/A',
-          totalValue: township.totalValue || 0
+          totalValue: township.totalValue || 0,
+          rejectionReason: p.rejectionReason || null,
+          updatedAt: p.updatedAt
         };
       }
     }));

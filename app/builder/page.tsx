@@ -166,30 +166,9 @@ function BuilderContent() {
           const checkRes = await fetch(`/api/properties/${editId}`)
           if (checkRes.ok) {
             const checkData = await checkRes.json()
-            // If the property is PUBLISHED or ARCHIVED, clone it to a draft first before editing.
-            // PENDING and REJECTED properties are already staging records and should be edited directly.
-            if (checkData.property?.status === 'published' || checkData.property?.status === 'archived') {
-              console.log("Property is active. Cloning to draft before editing...")
-              const cloneRes = await fetch(`/api/properties/${editId}/clone-to-draft`, { method: 'POST' })
-              if (cloneRes.ok) {
-                const cloneData = await cloneRes.json()
-                targetId = cloneData.draftId
-                // FIX 4: Immediately tell useAutoDraft about the real draftId.
-                // This MUST happen before the 10s auto-save debounce fires, otherwise
-                // auto-save will use the old publishedId and create a duplicate document.
-                setResolvedDraftId(targetId)
-                // Update URL without full reload to prevent infinite loop
-                const newUrl = new URL(window.location.href)
-                newUrl.searchParams.set("edit", targetId)
-                window.history.replaceState({}, "", newUrl.toString())
-              } else {
-                console.error("[loadProperty] clone-to-draft failed:", await cloneRes.json().catch(() => ({})))
-              }
-            } else {
-              // For draft/pending/rejected properties, the editId IS the draft id.
-              // Inject it immediately so useAutoDraft doesn't re-read a stale localStorage value.
-              setResolvedDraftId(editId)
-            }
+            // For draft/pending/rejected properties, the editId IS the draft id.
+            // Inject it immediately so useAutoDraft doesn't re-read a stale localStorage value.
+            setResolvedDraftId(editId)
           }
 
           const res = await fetch(`/api/properties/${targetId}`)

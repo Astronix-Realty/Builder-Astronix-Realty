@@ -151,42 +151,54 @@ export function useAutoDraft({
 
   // ── Sync from DB State if localStorage is empty ───────────────────────────
   useEffect(() => {
+    let ids = { ...draftIdsRef.current }
+    let needsUpdate = false
+
+    // 1. Sync from _autoDraftIds snapshot if maps are missing
     if (state?._autoDraftIds) {
-      const currentIds = draftIdsRef.current
-      if (!currentIds.townshipId && !currentIds.projectId && !currentIds.towerId) {
-        setDraftIds(state._autoDraftIds)
-        draftIdsRef.current = state._autoDraftIds
-        saveDraftIdsToStorage(flowType, state._autoDraftIds)
+      const snap = state._autoDraftIds
+      if (!ids.townshipId && snap.townshipId) { ids.townshipId = snap.townshipId; needsUpdate = true }
+      if (!ids.projectId && snap.projectId) { ids.projectId = snap.projectId; needsUpdate = true }
+      if (!ids.towerId && snap.towerId) { ids.towerId = snap.towerId; needsUpdate = true }
+      
+      if (Object.keys(ids.projectMap || {}).length === 0 && snap.projectMap) {
+        ids.projectMap = snap.projectMap
+        needsUpdate = true
       }
-    } else if (typeof window !== "undefined") {
-      // Build projectMap/towerMap from _dbId fields on edit load
-      if (state?.projects || state?.towers) {
-        const ids = { ...draftIdsRef.current }
-        const newProjectMap = { ...(ids.projectMap || {}) }
-        const newTowerMap = { ...(ids.towerMap || {}) }
-        let needsUpdate = false
+      if (Object.keys(ids.towerMap || {}).length === 0 && snap.towerMap) {
+        ids.towerMap = snap.towerMap
+        needsUpdate = true
+      }
+    }
 
-        for (const proj of state.projects || []) {
-          if (proj._dbId && proj.id && !newProjectMap[proj.id]) {
-            newProjectMap[proj.id] = proj._dbId
-            needsUpdate = true
-          }
-        }
-        for (const tower of state.towers || []) {
-          if (tower._dbId && tower.id && !newTowerMap[tower.id]) {
-            newTowerMap[tower.id] = tower._dbId
-            needsUpdate = true
-          }
-        }
+    // 2. Always fallback to extracting _dbId directly from hydrated state
+    if (typeof window !== "undefined") {
+      const newProjectMap = { ...(ids.projectMap || {}) }
+      const newTowerMap = { ...(ids.towerMap || {}) }
 
-        if (needsUpdate) {
-          ids.projectMap = newProjectMap
-          ids.towerMap = newTowerMap
-          setDraftIds(ids)
-          draftIdsRef.current = ids
-          saveDraftIdsToStorage(flowType, ids)
+      for (const proj of state?.projects || []) {
+        if (proj._dbId && proj.id && !newProjectMap[proj.id]) {
+          newProjectMap[proj.id] = proj._dbId
+          needsUpdate = true
         }
       }
+      for (const tower of state?.towers || []) {
+        if (tower._dbId && tower.id && !newTowerMap[tower.id]) {
+          newTowerMap[tower.id] = tower._dbId
+          needsUpdate = true
+        }
+      }
+
+      if (needsUpdate) {
+        ids.projectMap = newProjectMap
+        ids.towerMap = newTowerMap
+      }
+    }
+
+    if (needsUpdate) {
+      setDraftIds(ids)
+      draftIdsRef.current = ids
+      saveDraftIdsToStorage(flowType, ids)
     }
   }, [state, flowType])
 

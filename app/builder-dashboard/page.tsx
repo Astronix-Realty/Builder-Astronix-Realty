@@ -38,6 +38,8 @@ interface Property {
 
   totalValue: number
   createdDate: string
+  updatedAt?: string
+  rejectionReason?: string | null
   flowType?: string
   thumbnail?: string
 }
@@ -68,6 +70,7 @@ function DashboardContent() {
   const [properties, setProperties] = useState<Property[]>([])
   const [isFetchingProperties, setIsFetchingProperties] = useState(false)
   const [deletingPropertyId, setDeletingPropertyId] = useState<string | null>(null)
+  const [movingToDraftId, setMovingToDraftId] = useState<string | null>(null)
   const [offers, setOffers] = useState<Offer[]>([])
   const [showAddOffer, setShowAddOffer] = useState(false)
   const [showBannerEditor, setShowBannerEditor] = useState(false)
@@ -220,6 +223,8 @@ function DashboardContent() {
       status: finalStatus,
       totalValue: totalValue || 0,
       createdDate: p.createdAt || new Date().toISOString(),
+      updatedAt: p.updatedAt,
+      rejectionReason: p.rejectionReason || null,
       flowType: flowType,
       thumbnail: thumbnail,
     }
@@ -443,6 +448,28 @@ function DashboardContent() {
 
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  const handleMoveToDraft = async (id: string) => {
+    try {
+      setMovingToDraftId(id)
+      const res = await fetch(`/api/properties/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "draft" }),
+      })
+      
+      if (!res.ok) throw new Error("Failed to move to draft")
+      
+      toast.success("Property moved to draft successfully")
+      // Instantly update UI without reload
+      setProperties(prev => prev.map(p => p.id === id ? { ...p, status: "draft" } : p))
+    } catch (error) {
+      console.error(error)
+      toast.error("Failed to move property to draft")
+    } finally {
+      setMovingToDraftId(null)
+    }
+  }
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-IN", {
@@ -1019,15 +1046,48 @@ function DashboardContent() {
                         </div>
                       </div>
 
+                      {/* Rejection Alert */}
+                      {property.status === 'rejected' && property.rejectionReason && (
+                        <div className="px-5 py-3 border-t border-red-100 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/10">
+                          <div className="flex items-start gap-2 group/alert cursor-pointer">
+                            <Shield className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                            <div className="flex-1">
+                              <h4 className="text-xs font-bold text-red-800 dark:text-red-300 mb-1">
+                                Rejection Reason
+                              </h4>
+                              <p className="text-xs text-red-600 dark:text-red-400 line-clamp-2 group-hover/alert:line-clamp-none transition-all duration-300 ease-in-out">
+                                {property.rejectionReason}
+                              </p>
+                              {property.updatedAt && (
+                                <p className="text-[10px] text-red-500/70 dark:text-red-500/60 mt-1.5 font-medium uppercase tracking-tighter">
+                                  {new Date(property.updatedAt).toLocaleDateString()} at {new Date(property.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Actions */}
                       <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 flex gap-2">
-                        <a
-                          href={`/builder?flow=${property.flowType || "township"}&edit=${property.id}`}
-                          className="flex-1 px-3 py-2.5 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg font-semibold hover:bg-white dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-300 dark:hover:border-blue-700 transition-all flex items-center justify-center gap-2 shadow-sm"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                          Edit
-                        </a>
+                        {property.status === 'draft' ? (
+                          <a
+                            href={`/builder?flow=${property.flowType || "township"}&edit=${property.id}`}
+                            className="flex-1 px-3 py-2.5 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg font-semibold hover:bg-white dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-300 dark:hover:border-blue-700 transition-all flex items-center justify-center gap-2 shadow-sm"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                            Edit
+                          </a>
+                        ) : (
+                          <button
+                            onClick={() => handleMoveToDraft(property.id)}
+                            disabled={movingToDraftId === property.id}
+                            className="flex-1 px-3 py-2.5 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg font-semibold hover:bg-white dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-300 dark:hover:border-blue-700 transition-all flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+                          >
+                            {movingToDraftId === property.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Edit2 className="h-4 w-4" />}
+                            Move to Draft
+                          </button>
+                        )}
 
 
 
