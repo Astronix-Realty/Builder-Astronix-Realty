@@ -579,9 +579,9 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                     {/* Main Content */}
                     <div className="col-span-12 md:col-span-9 space-y-6">
                         {/* Stats Cards */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                             <Card className="p-4 flex flex-col justify-between shadow-sm">
-                                <p className="text-sm text-muted-foreground font-medium">Total  Units</p>
+                                <p className="text-sm text-muted-foreground font-medium">Total Units</p>
                                 <p className="text-2xl font-bold">{stats.total}</p>
                             </Card>
                             <Card className="p-4 bg-green-50/50 dark:bg-green-900/10 border-green-100 dark:border-green-900 flex flex-col justify-between shadow-sm">
@@ -591,6 +591,10 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                             <Card className="p-4 bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900 flex flex-col justify-between shadow-sm">
                                 <p className="text-sm text-blue-700 dark:text-blue-400 font-medium">Sold</p>
                                 <p className="text-2xl font-bold text-blue-900 dark:text-blue-300">{stats.sold}</p>
+                            </Card>
+                            <Card className="p-4 bg-slate-50/50 dark:bg-slate-900/10 border-slate-100 dark:border-slate-900 flex flex-col justify-between shadow-sm border-l-4 border-l-slate-400">
+                                <p className="text-sm text-slate-700 dark:text-slate-400 font-medium">Blocked</p>
+                                <p className="text-2xl font-bold text-slate-900 dark:text-slate-300">{stats.blocked}</p>
                             </Card>
                             <Card className="p-4 bg-purple-50/50 dark:bg-purple-900/10 border-purple-100 dark:border-purple-900 flex flex-col justify-between shadow-sm">
                                 <span className="text-sm text-purple-700 dark:text-purple-400 font-medium">Revenue</span>

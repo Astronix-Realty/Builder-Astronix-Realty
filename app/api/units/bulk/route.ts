@@ -87,72 +87,91 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "No unit IDs provided for bulk update" }, { status: 400 });
     }
 
+    console.log(`[BULK PATCH] Request: ${unitIds.length} units -> status="${status}", propertyId=${propertyId}`);
+    console.log(`[BULK PATCH] Unit IDs sample:`, unitIds.slice(0, 3));
+
     await dbConnect();
 
-    // 1. Try to bulk update standalone unit documents
-    const result = await Unit.updateMany(
-      { 
-        $or: [
-          { _id: { $in: unitIds } },
-          { originalId: { $in: unitIds } }
-        ],
-        builderId: decoded.userId 
-      },
-      { $set: { status, updatedBy: decoded.userId } }
-    );
+    // --- Step 1: Try standalone Unit collection ---
+    // Filter valid ObjectIds for _id query to avoid cast errors
+    const validObjectIds = unitIds.filter((id: string) => mongoose.isValidObjectId(id));
+    
+    let standaloneModified = 0;
+    if (validObjectIds.length > 0 || unitIds.length > 0) {
+      const query: any = { builderId: decoded.userId, $or: [] };
+      if (validObjectIds.length > 0) {
+        query.$or.push({ _id: { $in: validObjectIds } });
+      }
+      // Always check originalId with ALL unitIds (these are string matches)
+      query.$or.push({ originalId: { $in: unitIds } });
 
-    // 2. If no units were modified (or some might be missing), try to update inside Property details
-    if (result.modifiedCount < unitIds.length && propertyId) {
-      const property = await Property.findOne({ 
-        _id: mongoose.isValidObjectId(propertyId) ? propertyId : null,
-        builderId: decoded.userId 
-      });
+      const result = await Unit.updateMany(query, { $set: { status, updatedBy: decoded.userId } });
+      standaloneModified = result.modifiedCount;
+      console.log(`[BULK PATCH] Standalone Unit.updateMany matched=${result.matchedCount}, modified=${standaloneModified}`);
+    }
 
-      if (property && property.details?.generatedUnits) {
-        let embeddedModified = 0;
-        const units = property.details.generatedUnits;
+    // --- Step 2: ALWAYS try embedded update in Property.details ---
+    let embeddedModified = 0;
+    if (propertyId) {
+      // Find the property - try direct ID first, then check child properties
+      let property = null;
+      if (mongoose.isValidObjectId(propertyId)) {
+        property = await Property.findOne({ _id: propertyId, builderId: decoded.userId });
+      }
+
+      if (property) {
+        console.log(`[BULK PATCH] Found property ${propertyId}, type=${property.type}, has generatedUnits=${!!property.details?.generatedUnits}, count=${property.details?.generatedUnits?.length || 0}`);
         
-        property.details.generatedUnits = units.map((u: any) => {
-          const uId = (u.id || u.originalId || u._id?.toString());
-          if (unitIds.includes(uId)) {
-            embeddedModified++;
-            return {
-              ...u,
-              status,
-              updatedAt: new Date().toISOString()
-            };
-          }
-          return u;
-        });
+        if (property.details?.generatedUnits && property.details.generatedUnits.length > 0) {
+          const units = property.details.generatedUnits;
+          
+          property.details.generatedUnits = units.map((u: any) => {
+            // Check ALL possible ID fields against the requested unitIds
+            const possibleIds = [u.id, u.originalId, u._id?.toString()].filter(Boolean);
+            const isMatch = possibleIds.some((pid: string) => unitIds.includes(pid));
+            
+            if (isMatch) {
+              embeddedModified++;
+              return {
+                ...u,
+                status,
+                customerName: status === "available" ? "" : u.customerName,
+                customerPhone: status === "available" ? "" : u.customerPhone,
+                bookingAmount: status === "available" ? 0 : u.bookingAmount,
+                updatedAt: new Date().toISOString()
+              };
+            }
+            return u;
+          });
 
-        if (embeddedModified > 0) {
-          property.markModified('details');
-          await property.save();
+          if (embeddedModified > 0) {
+            property.markModified('details');
+            await property.save();
+            console.log(`[BULK PATCH] Saved ${embeddedModified} embedded units in property ${propertyId}`);
+          } else {
+            console.log(`[BULK PATCH] No embedded unit IDs matched. First unit in DB:`, JSON.stringify(units[0]?.id || units[0]?._id));
+          }
         }
+      } else {
+        console.log(`[BULK PATCH] Property ${propertyId} not found in DB`);
       }
     }
 
-    // Trigger pricing aggregation
-    // Find all affected tower IDs (checking both standalone and potentially draft units)
-    const updatedUnits = await Unit.find(
-      { 
-        $or: [
-          { _id: { $in: unitIds } },
-          { originalId: { $in: unitIds } }
-        ],
-        builderId: decoded.userId 
-      }
-    ).select("towerId").lean();
+    // Trigger pricing aggregation (best-effort)
+    if (standaloneModified > 0) {
+      const updatedUnits = await Unit.find(
+        { $or: [{ _id: { $in: validObjectIds } }, { originalId: { $in: unitIds } }], builderId: decoded.userId }
+      ).select("towerId").lean();
+      const towerIds = Array.from(new Set(updatedUnits.map(u => u.towerId?.toString()).filter(Boolean)));
+      Promise.allSettled(towerIds.map(id => aggregateTowerPricing(id))).catch(err =>
+        console.error("Pricing aggregation error after bulk update:", err)
+      );
+    }
 
-    const towerIds = Array.from(new Set(updatedUnits.map(u => u.towerId?.toString()).filter(Boolean)));
-    Promise.allSettled(towerIds.map(id => aggregateTowerPricing(id))).catch(err => 
-      console.error("Error triggering pricing aggregation after bulk update:", err)
-    );
+    const totalModified = standaloneModified + embeddedModified;
+    console.log(`[BULK PATCH] Done. standalone=${standaloneModified}, embedded=${embeddedModified}, total=${totalModified}`);
 
-    // Combined result for better feedback
-    const totalModified = result.modifiedCount + (propertyId ? 1 : 0); // Simplified for now as we don't track exact embedded count perfectly
-
-    return NextResponse.json({ success: true, count: Math.max(result.modifiedCount, totalModified) }, { status: 200 });
+    return NextResponse.json({ success: true, count: totalModified }, { status: 200 });
 
   } catch (error: any) {
     console.error("Bulk update units error:", error);
