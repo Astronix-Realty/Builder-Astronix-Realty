@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
+import Property from "@/models/Property";
 import Unit from "@/models/Unit";
 import { getTokenFromRequest, verifyToken } from "@/lib/auth";
 import { aggregateTowerPricing } from "@/lib/services/pricing-sync";
@@ -17,11 +19,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const body = await req.json();
     const { status, customerName, customerPhone, bookingAmount, bookingDate } = body;
 
+    const { searchParams } = new URL(req.url);
+    const propertyId = searchParams.get("propertyId");
+
     await dbConnect();
 
-    // Find and update the unit. Ensure it belongs to the builder.
-    const unit = await Unit.findOneAndUpdate(
-      { [id.length === 24 ? '_id' : 'originalId']: id, builderId: decoded.userId },
+    // 1. Try to find and update the standalone unit document
+    let unit = await Unit.findOneAndUpdate(
+      { 
+        $or: [
+          { _id: mongoose.isValidObjectId(id) ? id : new mongoose.Types.ObjectId() }, 
+          { originalId: id }
+        ], 
+        builderId: decoded.userId 
+      },
       { 
         $set: { 
           status, 
@@ -35,13 +46,53 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       { new: true }
     );
 
+    // 2. If not found as a standalone document, try to find it inside the Property details (Draft/Pending case)
+    if (!unit && propertyId) {
+      const property = await Property.findOne({ 
+        _id: mongoose.isValidObjectId(propertyId) ? propertyId : null,
+        builderId: decoded.userId 
+      });
+
+      if (property && property.details?.generatedUnits) {
+        const units = property.details.generatedUnits;
+        console.log(`[API] Searching embedded units in property ${propertyId}. Count: ${units.length}`);
+        
+        const unitIndex = units.findIndex((u: any) => {
+            const uId = (u.id || u.originalId || u._id?.toString());
+            return uId === id;
+        });
+        
+        if (unitIndex !== -1) {
+          console.log(`[API] Found embedded unit at index ${unitIndex}. Updating...`);
+          // Update the unit in the array
+          units[unitIndex] = {
+            ...units[unitIndex],
+            status,
+            customerName,
+            customerPhone,
+            bookingAmount,
+            bookingDate,
+            updatedAt: new Date().toISOString()
+          };
+
+          // Mark details as modified for Mongoose to save correctly
+          property.markModified('details');
+          await property.save();
+          console.log(`[API] Property saved successfully.`);
+          
+          unit = units[unitIndex]; // For the response
+        } else {
+          console.log(`[API] Unit ${id} not found in property details.`);
+        }
+      }
+    }
+
     if (!unit) {
       return NextResponse.json({ error: "Unit not found or unauthorized" }, { status: 404 });
     }
 
     // Trigger pricing aggregation for the affected tower
     if (unit.towerId) {
-      // Fire and forget so we don't block the response
       aggregateTowerPricing(unit.towerId).catch(err => 
         console.error(`Error triggering pricing aggregation after updating unit ${id}:`, err)
       );

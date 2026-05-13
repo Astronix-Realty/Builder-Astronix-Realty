@@ -12,7 +12,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
   Building2, BarChart3, FileText, Film, Leaf, ShieldCheck,
-  Plus, X, ChevronDown, ChevronUp, AlertCircle, CheckCircle,
+  Plus, X, ChevronDown, ChevronUp, AlertCircle, CheckCircle2,
   Home, MapPin, Wifi, Map as MapIcon, Globe, Info, Briefcase, Users, Upload
 } from "lucide-react"
 import type {
@@ -471,7 +471,7 @@ function ProjectFlowFormBase({ data, onChange, townshipName, townshipData, onTow
             </Field>
           </Grid>
           <div className="flex items-center gap-2 mt-4 px-3 py-2 bg-emerald-50/50 dark:bg-emerald-900/20 border border-emerald-100/50 dark:border-emerald-800/30 rounded-lg text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-tight">
-            <CheckCircle className="w-3 h-3" />
+            <CheckCircle2 className="w-3 h-3" />
             Auto-synced from tower configurations · ₹{((data.priceRangeMin || 0) / 100000).toFixed(0)}L – ₹{((data.priceRangeMax || 0) / 100000).toFixed(0)}L
           </div>
         </div>

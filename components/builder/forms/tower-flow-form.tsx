@@ -12,7 +12,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
   Building, BarChart3, FileText, Layers, MapPin, ShieldCheck,
-  Plus, X, ChevronDown, ChevronUp, AlertCircle, CheckCircle,
+  Plus, X, ChevronDown, ChevronUp, AlertCircle, CheckCircle2,
   Home, Wifi, Map as MapIcon, Building2, Leaf, Film, Users, Info
 } from "lucide-react"
 import type {
@@ -551,7 +551,7 @@ function TowerFlowFormBase({ data, unitConfig, unitTemplate, onChange, projectNa
             </Field>
           </Grid>
           <div className="flex items-center gap-2 mt-4 px-3 py-2 bg-emerald-50/50 dark:bg-emerald-900/20 border border-emerald-100/50 dark:border-emerald-800/30 rounded-lg text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-tight">
-            <CheckCircle className="w-3 h-3" />
+            <CheckCircle2 className="w-3 h-3" />
             Auto-synced from unit configurations · ₹{(calculatedMin / 100000).toFixed(0)}L – ₹{(calculatedMax / 100000).toFixed(0)}L
           </div>
         </div>
@@ -650,7 +650,7 @@ function TowerFlowFormBase({ data, unitConfig, unitTemplate, onChange, projectNa
 
         <SectionTitle title="Auto-Calculated" />
         <div className="flex items-center gap-3 px-4 py-3 bg-green-50 rounded-xl">
-          <CheckCircle className="w-4 h-4 text-green-500 shrink-0" />
+          <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
           <p className="text-xs text-green-700">
             <span className="font-bold">Total Units: {data.totalUnits}</span>
             {" "}({data.totalFloorsNum} floors × {parseInt(data.unitsPerFloor) || 0} units/floor)

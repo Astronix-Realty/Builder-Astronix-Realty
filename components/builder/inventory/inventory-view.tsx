@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { toast } from "sonner"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -83,6 +84,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
     const [selectedProjectId, setSelectedProjectId] = useState<string>("all")
     const [selectedTowerId, setSelectedTowerId] = useState<string>("all")
     const [loading, setLoading] = useState(true)
+    const [isRefreshing, setIsRefreshing] = useState(false)
 
     // Filtering State
     const [statusFilter, setStatusFilter] = useState<string>("all")
@@ -115,45 +117,77 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
 
     useEffect(() => {
         if (selectedPropertyId) {
+            // Only fetch if we don't have the full details (e.g. generatedUnits) yet
+            // or if we want to ensure fresh data on every selection
             fetchFullProperty(selectedPropertyId)
         }
     }, [selectedPropertyId])
 
-    const loadProperties = async () => {
-        setLoading(true)
+    const loadProperties = async (showFullLoader = true) => {
+        if (showFullLoader) setLoading(true)
+        else setIsRefreshing(true)
         try {
-            // Root-level fix: Fetch only published properties for Inventory
             const res = await fetch("/api/properties?status=published")
             if (res.ok) {
                 const data = await res.json()
-                
-                // Additional safety filter: Ensure only published/active properties enter inventory state
                 const publishedOnly = (data.properties || []).filter((p: any) => 
-                    p.status === "published" || p.status === "active"
+                    p.status === "published" || p.status === "active" || p.status === "pending"
                 )
                 
-                setProperties(publishedOnly)
+                let targetId = selectedPropertyId;
                 
-                // If a property is already selected, refresh its full details too
-                if (selectedPropertyId) {
-                    const isStillValid = publishedOnly.some((p: any) => (p._id || p.id) === selectedPropertyId)
-                    if (isStillValid) {
-                        fetchFullProperty(selectedPropertyId)
-                    } else {
-                        setSelectedPropertyId(publishedOnly.length > 0 ? (publishedOnly[0]._id || publishedOnly[0].id) : "")
+                if (targetId) {
+                    const isStillValid = publishedOnly.some((p: any) => (p._id || p.id) === targetId)
+                    if (!isStillValid) {
+                        targetId = publishedOnly.length > 0 ? (publishedOnly[0]._id || publishedOnly[0].id) : ""
                     }
                 } else if (publishedOnly.length > 0) {
-                    setSelectedPropertyId(publishedOnly[0]._id || publishedOnly[0].id)
+                    targetId = (publishedOnly[0]._id || publishedOnly[0].id)?.toString() || ""
+                }
+
+                if (targetId) {
+                    setSelectedPropertyId(targetId)
+                    const fullRes = await fetch(`/api/properties/${targetId}`)
+                    if (fullRes.ok) {
+                        const fullData = await fullRes.json()
+                        const updatedProperty = fullData.property
+                        const isValid = updatedProperty.status === "published" || updatedProperty.status === "active" || updatedProperty.status === "pending"
+                        
+                        if (isValid) {
+                            const mergedProperties = publishedOnly.map(p => 
+                                ((p._id || p.id)?.toString() === targetId) ? updatedProperty : p
+                            )
+                            setProperties(mergedProperties)
+                        } else {
+                            setProperties(publishedOnly.filter(p => (p._id || p.id)?.toString() !== targetId))
+                            setSelectedPropertyId("")
+                        }
+                    } else {
+                        setProperties(publishedOnly)
+                    }
                 } else {
                     setSelectedPropertyId("")
+                    setProperties(publishedOnly)
                 }
             }
         } catch (e) {
             console.error("Failed to load properties", e)
         } finally {
             setLoading(false)
+            setIsRefreshing(false)
         }
     }
+
+    // --- Auto Sync Logic ---
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (selectedPropertyId && !isRefreshing && !loading) {
+                fetchFullProperty(selectedPropertyId)
+            }
+        }, 60000) // Auto-sync every 60 seconds
+
+        return () => clearInterval(interval)
+    }, [selectedPropertyId, isRefreshing, loading])
 
     const fetchFullProperty = async (id: string) => {
         if (!id) return
@@ -168,13 +202,13 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                 
                 setProperties(prev => {
                     const newProps = prev.map(p => 
-                        (p.id === id || (p as any)._id === id) ? updatedProperty : p
+                        ((p as any)._id?.toString() === id || p.id?.toString() === id) ? updatedProperty : p
                     ).filter(p => p.status === "published" || p.status === "active")
                     
                     // If the selected property was just filtered out, reset selection
                     if (!isValid && selectedPropertyId === id) {
                         setTimeout(() => {
-                            setSelectedPropertyId(newProps.length > 0 ? (newProps[0]._id || newProps[0].id) : "")
+                            setSelectedPropertyId(newProps.length > 0 ? ((newProps[0] as any)._id || newProps[0].id)?.toString() : "")
                         }, 0)
                     }
                     
@@ -207,26 +241,78 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
     const handleSingleStatusChange = async (status: Unit['status']) => {
         if (!editingUnit || !currentProperty) return
 
+        if ((status === "sold" || status === "reserved") && !customerForm.name.trim()) {
+            toast.error("Please enter the buyer's name")
+            return
+        }
+
+        if ((status === "sold" || status === "reserved") && !customerForm.phone.trim()) {
+            toast.error("Please enter the buyer's phone number")
+            return
+        }
+
+        const bookingAmt = parseFloat(customerForm.amount)
+        if ((status === "sold" || status === "reserved") && (isNaN(bookingAmt) || bookingAmt <= 0)) {
+            toast.error("Please enter a valid booking amount")
+            return
+        }
+
+        // --- Optimistic Update ---
+        const updatedUnit: Unit = {
+            ...editingUnit,
+            status,
+            customerName: status === "available" ? "" : (customerForm.name || editingUnit.customerName || ""),
+            customerPhone: status === "available" ? "" : (customerForm.phone || editingUnit.customerPhone || ""),
+            bookingAmount: status === "available" ? 0 : 
+                           (customerForm.amount === "" ? (editingUnit.bookingAmount || 0) : parseFloat(customerForm.amount)),
+            bookingDate: status === "available" ? null : (editingUnit.bookingDate || new Date().toISOString())
+        }
+
+        // Update local properties state immediately
+        setProperties(prev => prev.map(p => {
+            const pId = (p._id || p.id)?.toString()
+            if (pId === selectedPropertyId) {
+                const updatedUnits = (p.details?.generatedUnits || []).map((u: any) => 
+                    (u.id === editingUnit.id || u._id?.toString() === editingUnit.id) ? updatedUnit : u
+                )
+                return { ...p, details: { ...p.details, generatedUnits: updatedUnits } }
+            }
+            return p
+        }))
+        setEditingUnit(null)
+
+        console.log(`[InventoryView] Updating unit ${editingUnit.id} to ${status}`, {
+            propertyId: selectedPropertyId,
+            updatedUnit
+        })
+
         try {
-            const res = await fetch(`/api/units/${editingUnit.id}`, {
+            const res = await fetch(`/api/units/${editingUnit.id}?propertyId=${selectedPropertyId}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     status,
-                    customerName: status === "available" ? "" : customerForm.name || editingUnit.customerName,
-                    customerPhone: status === "available" ? "" : customerForm.phone || editingUnit.customerPhone,
-                    bookingAmount: status === "available" ? 0 : parseFloat(customerForm.amount) || editingUnit.bookingAmount,
-                    bookingDate: status === "available" ? null : (status === "sold" || status === "reserved" ? new Date().toISOString() : editingUnit.bookingDate)
+                    customerName: updatedUnit.customerName,
+                    customerPhone: updatedUnit.customerPhone,
+                    bookingAmount: updatedUnit.bookingAmount,
+                    bookingDate: updatedUnit.bookingDate
                 })
             })
 
             if (res.ok) {
-                // Refresh data
-                fetchFullProperty(selectedPropertyId)
-                setEditingUnit(null)
+                toast.success(`Unit marked as ${status}`)
+                // Full sync in background
+                fetchFullProperty(selectedPropertyId, false)
+            } else {
+                const err = await res.json()
+                toast.error(err.error || "Failed to update unit")
+                // Revert on error
+                fetchFullProperty(selectedPropertyId, false)
             }
         } catch (e) {
             console.error("Failed to update unit status", e)
+            toast.error("An error occurred while updating unit")
+            fetchFullProperty(selectedPropertyId, false)
         }
     }
 
@@ -235,8 +321,31 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
 
         if (!confirm(`Are you sure you want to mark ${selectedUnitIds.length} units as ${status}?`)) return
 
+        // --- Optimistic Update ---
+        setProperties(prev => prev.map(p => {
+            const pId = (p._id || p.id)?.toString()
+            if (pId === selectedPropertyId) {
+                const updatedUnits = (p.details?.generatedUnits || []).map((u: any) => {
+                    const uId = (u.id || u._id?.toString())
+                    if (selectedUnitIds.includes(uId)) {
+                        return { 
+                            ...u, 
+                            status,
+                            customerName: status === "available" ? "" : u.customerName,
+                            customerPhone: status === "available" ? "" : u.customerPhone,
+                            bookingAmount: status === "available" ? 0 : u.bookingAmount,
+                            bookingDate: status === "available" ? null : u.bookingDate
+                        }
+                    }
+                    return u
+                })
+                return { ...p, details: { ...p.details, generatedUnits: updatedUnits } }
+            }
+            return p
+        }))
+
         try {
-            const res = await fetch(`/api/units/bulk`, {
+            const res = await fetch(`/api/units/bulk?propertyId=${selectedPropertyId}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -246,12 +355,19 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
             })
 
             if (res.ok) {
-                fetchFullProperty(selectedPropertyId)
+                toast.success(`Bulk updated ${selectedUnitIds.length} units to ${status}`)
+                fetchFullProperty(selectedPropertyId, false)
                 setSelectedUnitIds([])
                 setIsSelectionMode(false)
+            } else {
+                const err = await res.json()
+                toast.error(err.error || "Failed to update units in bulk")
+                fetchFullProperty(selectedPropertyId, false)
             }
         } catch (e) {
             console.error("Failed to update bulk status", e)
+            toast.error("An error occurred during bulk update")
+            fetchFullProperty(selectedPropertyId, false)
         }
     }
 
@@ -284,7 +400,9 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
 
     // --- Derived Data ---
 
-    const currentProperty = properties.find((p: any) => (p._id || p.id) === selectedPropertyId)
+    const currentProperty = properties.find((p: any) => 
+        (p._id?.toString() === selectedPropertyId || p.id?.toString() === selectedPropertyId)
+    )
 
     // Hierarchy Options
     const data = currentProperty?.details || {}
@@ -294,7 +412,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
     // Filtered Towers based on Project Selection
     const visibleTowers = selectedProjectId === "all"
         ? towers
-        : towers.filter((t: any) => t.projectId === selectedProjectId)
+        : towers.filter((t: any) => (t._dbId || t.id)?.toString() === selectedProjectId)
 
     // Units Processing
     const allUnits = data.generatedUnits || []
@@ -303,7 +421,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
         // Hierarchy
         if (selectedTowerId !== "all" && unit.towerId !== selectedTowerId) return false
         if (selectedProjectId !== "all" && selectedTowerId === "all") {
-            const tower = towers.find((t: any) => t.id === unit.towerId)
+            const tower = towers.find((t: any) => (t._dbId || t.id)?.toString() === unit.towerId)
             if (tower?.projectId !== selectedProjectId) return false
         }
 
@@ -362,12 +480,12 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                     data.projects?.[0]?.name ||
                                     data.towers?.[0]?.name ||
                                     `Property ${p._id?.slice(-4) || idx}`
-                                return <SelectItem key={p._id || idx} value={p._id || `prop-${idx}`}>{name}</SelectItem>
+                                return <SelectItem key={p._id?.toString() || p.id?.toString() || idx} value={p._id?.toString() || p.id?.toString() || `prop-${idx}`}>{name}</SelectItem>
                             })}
                         </SelectContent>
                     </Select>
-                    <Button variant="outline" size="icon" onClick={loadProperties} title="Refresh Data">
-                        <RefreshCw className="h-4 w-4" />
+                    <Button variant="outline" size="icon" onClick={() => loadProperties(false)} disabled={isRefreshing} title="Refresh Data">
+                        <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                     </Button>
                 </div>
             </div>
@@ -409,7 +527,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                         <SelectContent>
                                             <SelectItem key="all" value="all">All Towers</SelectItem>
                                             {visibleTowers.map((tw: any, idx: number) => (
-                                                <SelectItem key={tw.id || `tower-${idx}`} value={tw.id || `tower-${idx}`}>{tw.name}</SelectItem>
+                                                <SelectItem key={(tw._dbId || tw.id)?.toString() || `tower-${idx}`} value={(tw._dbId || tw.id)?.toString() || `tower-${idx}`}>{tw.name}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
@@ -463,7 +581,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                         {/* Stats Cards */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <Card className="p-4 flex flex-col justify-between shadow-sm">
-                                <p className="text-sm text-muted-foreground font-medium">Total Units</p>
+                                <p className="text-sm text-muted-foreground font-medium">Total  Units</p>
                                 <p className="text-2xl font-bold">{stats.total}</p>
                             </Card>
                             <Card className="p-4 bg-green-50/50 dark:bg-green-900/10 border-green-100 dark:border-green-900 flex flex-col justify-between shadow-sm">
@@ -516,10 +634,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                             Mark Available
                                         </Button>
                                         <Button size="sm" variant="outline" className="h-8 border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100" onClick={() => handleBulkStatusChange("blocked")}>
-                                            Block
-                                        </Button>
-                                        <Button size="sm" variant="destructive" className="h-8" onClick={() => handleBulkStatusChange("sold")}>
-                                            Mark Sold
+                                            Bulk Block
                                         </Button>
                                     </div>
                                 ) : (
@@ -641,11 +756,21 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                Unit {editingUnit?.unitNumber}
-                                <Badge variant="secondary" className="uppercase">{editingUnit?.configuration}</Badge>
+                            <div className="flex flex-col items-start gap-1">
+                                <div className="flex items-center gap-2 text-xl font-black">
+                                    Unit {editingUnit?.unitNumber}
+                                    <Badge variant="secondary" className="uppercase">{editingUnit?.configuration}</Badge>
+                                </div>
+                                {editingUnit?.status === 'sold' && (
+                                    <p className="text-xs font-bold text-red-600 uppercase tracking-tighter">
+                                        Sold to {editingUnit.customerName || "N/A"}
+                                    </p>
+                                )}
                             </div>
-                            <Badge variant={editingUnit?.status === 'available' ? 'default' : 'outline'} className={editingUnit?.status === 'available' ? "capitalize bg-green-600 hover:bg-green-700" : "capitalize"}>
+                            <Badge 
+                                variant={editingUnit?.status === 'available' ? 'default' : 'outline'} 
+                                className={editingUnit?.status === 'available' ? "capitalize bg-green-600" : "capitalize border-red-600 text-red-600"}
+                            >
                                 {editingUnit?.status || "Available"}
                             </Badge>
                         </DialogTitle>
@@ -664,46 +789,49 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                             {/* Action Buttons */}
                             <div className="grid grid-cols-2 gap-3">
                                 <Button
-                                    disabled={editingUnit?.status === "available"}
-                                    variant="outline"
-                                    className="border-green-600 text-green-600 hover:bg-green-50"
+                                    variant={editingUnit?.status === "available" ? "default" : "outline"}
+                                    className={editingUnit?.status === "available" ? "bg-green-600 hover:bg-green-700 h-12" : "border-green-600 text-green-600 hover:bg-green-50 h-12"}
                                     onClick={() => handleSingleStatusChange("available")}
                                 >
                                     <CheckCircle2 className="h-4 w-4 mr-2" />
-                                    Available
+                                    {editingUnit?.status === "available" ? "Unit Available" : "Mark as Available"}
                                 </Button>
                                 <Button
-                                    disabled={editingUnit?.status === "blocked"}
-                                    variant="outline"
-                                    className="border-slate-500 text-slate-600 hover:bg-slate-50"
-                                    onClick={() => handleSingleStatusChange("blocked")}
+                                    variant={editingUnit?.status === "blocked" ? "default" : "outline"}
+                                    className={editingUnit?.status === "blocked" ? "bg-slate-600 hover:bg-slate-700 h-12" : "border-slate-500 text-slate-600 hover:bg-slate-50 h-12"}
+                                    onClick={() => handleSingleStatusChange(editingUnit?.status === "blocked" ? "available" : "blocked")}
                                 >
                                     <Lock className="h-4 w-4 mr-2" />
-                                    Block
+                                    {editingUnit?.status === "blocked" ? "Unblock Unit" : "Block Unit"}
                                 </Button>
                                 <Button
-                                    disabled={editingUnit?.status === "reserved"}
-                                    variant="outline"
-                                    className="border-amber-500 text-amber-600 hover:bg-amber-50"
-                                    onClick={() => handleSingleStatusChange("reserved")}
+                                    variant={editingUnit?.status === "reserved" ? "default" : "outline"}
+                                    className={editingUnit?.status === "reserved" ? "bg-amber-500 hover:bg-amber-600 h-12" : "border-amber-500 text-amber-600 hover:bg-amber-50 h-12"}
+                                    onClick={() => handleSingleStatusChange(editingUnit?.status === "reserved" ? "available" : "reserved")}
                                 >
                                     <Clock className="h-4 w-4 mr-2" />
-                                    Reserve
+                                    {editingUnit?.status === "reserved" ? "Unreserve Unit" : "Reserve Unit"}
                                 </Button>
                                 <Button
-                                    disabled={editingUnit?.status === "sold"}
-                                    className="bg-red-600 hover:bg-red-700 text-white"
-                                    onClick={() => handleSingleStatusChange("sold")}
+                                    variant={editingUnit?.status === "sold" ? "default" : "outline"}
+                                    className={editingUnit?.status === "sold" ? "bg-red-600 hover:bg-red-700 h-12" : "bg-white border-red-600 text-red-600 hover:bg-red-50 h-12"}
+                                    onClick={() => handleSingleStatusChange(editingUnit?.status === "sold" ? "available" : "sold")}
                                 >
                                     <CircleDollarSign className="h-4 w-4 mr-2" />
-                                    Sold
+                                    {editingUnit?.status === "sold" ? "Mark Unsold" : "Mark as Sold"}
                                 </Button>
                             </div>
 
                             {/* Customer Details Form (Only if selling or already sold) */}
                             <div className="rounded-lg border p-4 bg-slate-50 dark:bg-slate-900/50 space-y-4">
-                                <div className="flex items-center gap-2 text-sm font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                                    <User className="h-4 w-4 text-blue-500" /> Buyer Information
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2 text-sm font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                                        <User className="h-4 w-4 text-blue-500" /> 
+                                        {editingUnit?.status === 'available' ? "New Buyer Details" : "Current Customer Info"}
+                                    </div>
+                                    <Badge variant="outline" className="text-[10px] font-bold">
+                                        Unit Price: ₹{editingUnit?.price?.toLocaleString()}
+                                    </Badge>
                                 </div>
                                 <div className="grid gap-3">
                                     <div className="space-y-1.5">
@@ -719,7 +847,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                     {/* Collapsible extra details maybe? For now keeping it simple as requested */}
                                     <div className="grid grid-cols-2 gap-3">
                                         <div className="space-y-1.5">
-                                            <Label className="text-[10px] font-bold uppercase text-slate-400">Phone (Optional)</Label>
+                                            <Label className="text-[10px] font-bold uppercase text-slate-400">Phone Number</Label>
                                             <Input
                                                 placeholder="Mobile number"
                                                 className="h-9 text-xs bg-white/50"
@@ -766,6 +894,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                             <span>{editingUnit.customerName || "-"}</span>
 
                                             <span className="text-muted-foreground">Contact:</span>
+
                                             <span>{editingUnit.customerPhone || "-"}</span>
 
                                             <span className="text-muted-foreground">Booked On:</span>

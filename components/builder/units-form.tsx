@@ -36,25 +36,12 @@ export function UnitsForm({
 
         if (config) {
             return {
-                ...data, // Include any missing global inherited fields like posessionDate
+                ...data, // Include any missing global inherited fields like posessionDate, GST, etc.
                 towerId: config.towerId,
-                baseRatePerSqft: config.ratePerSqft,
-                floorRisePerFloor: 0,
-                gstPercentage: "5",
-                stampDutyPercentage: "5",
-                registrationCharges: "0",
-                parkingCharges: "0",
-                maintenancePerSqft: "0",
-                maintenanceType: "monthly",
-                facingPremiums: config.facingPremiums,
+                baseRatePerSqft: config.ratePerSqft || data.baseRatePerSqft,
+                facingPremiums: config.facingPremiums || data.facingPremiums,
                 configurations: config.configurations,
-                floorGroups: config.floorGroups || [],
-                approvedBanks: [],
-                floorPlan2DUrl: "",
-                floorPlan3DUrl: "",
-                galleryImages: [],
-                videoGallery: [],
-                heroImage: "",
+                floorGroups: config.floorGroups?.length ? config.floorGroups : data.floorGroups || [],
                 reraNumber
             }
         }
@@ -63,7 +50,7 @@ export function UnitsForm({
 
     const isTowerConfigured = (towerId: string) => {
         const config = towerConfigs.find(c => c.towerId === towerId)
-        return !!(config && config.configurations.length > 0)
+        return !!(config && (config.configurations || []).length > 0)
     }
 
     const totalConfigured = towers.filter(t => isTowerConfigured(t.id)).length
@@ -106,7 +93,7 @@ export function UnitsForm({
                                 <Layers className="w-4 h-4" />
                             </div>
                             <div>
-                                <p className="font-bold text-gray-900 dark:text-white text-base leading-none">Global Settings</p>
+                                <p className="font-bold text-gray-900 dark:text-white text-base leading-none">Global Configuration</p>
                                 <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">
                                     Yeh settings sabhi towers pe apply hongi jab tak override na karo
                                 </p>
@@ -134,7 +121,7 @@ export function UnitsForm({
                                             {getProjectLabel(tower.projectId || "")} ·{" "}
                                             {tower.totalFloors} Floors · {tower.unitsPerFloor} Units/Floor ·{" "}
                                             Total {tower.totalUnits} units
-                                            {" · "}{configured ? "✅ Configured" : "⚠️ Using Global Settings"}
+                                            {" · "}{configured ? "✅ Configured" : "⚠️ Using Global Configuration"}
                                         </p>
                                     </div>
                                     {configured
@@ -212,7 +199,7 @@ export function UnitsForm({
                 </div>
                 <div className="text-[13px] text-blue-700 dark:text-blue-300 leading-relaxed font-medium">
                     <p className="font-black text-blue-900 dark:text-blue-200 mb-1.5 uppercase tracking-wider text-[11px]">Pricing kaise kaam karta hai:</p>
-                    <p className="mb-1">1. <span className="font-black text-[#1A3C8C] dark:text-blue-400">Global Settings</span> → Sabhi towers ke liye default pricing/configs inherit honge.</p>
+                    <p className="mb-1">1. <span className="font-black text-[#1A3C8C] dark:text-blue-400">Global Configuration</span> → Sabhi towers ke liye default pricing/configs inherit honge.</p>
                     <p className="mb-1">2. <span className="font-black text-[#1A3C8C] dark:text-blue-400">Tower Override</span> → Specific tower ki alag pricing ya unit types override kar sakte hain.</p>
                     <p>3. <span className="font-black text-[#1A3C8C] dark:text-blue-400">Floor rise (0.5% after 5th floor) + Facing premiums</span> → Final summary mein auto-calculate honge.</p>
                 </div>

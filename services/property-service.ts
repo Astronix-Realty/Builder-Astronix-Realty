@@ -247,6 +247,12 @@ export async function publishProperty(draftId: string, builderId: string) {
       }
 
       draftToPublishedMap.set(draft._id.toString(), publishedProp._id.toString());
+      
+      // Also map the frontend 'id' if it exists in details (important for units extracted from details)
+      const frontendId = (draft as any).details?.id || (draft as any).details?.towerId || (draft as any).details?.projectId;
+      if (frontendId && typeof frontendId === 'string') {
+        draftToPublishedMap.set(frontendId, publishedProp._id.toString());
+      }
     }
 
     // 3. Fix Parent IDs in the published records
@@ -298,17 +304,18 @@ export async function publishProperty(draftId: string, builderId: string) {
       const unitData = {
         type: 'unit',
         unitNumber: unit.unitNumber,
-        parentId: activeParentId,
         towerId: activeTowerId,
         projectId: activeProjectId,
+        parentId: activeParentId || activeTowerId, // Ensure parentId is at least the towerId
         floorNumber: unit.floorNumber || unit.floor,
-        configuration: unit.configuration,
+        configuration: unit.configuration || unit.type,
         area: unit.area || unit.carpetArea,
         price: unit.price,
         facing: unit.facing,
         location: resolvedLocations.get(unit.towerId?.toString()) || {},
-        status: 'available',
+        status: 'available', // Explicitly set to available for inventory
         builderId: unit.builderId || builderId,
+        createdBy: unit.createdBy || builderId,
         updatedBy: builderId,
       };
 

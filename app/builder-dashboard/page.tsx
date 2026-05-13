@@ -189,7 +189,22 @@ function DashboardContent() {
       } else if (flowType === "tower") {
         towersCount = 1
       }
-      unitsCount = details.generatedUnits?.length || 0
+
+      // Calculate units dynamically from tower structure data
+      // generatedUnits is a transient computed array, never persisted to DB
+      const towers = details.towers || []
+      if (towers.length > 0) {
+        unitsCount = towers.reduce((total: number, t: any) => {
+          const floors = parseInt(t.totalFloors) || t.totalFloorsNum || 0
+          const perFloor = parseInt(t.unitsPerFloor) || 0
+          return total + (floors * perFloor)
+        }, 0)
+      }
+
+      // Fallback: use township.totalUnits if available
+      if (unitsCount === 0) {
+        unitsCount = details.township?.totalUnits || details.generatedUnits?.length || 0
+      }
     }
 
     // Hero Image Discovery (Search hierarchy if thumbnail is missing)

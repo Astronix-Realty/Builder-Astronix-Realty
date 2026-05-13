@@ -394,7 +394,8 @@ function BuilderContent() {
       console.log("Populating default configs for:", missingConfigTowerIds)
       const newConfigs = missingConfigTowerIds.map((towerId) => ({
         towerId,
-        configurations: [...state.unitTemplate.configurations],
+        configurations: (state.unitTemplate.configurations || []).map(c => ({ ...c })),
+        floorGroups: (state.unitTemplate.floorGroups || []).map(fg => ({ ...fg })),
         basePrice: state.unitTemplate.basePrice,
         ratePerSqft: state.unitTemplate.ratePerSqft,
         facingPremiums: { ...state.unitTemplate.facingPremiums },
@@ -1073,7 +1074,7 @@ function BuilderContent() {
                       : "bg-white text-slate-600 border-slate-200 hover:border-amber-300 hover:bg-slate-50"
                       }`}
                   >
-                    Global Pricing
+                    Global Configuration
                   </button>
                   <div className="w-px h-4 bg-slate-200 mx-2" />
                   {state.projects.map((p, i) => (
@@ -1266,7 +1267,52 @@ function BuilderContent() {
             <UnitsForm
               towers={generatedTowers}
               data={state?.unitTemplate}
-              onChange={(data) => updateState("unitTemplate", data)}
+              onChange={(newTemplate) => {
+                setState(prev => {
+                  const updatedTowerConfigs = prev.towerUnitConfigs.map(towerConfig => {
+                    const syncedConfigurations: UnitConfiguration[] = []
+                    
+                    const globalConfigs = newTemplate.configurations || []
+                    globalConfigs.forEach(globalConfig => {
+                      const localConfigs = towerConfig.configurations || []
+                      const localConfig = localConfigs.find(c => c.id === globalConfig.id)
+                      if (localConfig) {
+                        // Exists locally. Merge fields, but respect overrides.
+                        syncedConfigurations.push({
+                          ...globalConfig,
+                          ...localConfig,
+                          basePrice: localConfig.isRateOverridden ? localConfig.basePrice : globalConfig.basePrice,
+                          ratePerSqft: localConfig.isRateOverridden ? localConfig.ratePerSqft : globalConfig.ratePerSqft,
+                          gstAmount: localConfig.isRateOverridden ? localConfig.gstAmount : globalConfig.gstAmount,
+                          stampDutyAmount: localConfig.isRateOverridden ? localConfig.stampDutyAmount : globalConfig.stampDutyAmount,
+                          totalTaxes: localConfig.isRateOverridden ? localConfig.totalTaxes : globalConfig.totalTaxes,
+                          allInclusivePrice: localConfig.isRateOverridden ? localConfig.allInclusivePrice : globalConfig.allInclusivePrice,
+                          parkingCharges: localConfig.isRateOverridden ? localConfig.parkingCharges : globalConfig.parkingCharges,
+                          maintenancePerSqft: localConfig.isRateOverridden ? localConfig.maintenancePerSqft : globalConfig.maintenancePerSqft,
+                        })
+                      } else {
+                        // New global config added
+                        syncedConfigurations.push({ ...globalConfig })
+                      }
+                    })
+
+                    return {
+                      ...towerConfig,
+                      basePrice: newTemplate.basePrice || towerConfig.basePrice,
+                      ratePerSqft: newTemplate.ratePerSqft || towerConfig.ratePerSqft,
+                      facingPremiums: { ...newTemplate.facingPremiums },
+                      configurations: syncedConfigurations,
+                      floorGroups: (towerConfig.floorGroups || []).length === 0 ? (newTemplate.floorGroups || []).map(fg => ({ ...fg })) : towerConfig.floorGroups
+                    }
+                  })
+
+                  return {
+                    ...prev,
+                    unitTemplate: newTemplate,
+                    towerUnitConfigs: updatedTowerConfigs
+                  }
+                })
+              }}
               towerConfigs={state?.towerUnitConfigs}
               onTowerConfigsChange={(configs) => updateState("towerUnitConfigs", configs)}
               activeTowerId={activeUnitTowerId}

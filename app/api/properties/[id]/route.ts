@@ -73,6 +73,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
         if (parent.type === 'township') {
           wizardState.township = (parent as any).details?.township || (parent as any).details || {};
+        } else if (parent.type === 'project') {
+          const pData = extractProjectData((parent as any).details, parent._id.toString(), (parent as any).name);
+          wizardState.projects = [{ ...pData, _dbId: parent._id.toString(), id: parent._id.toString() }];
         }
         walk = parent as any;
       }
@@ -108,20 +111,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         const projects = await Property.find({ parentId: rootId, isDeleted: false, type: 'project' }).lean();
         wizardState.projects = projects.map(p => {
           const pData = extractProjectData(p.details, p._id.toString(), (p as any).name);
+          projectDbIds.push(p._id.toString());
           return {
             ...pData,
             _dbId: p._id.toString(),
-            id: pData.id || `proj-${p._id}`
+            id: p._id.toString() // Consistency Fix: Use MongoDB _id
           };
         });
 
-        const projectDbIds = projects.map(p => p._id);
         const towers = await Property.find({ parentId: { $in: projectDbIds }, isDeleted: false, type: 'tower' }).lean();
 
         wizardState.towers = towers.map(t => {
           const tData = extractTowerData(t.details, t._id.toString(), (t as any).name);
           const { unitConfig, ...rest } = tData as any;
-          const towerId = rest.id || `tower-${t._id}`;
+          const towerId = t._id.toString(); // Consistency Fix: Use MongoDB _id
           if (unitConfig) wizardState.towerUnitConfigs.push({ ...unitConfig, towerId });
           towerDbIds.push(t._id.toString());
           return { ...rest, id: towerId, _dbId: t._id.toString(), projectId: t.parentId?.toString() };
@@ -129,13 +132,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
       } else if (finalProperty.type === 'project') {
         const projDetails = extractProjectData(finalProperty.details, id, finalProperty.name);
-        wizardState.projects = [{ ...projDetails, _dbId: id, id: projDetails.id || `proj-${id}` }];
+        wizardState.projects = [{ ...projDetails, _dbId: id, id: id }];
+        projectDbIds.push(id);
 
         const towers = await Property.find({ parentId: rootId, isDeleted: false, type: 'tower' }).lean();
         wizardState.towers = towers.map(t => {
           const tData = extractTowerData(t.details, t._id.toString(), (t as any).name);
           const { unitConfig, ...rest } = tData as any;
-          const towerId = rest.id || `tower-${t._id}`;
+          const towerId = t._id.toString(); // Consistency Fix: Use MongoDB _id
           if (unitConfig) wizardState.towerUnitConfigs.push({ ...unitConfig, towerId });
           towerDbIds.push(t._id.toString());
           return { ...rest, id: towerId, _dbId: t._id.toString(), projectId: t.parentId?.toString() };
@@ -144,28 +148,43 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       } else if (finalProperty.type === 'tower') {
         const tData = extractTowerData(finalProperty.details, id, finalProperty.name);
         const { unitConfig, ...rest } = tData as any;
-        const towerId = rest.id || `tower-${id}`;
+        const towerId = id; // Consistency Fix: Use MongoDB _id
         wizardState.towers = [{ ...rest, id: towerId, _dbId: id }];
         if (unitConfig) wizardState.towerUnitConfigs.push({ ...unitConfig, towerId });
         towerDbIds.push(id);
       }
 
       // ── UNIT FETCHING ───────────────────────────────────────────────────────────────────
-      if (towerDbIds.length > 0) {
-        const units = await Unit.find({ towerId: { $in: towerDbIds } }).lean();
-        wizardState.generatedUnits = units.map(u => ({
-          id: (u as any).originalId || u._id.toString(),
-          towerId: (u as any).towerId?.toString(),
-          projectId: (u as any).projectId?.toString(),
-          unitNumber: u.unitNumber,
-          floorNumber: u.floorNumber,
-          configuration: u.configuration,
-          area: u.area,
-          price: u.price,
-          ratePerSqft: u.ratePerSqft,
-          facing: u.facing,
-          status: u.status
-        }));
+      if (towerDbIds.length > 0 || projectDbIds.length > 0) {
+        const units = await Unit.find({ 
+          $or: [
+            { towerId: { $in: towerDbIds } },
+            { projectId: { $in: projectDbIds } }
+          ]
+        }).lean();
+
+        if (units.length > 0) {
+          wizardState.generatedUnits = units.map(u => ({
+            id: (u as any).originalId || u._id.toString(),
+            _dbId: u._id.toString(),
+            towerId: (u as any).towerId?.toString(),
+            projectId: (u as any).projectId?.toString(),
+            unitNumber: u.unitNumber,
+            floorNumber: u.floorNumber,
+            configuration: u.configuration,
+            area: u.area,
+            price: u.price || 0,
+            status: u.status || 'available',
+            customerName: u.customerName || '',
+            customerPhone: u.customerPhone || '',
+            bookingAmount: u.bookingAmount || 0,
+            bookingDate: u.bookingDate || null,
+          }));
+        } else if (finalProperty.details?.generatedUnits) {
+          wizardState.generatedUnits = finalProperty.details.generatedUnits;
+        }
+      } else if (finalProperty.details?.generatedUnits) {
+        wizardState.generatedUnits = finalProperty.details.generatedUnits;
       }
 
       // ── FINAL HYDRATION & CONTEXT INHERITANCE ──────────────────────────────────────────

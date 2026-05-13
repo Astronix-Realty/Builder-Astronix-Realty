@@ -47,7 +47,7 @@ import {
     Ruler,
     Layers,
     Home,
-    CheckCircle,
+    CheckCircle2,
     Minus,
     Sparkles,
     Activity,
@@ -465,7 +465,7 @@ function UnitConfigCard({
                                                 <button 
                                                     onClick={() => onChange({ isRateOverridden: false })}
                                                     className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-amber-600 hover:text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded shadow-sm transition-colors"
-                                                    title="Click to inherit from Global Standards"
+                                                    title="Click to inherit from Global Configuration"
                                                 >
                                                     RESET
                                                 </button>
@@ -792,7 +792,7 @@ function UnitConfigCard({
                         </TabsContent>
 
                         <TabsContent value="canvas" className="space-y-6 focus-visible:outline-none">
-                            <Section id="about" title="About Variant" description="Short tagline or description for 'Your Dream Canvas'" icon={Info} openIds={openIds} setOpenIds={setOpenIds}>
+                            <Section id="about" title="About Variant" description="Short tagline or description for 'Your Dream Canvas'" icon={Info} openIds={openIds} setOpenIds={openIds}>
                                 <div className="space-y-4">
                                     <Field label="Tagline / Short Title">
                                         <Input
@@ -967,7 +967,7 @@ function UnitConfigCard({
                         </TabsContent>
 
                         <TabsContent value="media" className="space-y-6 focus-visible:outline-none">
-                            <Section id="checklist" title="Move-in Provisions" description="Furnishing included list" icon={CheckCircle} openIds={openIds} setOpenIds={setOpenIds}>
+                            <Section id="checklist" title="Move-in Provisions" description="Furnishing included list" icon={CheckCircle2} openIds={openIds} setOpenIds={setOpenIds}>
                                 <div className="flex items-center justify-between mb-3">
                                     <p className="text-[10px] font-bold uppercase tracking-widest text-amber-600">Included Objects</p>
                                     <Button variant="ghost" size="sm" onClick={addMoveIn} className="h-7 text-[10px] font-bold text-amber-600 hover:bg-amber-50">+ Add Item</Button>
@@ -1342,7 +1342,7 @@ data, onChange, towerName, projectName, townshipName,
                         <Settings2 className="w-4 h-4" />
                         <div className="flex flex-col items-start leading-none">
                             <span className="text-[10px] uppercase font-black opacity-50">Section 1</span>
-                            <span className="text-xs font-bold">Global Standards</span>
+                            <span className="text-xs font-bold">Global Configuration</span>
                         </div>
                     </TabsTrigger>
                     <TabsTrigger value="inventory" className="rounded-2xl data-[state=active]:bg-white dark:bg-slate-900 data-[state=active]:shadow-md data-[state=active]:text-[#1A3C8C] dark:text-blue-400 gap-2">
@@ -1416,7 +1416,7 @@ data, onChange, towerName, projectName, townshipName,
                         </Grid>
                     </Section>
 
-                    <Section id="default-specs" title="Default Tower Specifications" description="Common unit finishers" icon={CheckCircle} openIds={openIds} setOpenIds={setOpenIds}>
+                    <Section id="default-specs" title="Default Tower Specifications" description="Common unit finishers" icon={CheckCircle2} openIds={openIds} setOpenIds={setOpenIds}>
                         <Grid cols={3}>
                             <Field label="Main Flooring"><Input value={data.defaultFlooringType || ''} onChange={e => updateData({ defaultFlooringType: e.target.value })} placeholder="Italian Marble" /></Field>
                             <Field label="Internal Walls"><Input value={data.defaultWallFinish || ''} onChange={e => updateData({ defaultWallFinish: e.target.value })} placeholder="Acrylic Emulsion" /></Field>
@@ -2494,7 +2494,7 @@ function AddGroupModal({ isOpen, onClose, onAdd, configurations, defaultUnits, d
                                     >
                                         <span className="relative z-10 flex items-center justify-center gap-3">
                                             {hasOverlap ? "Floor Already Taken" : "Create Mixed-Use Group"}
-                                            <CheckCircle className="w-6 h-6 opacity-50 group-hover:opacity-100 transition-opacity" />
+                                            <CheckCircle2 className="w-6 h-6 opacity-50 group-hover:opacity-100 transition-opacity" />
                                         </span>
                                     </Button>
                                 </>

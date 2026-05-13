@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Image from "next/image"
-import { Plus, Edit2, Trash2, Calendar, FileText, Image as ImageIcon, CheckCircle, List, Settings, User, XCircle } from "lucide-react"
+import { Plus, Edit2, Trash2, Calendar, FileText, Image as ImageIcon, CheckCircle2, List, Settings, User, XCircle } from "lucide-react"
 
 interface BlogPost {
     id: string
@@ -389,7 +389,7 @@ export function BlogView() {
 
                                         <div className="p-4 border border-green-200 bg-green-50 dark:bg-green-900/10 dark:border-green-900/30 rounded-xl">
                                             <label className="block text-sm font-bold text-green-800 dark:text-green-500 mb-2 flex items-center gap-2">
-                                                <CheckCircle className="w-4 h-4" /> Why Buy? (Pros)
+                                                <CheckCircle2 className="w-4 h-4" /> Why Buy? (Pros)
                                             </label>
                                             <textarea
                                                 value={getArrayString('prosList')}
@@ -522,7 +522,7 @@ export function BlogView() {
                                             : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50 dark:bg-transparent dark:border-slate-700 dark:text-slate-400"
                                             }`}
                                     >
-                                        <CheckCircle className="h-4 w-4" />
+                                        <CheckCircle2 className="h-4 w-4" />
                                         Publish Live
                                     </button>
 
@@ -532,7 +532,7 @@ export function BlogView() {
                                         onClick={handleSaveBlog}
                                         className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold flex justify-center items-center gap-2 transition-colors shadow-sm"
                                     >
-                                        <CheckCircle className="h-5 w-5" />
+                                        <CheckCircle2 className="h-5 w-5" />
                                         {editingBlog ? "Update Post" : "Save All Details"}
                                     </button>
 
