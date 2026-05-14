@@ -457,7 +457,7 @@ function DashboardContent() {
     localStorage.setItem("builderOffers", JSON.stringify(updatedOffers))
   }
 
-  const [activeTab, setActiveTab] = useState<"properties" | "inventory" | "crm" | "chat" | "documents" | "team" | "offers" | "blog" | "settings">("properties")
+  const [activeTab, setActiveTab] = useState<"properties" | "inventory" | "crm" | "chat" | "documents" | "offers" | "blog" | "settings">("properties")
   const [showAddProperty, setShowAddProperty] = useState(false)
   const [propertyFilter, setPropertyFilter] = useState<'published' | 'pending' | 'draft' | 'rejected'>('published')
 
@@ -600,13 +600,7 @@ function DashboardContent() {
             <FileText className="h-5 w-5" />
             Documents
           </button>
-          <button
-            onClick={() => { setActiveTab("team"); setIsMobileMenuOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "team" ? "bg-rose-50 text-rose-700 dark:bg-rose-900/20 dark:rose-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
-          >
-            <Briefcase className="h-5 w-5" />
-            Team Access
-          </button>
+
           <button
             onClick={() => { setActiveTab("offers"); setIsMobileMenuOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "offers" ? "bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:purple-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
@@ -679,7 +673,7 @@ function DashboardContent() {
                   {activeTab === "crm" && "Lead Management"}
                   {activeTab === "chat" && "Communications"}
                   {activeTab === "documents" && "Document Center"}
-                  {activeTab === "team" && "Team Management"}
+
                   {activeTab === "offers" && "Offers Management"}
                   {activeTab === "blog" && "Blog & News"}
                   {activeTab === "settings" && "Settings & Profile"}
@@ -692,7 +686,7 @@ function DashboardContent() {
                   {activeTab === "crm" && "Manage leads, site visits, and bookings"}
                   {activeTab === "chat" && "Chat with potential buyers and agents"}
                   {activeTab === "documents" && "Organize brochures, legal docs, and plans"}
-                  {activeTab === "team" && "Manage staff access and performance"}
+
                   {activeTab === "offers" && "Create and track special deals"}
                   {activeTab === "blog" && "Write and publish articles for your audience"}
                   {activeTab === "settings" && "Manage company profile and system preferences"}
@@ -821,7 +815,7 @@ function DashboardContent() {
           {activeTab === "crm" && <CRMView />}
           {activeTab === "chat" && <ChatView />}
           {activeTab === "documents" && <DocumentsView />}
-          {activeTab === "team" && <TeamView />}
+
           {activeTab === "blog" && <BlogView />}
           {activeTab === "properties" && (
             <div>

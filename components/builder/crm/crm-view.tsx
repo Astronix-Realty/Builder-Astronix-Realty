@@ -35,11 +35,11 @@ import {
     Users, Search, Filter, Phone, Mail, MoreHorizontal, Calendar, MessageSquare,
     UserPlus, ArrowUpRight, GripVertical, Clock, MapPin, DollarSign,
     CheckCircle2, XCircle, AlertCircle, TrendingUp, User, Activity, FileText, Send, Crown,
-    Building2, Lock
+    Building2, Lock, RefreshCw, Database, Trash2
 } from "lucide-react"
 
 // --- Types ---
-type LeadStatus = "Fresh" | "Token VIP" | "Connected" | "Site Visit" | "Negotiation" | "Booked"
+type LeadStatus = "Fresh" | "Token VIP" | "Connected" | "Site Visit" | "Negotiation" | "Booked" | "Junk"
 type Urgency = "Low" | "Medium" | "High"
 
 interface Lead {
@@ -116,7 +116,7 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
     const leads = useMemo(() => allLeadIds.map(id => leadsById[id]).filter(Boolean) as Lead[], [allLeadIds, leadsById])
 
     const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null)
-    const [filterStaff, setFilterStaff] = useState("all")
+    const [isSyncing, setIsSyncing] = useState(false)
     const [isLoadingLeads, setIsLoadingLeads] = useState(true)
     const [isAddLeadOpen, setIsAddLeadOpen] = useState(false)
     const [newLeadForm, setNewLeadForm] = useState({
@@ -127,6 +127,8 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
     const [totalLeads, setTotalLeads] = useState(0)
     const [teamMembers, setTeamMembers] = useState<{ id: string; name: string; email: string }[]>([])
     const [assigneeInput, setAssigneeInput] = useState("")
+    const [isCustomAssignee, setIsCustomAssignee] = useState(false)
+    const [formErrors, setFormErrors] = useState<{ phone?: string; email?: string }>({})
 
     // Timeline states
     const [noteInput, setNoteInput] = useState("")
@@ -144,19 +146,50 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
         [leads, selectedLeadId]
     )
 
-    const filteredLeads = useMemo(() => {
-        if (filterStaff === "all") return leads;
-        return leads.filter(l => l.assignee?.toLowerCase() === filterStaff.toLowerCase());
-    }, [leads, filterStaff])
+    const filteredLeads = useMemo(() => leads, [leads])
+
+    const handleManualSync = async () => {
+        setIsSyncing(true)
+        try {
+            await fetchLeads(searchQuery, false)
+            console.log("[System] Lead synchronization initiated...")
+            // Small artificial delay for visual feedback of "work being done"
+            await new Promise(r => setTimeout(r, 800))
+        } finally {
+            setIsSyncing(false)
+        }
+    }
 
     const handleAddLead = async () => {
         const name = newLeadForm.name.trim()
         const phone = newLeadForm.phone.trim()
-        if (!name || !phone) {
-            alert("Name and Phone are required");
-            return;
+        const email = newLeadForm.email.trim()
+
+        // Comprehensive Validation
+        const errors: { phone?: string; email?: string } = {}
+        
+        // Phone validation (Basic: check if it's 10 digits or matches standard patterns)
+        const phoneRegex = /^[0-9\s+()-]{10,15}$/
+        if (!phone) {
+            errors.phone = "Phone number is required"
+        } else if (!phoneRegex.test(phone)) {
+            errors.phone = "Invalid phone number format"
         }
-        setIsAddingLead(true);
+
+        // Email validation (optional but must be valid if provided)
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        if (email && !emailRegex.test(email)) {
+            errors.email = "Invalid email address format"
+        }
+
+        if (Object.keys(errors).length > 0 || !name) {
+            setFormErrors(errors)
+            if (!name) alert("Name is required")
+            return
+        }
+
+        setIsAddingLead(true)
+        setFormErrors({})
 
         // Optimistic insert — add a temporary card instantly
         const tempId = `temp-${Date.now()}`;
@@ -182,6 +215,7 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
         const formSnapshot = { ...newLeadForm, assignee: newLeadForm.assignee || assigneeInput || "" };
         setNewLeadForm({ name: "", phone: "", email: "", requirement: "2BHK", budget: "50L - 1Cr", source: "Manual Entry", assignee: "" });
         setAssigneeInput("");
+        setIsCustomAssignee(false);
 
         try {
             const res = await fetch("/api/leads", {
@@ -404,6 +438,32 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
         }
     }
 
+    const handleDeleteLead = async (leadId: string, e?: React.MouseEvent) => {
+        if (e) e.stopPropagation(); 
+        
+        if (!confirm("Are you sure you want to permanently delete this lead? This action cannot be undone.")) {
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/leads/${leadId}`, {
+                method: "DELETE",
+            });
+
+            if (res.ok) {
+                removeLead(leadId);
+                setTotalLeads(prev => Math.max(0, prev - 1));
+                console.log("[System] Lead deleted successfully:", leadId);
+            } else {
+                const errData = await res.json().catch(() => ({}));
+                alert(errData.error || "Failed to delete lead");
+            }
+        } catch (error) {
+            console.error("Delete error:", error);
+            alert("An error occurred while deleting the lead.");
+        }
+    }
+
     useEffect(() => {
         if (viewMode === 'profile' && timelineRef.current) {
             timelineRef.current.scrollTop = timelineRef.current.scrollHeight;
@@ -603,9 +663,15 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                             {lead.assignee && <p className="text-slate-400 text-[10px]">👤 {lead.assignee}</p>}
                                         </div>
 
-                                        {/* Hover Grab Handle hint */}
-                                        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-slate-400">
-                                            <GripVertical className="h-4 w-4" />
+                                        {/* Hover Actions */}
+                                        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 flex flex-col items-center gap-1 z-10">
+                                            <GripVertical className="h-4 w-4 text-slate-400" />
+                                            <button 
+                                                onClick={(e) => handleDeleteLead(lead.id || lead._id, e)}
+                                                className="p-1 hover:bg-red-50 rounded text-red-400 hover:text-red-600 transition-colors"
+                                            >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                            </button>
                                         </div>
                                     </div>
                                 ))}
@@ -850,20 +916,6 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                 variant="outline" 
                                 className="w-full justify-start gap-2 h-9 text-sm"
                                 onClick={async () => {
-                                    await fetch(`/api/leads/${selectedLead.id || selectedLead._id}`, {
-                                        method: "PATCH",
-                                        headers: { "Content-Type": "application/json" },
-                                        body: JSON.stringify({ actionType: "Call Logged", actionDesc: "Customer called via CRM Console" })
-                                    })
-                                    fetchLeads()
-                                }}
-                            >
-                                <Phone className="h-4 w-4 text-green-600" /> Call Customer
-                            </Button>
-                            <Button 
-                                variant="outline" 
-                                className="w-full justify-start gap-2 h-9 text-sm"
-                                onClick={async () => {
                                     window.open(`https://wa.me/${selectedLead.phone.replace(/\s+/g, '')}`, '_blank')
                                     await fetch(`/api/leads/${selectedLead.id || selectedLead._id}`, {
                                         method: "PATCH",
@@ -875,15 +927,16 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                             >
                                 <MessageSquare className="h-4 w-4 text-blue-600" /> Send WhatsApp
                             </Button>
-                            <Button variant="outline" className="w-full justify-start gap-2 h-9 text-sm">
-                                <Calendar className="h-4 w-4 text-purple-600" /> Schedule Visit
-                            </Button>
                             <Button 
                                 variant="outline" 
-                                className="w-full justify-start gap-2 h-9 text-sm text-red-600 hover:text-red-700 hover:bg-red-50"
-                                onClick={() => updateLeadStatus(selectedLead.id || selectedLead._id, "Junk" as any)}
+                                className={`w-full justify-start gap-2 h-9 text-sm ${selectedLead.status === "Junk" ? "text-green-600 hover:text-green-700 hover:bg-green-50" : "text-red-600 hover:text-red-700 hover:bg-red-50"}`}
+                                onClick={() => updateLeadStatus(selectedLead.id || selectedLead._id, (selectedLead.status === "Junk" ? "Fresh" : "Junk") as any)}
                             >
-                                <XCircle className="h-4 w-4" /> Mark as Junk
+                                {selectedLead.status === "Junk" ? (
+                                    <><CheckCircle2 className="h-4 w-4" /> Unmark as Junk</>
+                                ) : (
+                                    <><XCircle className="h-4 w-4" /> Mark as Junk</>
+                                )}
                             </Button>
                         </div>
 
@@ -930,7 +983,17 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                             <TableCell>{lead.assignee || "Unassigned"}</TableCell>
                             <TableCell>{lead.createdAt ? new Date(lead.createdAt).toLocaleDateString() : "N/A"}</TableCell>
                             <TableCell className="text-right">
-                                <Button size="sm" variant="ghost">View</Button>
+                                <div className="flex justify-end gap-2">
+                                    <Button size="sm" variant="ghost" onClick={() => openProfile(lead.id || lead._id)}>View</Button>
+                                    <Button 
+                                        size="sm" 
+                                        variant="ghost" 
+                                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                        onClick={(e) => handleDeleteLead(lead.id || lead._id, e)}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </TableCell>
                         </TableRow>
                     ))}
@@ -986,28 +1049,30 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                     <span className="text-xs text-muted-foreground bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md">
                         {totalLeads} Lead{totalLeads !== 1 ? "s" : ""}
                     </span>
-                    {/* Assignee Filter */}
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">Assignee:</span>
-                        <Select value={filterStaff} onValueChange={setFilterStaff}>
-                            <SelectTrigger className="w-[150px] h-8">
-                                <SelectValue placeholder="All Staff" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Staff</SelectItem>
-                                {teamMembers.length > 0
-                                    ? teamMembers.map(m => (
-                                        <SelectItem key={m.id} value={m.name.toLowerCase()}>{m.name}</SelectItem>
-                                    ))
-                                    : (
-                                        // Derive unique assignees from actual lead data as fallback
-                                        [...new Set(leads.map(l => l.assignee).filter(Boolean))].map(a => (
-                                            <SelectItem key={a} value={a!.toLowerCase()}>{a}</SelectItem>
-                                        ))
-                                    )
-                                }
-                            </SelectContent>
-                        </Select>
+                    {/* Lead Fetch System UI */}
+                    <div className="flex items-center gap-2 pl-2 border-l border-slate-200 dark:border-slate-800">
+                        <div className="flex flex-col items-end mr-1">
+                            <span className="text-[10px] font-bold text-blue-500 uppercase tracking-tighter leading-none">System Status</span>
+                            <span className="text-[9px] text-muted-foreground leading-none">Ready to Sync</span>
+                        </div>
+                        <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={handleManualSync}
+                            disabled={isSyncing}
+                            className={`
+                                h-8 px-3 gap-2 transition-all duration-300 border-blue-200 dark:border-blue-900/50 hover:border-blue-500 
+                                ${isSyncing ? "bg-blue-50 dark:bg-blue-900/20" : "bg-white dark:bg-slate-900"}
+                            `}
+                        >
+                            <div className="relative">
+                                <RefreshCw className={`h-3.5 w-3.5 text-blue-600 ${isSyncing ? "animate-spin" : ""}`} />
+                                {!isSyncing && <div className="absolute -top-1 -right-1 h-1.5 w-1.5 bg-green-500 rounded-full animate-pulse border border-white dark:border-slate-900" />}
+                            </div>
+                            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                {isSyncing ? "Fetching..." : "Fetch Leads"}
+                            </span>
+                        </Button>
                     </div>
                     <Dialog open={isAddLeadOpen} onOpenChange={setIsAddLeadOpen}>
                         <DialogTrigger asChild>
@@ -1025,13 +1090,36 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                     <Label htmlFor="name" className="text-right">Name</Label>
                                     <Input id="name" value={newLeadForm.name} onChange={e => setNewLeadForm({...newLeadForm, name: e.target.value})} className="col-span-3" />
                                 </div>
-                                <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label htmlFor="phone" className="text-right">Phone</Label>
-                                    <Input id="phone" value={newLeadForm.phone} onChange={e => setNewLeadForm({...newLeadForm, phone: e.target.value})} className="col-span-3" />
+                                <div className="grid grid-cols-4 items-start gap-4">
+                                    <Label htmlFor="phone" className="text-right mt-2">Phone</Label>
+                                    <div className="col-span-3 space-y-1">
+                                        <Input 
+                                            id="phone" 
+                                            value={newLeadForm.phone} 
+                                            onChange={e => {
+                                                setNewLeadForm({...newLeadForm, phone: e.target.value})
+                                                if (formErrors.phone) setFormErrors({...formErrors, phone: undefined})
+                                            }} 
+                                            className={formErrors.phone ? "border-red-500 focus-visible:ring-red-500" : ""}
+                                        />
+                                        {formErrors.phone && <p className="text-[10px] text-red-500 font-medium">{formErrors.phone}</p>}
+                                    </div>
                                 </div>
-                                <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label htmlFor="email" className="text-right">Email</Label>
-                                    <Input id="email" type="email" value={newLeadForm.email} onChange={e => setNewLeadForm({...newLeadForm, email: e.target.value})} className="col-span-3" />
+                                <div className="grid grid-cols-4 items-start gap-4">
+                                    <Label htmlFor="email" className="text-right mt-2">Email</Label>
+                                    <div className="col-span-3 space-y-1">
+                                        <Input 
+                                            id="email" 
+                                            type="email" 
+                                            value={newLeadForm.email} 
+                                            onChange={e => {
+                                                setNewLeadForm({...newLeadForm, email: e.target.value})
+                                                if (formErrors.email) setFormErrors({...formErrors, email: undefined})
+                                            }} 
+                                            className={formErrors.email ? "border-red-500 focus-visible:ring-red-500" : ""}
+                                        />
+                                        {formErrors.email && <p className="text-[10px] text-red-500 font-medium">{formErrors.email}</p>}
+                                    </div>
                                 </div>
                                 <div className="grid grid-cols-4 items-center gap-4">
                                     <Label htmlFor="source" className="text-right">Source</Label>
@@ -1072,37 +1160,60 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                         </SelectContent>
                                     </Select>
                                 </div>
-                                <div className="grid grid-cols-4 items-center gap-4">
-                                    <Label htmlFor="assignee" className="text-right">Assignee</Label>
-                                    <div className="col-span-3 space-y-1">
-                                        {teamMembers.length > 0 ? (
+                                <div className="grid grid-cols-4 items-start gap-4">
+                                    <Label htmlFor="assignee" className="text-right mt-2">Assignee</Label>
+                                    <div className="col-span-3 space-y-2">
+                                        {!isCustomAssignee ? (
                                             <Select
                                                 value={newLeadForm.assignee}
                                                 onValueChange={v => {
-                                                    setNewLeadForm({...newLeadForm, assignee: v === "__custom__" ? "" : v})
-                                                    if (v === "__custom__") setAssigneeInput("")
+                                                    if (v === "__custom__") {
+                                                        setIsCustomAssignee(true)
+                                                        setNewLeadForm({...newLeadForm, assignee: ""})
+                                                        setAssigneeInput("")
+                                                    } else {
+                                                        setNewLeadForm({...newLeadForm, assignee: v})
+                                                    }
                                                 }}
                                             >
-                                                <SelectTrigger>
+                                                <SelectTrigger className="w-full h-9 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
                                                     <SelectValue placeholder="Select or type assignee" />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    {teamMembers.map(m => (
-                                                        <SelectItem key={m.id} value={m.name}>{m.name}</SelectItem>
-                                                    ))}
-                                                    <SelectItem value="__custom__">✏️ Type custom name...</SelectItem>
+                                                    <SelectItem value="__custom__" className="text-blue-600 font-medium cursor-pointer">
+                                                        ✏️ Type Custom Name
+                                                    </SelectItem>
                                                 </SelectContent>
                                             </Select>
-                                        ) : null}
-                                        {(teamMembers.length === 0 || newLeadForm.assignee === "") && (
-                                            <input
-                                                type="text"
-                                                placeholder="Type assignee name..."
-                                                value={assigneeInput}
-                                                onChange={e => setAssigneeInput(e.target.value)}
-                                                className="w-full h-9 px-3 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            />
+                                        ) : (
+                                            <div className="relative group">
+                                                <Input
+                                                    type="text"
+                                                    placeholder="Enter assignee name..."
+                                                    value={assigneeInput}
+                                                    onChange={e => {
+                                                        const val = e.target.value
+                                                        setAssigneeInput(val)
+                                                        setNewLeadForm({...newLeadForm, assignee: val})
+                                                    }}
+                                                    className="w-full h-9 pr-8 focus:ring-blue-500"
+                                                    autoFocus
+                                                />
+                                                <button 
+                                                    onClick={() => {
+                                                        setIsCustomAssignee(false)
+                                                        setNewLeadForm({...newLeadForm, assignee: ""})
+                                                    }}
+                                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                                                    title="Back to list"
+                                                >
+                                                    <XCircle className="h-4 w-4" />
+                                                </button>
+                                            </div>
                                         )}
+                                        <p className="text-[10px] text-muted-foreground px-1">
+                                            {isCustomAssignee ? "Manually typing custom assignee" : "Select from team or type a new name"}
+                                        </p>
                                     </div>
                                 </div>
                             </div>

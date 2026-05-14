@@ -17,12 +17,12 @@ const LeadSchema = new mongoose.Schema({
     source: { 
         type: String, 
         default: "Website",
-        enum: ["Website", "WhatsApp", "Facebook Ad", "Instagram Ad", "Walk-in", "Referral", "Manual Entry", "Other"]
+        // enum: ["Website", "WhatsApp", "Facebook Ad", "Instagram Ad", "Walk-in", "Referral", "Manual Entry", "Other"]
     },
     status: { 
         type: String, 
         default: "Fresh",
-        enum: ["Fresh", "Token VIP", "Connected", "Site Visit", "Negotiation", "Booked", "Junk"]
+        // enum: ["Fresh", "Token VIP", "Connected", "Site Visit", "Negotiation", "Booked", "Junk"]
     },
     builderId: { 
         type: mongoose.Schema.Types.ObjectId, 
@@ -46,7 +46,7 @@ const LeadSchema = new mongoose.Schema({
         desc: { type: String },
         type: { 
             type: String, 
-            enum: ["call", "visit", "system", "note", "booking"],
+            // enum: ["call", "visit", "system", "note", "booking"],
             default: "system"
         }
     }],

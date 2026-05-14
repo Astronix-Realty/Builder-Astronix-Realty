@@ -12,14 +12,15 @@ export const dynamic = "force-dynamic";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!isValidId(params.id)) {
+  const { id } = await params;
+  if (!isValidId(id)) {
     return NextResponse.json({ success: false, error: "Invalid lead ID" }, { status: 400 });
   }
   try {
     await dbConnect();
-    const lead = await Lead.findOne({ _id: params.id, isArchived: { $ne: true } });
+    const lead = await Lead.findOne({ _id: id, isArchived: { $ne: true } });
 
     if (!lead) {
       return NextResponse.json(
@@ -40,9 +41,10 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!isValidId(params.id)) {
+  const { id } = await params;
+  if (!isValidId(id)) {
     return NextResponse.json({ success: false, error: "Invalid lead ID" }, { status: 400 });
   }
   try {
@@ -50,7 +52,7 @@ export async function PATCH(
     const body = await req.json();
     const { status, assignee, notes, interestedUnit, actionType, actionDesc } = body;
 
-    const lead = await Lead.findOne({ _id: params.id, isArchived: { $ne: true } });
+    const lead = await Lead.findOne({ _id: id, isArchived: { $ne: true } });
 
     if (!lead) {
       return NextResponse.json(
@@ -61,7 +63,6 @@ export async function PATCH(
 
     let isModified = false;
 
-    // Prepare activity log if status or other fields changed
     if (status && status !== lead.status) {
       lead.timeline.unshift({
         title: "Status Updated",
@@ -100,12 +101,11 @@ export async function PATCH(
       isModified = true;
     }
 
-    // Log manual actions if provided
     if (actionType) {
       lead.timeline.unshift({
         title: actionType,
         desc: actionDesc || "Action performed",
-        type: actionType.toLowerCase().includes("call") ? "call" : 
+        type: actionType.toLowerCase().includes("call") ? "call" :
               actionType.toLowerCase().includes("visit") ? "visit" : "system",
         date: new Date()
       });
@@ -114,13 +114,13 @@ export async function PATCH(
 
     if (isModified) {
       await lead.save();
-      // Broadcast SSE Event
       broadcastEvent({
         type: "LEAD_UPDATED",
         leadId: lead._id.toString(),
         data: lead,
         timestamp: Date.now()
       });
+      console.log("[DB] Lead updated successfully in MongoDB:", id);
     }
 
     return NextResponse.json({ success: true, lead });
@@ -135,14 +135,15 @@ export async function PATCH(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!isValidId(params.id)) {
+  const { id } = await params;
+  if (!isValidId(id)) {
     return NextResponse.json({ success: false, error: "Invalid lead ID" }, { status: 400 });
   }
   try {
     await dbConnect();
-    const lead = await Lead.findOne({ _id: params.id, isArchived: { $ne: true } });
+    const lead = await Lead.findOne({ _id: id, isArchived: { $ne: true } });
 
     if (!lead) {
       return NextResponse.json(
@@ -151,18 +152,15 @@ export async function DELETE(
       );
     }
 
-    // Soft delete
-    lead.isArchived = true;
-    await lead.save();
+    await Lead.deleteOne({ _id: id });
 
-    // Broadcast SSE Event
     broadcastEvent({
       type: "LEAD_DELETED",
-      leadId: lead._id.toString(),
+      leadId: id,
       timestamp: Date.now()
     });
 
-    return NextResponse.json({ success: true, message: "Lead archived successfully" });
+    return NextResponse.json({ success: true, message: "Lead permanently deleted" });
   } catch (error: any) {
     console.error("Error archiving lead:", error);
     return NextResponse.json(

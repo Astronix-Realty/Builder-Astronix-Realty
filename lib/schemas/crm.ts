@@ -4,7 +4,7 @@ export const TimelineEventSchema = z.object({
   date: z.string().or(z.date()).transform(d => new Date(d).toISOString()),
   title: z.string(),
   desc: z.string(),
-  type: z.enum(["call", "visit", "system", "note", "booking"]),
+  type: z.enum(["call", "visit", "system", "note", "booking"]).catch("system"),
 });
 
 export const LeadSchema = z.object({
@@ -12,8 +12,8 @@ export const LeadSchema = z.object({
   _id: z.string(),
   name: z.string().min(1, "Name is required"),
   phone: z.string().min(1, "Phone is required"),
-  email: z.string().email().optional().or(z.literal("")),
-  status: z.enum(["Fresh", "Token VIP", "Connected", "Site Visit", "Negotiation", "Booked", "Junk"]),
+  email: z.string().optional().or(z.null()).or(z.literal("")),
+  status: z.enum(["Fresh", "Token VIP", "Connected", "Site Visit", "Negotiation", "Booked", "Junk"]).catch("Fresh"),
   isTokenPaid: z.boolean().default(false),
   requirement: z.string().optional(),
   budget: z.string().optional(),

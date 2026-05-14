@@ -6,17 +6,17 @@ import { broadcastEvent } from "@/lib/sse";
 // GET /api/conversations/[id]/messages — get full message history
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     await dbConnect();
-    const conversation = await Conversation.findById(params.id);
+    const conversation = await Conversation.findById(id);
 
     if (!conversation) {
       return NextResponse.json({ success: false, error: "Conversation not found" }, { status: 404 });
     }
 
-    // Reset unread count when agent opens conversation
     if (conversation.unreadCount > 0) {
       conversation.unreadCount = 0;
       await conversation.save();
@@ -31,8 +31,9 @@ export async function GET(
 // POST /api/conversations/[id]/messages — send a new message
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     await dbConnect();
     const { text, sender, senderName } = await req.json();
@@ -41,7 +42,7 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Message text required" }, { status: 400 });
     }
 
-    const conversation = await Conversation.findById(params.id);
+    const conversation = await Conversation.findById(id);
     if (!conversation) {
       return NextResponse.json({ success: false, error: "Conversation not found" }, { status: 404 });
     }
@@ -62,14 +63,13 @@ export async function POST(
 
     await conversation.save();
 
-    // Get the last message (newly inserted)
     const savedMsg = conversation.messages[conversation.messages.length - 1];
 
     broadcastEvent({
       type: "MESSAGE_SENT",
-      conversationId: params.id,
+      conversationId: id,
       leadId: conversation.leadId?.toString(),
-      data: { ...savedMsg.toObject(), conversationId: params.id },
+      data: { ...savedMsg.toObject(), conversationId: id },
       timestamp: Date.now(),
     });
 
