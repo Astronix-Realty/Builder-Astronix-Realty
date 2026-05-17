@@ -86,7 +86,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       body.publishedAt = new Date();
     }
 
+    // Prevent VersionError and immutable field errors during concurrent saves
+    delete body.__v;
+    delete body._id;
+    delete body.createdAt;
+    delete body.updatedAt;
+
     Object.assign(blog, body);
+    
+    // Completely bypass Mongoose internal VersionError for concurrent saves (last writer wins)
+    if (blog.$__) {
+      delete blog.$__.version;
+    }
+    
     await blog.save();
 
     // Trigger ISR revalidation for the public site if it affects live content

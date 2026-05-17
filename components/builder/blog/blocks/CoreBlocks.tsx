@@ -153,7 +153,7 @@ const CoverUploadZone: React.FC<UploaderProps> = ({
 // ─────────────────────────────────────────────
 // HeroBlock
 // ─────────────────────────────────────────────
-export const HeroBlock: React.FC<BlockProps> = ({ data, onChange, isEditing }) => {
+export const HeroBlock: React.FC<BlockProps> = ({ data, onChange, isEditing, globalTitle, onGlobalTitleChange }) => {
   const [uploadingTarget, setUploadingTarget] = useState<'hero' | 'bg' | null>(null);
 
   const handleUpload = async (file: File, target: 'hero' | 'bg') => {
@@ -243,7 +243,7 @@ export const HeroBlock: React.FC<BlockProps> = ({ data, onChange, isEditing }) =
             transition={{ delay: 0.15 }}
             className="text-3xl md:text-5xl lg:text-6xl font-black text-slate-900 dark:text-white leading-[1.1] tracking-tight"
           >
-            {data.heading || <span className="text-slate-300 font-normal">Your Headline Here</span>}
+            {globalTitle || data.heading || <span className="text-slate-300 font-normal">Type here blog title</span>}
           </motion.h1>
 
           {data.subtitle && (
@@ -298,10 +298,13 @@ export const HeroBlock: React.FC<BlockProps> = ({ data, onChange, isEditing }) =
               <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-2">Headline</label>
               <input
                 type="text"
-                value={data.heading || ''}
-                onChange={(e) => onChange({ ...data, heading: e.target.value })}
+                value={globalTitle !== undefined ? globalTitle : (data.heading || '')}
+                onChange={(e) => {
+                  if (onGlobalTitleChange) onGlobalTitleChange(e.target.value);
+                  else onChange({ ...data, heading: e.target.value });
+                }}
                 className="w-full px-4 py-3 text-xl font-extrabold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:font-normal placeholder:text-slate-300"
-                placeholder="e.g. Discover Luxury Living in Goa"
+                placeholder="Type here blog title"
               />
             </div>
             <div className="flex-1">

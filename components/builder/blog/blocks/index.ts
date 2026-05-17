@@ -9,6 +9,8 @@ export interface BlockProps {
   data: any;
   onChange: (data: any) => void;
   isEditing?: boolean;
+  globalTitle?: string;
+  onGlobalTitleChange?: (title: string) => void;
 }
 
 export interface BlockDefinition {

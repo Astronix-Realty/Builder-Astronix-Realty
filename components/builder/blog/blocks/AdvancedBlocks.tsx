@@ -7,6 +7,7 @@ import {
   ArrowRight, LayoutTemplate, Sun, Moon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 
 // ─────────────────────────────────────────────────────
 // FAQ Block
@@ -79,13 +80,13 @@ export const FaqBlock: React.FC<BlockProps> = ({ data, onChange, isEditing }) =>
         <div key={i} className="flex gap-2 items-start p-3 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
           <div className="flex-1 space-y-2">
             <input
-              value={faq.q}
+              value={faq.q || ''}
               onChange={(e) => updateFaq(i, 'q', e.target.value)}
               className="w-full px-3 py-2 text-sm font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500"
               placeholder={`Question ${i + 1}`}
             />
             <textarea
-              value={faq.a}
+              value={faq.a || ''}
               onChange={(e) => updateFaq(i, 'a', e.target.value)}
               className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
               placeholder="Answer..."
@@ -125,8 +126,9 @@ export const GalleryBlock: React.FC<BlockProps> = ({ data, onChange, isEditing }
         }
       }
       onChange({ ...data, images: newImages });
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      console.error("Gallery upload error:", error);
+      toast.error(error.message === "Failed to fetch" ? "Network error: Could not connect to upload server." : "Image upload failed.");
     } finally {
       setIsUploading(false);
     }
@@ -242,7 +244,7 @@ export const ProsConsBlock: React.FC<BlockProps> = ({ data, onChange, isEditing 
     );
   }
 
-  const ListEditor = ({ items, itemKey, color }: { items: string[], itemKey: 'pros' | 'cons', color: string }) => (
+  const renderListEditor = (items: string[], itemKey: 'pros' | 'cons', color: string) => (
     <div className={`flex-1 rounded-xl border ${color === 'green' ? 'border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-900/10' : 'border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-900/10'} p-3 space-y-2`}>
       <div className="flex items-center justify-between mb-1">
         <span className={`text-xs font-bold uppercase tracking-widest ${color === 'green' ? 'text-green-600' : 'text-red-500'}`}>
@@ -253,7 +255,7 @@ export const ProsConsBlock: React.FC<BlockProps> = ({ data, onChange, isEditing 
         </button>
       </div>
       {items.map((item, i) => (
-        <div key={i} className="flex gap-2 items-center">
+        <div key={`${itemKey}-${i}`} className="flex gap-2 items-center">
           <input
             value={item}
             onChange={(e) => updateList(items, i, e.target.value, itemKey)}
@@ -270,8 +272,8 @@ export const ProsConsBlock: React.FC<BlockProps> = ({ data, onChange, isEditing 
 
   return (
     <div className="flex flex-col md:flex-row gap-4">
-      <ListEditor items={pros} itemKey="pros" color="green" />
-      <ListEditor items={cons} itemKey="cons" color="red" />
+      {renderListEditor(pros, 'pros', 'green')}
+      {renderListEditor(cons, 'cons', 'red')}
     </div>
   );
 };
@@ -290,10 +292,10 @@ export const CtaBlock: React.FC<BlockProps> = ({ data, onChange, isEditing }) =>
   const variant = (data.variant || 'minimal') as keyof typeof CTA_VARIANTS;
   const cfg = CTA_VARIANTS[variant] || CTA_VARIANTS.minimal;
 
-  const heading = data.heading || 'Ready to Get Started?';
-  const description = data.description || 'Take the next step and discover your dream property today.';
-  const buttonText = data.buttonText || 'Explore Properties';
-  const buttonUrl = data.buttonUrl || '#';
+  const heading = data.heading !== undefined ? data.heading : 'Ready to Get Started?';
+  const description = data.description !== undefined ? data.description : 'Take the next step and discover your dream property today.';
+  const buttonText = data.buttonText !== undefined ? data.buttonText : 'Explore Properties';
+  const buttonUrl = data.buttonUrl !== undefined ? data.buttonUrl : '#';
 
   if (!isEditing) {
     return (

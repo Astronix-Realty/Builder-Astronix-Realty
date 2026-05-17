@@ -22,6 +22,7 @@ export function BlogEditor({ blogId, initialData, onBack }: { blogId?: string, i
     title: '', slug: '', excerpt: '', status: 'draft', blocks: [], seo: {}, coverImage: {}
   });
   const [savedBlog, setSavedBlog] = useState(initialData); // Track server state
+  const [errors, setErrors] = useState<Record<string, string>>({});
   
   const [health, setHealth] = useState<HealthScore>(calculateBlogHealthScore(blog));
   const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
@@ -69,37 +70,61 @@ export function BlogEditor({ blogId, initialData, onBack }: { blogId?: string, i
       draftPrompted.current = true;
       try {
         const parsed = JSON.parse(savedDraft);
-        toast('Unsaved draft found', {
-          description: 'Would you like to recover your unsaved changes?',
-          action: {
-            label: 'Recover',
-            onClick: () => setBlog(parsed)
-          },
-          cancel: {
-            label: 'Discard',
-            onClick: () => localStorage.removeItem(draftKey)
-          },
-          duration: 10000,
-        });
+        const draftTime = parsed.localUpdatedAt || 0;
+        const serverTime = savedBlog?.updatedAt ? new Date(savedBlog.updatedAt).getTime() : 0;
+
+        // Only show recovery if local draft is significantly newer (>10 seconds)
+        if (draftTime - serverTime > 10000) {
+            toast('Unsaved draft found', {
+            description: 'Would you like to recover your unsaved changes?',
+            action: {
+                label: 'Recover',
+                onClick: () => setBlog(parsed)
+            },
+            cancel: {
+                label: 'Discard',
+                onClick: () => localStorage.removeItem(draftKey)
+            },
+            duration: 10000,
+            });
+        } else {
+            // Silently discard old drafts
+            localStorage.removeItem(draftKey);
+        }
       } catch (e) {
         console.error("Failed to parse draft", e);
+        localStorage.removeItem(draftKey); // Discard corrupted
       }
     }
-  }, [blogId]);
+  }, [blogId, savedBlog]);
 
   // Auto-save to Local Storage
   useEffect(() => {
     const draftKey = `blog_draft_${blogId || 'new'}`;
     const timer = setTimeout(() => {
-      // Don't save empty drafts
-      if (blog.title || (blog.blocks && blog.blocks.length > 0)) {
-        localStorage.setItem(draftKey, JSON.stringify(blog));
+      // Only save to local storage if there are unsaved changes
+      if (JSON.stringify(blog) !== JSON.stringify(savedBlog)) {
+        if (blog.title || (blog.blocks && blog.blocks.length > 0)) {
+          localStorage.setItem(draftKey, JSON.stringify({ ...blog, localUpdatedAt: Date.now() }));
+        }
+      } else {
+        // If clean, ensure no stale draft exists
+        localStorage.removeItem(draftKey);
       }
     }, 2000);
     return () => clearTimeout(timer);
-  }, [blog, blogId]);
+  }, [blog, blogId, savedBlog]);
 
   const handleAddBlock = (type: BlockType) => {
+    // Enforce single instance for unique blocks
+    if (type === 'hero' || type === 'pros-cons') {
+      const exists = (blog.blocks || []).find((b: any) => b.type === type);
+      if (exists) {
+        toast.error(`Only one ${BlockRegistry[type].label} is allowed.`);
+        return;
+      }
+    }
+
     const def = BlockRegistry[type];
     const newBlock = { id: `block-${Date.now()}`, type, data: { ...def.defaultData } };
     setBlog({ ...blog, blocks: [...(blog.blocks || []), newBlock] });
@@ -107,28 +132,53 @@ export function BlogEditor({ blogId, initialData, onBack }: { blogId?: string, i
 
   const updateBlock = (index: number, data: any) => {
     const newBlocks = [...blog.blocks];
-    newBlocks[index].data = data;
+    newBlocks[index] = { ...newBlocks[index], data };
     setBlog({ ...blog, blocks: newBlocks });
   };
 
   const handlePublish = async () => {
+    const newErrors: Record<string, string> = {};
+
     if (!blog.title || blog.title.length < 5) {
-      toast.error("Please add a descriptive title (at least 5 chars) before publishing.");
-      return;
+      newErrors.title = "A descriptive title (5+ chars) is required.";
     }
-    if (!blog.blocks || blog.blocks.length < 2) {
-      toast.error("Blog must have at least 2 content blocks to be published.");
-      return;
+    
+    if (!blog.blocks || blog.blocks.length === 0) {
+      newErrors.blocks = "At least 1 content block is required.";
+    } else {
+        const heroBlock = blog.blocks.find((b: any) => b.type === 'hero');
+        if (!heroBlock?.data?.portraitImage && !heroBlock?.data?.coverImage && !blog.coverImage?.url) {
+            newErrors.hero = "A hero or cover image is required.";
+        }
+
+        let wordCount = 0;
+        blog.blocks.forEach((b: any) => {
+            if (b.type === 'text' && b.data?.content) {
+                wordCount += b.data.content.split(/\s+/).filter(Boolean).length;
+            }
+        });
+        if (wordCount < 100) { // Slightly lower threshold for publishing than SEO "good" score
+            newErrors.content = `Content too short (${wordCount}/100 words min).`;
+        }
     }
-    if (health.score < 80) {
-      toast.error(`Health score is ${health.score}/100. Fix critical issues before publishing.`);
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      toast.error("Please fix the highlighted errors before publishing.");
       return;
     }
     
-    const confirmPublish = window.confirm("Ready to go live? This will make the article visible to the public.");
-    if (confirmPublish) {
-      await handleSave("published");
+    setErrors({}); // Clear errors
+    
+    if (health.score < 50) { // Adjusted from 80 based on new 0-based scale
+      const confirmLowScore = window.confirm(`Your SEO score is low (${health.score}/100). Publish anyway?`);
+      if (!confirmLowScore) return;
+    } else {
+        const confirmPublish = window.confirm("Ready to go live? This will make the article visible to the public.");
+        if (!confirmPublish) return;
     }
+
+    await handleSave("published");
   };
 
   const handleSave = async (statusOverride?: string, isAutosave = false) => {
@@ -158,16 +208,16 @@ export function BlogEditor({ blogId, initialData, onBack }: { blogId?: string, i
       const updatedBlog = result.blog;
 
       if (!isAutosave) {
-        toast.success(`Blog ${finalStatus === 'published' ? 'Published' : 'Saved'}!`);
+        toast.success(finalStatus === 'published' ? 'Blog published successfully!' : 'Draft saved successfully');
       }
       
       setSavedBlog(updatedBlog);
       localStorage.removeItem(`blog_draft_${blogId || 'new'}`);
       
-      // If it was a new blog, we need to inform the parent or refresh the URL
-      // For now, if it's new, we call onBack to refresh the list as before
-      // but in a real app, we'd router.replace to the new ID.
-      if (isNew && !isAutosave) onBack(); 
+      // Exit editor on manual save (Draft or Publish)
+      if (!isAutosave) {
+        onBack();
+      }
       
     } catch (err: any) {
       if (!isAutosave) toast.error(err.message);
@@ -214,24 +264,38 @@ export function BlogEditor({ blogId, initialData, onBack }: { blogId?: string, i
           <button onClick={onBack} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
             <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-slate-300" />
           </button>
+        <div className="flex flex-col gap-1">
           <input 
             type="text"
-            value={blog.title}
+            value={blog.title === "Untitled Blog" ? "" : blog.title}
             onChange={e => setBlog({...blog, title: e.target.value})}
             className="text-xl font-bold bg-transparent border-none focus:outline-none focus:ring-0 text-slate-900 dark:text-white placeholder:text-slate-300 w-96"
-            placeholder="Blog Title..."
+            placeholder="Type here blog title"
           />
+          {errors.title && <span className="text-xs text-red-500 font-medium px-1">{errors.title}</span>}
+        </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
+          <div className="hidden md:flex items-center gap-1.5 text-xs font-medium mr-2">
+            {isSaving ? (
+              <span className="text-slate-500 animate-pulse flex items-center gap-1"><div className="w-3 h-3 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"/> Saving...</span>
+            ) : JSON.stringify(blog) !== JSON.stringify(savedBlog) ? (
+              <span className="text-amber-500 flex items-center gap-1"><div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"/> Unsaved changes</span>
+            ) : (
+              <span className="text-emerald-500 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> Saved</span>
+            )}
+          </div>
+          
           <SeoScoreWidget health={health} />
           
           <button 
             onClick={() => handleSave("draft")}
             disabled={isSaving}
-            className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 dark:text-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg transition-colors flex items-center gap-2"
+            className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 dark:text-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg transition-colors flex items-center gap-2"
           >
-            <Save className="w-4 h-4" /> Save Draft
+            {isSaving && blog.status === 'draft' ? <div className="w-4 h-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
+            Save Draft
           </button>
           
           <button 
@@ -241,21 +305,32 @@ export function BlogEditor({ blogId, initialData, onBack }: { blogId?: string, i
               localStorage.setItem(draftKey, JSON.stringify(blog));
               window.open(`/preview/blog/${blogId || 'new'}`, '_blank');
             }}
-            className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 dark:text-blue-400 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 rounded-lg transition-colors flex items-center gap-2"
+            disabled={isSaving}
+            className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 dark:text-blue-400 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 rounded-lg transition-colors flex items-center gap-2"
           >
             <LayoutTemplate className="w-4 h-4" /> Full Preview
           </button>
           
           <button 
             onClick={handlePublish}
-            disabled={isSaving || health.score < 80}
-            className={`px-5 py-2 text-sm font-bold text-white rounded-lg transition-all shadow-sm flex items-center gap-2
-              ${health.score >= 80 ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-300 cursor-not-allowed dark:bg-slate-700'}`}
+            disabled={isSaving}
+            className="px-6 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:hover:bg-blue-600 rounded-lg shadow-sm transition-all flex items-center gap-2"
           >
-            <Play className="w-4 h-4" /> Publish Now
+            {isSaving && blog.status === 'published' ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Play className="w-4 h-4" />}
+            Publish Now
           </button>
         </div>
       </header>
+
+      {/* Inline Errors Panel */}
+      {Object.keys(errors).length > 0 && (
+        <div className="bg-red-50 border-b border-red-100 px-4 py-2 flex flex-wrap gap-x-6 gap-y-1 items-center">
+          <span className="text-sm font-bold text-red-700 flex items-center gap-1"><AlertCircle className="w-4 h-4"/> Please fix before publishing:</span>
+          {Object.entries(errors).map(([key, msg]) => (
+            <span key={key} className="text-xs text-red-600 font-medium bg-red-100 px-2 py-0.5 rounded-full">{msg}</span>
+          ))}
+        </div>
+      )}
 
       {/* MAIN CONTENT AREA: Split Screen */}
       <div className="flex-1 flex overflow-hidden">
@@ -270,11 +345,21 @@ export function BlogEditor({ blogId, initialData, onBack }: { blogId?: string, i
               {Object.values(BlockRegistry).map((def) => {
                 const icons: any = { LayoutTemplate, AlignLeft, HelpCircle, ImageIcon, Scale, MousePointerClick };
                 const Icon = icons[def.icon] || AlignLeft;
+                
+                const isUniqueBlock = def.type === 'hero' || def.type === 'pros-cons';
+                const exists = isUniqueBlock && (blog.blocks || []).some((b: any) => b.type === def.type);
+
                 return (
                   <button
                     key={def.type}
                     onClick={() => handleAddBlock(def.type)}
-                    className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full text-xs font-semibold flex items-center gap-1.5 text-slate-600 dark:text-slate-300 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"
+                    disabled={exists}
+                    className={`px-3 py-1.5 border rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all
+                      ${exists 
+                        ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-50 dark:bg-slate-800/50 dark:border-slate-800 dark:text-slate-500' 
+                        : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                      }
+                    `}
                   >
                     <Icon className="w-3.5 h-3.5" />
                     {def.label}
@@ -313,6 +398,8 @@ export function BlogEditor({ blogId, initialData, onBack }: { blogId?: string, i
                         data={block.data} 
                         onChange={(newData) => updateBlock(index, newData)} 
                         isEditing={true} 
+                        globalTitle={blog.title === "Untitled Blog" ? "" : blog.title}
+                        onGlobalTitleChange={(title) => setBlog({...blog, title})}
                       />
                     </div>
                   </div>
@@ -350,16 +437,24 @@ export function BlogEditor({ blogId, initialData, onBack }: { blogId?: string, i
              <div className={`bg-white dark:bg-slate-900 shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden transition-all duration-300 ${previewMode === 'mobile' ? 'w-[375px] rounded-[2rem] border-8 min-h-[812px]' : 'w-full max-w-3xl rounded-xl'}`}>
                 {/* PREVIEW RENDER */}
                 <div className={`${previewMode === 'mobile' ? 'p-4' : 'p-6 md:p-10'}`}>
-                   {/* Title strip only if no hero block */}
-                   {!(blog.blocks || []).find((b: any) => b.type === 'hero') && (
-                     <h1 className="text-3xl font-extrabold mb-8 text-slate-900 dark:text-white">{blog.title || "Untitled Blog Preview"}</h1>
-                   )}
-                   
-                   {(blog.blocks || []).map((block: any) => {
-                      const BlockComponent = BlockRegistry[block.type as BlockType]?.component;
-                      if (!BlockComponent) return null;
-                      return <BlockComponent key={block.id} id={block.id} data={block.data} onChange={()=>{}} isEditing={false} />;
-                   })}
+                   <div className="prose prose-slate dark:prose-invert max-w-none prose-img:rounded-xl prose-headings:font-bold prose-a:text-blue-600">
+                     {/* Title strip only if no hero block */}
+                     {!(blog.blocks || []).find((b: any) => b.type === 'hero') && (
+                       <h1 className="text-3xl font-extrabold mb-8 text-slate-900 dark:text-white">
+                         {(!blog.title || blog.title === "Untitled Blog") ? (
+                           <span className="text-slate-300 font-normal">Type here blog title</span>
+                         ) : (
+                           blog.title
+                         )}
+                       </h1>
+                     )}
+                     
+                     {(blog.blocks || []).map((block: any) => {
+                        const BlockComponent = BlockRegistry[block.type as BlockType]?.component;
+                        if (!BlockComponent) return null;
+                        return <BlockComponent key={block.id} id={block.id} data={block.data} onChange={()=>{}} isEditing={false} globalTitle={blog.title === "Untitled Blog" ? "" : blog.title} />;
+                     })}
+                   </div>
 
                    {(!blog.blocks || blog.blocks.length === 0) && (
                      // Premium skeleton empty state

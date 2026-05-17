@@ -54,18 +54,22 @@ export default function BlogPreviewPage() {
 
     setIsPublishing(true);
     try {
+      const payload = { ...blog, status: "published" };
       const res = await fetch(`/api/blogs/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "published" })
+        body: JSON.stringify(payload)
       });
 
-      if (!res.ok) throw new Error("Failed to publish");
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to publish");
+      }
       
       toast.success("Blog published successfully!");
       router.push('/builder-dashboard?tab=blog');
-    } catch (error) {
-      toast.error("Failed to publish blog");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to publish blog");
     } finally {
       setIsPublishing(false);
     }
