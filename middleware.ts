@@ -83,9 +83,21 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // Prevent authenticated users from visiting the login page
+  if (pathname === "/login") {
+    const token = req.cookies.get(AUTH_COOKIE)?.value;
+    if (token) {
+      const payload = await verifyJwtEdge(token);
+      if (payload) {
+        const isBuilder = payload.userType === "builder" || payload.role === "builder";
+        return NextResponse.redirect(new URL(isBuilder ? "/builder-dashboard" : "/mandate-dashboard", req.url));
+      }
+    }
+  }
+
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/builder/:path*', '/builder-dashboard/:path*', '/mandate-dashboard/:path*'],
+  matcher: ['/builder/:path*', '/builder-dashboard/:path*', '/mandate-dashboard/:path*', '/login'],
 };

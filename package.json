@@ -39,6 +39,8 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@tanstack/react-query": "^5.100.10",
     "@tanstack/react-query-devtools": "^5.100.10",
+    "@tiptap/extension-highlight": "^3.23.4",
+    "@tiptap/extension-image": "^3.23.4",
     "@types/fabric": "^5.3.11",
     "@types/uuid": "^10.0.0",
     "bcryptjs": "^3.0.3",

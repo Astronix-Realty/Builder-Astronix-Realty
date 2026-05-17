@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect, useMemo, Suspense } from "react"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Plus, Building2, MapPin, DollarSign, ChevronRight, Edit2, Trash2, Home, Layers, Building, Eye, User, Save, Globe, Mail, Phone, FileText, Tag, Percent, Calendar, Clock, Gift, Paintbrush, Image as ImageIcon, LogOut, Settings, Menu, X, Palette, Bell, Shield, Lock, Headphones, Smartphone, MessageSquare, Users, Briefcase, Loader2, RefreshCw } from "lucide-react"
+import { Plus, Building2, MapPin, DollarSign, ChevronRight, Edit2, Trash2, Home, Layers, Building, Eye, User, Save, Globe, Mail, Phone, FileText, Tag, Percent, Calendar, Clock, Gift, Paintbrush, Image as ImageIcon, LogOut, Settings, Menu, X, Palette, Bell, Shield, Lock, Headphones, Smartphone, MessageSquare, Users, Briefcase, Loader2, RefreshCw, Search } from "lucide-react"
 import { toast } from "sonner"
 import BannerEditor from "@/components/BannerEditor"
 import { ImageUpload } from "@/components/ui/image-upload"
@@ -42,6 +42,7 @@ interface Property {
   rejectionReason?: string | null
   flowType?: string
   thumbnail?: string
+  searchBlob?: string
 }
 
 interface Offer {
@@ -68,6 +69,29 @@ function DashboardContent() {
     confirmPassword: ""
   })
   const [properties, setProperties] = useState<Property[]>([])
+  const [propertySearchInput, setPropertySearchInput] = useState<Record<string, string>>({
+    published: "",
+    pending: "",
+    draft: "",
+    rejected: ""
+  })
+  const [debouncedPropertySearch, setDebouncedPropertySearch] = useState<Record<string, string>>({
+    published: "",
+    pending: "",
+    draft: "",
+    rejected: ""
+  })
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedPropertySearch(propertySearchInput)
+    }, 300)
+
+    return () => {
+      clearTimeout(handler)
+    }
+  }, [propertySearchInput])
+
   const [isFetchingProperties, setIsFetchingProperties] = useState(false)
   const [deletingPropertyId, setDeletingPropertyId] = useState<string | null>(null)
   const [movingToDraftId, setMovingToDraftId] = useState<string | null>(null)
@@ -228,6 +252,38 @@ function DashboardContent() {
     else if (p.status === 'archived') finalStatus = 'archived'
 
 
+    const searchTerms: string[] = []
+    if (name) searchTerms.push(name)
+    if (location) searchTerms.push(location)
+    if (flowType) searchTerms.push(flowType)
+
+    if (details) {
+      if (details.township?.name) searchTerms.push(details.township.name)
+      if (details.township?.city) searchTerms.push(details.township.city)
+      if (details.township?.state) searchTerms.push(details.township.state)
+
+      if (Array.isArray(details.projects)) {
+        details.projects.forEach((proj: any) => {
+          if (proj?.name) searchTerms.push(proj.name)
+        })
+      }
+
+      if (Array.isArray(details.towers)) {
+        details.towers.forEach((tow: any) => {
+          if (tow?.name) searchTerms.push(tow.name)
+        })
+      }
+
+      if (Array.isArray(details.generatedUnits)) {
+        details.generatedUnits.forEach((unit: any) => {
+          if (unit?.unitNumber) searchTerms.push(unit.unitNumber)
+          if (unit?.configuration) searchTerms.push(unit.configuration)
+        })
+      }
+    }
+
+    const searchBlob = searchTerms.filter(Boolean).map(s => s.toLowerCase().trim()).join(" | ")
+
     return {
       id: p._id || p.id,
       townshipName: name,
@@ -242,6 +298,7 @@ function DashboardContent() {
       rejectionReason: p.rejectionReason || null,
       flowType: flowType,
       thumbnail: thumbnail,
+      searchBlob,
     }
   }
 
@@ -464,6 +521,53 @@ function DashboardContent() {
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
+  const filteredProperties = useMemo(() => {
+    const query = (debouncedPropertySearch[propertyFilter] || "").toLowerCase().trim()
+    const matched = properties.filter(p => {
+      if (p.status !== propertyFilter) return false
+      if (!query) return true
+      return p.searchBlob?.includes(query)
+    })
+
+    if (!query) return matched
+
+    // Prioritize exact matches or startsWith matches on the property name
+    return [...matched].sort((a, b) => {
+      const aName = (a.townshipName || "").toLowerCase()
+      const bName = (b.townshipName || "").toLowerCase()
+      
+      const aExact = aName === query
+      const bExact = bName === query
+      if (aExact && !bExact) return -1
+      if (!aExact && bExact) return 1
+
+      const aStarts = aName.startsWith(query)
+      const bStarts = bName.startsWith(query)
+      if (aStarts && !bStarts) return -1
+      if (!aStarts && bStarts) return 1
+
+      return 0
+    })
+  }, [properties, propertyFilter, debouncedPropertySearch])
+
+  const highlightMatch = (text: string, query: string) => {
+    if (!query || !text) return <span>{text}</span>
+    const index = text.toLowerCase().indexOf(query.toLowerCase())
+    if (index === -1) return <span>{text}</span>
+
+    const before = text.substring(0, index)
+    const match = text.substring(index, index + query.length)
+    const after = text.substring(index + query.length)
+
+    return (
+      <span>
+        {before}
+        <mark className="bg-yellow-100 dark:bg-yellow-500/30 text-yellow-800 dark:text-yellow-250 px-0.5 rounded font-semibold">{match}</mark>
+        {after}
+      </span>
+    )
+  }
+
   const handleMoveToDraft = async (id: string) => {
     try {
       setMovingToDraftId(id)
@@ -652,67 +756,144 @@ function DashboardContent() {
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col overflow-hidden bg-slate-50/50 dark:bg-slate-950 relative transition-colors duration-300">
         {/* Top Header - Contextual */}
-        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 md:px-8 py-4 sticky top-0 z-10">
-          {/* TOP ROW */}
-          <div className="flex items-center justify-between">
-            {/* LEFT */}
-            <div className="flex items-center gap-4">
-              {/* Mobile Hamburger */}
-              <button
-                onClick={() => setIsMobileMenuOpen(true)}
-                className="md:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg"
-              >
-                <Menu className="h-6 w-6" />
-              </button>
+        {activeTab !== "blog" && (
+          <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 md:px-8 py-4 sticky top-0 z-10">
+            {/* TOP ROW */}
+            <div className="flex items-center justify-between">
+              {/* LEFT */}
+              <div className="flex items-center gap-4">
+                {/* Mobile Hamburger */}
+                <button
+                  onClick={() => setIsMobileMenuOpen(true)}
+                  className="md:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg"
+                >
+                  <Menu className="h-6 w-6" />
+                </button>
 
-              {/* Title */}
-              <div>
-                <h2 className="text-xl md:text-2xl font-bold text-slate-800 dark:text-white">
-                  {activeTab === "properties" && "Property Details"}
-                  {activeTab === "inventory" && "Inventory Management"}
-                  {activeTab === "crm" && "Lead Management"}
-                  {activeTab === "chat" && "Communications"}
-                  {activeTab === "documents" && "Document Center"}
+                {/* Title */}
+                <div>
+                  <h2 className="text-xl md:text-2xl font-bold text-slate-800 dark:text-white">
+                    {activeTab === "properties" && "Property Details"}
+                    {activeTab === "inventory" && "Inventory Management"}
+                    {activeTab === "crm" && "Lead Management"}
+                    {activeTab === "chat" && "Communications"}
+                    {activeTab === "documents" && "Document Center"}
 
-                  {activeTab === "offers" && "Offers Management"}
-                  {activeTab === "blog" && "Blog & News"}
-                  {activeTab === "settings" && "Settings & Profile"}
-                </h2>
+                    {activeTab === "offers" && "Offers Management"}
+                    {activeTab === "blog" && "Blog & News"}
+                    {activeTab === "settings" && "Settings & Profile"}
+                  </h2>
 
-                {/* Subtitle (Desktop only) */}
-                <p className="hidden md:block text-sm text-slate-500 dark:text-slate-400">
-                  {activeTab === "properties" && "Manage your real estate inventory"}
-                  {activeTab === "inventory" && "Track unit status, sales, and availability"}
-                  {activeTab === "crm" && "Manage leads, site visits, and bookings"}
-                  {activeTab === "chat" && "Chat with potential buyers and agents"}
-                  {activeTab === "documents" && "Organize brochures, legal docs, and plans"}
+                  {/* Subtitle (Desktop only) */}
+                  <p className="hidden md:block text-sm text-slate-500 dark:text-slate-400">
+                    {activeTab === "properties" && "Manage your real estate inventory"}
+                    {activeTab === "inventory" && "Track unit status, sales, and availability"}
+                    {activeTab === "crm" && "Manage leads, site visits, and bookings"}
+                    {activeTab === "chat" && "Chat with potential buyers and agents"}
+                    {activeTab === "documents" && "Organize brochures, legal docs, and plans"}
 
-                  {activeTab === "offers" && "Create and track special deals"}
-                  {activeTab === "blog" && "Write and publish articles for your audience"}
-                  {activeTab === "settings" && "Manage company profile and system preferences"}
-                </p>
+                    {activeTab === "offers" && "Create and track special deals"}
+                    {activeTab === "blog" && "Write and publish articles for your audience"}
+                    {activeTab === "settings" && "Manage company profile and system preferences"}
+                  </p>
+                </div>
+              </div>
+
+              {/* CENTER – DESKTOP ONLY */}
+              {activeTab === "properties" && (
+                <div className="hidden md:flex items-center gap-6 text-sm font-medium absolute left-1/2 -translate-x-1/2">
+                  <button
+                    onClick={() => setPropertyFilter("published")}
+                    className={`pb-1 transition-colors ${propertyFilter === "published"
+                      ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
+                      : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                      }`}
+                  >
+                    Published ({properties.filter(p => p.status === "published").length})
+                  </button>
+
+
+                  <button
+                    onClick={() => setPropertyFilter("pending")}
+                    className={`pb-1 transition-colors ${propertyFilter === "pending"
+                      ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
+                      : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                      }`}
+                  >
+                    Pending ({properties.filter(p => p.status === "pending").length})
+                  </button>
+
+                  <button
+                    onClick={() => setPropertyFilter("draft")}
+                    className={`pb-1 transition-colors ${propertyFilter === "draft"
+                      ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
+                      : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                      }`}
+                  >
+                    Drafts ({properties.filter(p => p.status === "draft").length})
+                  </button>
+
+                  <button
+                    onClick={() => setPropertyFilter("rejected")}
+                    className={`pb-1 transition-colors ${propertyFilter === "rejected"
+                      ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
+                      : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                      }`}
+                  >
+                    Rejected ({properties.filter(p => p.status === "rejected").length})
+                  </button>
+                </div>
+              )}
+
+              {/* RIGHT */}
+              <div className="flex items-center gap-3">
+                {activeTab === "properties" && (
+                  <button
+                    onClick={() => setShowAddProperty(prev => !prev)}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm"
+                  >
+                    <Plus className="h-5 w-5" />
+
+                    {/* Mobile */}
+                    <span className="sm:hidden">Add </span>
+
+                    {/* Desktop */}
+                    <span className="hidden sm:inline">Add Property</span>
+                  </button>
+
+                )}
+
+                {activeTab === "offers" && !showAddOffer && (
+                  <button
+                    onClick={() => setShowAddOffer(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-lg font-medium shadow-sm"
+                  >
+                    <Plus className="h-5 w-5" />
+                    <span className="hidden sm:inline">Add Offer</span>
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* CENTER – DESKTOP ONLY */}
+            {/* MOBILE FILTERS (BOTTOM ROW) */}
             {activeTab === "properties" && (
-              <div className="hidden md:flex items-center gap-6 text-sm font-medium absolute left-1/2 -translate-x-1/2">
+              <div className="md:hidden mt-4 flex gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
                 <button
                   onClick={() => setPropertyFilter("published")}
-                  className={`pb-1 transition-colors ${propertyFilter === "published"
-                    ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
-                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                  className={`flex-1 py-2 text-sm rounded-md font-medium transition ${propertyFilter === "published"
+                    ? "bg-white dark:bg-slate-900 text-blue-600 shadow"
+                    : "text-slate-600 dark:text-slate-400"
                     }`}
-                >
+                  >
                   Published ({properties.filter(p => p.status === "published").length})
                 </button>
 
 
                 <button
                   onClick={() => setPropertyFilter("pending")}
-                  className={`pb-1 transition-colors ${propertyFilter === "pending"
-                    ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
-                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                  className={`flex-1 py-2 text-sm rounded-md font-medium transition ${propertyFilter === "pending"
+                    ? "bg-white dark:bg-slate-900 text-blue-600 shadow"
+                    : "text-slate-600 dark:text-slate-400"
                     }`}
                 >
                   Pending ({properties.filter(p => p.status === "pending").length})
@@ -720,115 +901,61 @@ function DashboardContent() {
 
                 <button
                   onClick={() => setPropertyFilter("draft")}
-                  className={`pb-1 transition-colors ${propertyFilter === "draft"
-                    ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
-                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                  className={`flex-1 py-2 text-sm rounded-md font-medium transition ${propertyFilter === "draft"
+                    ? "bg-white dark:bg-slate-900 text-blue-600 shadow"
+                    : "text-slate-600 dark:text-slate-400"
                     }`}
                 >
                   Drafts ({properties.filter(p => p.status === "draft").length})
                 </button>
-
-                <button
-                  onClick={() => setPropertyFilter("rejected")}
-                  className={`pb-1 transition-colors ${propertyFilter === "rejected"
-                    ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
-                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
-                    }`}
-                >
-                  Rejected ({properties.filter(p => p.status === "rejected").length})
-                </button>
               </div>
             )}
-
-            {/* RIGHT */}
-            <div className="flex items-center gap-3">
-              {activeTab === "properties" && (
-                <button
-                  onClick={() => setShowAddProperty(prev => !prev)}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm"
-                >
-                  <Plus className="h-5 w-5" />
-
-                  {/* Mobile */}
-                  <span className="sm:hidden">Add </span>
-
-                  {/* Desktop */}
-                  <span className="hidden sm:inline">Add Property</span>
-                </button>
-
-              )}
-
-              {activeTab === "offers" && !showAddOffer && (
-                <button
-                  onClick={() => setShowAddOffer(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-lg font-medium shadow-sm"
-                >
-                  <Plus className="h-5 w-5" />
-                  <span className="hidden sm:inline">Add Offer</span>
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* MOBILE FILTERS (BOTTOM ROW) */}
-          {activeTab === "properties" && (
-            <div className="md:hidden mt-4 flex gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
-              <button
-                onClick={() => setPropertyFilter("published")}
-                className={`flex-1 py-2 text-sm rounded-md font-medium transition ${propertyFilter === "published"
-                  ? "bg-white dark:bg-slate-900 text-blue-600 shadow"
-                  : "text-slate-600 dark:text-slate-400"
-                  }`}
-              >
-                Published ({properties.filter(p => p.status === "published").length})
-              </button>
-
-
-              <button
-                onClick={() => setPropertyFilter("pending")}
-                className={`flex-1 py-2 text-sm rounded-md font-medium transition ${propertyFilter === "pending"
-                  ? "bg-white dark:bg-slate-900 text-blue-600 shadow"
-                  : "text-slate-600 dark:text-slate-400"
-                  }`}
-              >
-                Pending ({properties.filter(p => p.status === "pending").length})
-              </button>
-
-              <button
-                onClick={() => setPropertyFilter("draft")}
-                className={`flex-1 py-2 text-sm rounded-md font-medium transition ${propertyFilter === "draft"
-                  ? "bg-white dark:bg-slate-900 text-blue-600 shadow"
-                  : "text-slate-600 dark:text-slate-400"
-                  }`}
-              >
-                Drafts ({properties.filter(p => p.status === "draft").length})
-              </button>
-            </div>
-          )}
-        </header>
+          </header>
+        )}
 
 
 
         {/* Content Scroll Area */}
-        <div className="flex-1 overflow-y-auto p-8">
+        <div className={`flex-1 overflow-y-auto ${activeTab === "blog" ? "p-0" : "p-8"}`}>
           {activeTab === "inventory" && <InventoryView />}
           {activeTab === "crm" && <CRMView />}
           {activeTab === "chat" && <ChatView />}
           {activeTab === "documents" && <DocumentsView />}
 
-          {activeTab === "blog" && <BlogView />}
+          {activeTab === "blog" && <BlogView onMenuClick={() => setIsMobileMenuOpen(true)} />}
           {activeTab === "properties" && (
             <div>
               {/* Add Property Button */}
-              <div className="mb-8 flex justify-between items-center">
-                <div>
+              <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex-shrink-0">
                   <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Your Properties</h2>
                   <p className="text-slate-600 dark:text-slate-400">Manage and create new property listings</p>
                 </div>
+
+                {/* Search Bar - Center */}
+                <div className="relative flex-1 max-w-md w-full md:mx-6">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
+                  <input
+                    type="text"
+                    value={propertySearchInput[propertyFilter] || ""}
+                    onChange={(e) => setPropertySearchInput(prev => ({ ...prev, [propertyFilter]: e.target.value }))}
+                    placeholder={`Search ${propertyFilter === 'draft' ? 'Draft' : propertyFilter.charAt(0).toUpperCase() + propertyFilter.slice(1)} Properties...`}
+                    className="w-full pl-10 pr-10 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:focus:ring-blue-600 transition-all shadow-sm text-slate-900 dark:text-white"
+                  />
+                  {propertySearchInput[propertyFilter] && (
+                    <button
+                      onClick={() => setPropertySearchInput(prev => ({ ...prev, [propertyFilter]: "" }))}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors p-0.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
                 <button
                   onClick={handleRefreshProperties}
                   disabled={isFetchingProperties}
-                  className="flex items-center gap-2 px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-medium transition-all shadow-sm disabled:opacity-50"
+                  className="flex-shrink-0 flex items-center justify-center gap-2 px-4 py-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 rounded-lg font-medium transition-all shadow-sm disabled:opacity-50"
                 >
                   <RefreshCw className={`h-4 w-4 ${isFetchingProperties ? 'animate-spin' : ''}`} />
                   <span className="hidden sm:inline">Refresh</span>
@@ -916,7 +1043,7 @@ function DashboardContent() {
 
               {/* Properties Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {isFetchingProperties && properties.filter(p => p.status === propertyFilter).length === 0 ? (
+                {isFetchingProperties && filteredProperties.length === 0 ? (
                   Array.from({ length: 3 }).map((_, i) => (
                     <div key={i} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm h-[380px] animate-pulse">
                       <div className="h-44 bg-slate-200 dark:bg-slate-800 rounded-t-xl" />
@@ -931,8 +1058,26 @@ function DashboardContent() {
                       </div>
                     </div>
                   ))
+                ) : filteredProperties.length === 0 && properties.filter(p => p.status === propertyFilter).length > 0 ? (
+                  <div className="col-span-full py-16 px-4 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm">
+                    <div className="w-16 h-16 rounded-full bg-slate-50 dark:bg-slate-800/40 flex items-center justify-center mx-auto mb-4">
+                      <Search className="w-8 h-8 text-slate-400 dark:text-slate-500" />
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">No Properties Found</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+                      We couldn't find any properties matching "{debouncedPropertySearch[propertyFilter]}" in this tab. Try adjusting your search query.
+                    </p>
+                    {propertySearchInput[propertyFilter] && (
+                      <button
+                        onClick={() => setPropertySearchInput(prev => ({ ...prev, [propertyFilter]: "" }))}
+                        className="mt-4 px-4 py-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-sm font-semibold rounded-lg transition-colors"
+                      >
+                        Clear Search
+                      </button>
+                    )}
+                  </div>
                 ) : (
-                  properties.filter(p => p.status === propertyFilter).map((property) => (
+                  filteredProperties.map((property) => (
                     <div
                       key={property.id}
                       className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col group"
@@ -990,12 +1135,12 @@ function DashboardContent() {
                         </div>
                       </div>
 
-                      {/* Property Header */}
+                       {/* Property Header */}
                       <div className="p-5 flex-1 min-w-0">
                         <div className="flex justify-between items-start gap-3 mb-3">
                           <div className="flex-1 min-w-0">
                             <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight transition-colors group-hover:text-blue-600 dark:group-hover:text-blue-400 truncate" title={property.townshipName || property.name}>
-                              {property.townshipName || property.name}
+                              {highlightMatch(property.townshipName || property.name, debouncedPropertySearch[propertyFilter] || "")}
                             </h3>
                           </div>
                           <div className="shrink-0 text-right">
@@ -1008,7 +1153,7 @@ function DashboardContent() {
 
                         <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs font-medium bg-slate-50 dark:bg-slate-800/40 p-2 rounded-lg">
                           <MapPin className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                          <span className="truncate">{property.location || 'Location N/A'}</span>
+                          <span className="truncate">{highlightMatch(property.location || 'Location N/A', debouncedPropertySearch[propertyFilter] || "")}</span>
                         </div>
                       </div>
 

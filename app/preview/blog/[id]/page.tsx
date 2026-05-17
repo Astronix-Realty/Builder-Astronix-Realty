@@ -34,7 +34,7 @@ export default function BlogPreviewPage() {
           const res = await fetch(`/api/blogs/${id}`);
           if (res.ok) {
             const data = await res.json();
-            setBlog(data.data);
+            setBlog(data.blog);
           }
         } catch (error) {
           console.error("Failed to fetch blog for preview", error);
@@ -109,7 +109,7 @@ export default function BlogPreviewPage() {
               <ArrowLeft className="w-4 h-4" /> Back to Editor
             </button>
             <div className="h-4 w-px bg-slate-300 dark:bg-slate-700"></div>
-            <span className="text-xs font-bold uppercase tracking-wider px-2 py-1 bg-yellow-100 text-yellow-800 rounded-md">
+            <span className="text-xs font-bold uppercase tracking-wider px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400 rounded-md">
               Live Preview Mode
             </span>
           </div>
@@ -117,7 +117,7 @@ export default function BlogPreviewPage() {
           <button 
             onClick={handlePublish}
             disabled={isPublishing}
-            className="flex items-center gap-2 px-6 py-2 bg-slate-900 hover:bg-blue-600 text-white text-sm font-bold rounded-full transition-all disabled:opacity-50"
+            className="flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-full shadow-md shadow-blue-500/10 transition-all disabled:opacity-50"
           >
             {isPublishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             Publish Now
@@ -129,8 +129,8 @@ export default function BlogPreviewPage() {
       <main className="pb-24">
         {/* Dynamic Title if no Hero block exists to show it */}
         {(!blog.blocks || !blog.blocks.find((b: any) => b.type === 'hero')) && (
-           <div className="max-w-4xl mx-auto px-4 mt-12 mb-8">
-             <h1 className="text-4xl font-black text-slate-900 dark:text-white">{blog.title || "Untitled Blog"}</h1>
+           <div className="max-w-3xl mx-auto px-5 sm:px-6 md:px-8 mt-12 mb-8">
+             <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 dark:text-white leading-tight tracking-tight">{blog.title || "Untitled Blog"}</h1>
            </div>
         )}
         
