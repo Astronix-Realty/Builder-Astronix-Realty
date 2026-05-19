@@ -15,9 +15,15 @@ interface PendingTransaction {
 }
 
 interface CRMState {
-  // Normalized Entity Storage
-  leadsById: Record<string, ValidatedLead>;
-  allLeadIds: string[];
+  // Normalized Entity Storage partitioned by role
+  leadsById: {
+    builder: Record<string, ValidatedLead>;
+    mandate: Record<string, ValidatedLead>;
+  };
+  allLeadIds: {
+    builder: string[];
+    mandate: string[];
+  };
   
   // Hydration & Connection
   _hasHydrated: boolean;
@@ -32,25 +38,25 @@ interface CRMState {
   setSSEStatus: (status: 'connecting' | 'connected' | 'disconnected') => void;
   updateHeartbeat: () => void;
   
-  // Lead Actions
-  setInitialLeads: (leads: ValidatedLead[]) => void;
-  upsertLead: (lead: ValidatedLead) => void;
-  removeLead: (leadId: string) => void;
+  // Lead Actions (strictly tenant-isolated)
+  setInitialLeads: (role: 'builder' | 'mandate', leads: ValidatedLead[]) => void;
+  upsertLead: (role: 'builder' | 'mandate', lead: ValidatedLead) => void;
+  removeLead: (role: 'builder' | 'mandate', leadId: string) => void;
   
   // Optimistic Mutations
-  optimisticUpdateStatus: (leadId: string, newStatus: LeadStatus, mutationId: string) => void;
+  optimisticUpdateStatus: (role: 'builder' | 'mandate', leadId: string, newStatus: LeadStatus, mutationId: string) => void;
   resolveTransaction: (mutationId: string) => void;
   failTransaction: (mutationId: string) => void;
   
   // Background Reconciler
-  reconcileState: (truthSnapshot: { id: string, updatedAt: string }[]) => string[]; // returns out-of-sync IDs
+  reconcileState: (role: 'builder' | 'mandate', truthSnapshot: { id: string, updatedAt: string }[]) => string[]; // returns out-of-sync IDs
 }
 
 export const useCRMStore = create<CRMState>()(
   devtools(
     (set, get) => ({
-      leadsById: {},
-      allLeadIds: [],
+      leadsById: { builder: {}, mandate: {} },
+      allLeadIds: { builder: [], mandate: [] },
       
       _hasHydrated: false,
       sseStatus: 'disconnected',
@@ -62,9 +68,9 @@ export const useCRMStore = create<CRMState>()(
       setSSEStatus: (status) => set({ sseStatus: status }, false, 'setSSEStatus'),
       updateHeartbeat: () => set({ lastHeartbeat: Date.now() }, false, 'updateHeartbeat'),
       
-      setInitialLeads: (leads) => {
+      setInitialLeads: (role, leads) => {
         set((state) => {
-            const byId = { ...state.leadsById };
+            const byId = { ...state.leadsById[role] };
             const fetchedIds = new Set(leads.map(l => l.id));
             
             leads.forEach(l => {
@@ -72,13 +78,22 @@ export const useCRMStore = create<CRMState>()(
             });
             
             // Keep realtime leads not present in fetch
-            const realTimeIds = state.allLeadIds.filter(id => !fetchedIds.has(id));
+            const realTimeIds = state.allLeadIds[role].filter(id => !fetchedIds.has(id));
             
-            return { leadsById: byId, allLeadIds: [...realTimeIds, ...Array.from(fetchedIds)] };
+            return { 
+              leadsById: {
+                ...state.leadsById,
+                [role]: byId
+              }, 
+              allLeadIds: {
+                ...state.allLeadIds,
+                [role]: [...realTimeIds, ...Array.from(fetchedIds)]
+              } 
+            };
         }, false, 'setInitialLeads');
       },
       
-      upsertLead: (rawLead) => {
+      upsertLead: (role, rawLead) => {
         const parsed = LeadSchema.safeParse(rawLead);
         if (!parsed.success) {
           console.error("[Zod] Rejected corrupted realtime lead injection:", parsed.error);
@@ -94,33 +109,48 @@ export const useCRMStore = create<CRMState>()(
             set({ pendingTransactions: restTx });
         }
 
-        const isNew = !state.leadsById[lead.id];
+        const isNew = !state.leadsById[role][lead.id];
         
         set((prev) => ({
-          leadsById: { ...prev.leadsById, [lead.id]: lead },
-          allLeadIds: isNew ? [lead.id, ...prev.allLeadIds] : prev.allLeadIds
+          leadsById: {
+            ...prev.leadsById,
+            [role]: { ...prev.leadsById[role], [lead.id]: lead }
+          },
+          allLeadIds: {
+            ...prev.allLeadIds,
+            [role]: isNew ? [lead.id, ...prev.allLeadIds[role]] : prev.allLeadIds[role]
+          }
         }), false, 'upsertLead');
       },
       
-      removeLead: (leadId) => {
+      removeLead: (role, leadId) => {
         set((state) => {
-            const { [leadId]: _, ...rest } = state.leadsById;
+            const { [leadId]: _, ...rest } = state.leadsById[role];
             return {
-                leadsById: rest,
-                allLeadIds: state.allLeadIds.filter(id => id !== leadId)
+                leadsById: {
+                  ...state.leadsById,
+                  [role]: rest
+                },
+                allLeadIds: {
+                  ...state.allLeadIds,
+                  [role]: state.allLeadIds[role].filter(id => id !== leadId)
+                }
             };
         }, false, 'removeLead');
       },
       
-      optimisticUpdateStatus: (leadId, newStatus, mutationId) => {
-        const lead = get().leadsById[leadId];
+      optimisticUpdateStatus: (role, leadId, newStatus, mutationId) => {
+        const lead = get().leadsById[role][leadId];
         if (!lead) return;
         
         set((state) => ({
-          // Optimistically mutate the normalized dictionary directly
+          // Optimistically mutate the normalized dictionary directly for correct role
           leadsById: {
             ...state.leadsById,
-            [leadId]: { ...lead, status: newStatus }
+            [role]: {
+              ...state.leadsById[role],
+              [leadId]: { ...lead, status: newStatus }
+            }
           },
           // Track the transaction to prevent overlapping race conditions
           pendingTransactions: {
@@ -157,13 +187,13 @@ export const useCRMStore = create<CRMState>()(
         }, false, 'failTransaction');
       },
       
-      reconcileState: (truthSnapshot) => {
+      reconcileState: (role, truthSnapshot) => {
         const state = get();
         const desyncedIds: string[] = [];
         
         // Basic checksum validation for silent network drops
         truthSnapshot.forEach(truth => {
-           const local = state.leadsById[truth.id];
+           const local = state.leadsById[role][truth.id];
            if (!local) {
                desyncedIds.push(truth.id);
            }

@@ -34,7 +34,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // Reconstruct the split documents back into standard WizardState for editing
     // We do this if NOT draft, OR if it's a draft that was cloned (has publishedId) but has empty details.
-    const isRecNeeded = (finalProperty.status === "published" || finalProperty.status === "archived") || (finalProperty.publishedId && (!finalProperty.details?.projects || finalProperty.details.projects.length === 0));
+    const isRecNeeded = (["published", "archived", "active", "pending", "rejected"].includes(finalProperty.status)) || (finalProperty.publishedId && (!finalProperty.details?.projects || finalProperty.details.projects.length === 0));
 
     if (isRecNeeded) {
       let wizardState: any = {
@@ -97,6 +97,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           const pData = extractProjectData(p.details, p._id.toString(), (p as any).name);
           projectDbIds.push(p._id.toString());
           return {
+            name: p.name,
             ...pData,
             _dbId: p._id.toString(),
             id: p._id.toString() // Consistency Fix: Use MongoDB _id
@@ -111,7 +112,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           const towerId = t._id.toString(); // Consistency Fix: Use MongoDB _id
           if (unitConfig) wizardState.towerUnitConfigs.push({ ...unitConfig, towerId });
           towerDbIds.push(t._id.toString());
-          return { ...rest, id: towerId, _dbId: t._id.toString(), projectId: t.parentId?.toString() };
+          return { name: t.name, ...rest, id: towerId, _dbId: t._id.toString(), projectId: t.parentId?.toString() };
         });
 
       } else if (finalProperty.type === 'project') {
@@ -126,14 +127,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           const towerId = t._id.toString(); // Consistency Fix: Use MongoDB _id
           if (unitConfig) wizardState.towerUnitConfigs.push({ ...unitConfig, towerId });
           towerDbIds.push(t._id.toString());
-          return { ...rest, id: towerId, _dbId: t._id.toString(), projectId: t.parentId?.toString() };
+          return { name: t.name, ...rest, id: towerId, _dbId: t._id.toString(), projectId: t.parentId?.toString() };
         });
 
       } else if (finalProperty.type === 'tower') {
         const tData = extractTowerData(finalProperty.details, id, finalProperty.name);
         const { unitConfig, ...rest } = tData as any;
         const towerId = id; // Consistency Fix: Use MongoDB _id
-        wizardState.towers = [{ ...rest, id: towerId, _dbId: id }];
+        wizardState.towers = [{ name: finalProperty.name, ...rest, id: towerId, _dbId: id }];
         if (unitConfig) wizardState.towerUnitConfigs.push({ ...unitConfig, towerId });
         towerDbIds.push(id);
       }

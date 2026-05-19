@@ -100,17 +100,16 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
     const storagePrefix = userRole === "mandate" ? "mandate_" : ""
     const [viewMode, setViewMode] = useState<"pipeline" | "list" | "profile" | "analytics">("pipeline")
     
-    // Zustand Global State Integration
-    const {
-        leadsById,
-        allLeadIds,
-        setInitialLeads,
-        upsertLead,
-        removeLead,
-        optimisticUpdateStatus,
-        resolveTransaction,
-        failTransaction
-    } = useCRMStore()
+    // Zustand Global State Integration (Role-Isolated)
+    const store = useCRMStore()
+    const leadsById = store.leadsById[userRole] || {}
+    const allLeadIds = store.allLeadIds[userRole] || []
+
+    const setInitialLeads = (leads: any[]) => store.setInitialLeads(userRole, leads)
+    const upsertLead = (lead: any) => store.upsertLead(userRole, lead)
+    const removeLead = (leadId: string) => store.removeLead(userRole, leadId)
+    const optimisticUpdateStatus = (leadId: string, newStatus: LeadStatus, mutationId: string) => store.optimisticUpdateStatus(userRole, leadId, newStatus, mutationId)
+    const { resolveTransaction, failTransaction } = store
 
     // Map normalized store back to array for UI compatibility
     const leads = useMemo(() => allLeadIds.map(id => leadsById[id]).filter(Boolean) as Lead[], [allLeadIds, leadsById])
@@ -285,7 +284,7 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                 if (res.ok) {
                     const data = await res.json();
                     if (data.snapshot) {
-                        const desyncedIds = useCRMStore.getState().reconcileState(data.snapshot);
+                        const desyncedIds = useCRMStore.getState().reconcileState(userRole, data.snapshot);
                         if (desyncedIds.length > 0) {
                             console.warn(`[Reconciler] Detected ${desyncedIds.length} missing/stale leads. Triggering hard refetch...`);
                             fetchLeads("", false);

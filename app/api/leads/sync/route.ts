@@ -1,16 +1,25 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Lead from "@/models/Lead";
+import { checkRBAC, getOwnershipQuery } from "@/lib/rbac";
 
-// Force re-build comment v2
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
     try {
+        const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+        if (errorResponse) return errorResponse;
+
         await dbConnect();
         
-        // Fetch only IDs and timestamps (lightweight checksum payload)
-        const leads = await Lead.find({}, { _id: 1, updatedAt: 1, createdAt: 1 }).lean();
+        // Strictly isolated query
+        const query: any = {
+            ...getOwnershipQuery(context!),
+            isArchived: { $ne: true }
+        };
+
+        // Fetch only IDs and timestamps (lightweight checksum payload) for authorized leads
+        const leads = await Lead.find(query, { _id: 1, updatedAt: 1, createdAt: 1 }).lean();
         
         const snapshot = leads.map((l: any) => ({
             id: String(l._id),

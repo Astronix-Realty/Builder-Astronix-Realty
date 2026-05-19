@@ -121,15 +121,67 @@ function DashboardContent() {
   // Theme Logic
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('light')
 
-  useEffect(() => {
-    // Check local storage or system preference on mount
-    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | 'system' | null
-    if (savedTheme) {
-      setTheme(savedTheme)
-    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setTheme('system')
+  const saveThemeToDb = async (newTheme: 'light' | 'dark' | 'system') => {
+    try {
+      await fetch("/api/auth/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ theme: newTheme })
+      })
+    } catch (error) {
+      console.error("Failed to save theme setting to DB", error)
     }
-  }, [])
+  }
+
+  const handleThemeChange = (newTheme: 'light' | 'dark' | 'system') => {
+    setTheme(newTheme)
+    saveThemeToDb(newTheme)
+  }
+
+  // Notification Preferences Logic
+  const [notifications, setNotifications] = useState<Record<string, boolean>>({
+    "New Lead Alerts": true,
+    "Weekly Performance Reports": true,
+    "Offer Expiry Reminders": true
+  })
+
+  const saveNotificationsToDb = async (updatedNotifications: Record<string, boolean>) => {
+    try {
+      await fetch("/api/auth/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notifications: updatedNotifications })
+      })
+    } catch (error) {
+      console.error("Failed to save notification preferences to DB", error)
+    }
+  }
+
+  const handleNotificationChange = (key: string, checked: boolean) => {
+    const updated = { ...notifications, [key]: checked }
+    setNotifications(updated)
+    saveNotificationsToDb(updated)
+  }
+
+  useEffect(() => {
+    if (currentUser?.profile?.notifications) {
+      setNotifications(currentUser.profile.notifications)
+    }
+  }, [currentUser])
+
+  useEffect(() => {
+    // Check database first, then local storage or system preference on mount
+    if (currentUser?.profile?.theme) {
+      setTheme(currentUser.profile.theme)
+    } else {
+      const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | 'system' | null
+      if (savedTheme) {
+        setTheme(savedTheme)
+      } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        setTheme('system')
+      }
+    }
+  }, [currentUser])
 
   useEffect(() => {
     const root = window.document.documentElement
@@ -2084,7 +2136,7 @@ function DashboardContent() {
                           <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">Choose how Builder Dashboard looks on your device.</p>
                           <div className="grid grid-cols-3 gap-4">
                             <label className="cursor-pointer">
-                              <input type="radio" name="theme" value="light" checked={theme === 'light'} onChange={() => setTheme('light')} className="peer sr-only" />
+                              <input type="radio" name="theme" value="light" checked={theme === 'light'} onChange={() => handleThemeChange('light')} className="peer sr-only" />
                               <div className="p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 peer-checked:border-blue-600 dark:peer-checked:border-blue-500 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
                                 <div className="w-full h-20 bg-slate-100 rounded-lg mb-3 border border-slate-200 flex flex-col gap-2 p-2 overflow-hidden">
                                   <div className="h-2 w-full bg-white rounded-full"></div>
@@ -2094,7 +2146,7 @@ function DashboardContent() {
                               </div>
                             </label>
                             <label className="cursor-pointer">
-                              <input type="radio" name="theme" value="dark" checked={theme === 'dark'} onChange={() => setTheme('dark')} className="peer sr-only" />
+                              <input type="radio" name="theme" value="dark" checked={theme === 'dark'} onChange={() => handleThemeChange('dark')} className="peer sr-only" />
                               <div className="p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 peer-checked:border-blue-600 dark:peer-checked:border-blue-500 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
                                 <div className="w-full h-20 bg-slate-800 rounded-lg mb-3 border border-slate-700 flex flex-col gap-2 p-2 overflow-hidden">
                                   <div className="h-2 w-full bg-slate-700 rounded-full"></div>
@@ -2104,7 +2156,7 @@ function DashboardContent() {
                               </div>
                             </label>
                             <label className="cursor-pointer">
-                              <input type="radio" name="theme" value="system" checked={theme === 'system'} onChange={() => setTheme('system')} className="peer sr-only" />
+                              <input type="radio" name="theme" value="system" checked={theme === 'system'} onChange={() => handleThemeChange('system')} className="peer sr-only" />
                               <div className="p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 peer-checked:border-blue-600 dark:peer-checked:border-blue-500 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
                                 <div className="w-full h-20 bg-gradient-to-br from-slate-100 to-slate-800 rounded-lg mb-3 border border-slate-200 overflow-hidden relative">
                                   <div className="absolute inset-y-0 left-0 w-1/2 bg-slate-100"></div>
@@ -2125,15 +2177,29 @@ function DashboardContent() {
                           Notification Preferences
                         </h3>
                         <div className="pl-10 grid gap-4">
-                          {['New Lead Alerts', 'Weekly Performance Reports', 'Offer Expiry Reminders'].map(item => (
-                            <div key={item} className="flex items-center justify-between">
-                              <span className="text-slate-700 dark:text-slate-300">{item}</span>
-                              <label className="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" className="sr-only peer" defaultChecked />
-                                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-                              </label>
-                            </div>
-                          ))}
+                          {['New Lead Alerts', 'Weekly Performance Reports', 'Offer Expiry Reminders'].map(item => {
+                            const isOn = notifications[item] !== false
+                            return (
+                              <div key={item} className="flex items-center justify-between">
+                                <span className="text-slate-700 dark:text-slate-300">{item}</span>
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={isOn}
+                                  onClick={() => handleNotificationChange(item, !isOn)}
+                                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                                    isOn ? 'bg-blue-600' : 'bg-slate-200 dark:bg-slate-700'
+                                  }`}
+                                >
+                                  <span
+                                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                                      isOn ? 'translate-x-[22px]' : 'translate-x-[2px]'
+                                    }`}
+                                  />
+                                </button>
+                              </div>
+                            )
+                          })}
                         </div>
                       </div>
 

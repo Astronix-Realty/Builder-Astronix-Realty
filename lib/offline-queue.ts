@@ -1,9 +1,18 @@
+function getStorageKey(): string {
+    if (typeof window !== "undefined") {
+        const isMandate = window.location.pathname.includes('mandate');
+        return isMandate ? 'mandate_crm_offline_queue' : 'builder_crm_offline_queue';
+    }
+    return 'builder_crm_offline_queue';
+}
+
 export async function offlineSafeFetch(url: string, options: RequestInit) {
     if (!navigator.onLine) {
         // Queue it locally
-        const queue = JSON.parse(localStorage.getItem('crm_offline_queue') || '[]');
+        const key = getStorageKey();
+        const queue = JSON.parse(localStorage.getItem(key) || '[]');
         queue.push({ url, options, timestamp: Date.now() });
-        localStorage.setItem('crm_offline_queue', JSON.stringify(queue));
+        localStorage.setItem(key, JSON.stringify(queue));
         
         // Throw an error so the UI knows it was queued, or return a fake success response
         // For optimistic UI, we can return a fake success
@@ -16,16 +25,18 @@ export async function offlineSafeFetch(url: string, options: RequestInit) {
         return response;
     } catch (error) {
         // Fallback queue if fetch fails due to network mid-request
-        const queue = JSON.parse(localStorage.getItem('crm_offline_queue') || '[]');
+        const key = getStorageKey();
+        const queue = JSON.parse(localStorage.getItem(key) || '[]');
         queue.push({ url, options, timestamp: Date.now() });
-        localStorage.setItem('crm_offline_queue', JSON.stringify(queue));
+        localStorage.setItem(key, JSON.stringify(queue));
         return { ok: true, isOfflineQueued: true, json: async () => ({ success: true, message: "Queued offline due to error" }) };
     }
 }
 
 // Function to call on 'online' event
 export async function syncOfflineQueue() {
-    const queue = JSON.parse(localStorage.getItem('crm_offline_queue') || '[]');
+    const key = getStorageKey();
+    const queue = JSON.parse(localStorage.getItem(key) || '[]');
     if (queue.length === 0) return;
 
     for (let i = 0; i < queue.length; i++) {
@@ -34,13 +45,13 @@ export async function syncOfflineQueue() {
         } catch (error) {
             console.error("Failed to sync queued request", error);
             // keep remaining items
-            localStorage.setItem('crm_offline_queue', JSON.stringify(queue.slice(i)));
+            localStorage.setItem(key, JSON.stringify(queue.slice(i)));
             return;
         }
     }
 
     // Success, clear queue
-    localStorage.removeItem('crm_offline_queue');
+    localStorage.removeItem(key);
 }
 
 if (typeof window !== "undefined") {

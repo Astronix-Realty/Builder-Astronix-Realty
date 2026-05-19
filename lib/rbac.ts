@@ -67,24 +67,29 @@ export async function checkRBAC(
   }
 }
 
-/**
- * Generates the unified tenancy/ownership query filter.
- * Ensures builders only fetch builder assets, and mandates fetch mandate assets.
- */
 export function getOwnershipQuery(context: RBACContext): Record<string, any> {
   if (context.role === 'builder') {
+    const conditions: any[] = [];
+    if (context.userId) {
+      conditions.push({ builderId: context.userId });
+      conditions.push({ accountId: context.userId });
+    }
     return {
-      $or: [
-        { builderId: context.userId },
-        { accountId: context.userId }
-      ]
+      role: { $ne: 'mandate' },
+      ...(conditions.length > 0 ? { $or: conditions } : { _id: null })
     };
   } else if (context.role === 'mandate') {
+    const conditions: any[] = [];
+    if (context.userId) {
+      conditions.push({ accountId: context.userId });
+    }
+    if (context.mandateId) {
+      conditions.push({ mandateId: context.mandateId });
+      conditions.push({ mandateId: context.userId });
+    }
     return {
-      $or: [
-        { mandateId: context.userId },
-        { accountId: context.userId }
-      ]
+      role: 'mandate',
+      ...(conditions.length > 0 ? { $or: conditions } : { _id: null })
     };
   }
   return {};

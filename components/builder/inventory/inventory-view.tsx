@@ -117,17 +117,27 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
 
     useEffect(() => {
         if (selectedPropertyId) {
-            // Only fetch if we don't have the full details (e.g. generatedUnits) yet
-            // or if we want to ensure fresh data on every selection
+            // Reset filters when property switches
+            setSelectedProjectId("all")
+            setSelectedTowerId("all")
+            setStatusFilter("all")
+            setConfigFilter("all")
+            setSearchTerm("")
             fetchFullProperty(selectedPropertyId)
         }
     }, [selectedPropertyId])
+
+    // Automatically reset tower selection when project phase changes
+    useEffect(() => {
+        setSelectedTowerId("all")
+    }, [selectedProjectId])
 
     const loadProperties = async (showFullLoader = true) => {
         if (showFullLoader) setLoading(true)
         else setIsRefreshing(true)
         try {
-            const res = await fetch("/api/properties?status=published")
+            // Root-level fix: Query all properties to get draft/pending/published and filter properly in frontend
+            const res = await fetch("/api/properties")
             if (res.ok) {
                 const data = await res.json()
                 const publishedOnly = (data.properties || []).filter((p: any) => 
@@ -137,9 +147,11 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                 let targetId = selectedPropertyId;
                 
                 if (targetId) {
-                    const isStillValid = publishedOnly.some((p: any) => (p._id || p.id) === targetId)
+                    const isStillValid = publishedOnly.some((p: any) => 
+                        (p._id || p.id)?.toString() === targetId.toString()
+                    )
                     if (!isStillValid) {
-                        targetId = publishedOnly.length > 0 ? (publishedOnly[0]._id || publishedOnly[0].id) : ""
+                        targetId = publishedOnly.length > 0 ? (publishedOnly[0]._id || publishedOnly[0].id)?.toString() : ""
                     }
                 } else if (publishedOnly.length > 0) {
                     targetId = (publishedOnly[0]._id || publishedOnly[0].id)?.toString() || ""
@@ -189,7 +201,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
         return () => clearInterval(interval)
     }, [selectedPropertyId, isRefreshing, loading])
 
-    const fetchFullProperty = async (id: string) => {
+    const fetchFullProperty = async (id: string, showLoader = false) => {
         if (!id) return
         try {
             const res = await fetch(`/api/properties/${id}`)
@@ -197,13 +209,13 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                 const data = await res.json()
                 const updatedProperty = data.property
                 
-                // Root-level fix: Ensure the property is still published before keeping it in inventory
-                const isValid = updatedProperty.status === "published" || updatedProperty.status === "active"
+                // Root-level fix: Ensure the property is still in valid status before keeping it in inventory
+                const isValid = updatedProperty.status === "published" || updatedProperty.status === "active" || updatedProperty.status === "pending"
                 
                 setProperties(prev => {
                     const newProps = prev.map(p => 
                         ((p as any)._id?.toString() === id || p.id?.toString() === id) ? updatedProperty : p
-                    ).filter(p => p.status === "published" || p.status === "active")
+                    ).filter(p => p.status === "published" || p.status === "active" || p.status === "pending")
                     
                     // If the selected property was just filtered out, reset selection
                     if (!isValid && selectedPropertyId === id) {
@@ -413,10 +425,12 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
     const projects = data.projects || []
     const towers = data.towers || []
 
+    const propertyType = currentProperty ? (currentProperty.flowType || currentProperty.type || "township") : "township"
+
     // Filtered Towers based on Project Selection
     const visibleTowers = selectedProjectId === "all"
         ? towers
-        : towers.filter((t: any) => (t._dbId || t.id)?.toString() === selectedProjectId)
+        : towers.filter((t: any) => (t.projectId || t.parentId)?.toString() === selectedProjectId)
 
     // Units Processing
     const allUnits = data.generatedUnits || []
@@ -425,8 +439,12 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
         // Hierarchy
         if (selectedTowerId !== "all" && unit.towerId !== selectedTowerId) return false
         if (selectedProjectId !== "all" && selectedTowerId === "all") {
-            const tower = towers.find((t: any) => (t._dbId || t.id)?.toString() === unit.towerId)
-            if (tower?.projectId !== selectedProjectId) return false
+            if (unit.projectId) {
+                if (unit.projectId !== selectedProjectId) return false;
+            } else {
+                const tower = towers.find((t: any) => (t._dbId || t.id)?.toString() === unit.towerId)
+                if ((tower?.projectId || tower?.parentId)?.toString() !== selectedProjectId) return false
+            }
         }
 
         // Filters
@@ -434,8 +452,8 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
         if (configFilter !== "all" && unit.configuration !== configFilter) return false
         if (searchTerm) {
             const term = searchTerm.toLowerCase()
-            return unit.unitNumber.toLowerCase().includes(term) ||
-                unit.configuration.toLowerCase().includes(term) ||
+            return (unit.unitNumber || "").toLowerCase().includes(term) ||
+                (unit.configuration || "").toLowerCase().includes(term) ||
                 (unit.customerName || "").toLowerCase().includes(term)
         }
 
@@ -505,7 +523,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                 <CardTitle className="text-sm font-medium">Filter Units</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                {currentProperty.flowType === "township" && (
+                                {propertyType === "township" && (
                                     <div className="space-y-2">
                                         <Label className="text-xs text-muted-foreground">Project Phase</Label>
                                         <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
@@ -522,20 +540,22 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                     </div>
                                 )}
 
-                                <div className="space-y-2">
-                                    <Label className="text-xs text-muted-foreground">Tower</Label>
-                                    <Select value={selectedTowerId} onValueChange={setSelectedTowerId}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="All Towers" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem key="all" value="all">All Towers</SelectItem>
-                                            {visibleTowers.map((tw: any, idx: number) => (
-                                                <SelectItem key={(tw._dbId || tw.id)?.toString() || `tower-${idx}`} value={(tw._dbId || tw.id)?.toString() || `tower-${idx}`}>{tw.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
+                                {propertyType !== "tower" && (
+                                    <div className="space-y-2">
+                                        <Label className="text-xs text-muted-foreground">Tower</Label>
+                                        <Select value={selectedTowerId} onValueChange={setSelectedTowerId}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="All Towers" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem key="all" value="all">All Towers</SelectItem>
+                                                {visibleTowers.map((tw: any, idx: number) => (
+                                                    <SelectItem key={(tw._dbId || tw.id)?.toString() || `tower-${idx}`} value={(tw._dbId || tw.id)?.toString() || `tower-${idx}`}>{tw.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
 
                                 <div className="space-y-2">
                                     <Label className="text-xs text-muted-foreground">Status</Label>

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Lead from "@/models/Lead";
 import Conversation from "@/models/Conversation";
+import Property from "@/models/Property";
+import User from "@/models/User";
 import { broadcastEvent } from "@/lib/sse";
 
 export async function POST(req: NextRequest) {
@@ -18,14 +20,64 @@ export async function POST(req: NextRequest) {
             }, { status: 400 });
         }
 
-        // --- Duplicate Prevention & Lead Sync ---
-        const existingLead = await Lead.findOne({
+        // --- Resolve Tenant Boundaries ---
+        let leadRole: "builder" | "mandate" = "builder";
+        let leadAccountId = builderId;
+        let leadBuilderId = builderId;
+        let leadMandateId = null;
+
+        if (projectId) {
+            const property = await Property.findById(projectId);
+            if (property) {
+                leadRole = property.role || "builder";
+                leadAccountId = property.accountId || property.builderId;
+                leadBuilderId = property.builderId;
+                leadMandateId = property.mandateId || null;
+            }
+        } 
+        
+        if (!leadAccountId && builderId) {
+            const user = await User.findById(builderId);
+            if (user) {
+                leadRole = user.role || "builder";
+                leadAccountId = user._id;
+                leadBuilderId = user.builderId || user._id;
+                leadMandateId = user.mandateId || null;
+            }
+        }
+
+        // --- Duplicate Prevention strictly scoped to this tenant ---
+        const duplicateQuery: any = {
             $or: [
                 { phone },
                 ...(email ? [{ email: email?.toLowerCase() }] : [])
             ],
-            isArchived: { $ne: true }
-        });
+            isArchived: { $ne: true },
+            role: leadRole
+        };
+
+        if (leadRole === 'builder') {
+            duplicateQuery.$or = duplicateQuery.$or.map((cond: any) => ({
+                ...cond,
+                $or: [
+                    { builderId: leadBuilderId },
+                    { accountId: leadAccountId }
+                ]
+            }));
+        } else if (leadRole === 'mandate') {
+            duplicateQuery.$or = duplicateQuery.$or.map((cond: any) => {
+                const conditions: any[] = [{ accountId: leadAccountId }];
+                if (leadMandateId) {
+                    conditions.push({ mandateId: leadMandateId });
+                }
+                return {
+                    ...cond,
+                    $or: conditions
+                };
+            });
+        }
+
+        const existingLead = await Lead.findOne(duplicateQuery);
 
         if (existingLead) {
             // Update existing lead with new interest/activity
@@ -52,10 +104,14 @@ export async function POST(req: NextRequest) {
                 }
             );
 
-            // Broadcast real-time update to CRM
+            // Broadcast real-time update to CRM (with tenancy fields to assist filter)
             broadcastEvent({
                 type: "LEAD_UPDATED",
                 leadId: existingLead._id.toString(),
+                role: existingLead.role,
+                accountId: existingLead.accountId?.toString(),
+                builderId: existingLead.builderId?.toString(),
+                mandateId: existingLead.mandateId?.toString(),
                 data: existingLead,
                 timestamp: Date.now()
             });
@@ -68,7 +124,7 @@ export async function POST(req: NextRequest) {
             }, { status: 200 });
         }
 
-        // --- Create New Lead ---
+        // --- Create New Lead with resolved tenant attributes ---
         const newLead = await Lead.create({
             name,
             email: email?.toLowerCase(),
@@ -76,7 +132,10 @@ export async function POST(req: NextRequest) {
             source: source || "Website",
             requirement,
             budget,
-            builderId,
+            builderId: leadBuilderId,
+            accountId: leadAccountId,
+            role: leadRole,
+            mandateId: leadMandateId,
             projectId,
             status: "Fresh",
             assignee: "astronixrealty",  // Website leads auto-assigned
@@ -87,10 +146,13 @@ export async function POST(req: NextRequest) {
             }]
         });
 
-        // --- Auto-create Conversation Thread ---
+        // --- Auto-create Conversation Thread with resolved tenant attributes ---
         const conversation = await Conversation.create({
             leadId: newLead._id,
-            builderId,
+            builderId: leadBuilderId,
+            accountId: leadAccountId,
+            role: leadRole,
+            mandateId: leadMandateId,
             leadName: name,
             leadPhone: phone,
             messages: [{
