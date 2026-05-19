@@ -2,18 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Property from "@/models/Property";
 import Unit from "@/models/Unit";
-import { getTokenFromRequest, verifyToken } from "@/lib/auth";
+import { checkRBAC, getOwnershipQuery } from "@/lib/rbac";
 import { secureDeleteProperty } from "@/services/property-service";
 
 // GET /api/properties/[id] - Fetch a single property
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const token = getTokenFromRequest(req);
-    if (!token) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-
-    const decoded = verifyToken(token);
-    if (!decoded) return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    if (errorResponse) return errorResponse;
 
     // Guard: invalid ObjectId format → skip DB call and return a clean 404
     if (!/^[a-f\d]{24}$/i.test(id)) {
@@ -25,25 +22,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     // Only allow fetching properties owned by the token holder and not deleted
     const property = await Property.findOne({
       _id: id,
-      builderId: decoded.userId,
+      ...getOwnershipQuery(context!),
       isDeleted: false
     });
 
     if (!property) {
-      if (process.env.NODE_ENV !== "production") {
-        // Check if the property exists at all (ownership mismatch vs deleted vs not found)
-        const exists = await Property.findById(id).lean();
-        if (!exists) {
-          console.warn(`[GET /api/properties/${id}] Not found in DB at all.`);
-        } else if ((exists as any).isDeleted) {
-          console.warn(`[GET /api/properties/${id}] Found but isDeleted=true.`);
-        } else {
-          console.warn(
-            `[GET /api/properties/${id}] builderId mismatch. doc.builderId='${(exists as any).builderId
-            }' token.userId='${decoded.userId}'`
-          );
-        }
-      }
       return NextResponse.json({ error: "Property not found" }, { status: 404 });
     }
 
@@ -63,6 +46,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       };
 
       let towerDbIds: string[] = []; // Real MongoDB _ids for Unit querying
+      let projectDbIds: string[] = []; // Real MongoDB _ids for project querying
       const rootId = id;
 
       // ── UPWARD RECONSTRUCTION (Inherit from parents if this is a child) ─────────────────
@@ -229,23 +213,23 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const token = getTokenFromRequest(req);
-    if (!token) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-
-    const decoded = verifyToken(token);
-    if (!decoded) return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    if (errorResponse) return errorResponse;
 
     const body = await req.json();
 
     await dbConnect();
 
     // Protect core fields from being overridden directly
-    const updateData = { ...body, updatedBy: decoded.userId };
+    const updateData = { ...body, updatedBy: context!.userId };
     delete updateData.builderId;
+    delete updateData.accountId;
+    delete updateData.role;
+    delete updateData.mandateId;
     delete updateData.type;
 
     const property = await Property.findOneAndUpdate(
-      { _id: id, builderId: decoded.userId, isDeleted: false },
+      { _id: id, ...getOwnershipQuery(context!), isDeleted: false },
       { $set: updateData },
       { new: true, runValidators: true }
     );
@@ -264,11 +248,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const token = getTokenFromRequest(req);
-    if (!token) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-
-    const decoded = verifyToken(token);
-    if (!decoded) return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    if (errorResponse) return errorResponse;
 
     const body = await req.json();
 
@@ -276,7 +257,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     // Only allow specific safe PATCH updates, primarily status transitions like "Move to Draft"
     const allowedFields = ["status"];
-    const updateData: any = { updatedBy: decoded.userId };
+    const updateData: any = { updatedBy: context!.userId };
     
     for (const key of Object.keys(body)) {
       if (allowedFields.includes(key)) {
@@ -285,7 +266,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     const property = await Property.findOneAndUpdate(
-      { _id: id, builderId: decoded.userId, isDeleted: false },
+      { _id: id, ...getOwnershipQuery(context!), isDeleted: false },
       { $set: updateData },
       { new: true, runValidators: true }
     );
@@ -305,11 +286,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const token = getTokenFromRequest(req);
-    if (!token) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-
-    const decoded = verifyToken(token);
-    if (!decoded) return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    if (errorResponse) return errorResponse;
 
     // Guard: invalid ObjectId format → clean 404 instead of Mongoose CastError
     if (!/^[a-f\d]{24}$/i.test(id)) {
@@ -318,7 +296,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     await dbConnect();
 
-    const deleteResult = await secureDeleteProperty(id, decoded.userId);
+    const deleteResult = await secureDeleteProperty(id, context!.userId);
 
     return NextResponse.json(
       { success: true, message: "Property and associated media securely deleted", details: deleteResult },

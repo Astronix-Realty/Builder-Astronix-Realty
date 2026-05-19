@@ -54,6 +54,27 @@ const BlogSchema = new mongoose.Schema({
     ref: "User",
     index: true
   },
+  accountId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    index: true
+  },
+  role: {
+    type: String,
+    enum: ["builder", "mandate"],
+    default: "builder",
+    index: true
+  },
+  builderId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    index: true
+  },
+  mandateId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Mandate",
+    index: true
+  },
   
   // Advanced Modular Blocks
   blocks: [BlockSchema],
@@ -101,6 +122,10 @@ const BlogSchema = new mongoose.Schema({
 // Indexes for faster lookups
 BlogSchema.index({ status: 1, publishedAt: 1 });
 BlogSchema.index({ previousSlugs: 1 });
+BlogSchema.index({ accountId: 1 });
+BlogSchema.index({ builderId: 1 });
+BlogSchema.index({ mandateId: 1 });
+BlogSchema.index({ role: 1 });
 
 // Avoid re-compiling the model if it already exists
 const Blog = mongoose.models.Blog || mongoose.model("Blog", BlogSchema);

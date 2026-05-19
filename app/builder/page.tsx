@@ -689,7 +689,8 @@ function BuilderContent() {
 
   const handleSaveDraft = async () => {
     await saveNow()
-    window.location.href = "/builder-dashboard?tab=properties&filter=drafts"
+    const dashboardPath = currentUser?.role === "mandate" ? "/mandate-dashboard" : "/builder-dashboard"
+    window.location.href = `${dashboardPath}?tab=properties&filter=drafts`
   }
 
 
@@ -852,7 +853,8 @@ function BuilderContent() {
       clearDraft() 
       
       setTimeout(() => {
-        window.location.href = "/builder-dashboard?tab=properties&filter=pending"
+        const dashboardPath = currentUser?.role === "mandate" ? "/mandate-dashboard" : "/builder-dashboard"
+        window.location.href = `${dashboardPath}?tab=properties&filter=pending`
       }, 1500)
 
     } catch (error: any) {
@@ -912,7 +914,7 @@ function BuilderContent() {
             {totalEntities.toLocaleString()} properties have been created and are ready for use.
           </p>
           <div className="flex gap-3 justify-center">
-            <a href="/builder-dashboard?tab=properties&filter=published" className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">Go to Dashboard</a>
+            <a href={`${currentUser?.role === "mandate" ? "/mandate-dashboard" : "/builder-dashboard"}?tab=properties&filter=published`} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">Go to Dashboard</a>
             <button onClick={() => window.location.reload()} className="px-6 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors font-medium">Create Another</button>
           </div>
         </div>
@@ -984,7 +986,7 @@ function BuilderContent() {
               <button
                 onClick={() => {
                   if (confirm("Are you sure you want to cancel? Unsaved changes will be lost.")) {
-                    window.location.href = "/builder-dashboard"
+                    window.location.href = currentUser?.role === "mandate" ? "/mandate-dashboard" : "/builder-dashboard"
                   }
                 }}
                 disabled={isCreating}

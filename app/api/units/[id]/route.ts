@@ -3,18 +3,15 @@ import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Property from "@/models/Property";
 import Unit from "@/models/Unit";
-import { getTokenFromRequest, verifyToken } from "@/lib/auth";
+import { checkRBAC, getOwnershipQuery } from "@/lib/rbac";
 import { aggregateTowerPricing } from "@/lib/services/pricing-sync";
 
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const token = getTokenFromRequest(req);
-    if (!token) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-
-    const decoded = verifyToken(token);
-    if (!decoded) return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    if (errorResponse) return errorResponse;
 
     const body = await req.json();
     const { status, customerName, customerPhone, bookingAmount, bookingDate } = body;
@@ -31,7 +28,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           { _id: mongoose.isValidObjectId(id) ? id : new mongoose.Types.ObjectId() }, 
           { originalId: id }
         ], 
-        builderId: decoded.userId 
+        ...getOwnershipQuery(context!) 
       },
       { 
         $set: { 
@@ -40,7 +37,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           customerPhone, 
           bookingAmount, 
           bookingDate,
-          updatedBy: decoded.userId
+          updatedBy: context!.userId
         } 
       },
       { new: true }
@@ -50,7 +47,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!unit && propertyId) {
       const property = await Property.findOne({ 
         _id: mongoose.isValidObjectId(propertyId) ? propertyId : null,
-        builderId: decoded.userId 
+        ...getOwnershipQuery(context!) 
       });
 
       if (property && property.details?.generatedUnits) {
@@ -60,7 +57,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         const unitIndex = units.findIndex((u: any) => {
             const uId = (u.id || u.originalId || u._id?.toString());
             return uId === id;
-        });
+         });
         
         if (unitIndex !== -1) {
           console.log(`[API] Found embedded unit at index ${unitIndex}. Updating...`);

@@ -29,6 +29,22 @@ const LeadSchema = new mongoose.Schema({
         ref: "User",
         index: true 
     },
+    accountId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        index: true
+    },
+    role: {
+        type: String,
+        enum: ["builder", "mandate"],
+        default: "builder",
+        index: true
+    },
+    mandateId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Mandate",
+        index: true
+    },
     projectId: { 
         type: mongoose.Schema.Types.ObjectId, 
         ref: "Project",
@@ -58,9 +74,13 @@ const LeadSchema = new mongoose.Schema({
 // Indexes for faster lookups
 LeadSchema.index({ phone: 1, builderId: 1 });
 LeadSchema.index({ email: 1, builderId: 1 });
+LeadSchema.index({ phone: 1, accountId: 1 });
+LeadSchema.index({ email: 1, accountId: 1 });
 // Compound indexes for enterprise analytics and robust filtering
 LeadSchema.index({ status: 1, assignee: 1, isArchived: 1 });
 LeadSchema.index({ builderId: 1, createdAt: -1, isArchived: 1 });
+LeadSchema.index({ accountId: 1, createdAt: -1, isArchived: 1 });
+LeadSchema.index({ mandateId: 1, createdAt: -1, isArchived: 1 });
 LeadSchema.index({ source: 1, isArchived: 1 });
 
 // Avoid re-compiling the model if it already exists

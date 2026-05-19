@@ -25,7 +25,8 @@ export async function PUT(req: NextRequest) {
       "companyName", "developerName", "fullName", "phone", "address",
       "description", "reraNumber", "website", "logo",
       "city", "state", "experience", "panNumber", "aadharNumber",
-      "specialization", "preferredAreas"
+      "specialization", "preferredAreas", "establishedYear", "tagline", 
+      "reraCertificate", "operatingCities", "aboutCompany"
     ]
 
     const profileUpdate: Record<string, any> = {}

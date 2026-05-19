@@ -1,10 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Blog from "@/models/Blog";
+import { checkRBAC, getOwnershipQuery } from "@/lib/rbac";
+import { getTokenFromRequest } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const token = getTokenFromRequest(req);
+    let context = null;
+    if (token) {
+      const rbacResult = await checkRBAC(req, ['builder', 'mandate']);
+      if (!rbacResult.errorResponse) {
+        context = rbacResult.context;
+      }
+    }
+
     await dbConnect();
     
     // Await params to fix sync dynamic APIs error
@@ -14,10 +25,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const isObjectId = id.match(/^[0-9a-fA-F]{24}$/);
     const query = isObjectId ? { _id: id } : { slug: id };
 
-    const blog = await Blog.findOne(query);
+    const blog = await Blog.findOne(query).populate("linkedProperties");
 
     if (!blog) {
       return NextResponse.json({ error: "Blog not found" }, { status: 404 });
+    }
+
+    // Role-based Draft Isolation: Drafts can only be read by their creator.
+    if (blog.status !== "published") {
+      const authorIdStr = blog.authorId?.toString() || blog.accountId?.toString();
+      if (!context || (authorIdStr && authorIdStr !== context.userId)) {
+        return NextResponse.json({ error: "Unauthorized access to draft content" }, { status: 403 });
+      }
     }
 
     return NextResponse.json({ blog }, { status: 200 });
@@ -29,13 +48,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    if (errorResponse) return errorResponse;
+
     await dbConnect();
     const body = await req.json();
 
     const { id } = await params;
-    const blog = await Blog.findById(id);
+    const blog = await Blog.findOne({ _id: id, ...getOwnershipQuery(context!) });
     if (!blog) {
-      return NextResponse.json({ error: "Blog not found" }, { status: 404 });
+      return NextResponse.json({ error: "Blog not found or unauthorized" }, { status: 404 });
     }
 
     // Health Engine Publish Validation
@@ -47,7 +69,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       if (!body.blocks || body.blocks.length === 0) {
         return NextResponse.json({ error: "Cannot publish an empty blog" }, { status: 400 });
       }
-      // You can expand this to check SEO scores, image alt tags, etc.
     }
 
     // Slug collision handling if title changes
@@ -76,7 +97,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       blog.versions.push({
         contentSnapshots: blog.blocks,
         savedAt: new Date(),
-        // savedBy: session?.user?.id
+        savedBy: context!.userId
       });
       delete body.saveVersion;
     }
@@ -89,6 +110,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     // Prevent VersionError and immutable field errors during concurrent saves
     delete body.__v;
     delete body._id;
+    delete body.authorId;
+    delete body.accountId;
+    delete body.role;
+    delete body.builderId;
+    delete body.mandateId;
     delete body.createdAt;
     delete body.updatedAt;
 
@@ -116,12 +142,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    if (errorResponse) return errorResponse;
+
     await dbConnect();
     const { id } = await params;
-    const blog = await Blog.findByIdAndDelete(id);
+    const blog = await Blog.findOneAndDelete({ _id: id, ...getOwnershipQuery(context!) });
 
     if (!blog) {
-      return NextResponse.json({ error: "Blog not found" }, { status: 404 });
+      return NextResponse.json({ error: "Blog not found or unauthorized" }, { status: 404 });
     }
 
     if (blog.status === "published") {

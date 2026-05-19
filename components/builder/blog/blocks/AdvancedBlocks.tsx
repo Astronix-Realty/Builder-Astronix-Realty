@@ -4,13 +4,90 @@ import { BlockProps } from './index';
 import {
   Plus, Trash2, UploadCloud, X, Loader2,
   CheckCircle2, XCircle, MousePointerClick,
-  ArrowRight,
+  ArrowRight, Star, ShieldCheck,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { v4 as uuidv4 } from 'uuid';
 import { normalizeListItems, NormalizedListItem } from '@/lib/utils/blog-migration';
 import Link from 'next/link';
+
+// ─────────────────────────────────────────────────────
+// Takeaways Block
+// ─────────────────────────────────────────────────────
+export const TakeawaysBlock: React.FC<BlockProps> = ({ data, onChange, isEditing }) => {
+  const items: NormalizedListItem[] = normalizeListItems(data.items);
+
+  const updateItem = useCallback((id: string, value: string) => {
+    onChange({ ...data, items: items.map(item => item.id === id ? { ...item, value } : item) });
+  }, [items, data, onChange]);
+
+  const addItem = useCallback(() => {
+    onChange({ ...data, items: [...items, { id: uuidv4(), value: '' }] });
+  }, [items, data, onChange]);
+
+  const removeItem = useCallback((id: string) => {
+    const filtered = items.filter(item => item.id !== id);
+    onChange({ ...data, items: filtered.length ? filtered : [{ id: uuidv4(), value: '' }] });
+  }, [items, data, onChange]);
+
+  if (!isEditing) {
+    const filledItems = items.filter(i => i.value.trim());
+    if (!filledItems.length) return null;
+    return (
+      <div className="mb-8 rounded-2xl border border-amber-200 bg-amber-50/50 dark:bg-amber-950/10 dark:border-amber-900/40 p-6 shadow-sm">
+        <div className="flex items-center gap-3 mb-6 border-b border-amber-200/50 dark:border-amber-900/30 pb-4">
+          <div className="p-2 bg-amber-100 dark:bg-amber-900/40 rounded-xl">
+            <Star className="w-5 h-5 text-amber-600 dark:text-amber-400 fill-amber-600 dark:fill-amber-400" />
+          </div>
+          <h3 className="text-xl font-black text-amber-900 dark:text-amber-100 tracking-tight">KEY TAKEAWAYS</h3>
+        </div>
+        <ul className="space-y-4">
+          {filledItems.map(item => (
+            <li key={item.id} className="flex items-start gap-3 text-amber-900 dark:text-amber-200 font-medium">
+              <div className="mt-1 w-5 h-5 rounded-full bg-amber-200 dark:bg-amber-900/60 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
+              </div>
+              <span className="leading-relaxed">{item.value}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 rounded-xl border border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-900/10 p-3 space-y-2">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-xs font-bold uppercase tracking-widest text-amber-600 dark:text-amber-500">
+          <Star className="w-3 h-3 inline-block mr-1 -mt-0.5" /> Key Takeaways
+        </span>
+        <button
+          onClick={addItem}
+          className="text-xs px-2.5 py-1 rounded-full font-semibold transition-colors bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300"
+        >
+          + Add Point
+        </button>
+      </div>
+      {items.map((item) => (
+        <div key={item.id} className="flex gap-2 items-center">
+          <input
+            value={item.value}
+            onChange={(e) => updateItem(item.id, e.target.value)}
+            className="flex-1 px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
+            placeholder="Key takeaway point..."
+          />
+          <button
+            onClick={() => removeItem(item.id)}
+            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors shrink-0"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 // ─────────────────────────────────────────────────────
 // FAQ Block
@@ -351,6 +428,14 @@ export const CTA_VARIANTS = {
     sub: 'text-blue-100 dark:text-blue-200',
     btn: 'bg-white text-blue-700 hover:bg-blue-50 shadow-blue-900/20',
   },
+  rera: {
+    label: 'RERA Verification',
+    bg: 'bg-slate-50 dark:bg-slate-900',
+    border: 'border border-slate-200 dark:border-slate-800',
+    heading: 'text-slate-900 dark:text-white',
+    sub: 'text-slate-500 dark:text-slate-400',
+    btn: 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/20',
+  },
 };
 
 export const getButtonConfig = (url: string | undefined | null) => {
@@ -409,33 +494,62 @@ export const CtaBlock: React.FC<BlockProps> = ({ data, onChange, isEditing }) =>
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.15),transparent_40%)] pointer-events-none" />
           )}
           
-          <h3 className={`text-2xl md:text-3xl font-black mb-3 leading-tight tracking-tight ${cfg.heading}`}>{heading}</h3>
-          <p className={`text-sm md:text-base mb-8 max-w-xl mx-auto leading-relaxed ${cfg.sub}`}>{description}</p>
-          
-          <div className="flex justify-center">
-            {isExternal ? (
-              <motion.a
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                whileHover={{ scale: 1.04, y: -2 }}
-                whileTap={{ scale: 0.98 }}
-                {...buttonProps}
-              >
-                {buttonInner}
-              </motion.a>
-            ) : (
-              <motion.div
-                whileHover={{ scale: 1.04, y: -2 }}
-                whileTap={{ scale: 0.98 }}
-                className="inline-block"
-              >
-                <Link href={href} {...buttonProps}>
-                  {buttonInner}
-                </Link>
-              </motion.div>
-            )}
-          </div>
+          {variant === 'rera' ? (
+            <div className="flex flex-col md:flex-row items-center justify-between text-left gap-6">
+              <div className="flex-1 flex items-start gap-5">
+                <div className="hidden md:flex shrink-0 w-16 h-16 rounded-2xl bg-white border border-slate-200 shadow-sm items-center justify-center">
+                  <ShieldCheck className="w-8 h-8 text-emerald-600" />
+                </div>
+                <div>
+                  <h3 className={`text-xl md:text-2xl font-black mb-2 leading-tight tracking-tight ${cfg.heading}`}>{heading}</h3>
+                  <p className={`text-sm leading-relaxed max-w-lg ${cfg.sub}`}>{description}</p>
+                </div>
+              </div>
+              <div className="shrink-0">
+                {isExternal ? (
+                  <motion.a href={href} target="_blank" rel="noopener noreferrer" whileHover={{ scale: 1.04, y: -2 }} whileTap={{ scale: 0.98 }} {...buttonProps}>
+                    {buttonInner}
+                  </motion.a>
+                ) : (
+                  <motion.div whileHover={{ scale: 1.04, y: -2 }} whileTap={{ scale: 0.98 }} className="inline-block">
+                    <Link href={href} {...buttonProps}>
+                      {buttonInner}
+                    </Link>
+                  </motion.div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <>
+              <h3 className={`text-2xl md:text-3xl font-black mb-3 leading-tight tracking-tight ${cfg.heading}`}>{heading}</h3>
+              <p className={`text-sm md:text-base mb-8 max-w-xl mx-auto leading-relaxed ${cfg.sub}`}>{description}</p>
+              
+              <div className="flex justify-center">
+                {isExternal ? (
+                  <motion.a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    whileHover={{ scale: 1.04, y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    {...buttonProps}
+                  >
+                    {buttonInner}
+                  </motion.a>
+                ) : (
+                  <motion.div
+                    whileHover={{ scale: 1.04, y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="inline-block"
+                  >
+                    <Link href={href} {...buttonProps}>
+                      {buttonInner}
+                    </Link>
+                  </motion.div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
     );

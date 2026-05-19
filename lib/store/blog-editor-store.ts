@@ -27,6 +27,9 @@ export interface BlogData {
   coverImage?: { url?: string; publicId?: string };
   category?: string;
   authorName?: string;
+  authorRole?: string;
+  readTime?: string;
+  linkedProperties?: any[];
   publishedAt?: string;
   updatedAt?: string;
   createdAt?: string;

@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect, useMemo, Suspense } from "react"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Plus, Building2, MapPin, DollarSign, ChevronRight, Edit2, Trash2, Home, Layers, Building, Eye, User, Save, Globe, Mail, Phone, FileText, Tag, Percent, Calendar, Clock, Gift, Paintbrush, Image as ImageIcon, LogOut, Settings, Menu, X, Palette, Bell, Shield, Lock, Headphones, Smartphone, MessageSquare, Users, Briefcase, Loader2 } from "lucide-react"
+import { Plus, Building2, MapPin, DollarSign, ChevronRight, Edit2, Trash2, Home, Layers, Building, Eye, User, Save, Globe, Mail, Phone, FileText, Tag, Percent, Calendar, Clock, Gift, Paintbrush, Image as ImageIcon, LogOut, Settings, Menu, X, Palette, Bell, Shield, Lock, Headphones, Smartphone, MessageSquare, Users, Briefcase, Loader2, RefreshCw, Search } from "lucide-react"
 import { toast } from "sonner"
 import BannerEditor from "@/components/BannerEditor"
 import { ImageUpload } from "@/components/ui/image-upload"
@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface MandateProfile {
   companyName: string
+  developerName: string
   fullName: string
   email: string
   phone: string
@@ -25,11 +26,17 @@ interface MandateProfile {
   reraNumber: string
   website: string
   logo?: string
+  establishedYear?: string
+  tagline?: string
+  state?: string
+  reraCertificate?: string
+  operatingCities?: string
+  experience?: string
+  aboutCompany?: string
+  specialization?: string
   panNumber?: string
   aadharNumber?: string
-  specialization?: string
   preferredAreas?: string
-  experience?: string
 }
 
 interface Property {
@@ -39,10 +46,14 @@ interface Property {
   towers: number
   units: number
   location: string
-  status: "active" | "pending" | "completed"
+  status: "published" | "pending" | "draft" | "rejected" | "archived" | "completed"
   totalValue: number
   createdDate: string
+  updatedAt?: string
+  rejectionReason?: string | null
   flowType?: string
+  thumbnail?: string
+  searchBlob?: string
 }
 
 interface Offer {
@@ -69,6 +80,32 @@ function DashboardContent() {
     confirmPassword: ""
   })
   const [properties, setProperties] = useState<Property[]>([])
+  const [propertySearchInput, setPropertySearchInput] = useState<Record<string, string>>({
+    published: "",
+    pending: "",
+    draft: "",
+    rejected: ""
+  })
+  const [debouncedPropertySearch, setDebouncedPropertySearch] = useState<Record<string, string>>({
+    published: "",
+    pending: "",
+    draft: "",
+    rejected: ""
+  })
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedPropertySearch(propertySearchInput)
+    }, 300)
+
+    return () => {
+      clearTimeout(handler)
+    }
+  }, [propertySearchInput])
+
+  const [isFetchingProperties, setIsFetchingProperties] = useState(false)
+  const [deletingPropertyId, setDeletingPropertyId] = useState<string | null>(null)
+  const [movingToDraftId, setMovingToDraftId] = useState<string | null>(null)
   const [offers, setOffers] = useState<Offer[]>([])
   const [showAddOffer, setShowAddOffer] = useState(false)
   const [showBannerEditor, setShowBannerEditor] = useState(false)
@@ -143,10 +180,14 @@ function DashboardContent() {
     }
 
     if (filterParam) {
-      if (filterParam === "drafts" || filterParam === "pending") {
+      if (filterParam === "drafts" || filterParam === "draft") {
+        setPropertyFilter("draft")
+      } else if (filterParam === "pending") {
         setPropertyFilter("pending")
       } else if (filterParam === "published" || filterParam === "active") {
-        setPropertyFilter("active")
+        setPropertyFilter("published")
+      } else if (filterParam === "rejected") {
+        setPropertyFilter("rejected")
       }
     }
   }, [searchParams])
@@ -157,102 +198,194 @@ function DashboardContent() {
   }
 
   // Helper to map DB/Storage data to UI format
-  const mapProperty = (p: any, defaultStatus: 'active' | 'pending'): Property => {
-    const data = p.data
-    const flowType = p.flowType
+  const mapProperty = (p: any, defaultStatus: 'active' | 'pending' | 'draft' | 'rejected'): Property => {
+    const details = p.details || p.data || {}
+    const flowType = p.flowType || p.type
 
-    let name = "Untitled Property"
-    let location = "Unknown Location"
-    let projectsCount = 0
-    let towersCount = 0
-    let unitsCount = 0
+    // Use root property name or townshipName as fallback
+    let name = p.name || p.townshipName || "Untitled Property"
+    let location = p.location || "Location not set"
 
-    if (flowType === "township" && data.township) {
-      name = data.township.name || "Untitled Township"
-      location = `${data.township.city || ""}, ${data.township.state || ""}`
-      projectsCount = data.projects?.length || 0
-      towersCount = data.towers?.length || 0
-    } else if (flowType === "project" && data.projects?.[0]) {
-      name = data.projects[0].name || "Untitled Project"
-      location = `${data.projects[0].city || ""}, ${data.projects[0].state || ""}`
-      projectsCount = 1
-      towersCount = data.towers?.length || 0
-    } else if (flowType === "tower" && data.towers?.[0]) {
-      name = data.towers[0].name || "Untitled Tower"
-      location = `${data.towers[0].city || ""}, ${data.towers[0].state || ""}`
-      projectsCount = 0
-      towersCount = 1
+    // Prioritize server-calculated counts
+    let projectsCount = p.calculatedCounts?.projectsCount || 0
+    let towersCount = p.calculatedCounts?.towersCount || 0
+    let unitsCount = p.calculatedCounts?.unitsCount || 0
+    let thumbnail = p.thumbnail || undefined
+
+    // Fallback for draft/pending if counts are missing in calculatedCounts
+    if (projectsCount === 0 && towersCount === 0 && unitsCount === 0) {
+      if (flowType === "township") {
+        projectsCount = details.projects?.length || 0
+        towersCount = details.towers?.length || 0
+      } else if (flowType === "project") {
+        projectsCount = 1
+        towersCount = details.towers?.length || 0
+      } else if (flowType === "tower") {
+        towersCount = 1
+      }
+
+      // Calculate units dynamically from tower structure data
+      const towers = details.towers || []
+      if (towers.length > 0) {
+        unitsCount = towers.reduce((total: number, t: any) => {
+          const floors = parseInt(t.totalFloors) || t.totalFloorsNum || 0
+          const perFloor = parseInt(t.unitsPerFloor) || 0
+          return total + (floors * perFloor)
+        }, 0)
+      }
+
+      // Fallback: use township.totalUnits if available
+      if (unitsCount === 0) {
+        unitsCount = details.township?.totalUnits || details.generatedUnits?.length || 0
+      }
     }
 
-    unitsCount = data.generatedUnits?.length || 0
-    const totalValue = data.generatedUnits?.reduce((sum: number, u: any) => sum + (u.price || 0), 0) || (unitsCount * 5000000)
+    // Hero Image Discovery (Search hierarchy if thumbnail is missing)
+    if (!thumbnail) {
+      thumbnail =
+        details?.township?.heroImage ||
+        details?.projects?.find((pr: any) => pr.heroImage)?.heroImage ||
+        details?.towers?.find((tw: any) => tw.heroImage)?.heroImage ||
+        details?.heroImage;
+    }
 
-    let finalStatus: 'active' | 'pending' = defaultStatus
-    if (p.status === 'draft') finalStatus = 'pending'
-    else if (p.status === 'published') finalStatus = 'active'
+    const totalValue = p.totalValue ||
+      details.generatedUnits?.reduce((sum: number, u: any) => sum + (u.price || 0), 0) ||
+      (unitsCount > 0 ? unitsCount * 5000000 : 0)
+
+    let finalStatus: Property['status'] = p.status || defaultStatus
+    if (p.status === 'published' || p.status === 'active') finalStatus = 'published'
+    else if (p.status === 'pending') finalStatus = 'pending'
+    else if (p.status === 'rejected') finalStatus = 'rejected'
+    else if (p.status === 'draft') finalStatus = 'draft'
+    else if (p.status === 'archived') finalStatus = 'archived'
+
+    const searchTerms: string[] = []
+    if (name) searchTerms.push(name)
+    if (location) searchTerms.push(location)
+    if (flowType) searchTerms.push(flowType)
+
+    if (details) {
+      if (details.township?.name) searchTerms.push(details.township.name)
+      if (details.township?.city) searchTerms.push(details.township.city)
+      if (details.township?.state) searchTerms.push(details.township.state)
+
+      if (Array.isArray(details.projects)) {
+        details.projects.forEach((proj: any) => {
+          if (proj?.name) searchTerms.push(proj.name)
+        })
+      }
+
+      if (Array.isArray(details.towers)) {
+        details.towers.forEach((tow: any) => {
+          if (tow?.name) searchTerms.push(tow.name)
+        })
+      }
+
+      if (Array.isArray(details.generatedUnits)) {
+        details.generatedUnits.forEach((unit: any) => {
+          if (unit?.unitNumber) searchTerms.push(unit.unitNumber)
+          if (unit?.configuration) searchTerms.push(unit.configuration)
+        })
+      }
+    }
+
+    const searchBlob = searchTerms.filter(Boolean).map(s => s.toLowerCase().trim()).join(" | ")
 
     return {
-      id: p._id || p.id, // Support MongoDB _id
+      id: p._id || p.id,
       townshipName: name,
       projects: projectsCount,
       towers: towersCount,
       units: unitsCount,
-      location: location.replace(/^, /, "").replace(/, $/, "") || "Location not set",
+      location: location,
       status: finalStatus,
       totalValue: totalValue || 0,
       createdDate: p.createdAt || new Date().toISOString(),
-      flowType: flowType
+      updatedAt: p.updatedAt,
+      rejectionReason: p.rejectionReason || null,
+      flowType: flowType,
+      thumbnail: thumbnail,
+      searchBlob,
     }
   }
 
   // Load properties from MongoDB
-  useEffect(() => {
-    const fetchProperties = async () => {
-      try {
-        const res = await fetch("/api/properties")
-        if (res.ok) {
-          const data = await res.json()
-          if (data.properties) {
-            const mapped = data.properties.map((p: any) => 
-              mapProperty(p, p.status === 'draft' ? 'pending' : 'active')
-            )
-            setProperties(mapped)
-          }
+  const fetchProperties = async () => {
+    setIsFetchingProperties(true)
+    try {
+      const res = await fetch("/api/properties")
+      if (res.ok) {
+        const data = await res.json()
+        if (data.properties) {
+          const mapped = data.properties.map((p: any) =>
+            mapProperty(p, p.status || 'draft')
+          )
+          setProperties(mapped)
         }
-      } catch (error) {
-        console.error("Error loading properties:", error)
+      } else {
+        throw new Error("Failed to load properties")
       }
+    } catch (error) {
+      console.error("Error loading properties:", error)
+      toast.error("Failed to fetch properties")
+    } finally {
+      setIsFetchingProperties(false)
     }
+  }
 
+  useEffect(() => {
     if (currentUser) {
       fetchProperties()
     }
   }, [currentUser])
 
-  // Load mock/local offers for now (Keep localStorage for non-critical settings)
+  const handleRefreshProperties = () => {
+    if (isFetchingProperties) return
+    toast("Fetching data...")
+    fetchProperties()
+  }
+
+  // Dynamic offers storage key based on active role context
+  const offersStorageKey = useMemo(() => {
+    return currentUser?.role === "mandate" ? "mandateOffers" : "builderOffers"
+  }, [currentUser])
+
+  // Load local offers based on dynamic key
   useEffect(() => {
-    const savedOffers = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem("mandateOffers") || "[]") : []
+    if (!currentUser) return
+    const savedOffers = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem(offersStorageKey) || "[]") : []
     setOffers(savedOffers)
-  }, [])
+  }, [currentUser, offersStorageKey])
 
   const [profile, setProfile] = useState<MandateProfile>({
     companyName: "",
+    developerName: "",
     fullName: "",
     email: "",
     phone: "",
     address: "",
     description: "",
     reraNumber: "",
-    website: ""
+    website: "",
+    establishedYear: "",
+    tagline: "",
+    state: "",
+    reraCertificate: "",
+    operatingCities: "",
+    experience: "",
+    aboutCompany: "",
+    specialization: "",
+    panNumber: "",
+    aadharNumber: "",
+    preferredAreas: ""
   })
 
   useEffect(() => {
     if (!currentUser) return;
 
-    // Profile data lives inside currentUser.profile (from User model schema)
     const p = currentUser.profile || {};
 
-    // Construct address from multiple fields if available
     const fullAddress = [
       p.address,
       p.city,
@@ -261,7 +394,8 @@ function DashboardContent() {
 
     setProfile({
       companyName: p.companyName || "",
-      fullName: p.fullName || p.developerName || "", // Fallback to developerName if legacy
+      developerName: p.developerName || "",
+      fullName: p.fullName || "",
       email: currentUser.email || p.email || "",
       phone: p.phone || "",
       address: fullAddress || "",
@@ -269,21 +403,29 @@ function DashboardContent() {
       reraNumber: p.reraNumber || "",
       website: p.website || "",
       logo: p.logo || "",
+      establishedYear: p.establishedYear || "",
+      tagline: p.tagline || "",
+      state: p.state || "",
+      reraCertificate: p.reraCertificate || "",
+      operatingCities: p.operatingCities || "",
+      experience: p.experience || "",
+      aboutCompany: p.aboutCompany || "",
+      specialization: p.specialization || "",
       panNumber: p.panNumber || "",
       aadharNumber: p.aadharNumber || "",
-      specialization: p.specialization || "",
-      preferredAreas: p.preferredAreas || "",
-      experience: p.experience || "",
+      preferredAreas: p.preferredAreas || ""
     });
   }, [currentUser])
 
   const handleSaveProfile = async () => {
+    setIsSavingProfile(true);
     try {
       const res = await fetch("/api/auth/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           companyName: profile.companyName,
+          developerName: profile.developerName,
           fullName: profile.fullName,
           phone: profile.phone,
           address: profile.address,
@@ -291,11 +433,17 @@ function DashboardContent() {
           reraNumber: profile.reraNumber,
           website: profile.website,
           logo: profile.logo,
+          establishedYear: profile.establishedYear,
+          tagline: profile.tagline,
+          state: profile.state,
+          reraCertificate: profile.reraCertificate,
+          operatingCities: profile.operatingCities,
+          experience: profile.experience,
+          aboutCompany: profile.aboutCompany,
+          specialization: profile.specialization,
           panNumber: profile.panNumber,
           aadharNumber: profile.aadharNumber,
-          specialization: profile.specialization,
-          preferredAreas: profile.preferredAreas,
-          experience: profile.experience,
+          preferredAreas: profile.preferredAreas
         }),
       });
 
@@ -349,7 +497,7 @@ function DashboardContent() {
     }
   }
 
-  // Offer CRUD functions - SIMPLIFIED
+  // Offer CRUD functions
   const handleSaveOffer = () => {
     if (!newOffer.offerName || !newOffer.benefitText || !newOffer.expiryDate) {
       alert("Please fill in Offer Name, Benefit, and Expiry Date")
@@ -376,7 +524,7 @@ function DashboardContent() {
     }
 
     setOffers(updatedOffers)
-    localStorage.setItem("mandateOffers", JSON.stringify(updatedOffers))
+    localStorage.setItem(offersStorageKey, JSON.stringify(updatedOffers))
     setShowAddOffer(false)
     setEditingOffer(null)
     setNewOffer({
@@ -400,7 +548,7 @@ function DashboardContent() {
     if (confirm("Are you sure you want to delete this offer?")) {
       const updatedOffers = offers.filter(o => o.id !== id)
       setOffers(updatedOffers)
-      localStorage.setItem("mandateOffers", JSON.stringify(updatedOffers))
+      localStorage.setItem(offersStorageKey, JSON.stringify(updatedOffers))
     }
   }
 
@@ -409,14 +557,82 @@ function DashboardContent() {
       o.id === id ? { ...o, isActive: !o.isActive } : o
     )
     setOffers(updatedOffers)
-    localStorage.setItem("mandateOffers", JSON.stringify(updatedOffers))
+    localStorage.setItem(offersStorageKey, JSON.stringify(updatedOffers))
   }
 
   const [activeTab, setActiveTab] = useState<"properties" | "inventory" | "crm" | "chat" | "documents" | "offers" | "blog" | "settings">("properties")
+  const [activeSettingsTab, setActiveSettingsTab] = useState<"profile" | "preferences">("profile")
   const [showAddProperty, setShowAddProperty] = useState(false)
-  const [propertyFilter, setPropertyFilter] = useState<'active' | 'pending'>('active')
+  const [propertyFilter, setPropertyFilter] = useState<'published' | 'pending' | 'draft' | 'rejected'>('published')
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  const filteredProperties = useMemo(() => {
+    const query = (debouncedPropertySearch[propertyFilter] || "").toLowerCase().trim()
+    const matched = properties.filter(p => {
+      if (p.status !== propertyFilter) return false
+      if (!query) return true
+      return p.searchBlob?.includes(query)
+    })
+
+    if (!query) return matched
+
+    return [...matched].sort((a, b) => {
+      const aName = (a.townshipName || "").toLowerCase()
+      const bName = (b.townshipName || "").toLowerCase()
+      
+      const aExact = aName === query
+      const bExact = bName === query
+      if (aExact && !bExact) return -1
+      if (!aExact && bExact) return 1
+
+      const aStarts = aName.startsWith(query)
+      const bStarts = bName.startsWith(query)
+      if (aStarts && !bStarts) return -1
+      if (!aStarts && bStarts) return 1
+
+      return 0
+    })
+  }, [properties, propertyFilter, debouncedPropertySearch])
+
+  const highlightMatch = (text: string, query: string) => {
+    if (!query || !text) return <span>{text}</span>
+    const index = text.toLowerCase().indexOf(query.toLowerCase())
+    if (index === -1) return <span>{text}</span>
+
+    const before = text.substring(0, index)
+    const match = text.substring(index, index + query.length)
+    const after = text.substring(index + query.length)
+
+    return (
+      <span>
+        {before}
+        <mark className="bg-yellow-100 dark:bg-yellow-500/30 text-yellow-800 dark:text-yellow-250 px-0.5 rounded font-semibold">{match}</mark>
+        {after}
+      </span>
+    )
+  }
+
+  const handleMoveToDraft = async (id: string) => {
+    try {
+      setMovingToDraftId(id)
+      const res = await fetch(`/api/properties/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "draft" }),
+      })
+      
+      if (!res.ok) throw new Error("Failed to move to draft")
+      
+      toast.success("Property moved to draft successfully")
+      setProperties(prev => prev.map(p => p.id === id ? { ...p, status: "draft" } : p))
+    } catch (error) {
+      console.error(error)
+      toast.error("Failed to move property to draft")
+    } finally {
+      setMovingToDraftId(null)
+    }
+  }
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-IN", {
@@ -428,22 +644,32 @@ function DashboardContent() {
   }
 
   const deleteProperty = async (id: string) => {
+    if (!id) {
+      console.error("[deleteProperty] Called with undefined/empty id — check property card data")
+      return
+    }
     if (confirm("Are you sure you want to delete this property?")) {
+      setDeletingPropertyId(id)
       try {
-        const res = await fetch(`/api/properties/${id}`, { method: 'DELETE' })
+        const res = await fetch(`/api/properties/${id}`, { method: "DELETE" })
         if (res.ok) {
           setProperties(prev => prev.filter(p => p.id !== id))
+          toast.success("Property deleted successfully")
         } else {
-          alert("Failed to delete property. Status: " + res.status)
+          const errData = await res.json().catch(() => ({}))
+          const msg = errData?.error || `HTTP ${res.status}`
+          console.error(`[deleteProperty] API returned error for id='${id}':`, msg)
+          toast.error(`Failed to delete property: ${msg}`)
         }
       } catch (error) {
-        console.error("Delete property error:", error)
-        alert("An error occurred while deleting")
+        console.error("[deleteProperty] Network/fetch error:", error)
+        toast.error("An error occurred while deleting. Please try again.")
+      } finally {
+        setDeletingPropertyId(null)
       }
     }
   }
 
-  // Show loading while checking auth
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex items-center justify-center">
@@ -477,8 +703,12 @@ function DashboardContent() {
               <img src="/astronix-logo.png" alt="Astronix Logo" className="w-full h-full object-cover rounded-full transition-transform duration-500 group-hover:scale-110" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-900 dark:text-white leading-tight">Astronix Realty Mandate</h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium tracking-wide">MANDATE PANEL</p>
+              <h1 className="text-xl font-bold text-slate-900 dark:text-white leading-tight">
+                {currentUser?.role === 'mandate' ? "Astronix Realty Mandate" : "Builder Astronix Realty"}
+              </h1>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium tracking-wide">
+                {currentUser?.role === 'mandate' ? "MANDATE PANEL" : "BUILDER PANEL"}
+              </p>
             </div>
           </div>
         </div>
@@ -494,42 +724,43 @@ function DashboardContent() {
           </button>
           <button
             onClick={() => { setActiveTab("inventory"); setIsMobileMenuOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "inventory" ? "bg-teal-50 text-teal-700 dark:bg-teal-900/20 dark:text-teal-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
+            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "inventory" ? "bg-teal-50 text-teal-700 dark:bg-teal-900/20 dark:teal-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
           >
             <Layers className="h-5 w-5" />
             Inventory
           </button>
           <button
             onClick={() => { setActiveTab("crm"); setIsMobileMenuOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "crm" ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
+            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "crm" ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:indigo-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
           >
             <Users className="h-5 w-5" />
             CRM & Leads
           </button>
           <button
             onClick={() => { setActiveTab("chat"); setIsMobileMenuOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "chat" ? "bg-sky-50 text-sky-700 dark:bg-sky-900/20 dark:text-sky-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
+            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "chat" ? "bg-sky-50 text-sky-700 dark:bg-sky-900/20 dark:sky-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
           >
             <MessageSquare className="h-5 w-5" />
             Chat
           </button>
           <button
             onClick={() => { setActiveTab("documents"); setIsMobileMenuOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "documents" ? "bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
+            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "documents" ? "bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:orange-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
           >
             <FileText className="h-5 w-5" />
             Documents
           </button>
+
           <button
             onClick={() => { setActiveTab("offers"); setIsMobileMenuOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "offers" ? "bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
+            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "offers" ? "bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:purple-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
           >
             <Gift className="h-5 w-5" />
             Offers
           </button>
           <button
             onClick={() => { setActiveTab("blog"); setIsMobileMenuOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "blog" ? "bg-pink-50 text-pink-700 dark:bg-pink-900/20 dark:text-pink-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
+            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "blog" ? "bg-pink-50 text-pink-700 dark:bg-pink-900/20 dark:pink-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
           >
             <FileText className="h-5 w-5" />
             Blog
@@ -546,16 +777,18 @@ function DashboardContent() {
         {/* User Profile - Bottom Sidebar */}
         <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
           <div className="flex items-center gap-3 mb-3 px-2">
-            <div className={`relative w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center border-2 border-white dark:border-slate-600 shadow-sm overflow-hidden`}>
+            <div className="relative w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center border-2 border-white dark:border-slate-600 shadow-sm overflow-hidden">
               {(currentUser?.profile?.logo || profile.logo) ? (
-                <Image src={currentUser?.profile?.logo || profile.logo} alt="Mandate Logo" fill className="object-cover" unoptimized />
+                <Image src={currentUser?.profile?.logo || profile.logo || ""} alt="User Logo" fill className="object-cover" unoptimized />
               ) : (
                 <User className="h-5 w-5 text-slate-500 dark:text-slate-300" />
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{currentUser?.profile?.companyName || profile.companyName || "Mandate Partner"}</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{currentUser?.email || "mandate@astronix.com"}</p>
+              <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                {currentUser?.profile?.companyName || profile.companyName || (currentUser?.role === 'mandate' ? "Mandate Partner" : "Builder")}
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{currentUser?.email || "user@astronix.com"}</p>
             </div>
           </div>
           <button
@@ -571,158 +804,219 @@ function DashboardContent() {
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col overflow-hidden bg-slate-50/50 dark:bg-slate-950 relative transition-colors duration-300">
         {/* Top Header - Contextual */}
-        <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 md:px-8 py-4 sticky top-0 z-10">
-          {/* TOP ROW */}
-          <div className="flex items-center justify-between">
-            {/* LEFT */}
-            <div className="flex items-center gap-4">
-              {/* Mobile Hamburger */}
-              <button
-                onClick={() => setIsMobileMenuOpen(true)}
-                className="md:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg"
-              >
-                <Menu className="h-6 w-6" />
-              </button>
+        {activeTab !== "blog" && (
+          <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 md:px-8 py-4 sticky top-0 z-10">
+            {/* TOP ROW */}
+            <div className="flex items-center justify-between">
+              {/* LEFT */}
+              <div className="flex items-center gap-4">
+                {/* Mobile Hamburger */}
+                <button
+                  onClick={() => setIsMobileMenuOpen(true)}
+                  className="md:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg"
+                >
+                  <Menu className="h-6 w-6" />
+                </button>
 
-              {/* Title */}
-              <div>
-                <h2 className="text-xl md:text-2xl font-bold text-slate-800 dark:text-white">
-                  {activeTab === "properties" && "Property Details"}
-                  {activeTab === "inventory" && "Inventory Management"}
-                  {activeTab === "crm" && "Lead Management"}
-                  {activeTab === "chat" && "Communications"}
-                  {activeTab === "documents" && "Document Center"}
+                {/* Title */}
+                <div>
+                  <h2 className="text-xl md:text-2xl font-bold text-slate-800 dark:text-white">
+                    {activeTab === "properties" && "Property Details"}
+                    {activeTab === "inventory" && "Inventory Management"}
+                    {activeTab === "crm" && "Lead Management"}
+                    {activeTab === "chat" && "Communications"}
+                    {activeTab === "documents" && "Document Center"}
+                    {activeTab === "offers" && "Offers Management"}
+                    {activeTab === "blog" && "Blog & News"}
+                    {activeTab === "settings" && "Settings & Profile"}
+                  </h2>
 
-                  {activeTab === "offers" && "Offers Management"}
-                  {activeTab === "blog" && "Blog & News"}
-                  {activeTab === "settings" && "Settings & Profile"}
-                </h2>
+                  {/* Subtitle (Desktop only) */}
+                  <p className="hidden md:block text-sm text-slate-500 dark:text-slate-400">
+                    {activeTab === "properties" && "Manage your real estate inventory"}
+                    {activeTab === "inventory" && "Track unit status, sales, and availability"}
+                    {activeTab === "crm" && "Manage leads, site visits, and bookings"}
+                    {activeTab === "chat" && "Chat with potential buyers and agents"}
+                    {activeTab === "documents" && "Organize brochures, legal docs, and plans"}
+                    {activeTab === "offers" && "Create and track special deals"}
+                    {activeTab === "blog" && "Write and publish articles for your audience"}
+                    {activeTab === "settings" && (currentUser?.role === 'mandate' ? "Manage mandate profile and preferences" : "Manage company profile and preferences")}
+                  </p>
+                </div>
+              </div>
 
-                {/* Subtitle (Desktop only) */}
-                <p className="hidden md:block text-sm text-slate-500 dark:text-slate-400">
-                  {activeTab === "properties" && "Manage your real estate inventory"}
-                  {activeTab === "inventory" && "Track unit status, sales, and availability"}
-                  {activeTab === "crm" && "Manage leads, site visits, and bookings"}
-                  {activeTab === "chat" && "Chat with potential buyers and agents"}
-                  {activeTab === "documents" && "Organize brochures, legal docs, and plans"}
+              {/* CENTER – DESKTOP ONLY */}
+              {activeTab === "properties" && (
+                <div className="hidden md:flex items-center gap-6 text-sm font-medium absolute left-1/2 -translate-x-1/2">
+                  <button
+                    onClick={() => setPropertyFilter("published")}
+                    className={`pb-1 transition-colors ${propertyFilter === "published"
+                      ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
+                      : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                      }`}
+                  >
+                    Published ({properties.filter(p => p.status === "published").length})
+                  </button>
 
-                  {activeTab === "offers" && "Create and track special deals"}
-                  {activeTab === "blog" && "Write and publish articles for your audience"}
-                  {activeTab === "settings" && "Manage company profile and system preferences"}
-                </p>
+                  <button
+                    onClick={() => setPropertyFilter("pending")}
+                    className={`pb-1 transition-colors ${propertyFilter === "pending"
+                      ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
+                      : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                      }`}
+                  >
+                    Pending ({properties.filter(p => p.status === "pending").length})
+                  </button>
+
+                  <button
+                    onClick={() => setPropertyFilter("draft")}
+                    className={`pb-1 transition-colors ${propertyFilter === "draft"
+                      ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
+                      : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                      }`}
+                  >
+                    Drafts ({properties.filter(p => p.status === "draft").length})
+                  </button>
+
+                  <button
+                    onClick={() => setPropertyFilter("rejected")}
+                    className={`pb-1 transition-colors ${propertyFilter === "rejected"
+                      ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
+                      : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                      }`}
+                  >
+                    Rejected ({properties.filter(p => p.status === "rejected").length})
+                  </button>
+                </div>
+              )}
+
+              {/* RIGHT */}
+              <div className="flex items-center gap-3">
+                {activeTab === "properties" && (
+                  <button
+                    onClick={() => setShowAddProperty(prev => !prev)}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm"
+                  >
+                    <Plus className="h-5 w-5" />
+                    <span className="sm:hidden">Add </span>
+                    <span className="hidden sm:inline">Add Property</span>
+                  </button>
+                )}
+
+                {activeTab === "offers" && !showAddOffer && (
+                  <button
+                    onClick={() => setShowAddOffer(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-lg font-medium shadow-sm"
+                  >
+                    <Plus className="h-5 w-5" />
+                    <span className="hidden sm:inline">Add Offer</span>
+                  </button>
+                )}
+
+                {activeTab === "settings" && activeSettingsTab === "profile" && (
+                  <button
+                    onClick={handleSaveProfile}
+                    disabled={isSavingProfile}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm disabled:opacity-50"
+                  >
+                    {isSavingProfile ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
+                    <span>Save Profile</span>
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* CENTER – DESKTOP ONLY */}
+            {/* MOBILE FILTERS (BOTTOM ROW) */}
             {activeTab === "properties" && (
-              <div className="hidden md:flex items-center gap-6 text-sm font-medium absolute left-1/2 -translate-x-1/2">
+              <div className="md:hidden mt-4 flex gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
                 <button
-                  onClick={() => setPropertyFilter("active")}
-                  className={`pb-1 transition-colors ${propertyFilter === "active"
-                    ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
-                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                  onClick={() => setPropertyFilter("published")}
+                  className={`flex-1 py-2 text-sm rounded-md font-medium transition ${propertyFilter === "published"
+                    ? "bg-white dark:bg-slate-900 text-blue-600 shadow"
+                    : "text-slate-600 dark:text-slate-400"
                     }`}
                 >
-                  Published ({properties.filter(p => p.status === "active").length})
+                  Published ({properties.filter(p => p.status === "published").length})
                 </button>
 
                 <button
                   onClick={() => setPropertyFilter("pending")}
-                  className={`pb-1 transition-colors ${propertyFilter === "pending"
-                    ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
-                    : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                  className={`flex-1 py-2 text-sm rounded-md font-medium transition ${propertyFilter === "pending"
+                    ? "bg-white dark:bg-slate-900 text-blue-600 shadow"
+                    : "text-slate-600 dark:text-slate-400"
                     }`}
                 >
-                  Drafts ({properties.filter(p => p.status === "pending").length})
+                  Pending ({properties.filter(p => p.status === "pending").length})
+                </button>
+
+                <button
+                  onClick={() => setPropertyFilter("draft")}
+                  className={`flex-1 py-2 text-sm rounded-md font-medium transition ${propertyFilter === "draft"
+                    ? "bg-white dark:bg-slate-900 text-blue-600 shadow"
+                    : "text-slate-600 dark:text-slate-400"
+                    }`}
+                >
+                  Drafts ({properties.filter(p => p.status === "draft").length})
                 </button>
               </div>
             )}
-
-            {/* RIGHT */}
-            <div className="flex items-center gap-3">
-              {activeTab === "properties" && (
-                <button
-                  onClick={() => setShowAddProperty(prev => !prev)}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm"
-                >
-                  <Plus className="h-5 w-5" />
-
-                  {/* Mobile */}
-                  <span className="sm:hidden">Add </span>
-
-                  {/* Desktop */}
-                  <span className="hidden sm:inline">Add Property</span>
-                </button>
-
-              )}
-
-              {activeTab === "offers" && !showAddOffer && (
-                <button
-                  onClick={() => setShowAddOffer(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-lg font-medium shadow-sm"
-                >
-                  <Plus className="h-5 w-5" />
-                  <span className="hidden sm:inline">Add Offer</span>
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* MOBILE FILTERS (BOTTOM ROW) */}
-          {activeTab === "properties" && (
-            <div className="md:hidden mt-4 flex gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
-              <button
-                onClick={() => setPropertyFilter("active")}
-                className={`flex-1 py-2 text-sm rounded-md font-medium transition ${propertyFilter === "active"
-                  ? "bg-white dark:bg-slate-900 text-blue-600 shadow"
-                  : "text-slate-600 dark:text-slate-400"
-                  }`}
-              >
-                Published ({properties.filter(p => p.status === "active").length})
-              </button>
-
-              <button
-                onClick={() => setPropertyFilter("pending")}
-                className={`flex-1 py-2 text-sm rounded-md font-medium transition ${propertyFilter === "pending"
-                  ? "bg-white dark:bg-slate-900 text-blue-600 shadow"
-                  : "text-slate-600 dark:text-slate-400"
-                  }`}
-              >
-                Drafts ({properties.filter(p => p.status === "pending").length})
-              </button>
-            </div>
-          )}
-        </header>
-
-
+          </header>
+        )}
 
         {/* Content Scroll Area */}
-        <div className="flex-1 overflow-y-auto p-8">
-          {activeTab === "inventory" && <InventoryView userRole="mandate" />}
-          {activeTab === "crm" && <CRMView userRole="mandate" />}
+        <div className={`flex-1 overflow-y-auto ${activeTab === "blog" ? "p-0" : "p-8"}`}>
+          {activeTab === "inventory" && <InventoryView userRole={currentUser?.role || "mandate"} />}
+          {activeTab === "crm" && <CRMView userRole={currentUser?.role || "mandate"} />}
           {activeTab === "chat" && <ChatView />}
           {activeTab === "documents" && <DocumentsView />}
+          {activeTab === "blog" && <BlogView onMenuClick={() => setIsMobileMenuOpen(true)} />}
 
-          {activeTab === "blog" && <BlogView />}
           {activeTab === "properties" && (
             <div>
-              {/* Add Property Button */}
-              <div className="mb-8 flex justify-between items-center">
+              {/* Header block */}
+              <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Your Properties</h2>
                   <p className="text-slate-600 dark:text-slate-400">Manage and create new property listings</p>
                 </div>
 
+                {/* Search Bar */}
+                <div className="relative flex-1 max-w-md w-full md:mx-6">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
+                  <input
+                    type="text"
+                    value={propertySearchInput[propertyFilter] || ""}
+                    onChange={(e) => setPropertySearchInput(prev => ({ ...prev, [propertyFilter]: e.target.value }))}
+                    placeholder={`Search ${propertyFilter === 'draft' ? 'Draft' : propertyFilter.charAt(0).toUpperCase() + propertyFilter.slice(1)} Properties...`}
+                    className="w-full pl-10 pr-10 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:focus:ring-blue-600 transition-all shadow-sm text-slate-900 dark:text-white"
+                  />
+                  {propertySearchInput[propertyFilter] && (
+                    <button
+                      onClick={() => setPropertySearchInput(prev => ({ ...prev, [propertyFilter]: "" }))}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors p-0.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  onClick={handleRefreshProperties}
+                  disabled={isFetchingProperties}
+                  className="flex-shrink-0 flex items-center justify-center gap-2 px-4 py-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 rounded-lg font-medium transition-all shadow-sm disabled:opacity-50"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isFetchingProperties ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">Refresh</span>
+                </button>
               </div>
 
-              {/* Add Property Options with 3 flow types */}
+              {/* Wizard triggers */}
               {showAddProperty && (
                 <div className="mb-8 p-6 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
                   <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">Start New Property</h3>
                   <p className="text-slate-600 dark:text-slate-400 mb-6">Choose what you want to add:</p>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    {/* Add Township - Full Flow */}
                     <a
                       href="/builder?flow=township"
                       className="group p-6 border-2 border-slate-200 dark:border-slate-700 rounded-xl hover:border-blue-500 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-all cursor-pointer"
@@ -745,7 +1039,6 @@ function DashboardContent() {
                       </div>
                     </a>
 
-                    {/* Add Project - Skip Township */}
                     <a
                       href="/builder?flow=project"
                       className="group p-6 border-2 border-slate-200 dark:border-slate-700 rounded-xl hover:border-green-500 hover:bg-green-50/50 dark:hover:bg-green-900/10 transition-all cursor-pointer"
@@ -764,7 +1057,6 @@ function DashboardContent() {
                       </div>
                     </a>
 
-                    {/* Add Tower - Skip Township & Project */}
                     <a
                       href="/builder?flow=tower"
                       className="group p-6 border-2 border-slate-200 dark:border-slate-700 rounded-xl hover:border-orange-500 hover:bg-orange-50/50 dark:hover:bg-orange-900/10 transition-all cursor-pointer"
@@ -792,98 +1084,222 @@ function DashboardContent() {
                   </div>
                 </div>
               )}
-              {/* End of Add Property Options */}
 
-              {/* Properties Grid */}
+              {/* Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {properties.filter(p => p.status === propertyFilter).map((property) => (
-                  <div
-                    key={property.id}
-                    className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow overflow-hidden"
-                  >
-                    {/* Property Header */}
-                    <div className="p-6 border-b border-slate-100 dark:border-slate-800">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">{property.townshipName}</h3>
-                          <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 text-sm">
-                            <MapPin className="h-4 w-4" />
-                            {property.location}
+                {isFetchingProperties && filteredProperties.length === 0 ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm h-[380px] animate-pulse">
+                      <div className="h-44 bg-slate-200 dark:bg-slate-800 rounded-t-xl" />
+                      <div className="p-5 flex-1">
+                        <div className="h-6 bg-slate-200 dark:bg-slate-800 rounded w-2/3 mb-4" />
+                        <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-1/3 mb-6" />
+                        <div className="grid grid-cols-3 gap-4 border-t border-slate-100 dark:border-slate-800 pt-4">
+                          <div className="h-10 bg-slate-200 dark:bg-slate-800 rounded" />
+                          <div className="h-10 bg-slate-200 dark:bg-slate-800 rounded" />
+                          <div className="h-10 bg-slate-200 dark:bg-slate-800 rounded" />
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : filteredProperties.length === 0 && properties.filter(p => p.status === propertyFilter).length > 0 ? (
+                  <div className="col-span-full py-16 px-4 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm">
+                    <div className="w-16 h-16 rounded-full bg-slate-50 dark:bg-slate-800/40 flex items-center justify-center mx-auto mb-4">
+                      <Search className="w-8 h-8 text-slate-400 dark:text-slate-500" />
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">No Properties Found</h3>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+                      We couldn't find any properties matching "{debouncedPropertySearch[propertyFilter]}" in this tab. Try adjusting your search query.
+                    </p>
+                    {propertySearchInput[propertyFilter] && (
+                      <button
+                        onClick={() => setPropertySearchInput(prev => ({ ...prev, [propertyFilter]: "" }))}
+                        className="mt-4 px-4 py-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-sm font-semibold rounded-lg transition-colors"
+                      >
+                        Clear Search
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  filteredProperties.map((property) => (
+                    <div
+                      key={property.id}
+                      className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col group"
+                    >
+                      <div className="h-44 w-full relative bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-800 overflow-hidden">
+                        {property.thumbnail ? (
+                          <Image
+                            src={property.thumbnail}
+                            alt={property.townshipName}
+                            fill
+                            className="object-cover group-hover:scale-105 transition-transform duration-700"
+                            unoptimized
+                          />
+                        ) : (
+                          <div className="absolute inset-0 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 flex items-center justify-center">
+                            <div className={`p-4 rounded-3xl ${property.flowType === 'township' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/40' :
+                                property.flowType === 'project' ? 'bg-teal-100 text-teal-600 dark:bg-teal-900/40' :
+                                  'bg-orange-100 text-orange-600 dark:bg-orange-900/40'
+                              }`}>
+                              {property.flowType === 'township' ? <Home className="h-10 w-10" /> :
+                                property.flowType === 'project' ? <Layers className="h-10 w-10" /> :
+                                  <Building className="h-10 w-10" />}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+
+                        <div className="absolute top-4 left-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-1.5 z-20">
+                          <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 uppercase tracking-widest">{property.flowType}</span>
+                          {property.flowType === "township" && (
+                            <>
+                              <ChevronRight className="h-3 w-3 text-slate-400" />
+                              <Layers className="h-3 w-3 text-blue-500" />
+                            </>
+                          )}
+                        </div>
+
+                        <div className="absolute top-4 right-4 z-20">
+                          <span className={`px-3 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest shadow-xl border backdrop-blur-sm ${property.status === "published"
+                              ? "bg-emerald-500/80 text-white border-emerald-400/50"
+                              : property.status === "pending"
+                                ? "bg-amber-500/80 text-white border-amber-400/50"
+                                : property.status === "rejected"
+                                  ? "bg-red-500/80 text-white border-red-400/50"
+                                  : "bg-slate-500/80 text-white border-slate-400/50"
+                            }`}>
+                            {property.status === "published" ? "Published" : property.status === "pending" ? "Pending" : property.status === "draft" ? "Draft" : property.status}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="p-5 flex-1 min-w-0">
+                        <div className="flex justify-between items-start gap-3 mb-3">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight transition-colors group-hover:text-blue-600 dark:group-hover:text-blue-400 truncate" title={property.townshipName}>
+                              {highlightMatch(property.townshipName, debouncedPropertySearch[propertyFilter] || "")}
+                            </h3>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <div className="text-lg font-black text-blue-700 dark:text-blue-400 font-mono tracking-tight">
+                              {formatCurrency(property.totalValue || 0)}
+                            </div>
+                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">Total Inv. Value</p>
                           </div>
                         </div>
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-semibold ${property.status === "active"
-                            ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                            : property.status === "pending"
-                              ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
-                              : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
-                            }`}
+
+                        <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs font-medium bg-slate-50 dark:bg-slate-800/40 p-2 rounded-lg">
+                          <MapPin className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                          <span className="truncate">{highlightMatch(property.location || 'Location N/A', debouncedPropertySearch[propertyFilter] || "")}</span>
+                        </div>
+                      </div>
+
+                      <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/40">
+                        <div className={`grid gap-4 text-center ${property.flowType === 'township' ? 'grid-cols-3' :
+                            property.flowType === 'project' ? 'grid-cols-2' :
+                              'grid-cols-1'
+                          }`}>
+                          {property.flowType === 'township' && (
+                            <div className="relative after:absolute after:right-[-8px] after:top-1/2 after:-translate-y-1/2 after:h-8 after:w-[1px] after:bg-slate-200 dark:after:bg-slate-800">
+                              <div className="text-xl font-black text-slate-800 dark:text-white">{property.projects || 0}</div>
+                              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Projects</div>
+                            </div>
+                          )}
+
+                          {(property.flowType === 'township' || property.flowType === 'project') && (
+                            <div className={property.flowType === 'township' ? "relative after:absolute after:right-[-8px] after:top-1/2 after:-translate-y-1/2 after:h-8 after:w-[1px] after:bg-slate-200 dark:after:bg-slate-800" : ""}>
+                              <div className="text-xl font-black text-slate-800 dark:text-white">{property.towers || 0}</div>
+                              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Towers</div>
+                            </div>
+                          )}
+
+                          <div>
+                            <div className="text-xl font-black text-blue-600 dark:text-blue-400">{property.units || 0}</div>
+                            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Total Units</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-slate-400">
+                          <Clock className="h-3 w-3" />
+                          <span className="text-[10px] font-medium uppercase tracking-tight">
+                            Synced {new Date(property.createdDate).toLocaleDateString()}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase tracking-tight">
+                          ID: <span className="text-slate-300 dark:text-slate-600">{property.id.slice(-6)}</span>
+                        </div>
+                      </div>
+
+                      {/* Rejection Alert */}
+                      {property.status === 'rejected' && property.rejectionReason && (
+                        <div className="px-5 py-3 border-t border-red-100 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/10">
+                          <div className="flex items-start gap-2 group/alert cursor-pointer">
+                            <Shield className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                            <div className="flex-1">
+                              <h4 className="text-xs font-bold text-red-800 dark:text-red-300 mb-1">
+                                Rejection Reason
+                              </h4>
+                              <p className="text-xs text-red-600 dark:text-red-400 line-clamp-2 group-hover/alert:line-clamp-none transition-all duration-300 ease-in-out">
+                                {property.rejectionReason}
+                              </p>
+                              {property.updatedAt && (
+                                <p className="text-[10px] text-red-500/70 dark:text-red-500/60 mt-1.5 font-medium uppercase tracking-tighter">
+                                  {new Date(property.updatedAt).toLocaleDateString()} at {new Date(property.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 flex gap-2">
+                        {property.status === 'draft' ? (
+                          <a
+                            href={`/builder?flow=${property.flowType || "township"}&edit=${property.id}`}
+                            className="flex-1 px-3 py-2.5 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg font-semibold hover:bg-white dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-300 dark:hover:border-blue-700 transition-all flex items-center justify-center gap-2 shadow-sm"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                            Edit
+                          </a>
+                        ) : (
+                          <button
+                            onClick={() => handleMoveToDraft(property.id)}
+                            disabled={movingToDraftId === property.id}
+                            className="flex-1 px-3 py-2.5 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg font-semibold hover:bg-white dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-300 dark:hover:border-blue-700 transition-all flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+                          >
+                            {movingToDraftId === property.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Edit2 className="h-4 w-4" />}
+                            Move to Draft
+                          </button>
+                        )}
+
+                        <button
+                          onClick={() => deleteProperty(property.id)}
+                          disabled={deletingPropertyId === property.id}
+                          className="px-3.5 py-2.5 border border-slate-300 dark:border-slate-600 text-red-600 dark:text-red-400 rounded-lg font-semibold hover:bg-white dark:hover:bg-slate-800 hover:text-red-700 dark:hover:border-red-400 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center"
+                          title="Delete Property"
                         >
-                          {property.status.charAt(0).toUpperCase() + property.status.slice(1)}
-                        </span>
+                          {deletingPropertyId === property.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                        </button>
                       </div>
                     </div>
-
-                    {/* Property Stats */}
-                    <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/50">
-                      <div className="grid grid-cols-3 gap-4 text-center">
-                        <div>
-                          <div className="text-2xl font-bold text-slate-900 dark:text-white">{property.projects}</div>
-                          <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">Projects</div>
-                        </div>
-                        <div>
-                          <div className="text-2xl font-bold text-slate-900 dark:text-white">{property.towers}</div>
-                          <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">Towers</div>
-                        </div>
-                        <div>
-                          <div className="text-2xl font-bold text-slate-900 dark:text-white">{property.units}</div>
-                          <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">Units</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Property Value */}
-                    <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800">
-                      <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 mb-3">
-                        <DollarSign className="h-4 w-4" />
-                        <span className="text-sm font-medium">Total Value</span>
-                      </div>
-                      <div className="text-2xl font-bold text-slate-900 dark:text-white">{formatCurrency(property.totalValue)}</div>
-                      <div className="text-xs text-slate-500 dark:text-slate-500 mt-2">
-                        Created {new Date(property.createdDate).toLocaleDateString()}
-                      </div>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 flex gap-2">
-                      <a
-                        href={`/builder?flow=${property.flowType || "township"}&edit=${property.id}`}
-                        className="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg font-medium hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex items-center justify-center gap-2"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                        Edit
-                      </a>
-
-
-
-                      <button
-                        onClick={() => deleteProperty(property.id)}
-                        className="px-3 py-2 border border-slate-300 dark:border-slate-600 text-red-600 dark:text-red-400 rounded-lg font-medium hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-300 dark:hover:border-red-800 transition-colors"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
 
-              {/* Empty State */}
-              {properties.filter(p => p.status === propertyFilter).length === 0 && (
+              {/* Empty state */}
+              {!isFetchingProperties && properties.filter(p => p.status === propertyFilter).length === 0 && (
                 <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
                   <Building2 className="h-16 w-16 text-slate-300 dark:text-slate-700 mx-auto mb-4" />
                   <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">No Properties Found</h3>
                   <p className="text-slate-600 dark:text-slate-400 mb-6">
-                    {propertyFilter === 'active' ? "You haven't published any properties yet." : "You don't have any drafts."}
+                    {propertyFilter === 'published' ? "You haven't published any properties yet." :
+                      propertyFilter === 'pending' ? "You don't have any properties pending approval." :
+                        propertyFilter === 'rejected' ? "You don't have any rejected properties." :
+                          "You don't have any drafts."}
                   </p>
                   <button
                     onClick={() => setShowAddProperty(true)}
@@ -897,24 +1313,18 @@ function DashboardContent() {
             </div>
           )}
 
-          {/* Offers Tab Content - REDESIGNED with Live Preview */}
+          {/* Offers */}
           {activeTab === "offers" && (
             <div>
-              {/* Offers Header */}
               <div className="mb-8 flex justify-between items-center">
                 <div>
                   <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">🎁 Special Offers</h2>
                   <p className="text-slate-600 dark:text-slate-400">Create attractive offers in seconds - buyers ko turant dikhega!</p>
                 </div>
-
-
-                add new offer button ok
               </div>
 
-              {/* Step-by-Step Offer Creator with Live Preview */}
               {showAddOffer && (
                 <div className="mb-8 bg-white dark:bg-slate-900 rounded-2xl border-2 border-purple-100 dark:border-slate-800 shadow-xl overflow-hidden">
-                  {/* Header */}
                   <div className="bg-gradient-to-r from-purple-600 to-pink-500 p-6 text-white">
                     <h3 className="text-2xl font-bold flex items-center gap-3">
                       <Gift className="h-7 w-7" />
@@ -924,7 +1334,6 @@ function DashboardContent() {
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
-                    {/* LEFT SIDE - Form */}
                     <div className="p-8 border-r border-slate-200 dark:border-slate-800">
                       <h4 className="text-lg font-semibold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
                         <span className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300 flex items-center justify-center text-sm font-bold">1</span>
@@ -932,7 +1341,6 @@ function DashboardContent() {
                       </h4>
 
                       <div className="space-y-6">
-                        {/* Offer Name */}
                         <div>
                           <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                             Offer ka Naam <span className="text-red-500">*</span>
@@ -944,10 +1352,8 @@ function DashboardContent() {
                             className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
                             placeholder="e.g. Monsoon Dhamaka, Gudi Padwa Special"
                           />
-                          <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">Catchy naam do jo buyers ko yaad rahe</p>
                         </div>
 
-                        {/* Benefit/Discount */}
                         <div>
                           <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                             Discount / Benefit <span className="text-red-500">*</span>
@@ -959,10 +1365,8 @@ function DashboardContent() {
                             className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all text-lg font-semibold"
                             placeholder="e.g. ₹2 Lakh Off, Free Modular Kitchen"
                           />
-                          <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">Ye bada bold text mein dikhega - main attraction!</p>
                         </div>
 
-                        {/* Short Highlight for Badge */}
                         <div>
                           <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                             Badge Text (Short)
@@ -975,10 +1379,8 @@ function DashboardContent() {
                             placeholder="e.g. 2L OFF, FREE GIFT"
                             maxLength={15}
                           />
-                          <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">Max 15 characters - photo ke upar sticker mein dikhega</p>
                         </div>
 
-                        {/* Project Selection */}
                         <div>
                           <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                             Kis Project ke liye? <span className="text-red-500">*</span>
@@ -995,7 +1397,6 @@ function DashboardContent() {
                           </select>
                         </div>
 
-                        {/* Expiry Date */}
                         <div>
                           <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
                             Offer Kab Tak? <span className="text-red-500">*</span>
@@ -1007,10 +1408,8 @@ function DashboardContent() {
                             min={new Date().toISOString().split('T')[0]}
                             className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
                           />
-                          <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">Date ke baad offer auto-hide ho jayega</p>
                         </div>
 
-                        {/* Banner Design Section */}
                         <div>
                           <label className="block text-sm font-semibold text-slate-700 mb-2">
                             🎨 Custom Banner (Pro Feature!)
@@ -1062,7 +1461,6 @@ function DashboardContent() {
                       </div>
                     </div>
 
-                    {/* RIGHT SIDE - Live Preview */}
                     <div className="p-8 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
                       <h4 className="text-lg font-semibold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
                         <span className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center text-sm font-bold">2</span>
@@ -1070,7 +1468,6 @@ function DashboardContent() {
                       </h4>
 
                       <div className="space-y-6">
-                        {/* Preview 1: Listing Strip - With Builder Info */}
                         <div className="group relative">
                           <div className="flex items-center justify-between mb-3">
                             <p className="text-sm font-medium text-slate-600 dark:text-slate-400 flex items-center gap-2">
@@ -1096,13 +1493,12 @@ function DashboardContent() {
                             }}
                             className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-4 text-white shadow-lg cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all ring-2 ring-transparent hover:ring-purple-400"
                           >
-                            {/* Top row: Builder Logo + Company + Project */}
                             <div className="flex items-center gap-2 mb-2 pb-2 border-b border-white/20">
                               <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-sm font-bold text-blue-600">
-                                {profile.companyName?.[0] || "B"}
+                                {profile.companyName?.[0] || "M"}
                               </div>
                               <div className="flex-1">
-                                <p className="text-xs opacity-80">{profile.companyName || "Builder Company"}</p>
+                                <p className="text-xs opacity-80">{profile.companyName || "Mandate Partner"}</p>
                                 <p className="text-sm font-medium">
                                   {newOffer.projectId === "all"
                                     ? "All Properties"
@@ -1110,7 +1506,6 @@ function DashboardContent() {
                                 </p>
                               </div>
                             </div>
-                            {/* Main offer content */}
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center">
@@ -1133,15 +1528,8 @@ function DashboardContent() {
                               </div>
                             </div>
                           </div>
-                          {/* Edit Overlay */}
-                          <div className="absolute inset-0 mt-9 bg-purple-600/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                            <span className="bg-white text-purple-700 px-4 py-2 rounded-full font-bold text-sm shadow-lg">
-                              ✏️ Click to Edit
-                            </span>
-                          </div>
                         </div>
 
-                        {/* Preview 2: Hero Badge/Sticker - Offer Details Only */}
                         <div className="group relative">
                           <div className="flex items-center justify-between mb-3">
                             <p className="text-sm font-medium text-slate-600 dark:text-slate-400 flex items-center gap-2">
@@ -1167,11 +1555,9 @@ function DashboardContent() {
                             }}
                             className="relative bg-slate-300 rounded-xl h-52 overflow-hidden cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all ring-2 ring-transparent hover:ring-purple-400"
                           >
-                            {/* Property Image Placeholder */}
                             <div className="absolute inset-0 bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center">
                               <Building className="h-16 w-16 text-slate-300" />
                             </div>
-                            {/* Offer Badge - Top Left */}
                             <div className="absolute top-3 left-3">
                               <div className="bg-gradient-to-r from-red-500 to-orange-500 text-white px-4 py-3 rounded-lg shadow-lg transform -rotate-3">
                                 <p className="text-[10px] font-semibold opacity-90">🎁 {newOffer.offerName || "Special Offer"}</p>
@@ -1179,7 +1565,6 @@ function DashboardContent() {
                                 <p className="text-[10px] opacity-80 mt-0.5">Limited Period!</p>
                               </div>
                             </div>
-                            {/* Timer Badge - Bottom Right */}
                             {newOffer.expiryDate && (
                               <div className="absolute bottom-3 right-3 bg-black/80 text-white px-3 py-2 rounded-lg flex items-center gap-2">
                                 <Clock className="h-4 w-4" />
@@ -1188,16 +1573,9 @@ function DashboardContent() {
                                 </span>
                               </div>
                             )}
-                            {/* Edit Overlay */}
-                            <div className="absolute inset-0 bg-purple-600/30 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                              <span className="bg-white text-purple-700 px-4 py-2 rounded-full font-bold text-sm shadow-lg">
-                                ✏️ Click to Edit
-                              </span>
-                            </div>
                           </div>
                         </div>
 
-                        {/* Preview 3: Price Card - With Full Builder Info */}
                         <div className="group relative">
                           <div className="flex items-center justify-between mb-3">
                             <p className="text-sm font-medium text-slate-600 dark:text-slate-400 flex items-center gap-2">
@@ -1223,13 +1601,12 @@ function DashboardContent() {
                             }}
                             className="bg-white dark:bg-slate-800 rounded-xl shadow-md border cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all ring-2 ring-transparent hover:ring-purple-400 overflow-hidden"
                           >
-                            {/* Header with Builder Info */}
                             <div className="p-3 bg-slate-50 dark:bg-slate-700/50 border-b flex items-center gap-3">
                               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
-                                {profile.companyName?.[0] || "B"}
+                                {profile.companyName?.[0] || "M"}
                               </div>
                               <div className="flex-1">
-                                <p className="text-sm font-bold text-slate-800 dark:text-white">{profile.companyName || "Builder Company"}</p>
+                                <p className="text-sm font-bold text-slate-800 dark:text-white">{profile.companyName || "Mandate Partner"}</p>
                                 <p className="text-xs text-slate-500 dark:text-slate-400">
                                   {newOffer.projectId === "all"
                                     ? "All Properties"
@@ -1238,13 +1615,11 @@ function DashboardContent() {
                               </div>
                             </div>
 
-                            {/* Price Content */}
                             <div className="p-4">
                               <div className="flex items-center justify-between mb-3">
                                 <span className="text-slate-600 dark:text-slate-400">Base Price</span>
                                 <span className="text-xl font-bold text-slate-400 dark:text-slate-600 line-through">₹85 Lac</span>
                               </div>
-                              {/* Offer Row - Highlighted */}
                               <div className="flex items-center justify-between mb-3 bg-green-50 dark:bg-green-900/20 -mx-4 px-4 py-3">
                                 <div>
                                   <p className="text-green-800 dark:text-green-400 font-bold flex items-center gap-2">
@@ -1261,18 +1636,11 @@ function DashboardContent() {
                               </div>
                             </div>
                           </div>
-                          {/* Edit Overlay */}
-                          <div className="absolute inset-0 mt-9 bg-purple-600/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                            <span className="bg-white text-purple-700 px-4 py-2 rounded-full font-bold text-sm shadow-lg">
-                              ✏️ Click to Edit
-                            </span>
-                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Publish Button */}
                   <div className="p-6 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
                     <button
                       onClick={() => {
@@ -1285,499 +1653,521 @@ function DashboardContent() {
                     </button>
 
                     <div className="flex items-center gap-4">
-                      <div className="text-right text-sm text-slate-500 dark:text-slate-400">
-                        <p>Publish hote hi offer 5 jagah live ho jayega</p>
-                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">Publish hote hi offer live ho jayega</p>
                       <button
                         onClick={handleSaveOffer}
                         disabled={!newOffer.offerName || !newOffer.benefitText || !newOffer.expiryDate}
-                        className="px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold text-lg transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center gap-2"
+                        className="px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold text-lg transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                       >
                         <Save className="h-5 w-5" />
                         {editingOffer ? "Update Offer" : "🚀 Publish Offer"}
                       </button>
                     </div>
-                  </div >
-                </div >
-              )
-              }
+                  </div>
+                </div>
+              )}
 
-              {/* Existing Offers Grid */}
-              {
-                !showAddOffer && (
-                  <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {offers.map((offer) => {
-                        const isExpired = new Date(offer.expiryDate) < new Date()
-                        const daysLeft = Math.max(0, Math.ceil((new Date(offer.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
-                        const propertyName = offer.projectId === "all"
-                          ? "All Properties"
-                          : properties.find(p => p.id === offer.projectId)?.townshipName || "Unknown"
+              {!showAddOffer && (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {offers.map((offer) => {
+                      const isExpired = new Date(offer.expiryDate) < new Date()
+                      const daysLeft = Math.max(0, Math.ceil((new Date(offer.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+                      const propertyName = offer.projectId === "all"
+                        ? "All Properties"
+                        : properties.find(p => p.id === offer.projectId)?.townshipName || "Unknown"
 
-                        return (
-                          <div
-                            key={offer.id}
-                            className={`bg-white dark:bg-slate-900 rounded-2xl border-2 shadow-lg hover:shadow-xl transition-all overflow-hidden ${!offer.isActive || isExpired ? "opacity-60 border-slate-200 dark:border-slate-800" : "border-purple-200 dark:border-purple-900/50"
-                              }`}
-                          >
-                            {/* Offer Header */}
-                            <div className="bg-gradient-to-r from-purple-600 to-pink-500 p-5 text-white relative">
-                              {/* Status Badge */}
-                              <div className="absolute top-3 right-3">
-                                {isExpired ? (
-                                  <span className="px-2 py-1 bg-red-500 text-xs font-bold rounded-full">EXPIRED</span>
-                                ) : !offer.isActive ? (
-                                  <span className="px-2 py-1 bg-slate-500 text-xs font-bold rounded-full">PAUSED</span>
-                                ) : (
-                                  <span className="px-2 py-1 bg-green-500 text-xs font-bold rounded-full animate-pulse">LIVE</span>
-                                )}
-                              </div>
-
-                              <p className="text-purple-200 text-sm font-medium">{offer.offerName}</p>
-                              <p className="text-3xl font-black mt-1">{offer.benefitText}</p>
-
-                              {!isExpired && offer.isActive && (
-                                <div className="mt-3 flex items-center gap-2 text-purple-100">
-                                  <Clock className="h-4 w-4" />
-                                  <span className="text-sm">{daysLeft} days remaining</span>
-                                </div>
+                      return (
+                        <div
+                          key={offer.id}
+                          className={`bg-white dark:bg-slate-900 rounded-2xl border-2 shadow-lg hover:shadow-xl transition-all overflow-hidden ${!offer.isActive || isExpired ? "opacity-60 border-slate-200 dark:border-slate-800" : "border-purple-200 dark:border-purple-900/50"
+                            }`}
+                        >
+                          <div className="bg-gradient-to-r from-purple-600 to-pink-500 p-5 text-white relative">
+                            <div className="absolute top-3 right-3">
+                              {isExpired ? (
+                                <span className="px-2 py-1 bg-red-500 text-xs font-bold rounded-full">EXPIRED</span>
+                              ) : !offer.isActive ? (
+                                <span className="px-2 py-1 bg-slate-500 text-xs font-bold rounded-full">PAUSED</span>
+                              ) : (
+                                <span className="px-2 py-1 bg-green-500 text-xs font-bold rounded-full">LIVE</span>
                               )}
                             </div>
 
-                            {/* Details */}
-                            <div className="p-5">
-                              <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 mb-4">
-                                <MapPin className="h-4 w-4" />
-                                <span className="text-sm">{propertyName}</span>
-                              </div>
+                            <p className="text-purple-200 text-sm font-medium">{offer.offerName}</p>
+                            <p className="text-3xl font-black mt-1">{offer.benefitText}</p>
 
-                              {/* Actions */}
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => toggleOfferStatus(offer.id)}
-                                  disabled={isExpired}
-                                  className={`flex-1 px-3 py-2 rounded-lg font-medium transition-all ${isExpired
-                                    ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed"
-                                    : offer.isActive
-                                      ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-900/50"
-                                      : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50"
-                                    }`}
-                                >
-                                  {isExpired ? "Expired" : offer.isActive ? "Pause" : "Go Live"}
-                                </button>
-                                <button
-                                  onClick={() => handleEditOffer(offer)}
-                                  className="px-3 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                                >
-                                  <Edit2 className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteOffer(offer.id)}
-                                  className="px-3 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
+                            {!isExpired && offer.isActive && (
+                              <div className="mt-3 flex items-center gap-2 text-purple-100">
+                                <Clock className="h-4 w-4" />
+                                <span className="text-sm">{daysLeft} days remaining</span>
                               </div>
+                            )}
+                          </div>
+
+                          <div className="p-5">
+                            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 mb-4">
+                              <MapPin className="h-4 w-4" />
+                              <span className="text-sm">{propertyName}</span>
+                            </div>
+
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => toggleOfferStatus(offer.id)}
+                                disabled={isExpired}
+                                className={`flex-1 px-3 py-2 rounded-lg font-medium transition-all ${isExpired
+                                  ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed"
+                                  : offer.isActive
+                                    ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-900/50"
+                                    : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50"
+                                  }`}
+                              >
+                                {isExpired ? "Expired" : offer.isActive ? "Pause" : "Go Live"}
+                              </button>
+                              <button
+                                onClick={() => handleEditOffer(offer)}
+                                className="px-3 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteOffer(offer.id)}
+                                className="px-3 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
                             </div>
                           </div>
-                        )
-                      })}
-                    </div>
-
-                    {/* Empty State */}
-                    {offers.length === 0 && (
-                      <div className="text-center py-20 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-2xl border-2 border-dashed border-purple-200 dark:border-purple-800/50">
-                        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center mx-auto mb-6">
-                          <Gift className="h-10 w-10 text-white" />
                         </div>
-                        <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Koi Offers Nahi Hai</h3>
-                        <p className="text-slate-600 dark:text-slate-400 mb-8 max-w-md mx-auto">
-                          Special offers create karo aur buyers ko attract karo! Diwali, Holi, New Year - har occasion ke liye offer banao.
-                        </p>
-                        <button
-                          onClick={() => setShowAddOffer(true)}
-                          className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white rounded-xl font-bold text-lg flex items-center gap-3 transition-all mx-auto shadow-lg hover:shadow-xl"
-                        >
-                          <Plus className="h-6 w-6" />
-                          Pehla Offer Banao
-                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {offers.length === 0 && (
+                    <div className="text-center py-20 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-2xl border-2 border-dashed border-purple-200 dark:border-purple-800/50">
+                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center mx-auto mb-6">
+                        <Gift className="h-10 w-10 text-white" />
                       </div>
-                    )}
-                  </>
-                )
-              }
-            </div >
+                      <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Koi Offers Nahi Hai</h3>
+                      <p className="text-slate-600 dark:text-slate-400 mb-8 max-w-md mx-auto">
+                        Special offers create karo aur buyers ko attract karo! Diwali, Holi, New Year - har occasion ke liye offer banao.
+                      </p>
+                      <button
+                        onClick={() => setShowAddOffer(true)}
+                        className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white rounded-xl font-bold text-lg flex items-center gap-3 transition-all mx-auto shadow-lg hover:shadow-xl"
+                      >
+                        <Plus className="h-6 w-6" />
+                        Pehla Offer Banao
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           )}
 
-          {
-            activeTab === "settings" && (
-              <div className="max-w-6xl mx-auto">
-                <div className="mb-6">
-                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Settings & Profile</h2>
-                  <p className="text-slate-500 dark:text-slate-400">Manage your company details and system preferences.</p>
-                </div>
-
-                <Tabs defaultValue="profile" className="space-y-6">
-                  <TabsList className="bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-full md:w-auto inline-flex">
-                    <TabsTrigger value="profile" className="flex-1 md:w-48 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-950 data-[state=active]:shadow-sm px-4 py-2">Mandate Profile</TabsTrigger>
-                    <TabsTrigger value="preferences" className="flex-1 md:w-48 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-950 data-[state=active]:shadow-sm px-4 py-2">System Preferences</TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="profile" className="focus-visible:outline-none animate-in fade-in duration-300">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                      {/* Left Col - Avatar & Basic */}
-                      <div className="lg:col-span-1 space-y-6">
-                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-6 text-center">
-                          <ImageUpload
-                            value={profile.logo}
-                            onChange={(val) => setProfile({ ...profile, logo: val })}
-                            label="Mandate Logo"
-                            className="w-full"
-                          />
-                        </div>
-
-                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-6">
-                          <h3 className="font-semibold text-slate-900 dark:text-white mb-4">Quick Stats</h3>
-                          <div className="space-y-4">
-                            <div className="flex justify-between text-sm">
-                              <span className="text-slate-600 dark:text-slate-400">Properties</span>
-                              <span className="font-medium text-slate-900 dark:text-white">{properties.length}</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-slate-600 dark:text-slate-400">Member Since</span>
-                              <span className="font-medium text-slate-900 dark:text-white">Dec 2024</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Right Col - Form */}
-                      <div className="lg:col-span-2">
-                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-8">
-                          <div className="space-y-6">
-                            {/* Company Info */}
-                            <div>
-                              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                                <Building2 className="h-5 w-5 text-slate-500 dark:text-slate-400" />
-                                Company Details
-                              </h3>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Company Name</label>
-                                  <input
-                                    type="text"
-                                    value={profile.companyName}
-                                    onChange={(e) => setProfile({ ...profile, companyName: e.target.value })}
-                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="e.g. Acme Builders"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">RERA Number</label>
-                                  <input
-                                    type="text"
-                                    value={profile.reraNumber}
-                                    onChange={(e) => setProfile({ ...profile, reraNumber: e.target.value })}
-                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="RERA Registration No."
-                                  />
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Developer Info */}
-                            <div>
-                              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                                <User className="h-5 w-5 text-slate-500 dark:text-slate-400" />
-                                Mandate Information
-                              </h3>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Full Name</label>
-                                  <input
-                                    type="text"
-                                    value={profile.fullName}
-                                    onChange={(e) => setProfile({ ...profile, fullName: e.target.value })}
-                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="Your Full Name"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Description</label>
-                                  <input
-                                    type="text"
-                                    value={profile.description}
-                                    onChange={(e) => setProfile({ ...profile, description: e.target.value })}
-                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="Short bio or tagline"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Verification & Expertise */}
-                            <div>
-                              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                                <Shield className="h-5 w-5 text-slate-500 dark:text-slate-400" />
-                                Verification & Expertise
-                              </h3>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">PAN Number</label>
-                                  <input
-                                    type="text"
-                                    value={profile.panNumber}
-                                    onChange={(e) => setProfile({ ...profile, panNumber: e.target.value.toUpperCase() })}
-                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="ABCDE1234F"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Aadhar Number</label>
-                                  <input
-                                    type="text"
-                                    value={profile.aadharNumber}
-                                    onChange={(e) => setProfile({ ...profile, aadharNumber: e.target.value })}
-                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="1234 5678 9012"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Experience (Years)</label>
-                                  <input
-                                    type="text"
-                                    value={profile.experience}
-                                    onChange={(e) => setProfile({ ...profile, experience: e.target.value })}
-                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="e.g. 5"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Specialization</label>
-                                  <select
-                                    value={profile.specialization}
-                                    onChange={(e) => setProfile({ ...profile, specialization: e.target.value })}
-                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  >
-                                    <option value="">Select Specialization</option>
-                                    <option value="residential">Residential</option>
-                                    <option value="commercial">Commercial</option>
-                                    <option value="plots">Plots / Land</option>
-                                    <option value="all">All Types</option>
-                                  </select>
-                                </div>
-                                <div className="md:col-span-2">
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Preferred Areas</label>
-                                  <input
-                                    type="text"
-                                    value={profile.preferredAreas}
-                                    onChange={(e) => setProfile({ ...profile, preferredAreas: e.target.value })}
-                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="e.g. Baner, Wakad"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Contact Info */}
-                            <div>
-                              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                                <Mail className="h-5 w-5 text-slate-500 dark:text-slate-400" />
-                                Contact & Address
-                              </h3>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email Address</label>
-                                  <input
-                                    type="email"
-                                    value={profile.email}
-                                    onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Phone Number</label>
-                                  <input
-                                    type="tel"
-                                    value={profile.phone}
-                                    onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  />
-                                </div>
-                                <div className="md:col-span-2">
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Website</label>
-                                  <input
-                                    type="url"
-                                    value={profile.website}
-                                    onChange={(e) => setProfile({ ...profile, website: e.target.value })}
-                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="https://"
-                                  />
-                                </div>
-                                <div className="md:col-span-2">
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Office Address</label>
-                                  <textarea
-                                    value={profile.address}
-                                    onChange={(e) => setProfile({ ...profile, address: e.target.value })}
-                                    rows={3}
-                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="pt-6 border-t border-slate-200 dark:border-slate-800 mt-8 flex justify-end">
-                              <button
-                                onClick={handleSaveProfile}
-                                disabled={isSavingProfile}
-                                className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                {isSavingProfile ? (
-                                  <><Loader2 className="h-5 w-5 animate-spin" /> Saving...</>
-                                ) : (
-                                  <><Save className="h-5 w-5" /> Save Profile</>
-                                )}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="preferences" className="focus-visible:outline-none animate-in fade-in duration-300">
-                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-                      {/* Appearance */}
-                      <div className="p-6 border-b border-slate-100 dark:border-slate-800">
-                        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
-                            <Palette className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-                          </div>
-                          Appearance
-                        </h3>
-                        <div className="pl-10">
-                          <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">Choose how Builder Dashboard looks on your device.</p>
-                          <div className="grid grid-cols-3 gap-4">
-                            <label className="cursor-pointer">
-                              <input type="radio" name="theme" value="light" checked={theme === 'light'} onChange={() => setTheme('light')} className="peer sr-only" />
-                              <div className="p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 peer-checked:border-blue-600 dark:peer-checked:border-blue-500 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
-                                <div className="w-full h-20 bg-slate-100 rounded-lg mb-3 border border-slate-200 flex flex-col gap-2 p-2 overflow-hidden">
-                                  <div className="h-2 w-full bg-white rounded-full"></div>
-                                  <div className="h-2 w-2/3 bg-white rounded-full"></div>
-                                </div>
-                                <span className="font-medium text-slate-900 dark:text-white peer-checked:text-blue-700 dark:peer-checked:text-blue-400">Light</span>
-                              </div>
-                            </label>
-                            <label className="cursor-pointer">
-                              <input type="radio" name="theme" value="dark" checked={theme === 'dark'} onChange={() => setTheme('dark')} className="peer sr-only" />
-                              <div className="p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 peer-checked:border-blue-600 dark:peer-checked:border-blue-500 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
-                                <div className="w-full h-20 bg-slate-800 rounded-lg mb-3 border border-slate-700 flex flex-col gap-2 p-2 overflow-hidden">
-                                  <div className="h-2 w-full bg-slate-700 rounded-full"></div>
-                                  <div className="h-2 w-2/3 bg-slate-700 rounded-full"></div>
-                                </div>
-                                <span className="font-medium text-slate-900 dark:text-white peer-checked:text-blue-700 dark:peer-checked:text-blue-400">Dark</span>
-                              </div>
-                            </label>
-                            <label className="cursor-pointer">
-                              <input type="radio" name="theme" value="system" checked={theme === 'system'} onChange={() => setTheme('system')} className="peer sr-only" />
-                              <div className="p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 peer-checked:border-blue-600 dark:peer-checked:border-blue-500 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
-                                <div className="w-full h-20 bg-gradient-to-br from-slate-100 to-slate-800 rounded-lg mb-3 border border-slate-200 overflow-hidden relative">
-                                  <div className="absolute inset-y-0 left-0 w-1/2 bg-slate-100"></div>
-                                </div>
-                                <span className="font-medium text-slate-900 dark:text-white peer-checked:text-blue-700 dark:peer-checked:text-blue-400">System</span>
-                              </div>
-                            </label>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Notifications */}
-                      <div className="p-6 border-b border-slate-100 dark:border-slate-800">
-                        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                            <Bell className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                          </div>
-                          Notification Preferences
-                        </h3>
-                        <div className="pl-10 grid gap-4">
-                          {['New Lead Alerts', 'Weekly Performance Reports', 'Offer Expiry Reminders'].map(item => (
-                            <div key={item} className="flex items-center justify-between">
-                              <span className="text-slate-700 dark:text-slate-300">{item}</span>
-                              <label className="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" className="sr-only peer" defaultChecked />
-                                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-                              </label>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Security */}
-                      <div className="p-6">
-                        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                            <Shield className="h-5 w-5 text-red-600 dark:text-red-400" />
-                          </div>
-                          Security & Account
-                        </h3>
-                        <div className="pl-10 space-y-4">
-                          <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                            <div className="flex items-center gap-3">
-                              <Lock className="h-5 w-5 text-slate-500" />
-                              <div>
-                                <p className="font-medium text-slate-900 dark:text-white">Password</p>
-                                <p className="text-xs text-slate-500">Last changed 3 months ago</p>
-                              </div>
-                            </div>
-                            <button
-                                onClick={() => setIsChangingPassword(true)}
-                                className="text-sm px-3 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                              >
-                                Change
-                              </button>
-                          </div>
-
-                          <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                            <div className="flex items-center gap-3">
-                              <Smartphone className="h-5 w-5 text-slate-500" />
-                              <div>
-                                <p className="font-medium text-slate-900 dark:text-white">Two-Factor Authentication</p>
-                                <p className="text-xs text-slate-500">Secure your account with 2FA</p>
-                              </div>
-                            </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                              <input type="checkbox" className="sr-only peer" />
-                              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-                            </label>
-                          </div>
-                        </div>
-                      </div>
-
-                    </div>
-                  </TabsContent>
-                </Tabs>
+          {activeTab === "settings" && (
+            <div className="max-w-6xl mx-auto">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Settings & Profile</h2>
+                <p className="text-slate-500 dark:text-slate-400">
+                  {currentUser?.role === 'mandate' ? "Manage your mandate details and system preferences." : "Manage your company details and system preferences."}
+                </p>
               </div>
-            )
-          }
-        </div >
-      </main >
+
+              <Tabs value={activeSettingsTab} onValueChange={(val: any) => setActiveSettingsTab(val)} className="space-y-6">
+                <TabsList className="bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-full md:w-auto inline-flex">
+                  <TabsTrigger value="profile" className="flex-1 md:w-48 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-950 data-[state=active]:shadow-sm px-4 py-2">
+                    {currentUser?.role === 'mandate' ? "Mandate Profile" : "Builder Profile"}
+                  </TabsTrigger>
+                  <TabsTrigger value="preferences" className="flex-1 md:w-48 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-950 data-[state=active]:shadow-sm px-4 py-2">System Preferences</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="profile" className="focus-visible:outline-none animate-in fade-in duration-300">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div className="lg:col-span-1 space-y-6">
+                      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-6 text-center">
+                        <ImageUpload
+                          value={profile.logo}
+                          onChange={(val) => setProfile({ ...profile, logo: val })}
+                          label={currentUser?.role === 'mandate' ? "Mandate Logo" : "Builder Logo"}
+                          className="w-full"
+                        />
+                      </div>
+
+                      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-6">
+                        <h3 className="font-semibold text-slate-900 dark:text-white mb-4">Quick Stats</h3>
+                        <div className="space-y-4">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600 dark:text-slate-400">Properties</span>
+                            <span className="font-medium text-slate-900 dark:text-white">{properties.length}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600 dark:text-slate-400">Member Since</span>
+                            <span className="font-medium text-slate-900 dark:text-white">{currentUser?.createdAt ? new Date(currentUser.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'N/A'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="lg:col-span-2">
+                      <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-8">
+                        <div className="space-y-6">
+                          <div>
+                            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                              <Building2 className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                              Company Details
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                  {currentUser?.role === 'mandate' ? "Agency/Company Name" : "Company Name"}
+                                </label>
+                                <input
+                                  type="text"
+                                  value={profile.companyName}
+                                  onChange={(e) => setProfile({ ...profile, companyName: e.target.value })}
+                                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder="e.g. Acme Realty"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">RERA Number</label>
+                                <input
+                                  type="text"
+                                  value={profile.reraNumber}
+                                  onChange={(e) => setProfile({ ...profile, reraNumber: e.target.value })}
+                                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder="RERA Registration No."
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Established / Registration Year</label>
+                                <input
+                                  type="text"
+                                  value={profile.establishedYear}
+                                  onChange={(e) => setProfile({ ...profile, establishedYear: e.target.value })}
+                                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder="e.g. 2015"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">State</label>
+                                <input
+                                  type="text"
+                                  value={profile.state}
+                                  onChange={(e) => setProfile({ ...profile, state: e.target.value })}
+                                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder="e.g. Maharashtra"
+                                />
+                              </div>
+                              <div className="md:col-span-2">
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Operating Cities / Locations of Work</label>
+                                <input
+                                  type="text"
+                                  value={profile.operatingCities}
+                                  onChange={(e) => setProfile({ ...profile, operatingCities: e.target.value })}
+                                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder="e.g. Mumbai, Pune, Thane"
+                                />
+                              </div>
+                              <div className="md:col-span-2">
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tagline</label>
+                                <input
+                                  type="text"
+                                  value={profile.tagline}
+                                  onChange={(e) => setProfile({ ...profile, tagline: e.target.value })}
+                                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder="Company tagline or short bio"
+                                />
+                              </div>
+                              <div className="md:col-span-2">
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">About Company / Agency</label>
+                                <textarea
+                                  value={profile.aboutCompany}
+                                  onChange={(e) => setProfile({ ...profile, aboutCompany: e.target.value })}
+                                  rows={4}
+                                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder="Detailed description of the agency..."
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div>
+                            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                              <User className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                              {currentUser?.role === 'mandate' ? "Mandate Partner Info" : "Developer Information"}
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                  {currentUser?.role === 'mandate' ? "Full Name" : "Developer Name"}
+                                </label>
+                                <input
+                                  type="text"
+                                  value={currentUser?.role === 'mandate' ? profile.fullName : profile.developerName}
+                                  onChange={(e) => {
+                                    if (currentUser?.role === 'mandate') {
+                                      setProfile({ ...profile, fullName: e.target.value })
+                                    } else {
+                                      setProfile({ ...profile, developerName: e.target.value })
+                                    }
+                                  }}
+                                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder="Full Name"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Experience</label>
+                                <input
+                                  type="text"
+                                  value={profile.experience}
+                                  onChange={(e) => setProfile({ ...profile, experience: e.target.value })}
+                                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder="e.g. 10+ Years"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Specializations</label>
+                                <input
+                                  type="text"
+                                  value={profile.specialization}
+                                  onChange={(e) => setProfile({ ...profile, specialization: e.target.value })}
+                                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder="e.g. Residential, Retail, Land"
+                                />
+                              </div>
+
+                              {currentUser?.role === 'mandate' && (
+                                <>
+                                  <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">PAN Number</label>
+                                    <input
+                                      type="text"
+                                      value={profile.panNumber || ""}
+                                      onChange={(e) => setProfile({ ...profile, panNumber: e.target.value })}
+                                      className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                      placeholder="ABCDE1234F"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Aadhar Number</label>
+                                    <input
+                                      type="text"
+                                      value={profile.aadharNumber || ""}
+                                      onChange={(e) => setProfile({ ...profile, aadharNumber: e.target.value })}
+                                      className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                      placeholder="1234 5678 9012"
+                                    />
+                                  </div>
+                                  <div className="md:col-span-2">
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Preferred Operating Areas / Townships</label>
+                                    <input
+                                      type="text"
+                                      value={profile.preferredAreas || ""}
+                                      onChange={(e) => setProfile({ ...profile, preferredAreas: e.target.value })}
+                                      className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                      placeholder="e.g. Western Suburbs, South Mumbai"
+                                    />
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          <div>
+                            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                              <Mail className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                              Contact & Address
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email Address</label>
+                                <input
+                                  type="email"
+                                  value={profile.email}
+                                  onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Phone Number</label>
+                                <input
+                                  type="tel"
+                                  value={profile.phone}
+                                  onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div className="md:col-span-2">
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Website</label>
+                                <input
+                                  type="url"
+                                  value={profile.website}
+                                  onChange={(e) => setProfile({ ...profile, website: e.target.value })}
+                                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder="https://"
+                                />
+                              </div>
+                              <div className="md:col-span-2">
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Office Address</label>
+                                <textarea
+                                  value={profile.address}
+                                  onChange={(e) => setProfile({ ...profile, address: e.target.value })}
+                                  rows={3}
+                                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="pt-6 border-t border-slate-200 dark:border-slate-800 mt-8 flex justify-end">
+                            <button
+                              onClick={handleSaveProfile}
+                              disabled={isSavingProfile}
+                              className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {isSavingProfile ? (
+                                <><Loader2 className="h-5 w-5 animate-spin" /> Saving...</>
+                              ) : (
+                                <><Save className="h-5 w-5" /> Save Profile</>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="preferences" className="focus-visible:outline-none animate-in fade-in duration-300">
+                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+                    <div className="p-6 border-b border-slate-100 dark:border-slate-800">
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
+                          <Palette className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                        </div>
+                        Appearance
+                      </h3>
+                      <div className="pl-10">
+                        <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">Choose how the dashboard looks on your device.</p>
+                        <div className="grid grid-cols-3 gap-4">
+                          <label className="cursor-pointer">
+                            <input type="radio" name="theme" value="light" checked={theme === 'light'} onChange={() => setTheme('light')} className="peer sr-only" />
+                            <div className="p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 peer-checked:border-blue-600 dark:peer-checked:border-blue-500 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
+                              <div className="w-full h-20 bg-slate-100 rounded-lg mb-3 border border-slate-200 flex flex-col gap-2 p-2 overflow-hidden">
+                                <div className="h-2 w-full bg-white rounded-full"></div>
+                                <div className="h-2 w-2/3 bg-white rounded-full"></div>
+                              </div>
+                              <span className="font-medium text-slate-900 dark:text-white peer-checked:text-blue-700 dark:peer-checked:text-blue-400">Light</span>
+                            </div>
+                          </label>
+                          <label className="cursor-pointer">
+                            <input type="radio" name="theme" value="dark" checked={theme === 'dark'} onChange={() => setTheme('dark')} className="peer sr-only" />
+                            <div className="p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 peer-checked:border-blue-600 dark:peer-checked:border-blue-500 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
+                              <div className="w-full h-20 bg-slate-800 rounded-lg mb-3 border border-slate-700 flex flex-col gap-2 p-2 overflow-hidden">
+                                <div className="h-2 w-full bg-slate-700 rounded-full"></div>
+                                <div className="h-2 w-2/3 bg-slate-700 rounded-full"></div>
+                              </div>
+                              <span className="font-medium text-slate-900 dark:text-white peer-checked:text-blue-700 dark:peer-checked:text-blue-400">Dark</span>
+                            </div>
+                          </label>
+                          <label className="cursor-pointer">
+                            <input type="radio" name="theme" value="system" checked={theme === 'system'} onChange={() => setTheme('system')} className="peer sr-only" />
+                            <div className="p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 peer-checked:border-blue-600 dark:peer-checked:border-blue-500 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
+                              <div className="w-full h-20 bg-gradient-to-br from-slate-100 to-slate-800 rounded-lg mb-3 border border-slate-200 overflow-hidden relative">
+                                <div className="absolute inset-y-0 left-0 w-1/2 bg-slate-100"></div>
+                              </div>
+                              <span className="font-medium text-slate-900 dark:text-white peer-checked:text-blue-700 dark:peer-checked:text-blue-400">System</span>
+                            </div>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-6 border-b border-slate-100 dark:border-slate-800">
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                          <Bell className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                        </div>
+                        Notification Preferences
+                      </h3>
+                      <div className="pl-10 grid gap-4">
+                        {['New Lead Alerts', 'Weekly Performance Reports', 'Offer Expiry Reminders'].map(item => (
+                          <div key={item} className="flex items-center justify-between">
+                            <span className="text-slate-700 dark:text-slate-300">{item}</span>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input type="checkbox" className="sr-only peer" defaultChecked />
+                              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="p-6">
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                          <Shield className="h-5 w-5 text-red-600 dark:text-red-400" />
+                        </div>
+                        Security & Account
+                      </h3>
+                      <div className="pl-10 space-y-4">
+                        <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <Lock className="h-5 w-5 text-slate-500" />
+                            <div>
+                              <p className="font-medium text-slate-900 dark:text-white">Password</p>
+                              <p className="text-xs text-slate-500">Last changed 3 months ago</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => setIsChangingPassword(true)}
+                            className="text-sm px-3 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                          >
+                            Change
+                          </button>
+                        </div>
+
+                        <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <Smartphone className="h-5 w-5 text-slate-500" />
+                            <div>
+                              <p className="font-medium text-slate-900 dark:text-white">Two-Factor Authentication</p>
+                              <p className="text-xs text-slate-500">Secure your account with 2FA</p>
+                            </div>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" className="sr-only peer" />
+                            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </div>
+          )}
+        </div>
+      </main>
 
       {/* Banner Editor Modal */}
-      {
-        showBannerEditor && (
-          <BannerEditor
-            offerName={newOffer.offerName || "Special Offer"}
-            benefitText={newOffer.benefitText || "₹2 Lakh Off"}
-            benefitHighlight={newOffer.benefitHighlight || "DEAL"}
-            bannerType={bannerType}
-            onSave={(dataUrl) => {
-              setNewOffer({ ...newOffer, bannerImage: dataUrl })
-              setShowBannerEditor(false)
-            }}
-            onClose={() => setShowBannerEditor(false)}
-          />
-        )
-      }
+      {showBannerEditor && (
+        <BannerEditor
+          offerName={newOffer.offerName || "Special Offer"}
+          benefitText={newOffer.benefitText || "₹2 Lakh Off"}
+          benefitHighlight={newOffer.benefitHighlight || "DEAL"}
+          bannerType={bannerType}
+          onSave={(dataUrl) => {
+            setNewOffer({ ...newOffer, bannerImage: dataUrl })
+            setShowBannerEditor(false)
+          }}
+          onClose={() => setShowBannerEditor(false)}
+        />
+      )}
 
       {/* Password Change Modal */}
       {isChangingPassword && (
@@ -1849,10 +2239,11 @@ function DashboardContent() {
           </div>
         </div>
       )}
-    </div >
+    </div>
   )
 }
-export default function BuilderDashboard() {
+
+export default function MandateDashboard() {
   return (
     <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading Dashboard...</div>}>
       <DashboardContent />

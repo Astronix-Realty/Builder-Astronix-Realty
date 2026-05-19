@@ -23,6 +23,9 @@ const UnitSchema = new mongoose.Schema(
     publishedId: { type: mongoose.Schema.Types.ObjectId, ref: 'Unit', default: null },
     draftId: { type: mongoose.Schema.Types.ObjectId, ref: 'Unit', default: null },
     builderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    accountId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    role: { type: String, enum: ['builder', 'mandate'], default: 'builder' },
+    mandateId: { type: mongoose.Schema.Types.ObjectId, ref: 'Mandate', default: null },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
@@ -33,5 +36,8 @@ UnitSchema.index({ parentId: 1 });
 UnitSchema.index({ towerId: 1 });
 UnitSchema.index({ projectId: 1 });
 UnitSchema.index({ builderId: 1 });
+UnitSchema.index({ accountId: 1 });
+UnitSchema.index({ mandateId: 1 });
+UnitSchema.index({ role: 1 });
 
 export default mongoose.models.Unit || mongoose.model("Unit", UnitSchema);

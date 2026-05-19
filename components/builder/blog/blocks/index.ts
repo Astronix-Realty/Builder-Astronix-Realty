@@ -1,8 +1,8 @@
 import React from 'react';
 import { HeroBlock, TextBlock } from './CoreBlocks';
-import { FaqBlock, GalleryBlock, ProsConsBlock, CtaBlock } from './AdvancedBlocks';
+import { FaqBlock, GalleryBlock, ProsConsBlock, CtaBlock, TakeawaysBlock } from './AdvancedBlocks';
 
-export type BlockType = 'hero' | 'text' | 'faq' | 'gallery' | 'pros-cons' | 'cta';
+export type BlockType = 'hero' | 'text' | 'faq' | 'gallery' | 'pros-cons' | 'cta' | 'takeaways';
 
 export interface BlockProps {
   id: string;
@@ -77,6 +77,19 @@ export const BlockRegistry: Record<BlockType, BlockDefinition> = {
       buttonText: 'Explore Properties',
       buttonUrl: '#',
       variant: 'minimal',
+    },
+    singleton: true,
+  },
+  takeaways: {
+    type: 'takeaways',
+    label: 'Key Takeaways',
+    icon: 'Star',
+    component: TakeawaysBlock,
+    defaultData: {
+      items: [
+        { id: 'takeaway-1', value: 'Cost-benefit analyzed for maximum ROI potential' },
+        { id: 'takeaway-2', value: 'Infrastructure impact on future valuation' }
+      ]
     },
     singleton: true,
   },

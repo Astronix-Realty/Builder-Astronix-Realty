@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   ArrowLeft, Save, Play, CheckCircle2, AlertCircle, LayoutTemplate,
   HelpCircle, Image as ImageIcon, Scale, MousePointerClick, AlignLeft,
-  Monitor, Smartphone, Trash2, Undo2, Redo2, Wifi, WifiOff, Lock
+  Trash2, Undo2, Redo2, Wifi, WifiOff, Lock, Settings
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
@@ -15,6 +15,7 @@ import { calculateBlogHealthScore } from '@/lib/utils/health-score';
 import { migrateBlogData } from '@/lib/utils/blog-migration';
 import { useBlogEditorStore } from '@/lib/store/blog-editor-store';
 import { BlockRenderer } from './renderers/BlockRenderer';
+import { BlogSettingsDrawer } from './BlogSettingsDrawer';
 
 // ─── Memoized per-block card — never remounts on sibling updates ───────────
 const BlockCard = React.memo(({ block, index, onUpdate, onRemove }: {
@@ -63,79 +64,6 @@ const BlockCard = React.memo(({ block, index, onUpdate, onRemove }: {
 );
 BlockCard.displayName = 'BlockCard';
 
-// ─── Memoized Preview Pane ─────────────────────────────────────────────────
-const PreviewPane = React.memo(({ previewMode }: { previewMode: 'desktop' | 'mobile' }) => {
-  const blocks = useBlogEditorStore(s => s.blog.blocks);
-  const title = useBlogEditorStore(s => s.blog.title);
-
-  return (
-    <div 
-      className={`bg-white dark:bg-slate-900 transition-all duration-300 overflow-hidden ${
-        previewMode === 'mobile' 
-          ? 'max-w-[390px] w-full rounded-[2.8rem] border-[12px] border-blue-950 dark:border-blue-900 shadow-[0_25px_60px_-15px_rgba(26,60,140,0.3)] h-[780px] flex flex-col relative bg-white dark:bg-slate-950' 
-          : 'w-full max-w-3xl rounded-2xl border border-slate-200 dark:border-slate-800 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.08)] bg-white dark:bg-slate-900 min-h-[780px]'
-      }`}
-    >
-      {/* Phone Notch/Status Bar for realistic mobile simulator */}
-      {previewMode === 'mobile' && (
-        <div className="w-full bg-slate-50 dark:bg-slate-900/50 py-2.5 px-6 flex justify-between items-center border-b border-slate-100 dark:border-slate-900 text-[11px] font-bold text-slate-400 dark:text-slate-500 select-none shrink-0">
-          <span>9:41</span>
-          <div className="w-16 h-4 bg-slate-900 dark:bg-slate-950 rounded-full mx-auto absolute left-1/2 -translate-x-1/2 top-1.5" />
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
-            <span>5G</span>
-          </div>
-        </div>
-      )}
-
-      {/* Main Content Area */}
-      <div 
-        className={`flex-1 ${
-          previewMode === 'mobile' 
-            ? 'overflow-y-auto overflow-x-hidden hide-scrollbar px-4 sm:px-5 py-6 bg-white dark:bg-slate-950' 
-            : 'p-6 md:p-10 overflow-y-auto overflow-x-hidden'
-        }`}
-      >
-        {blocks.length > 0 ? (
-          <>
-            {/* Title Header — displayed if there is no Hero block */}
-            {!blocks.find((b: any) => b.type === 'hero') && (
-              <div className="mb-8 border-b border-slate-100 dark:border-slate-800/80 pb-5">
-                <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-white leading-tight tracking-tight">
-                  {title || <span className="text-slate-300 dark:text-slate-700 font-normal">Your blog title appears here</span>}
-                </h1>
-              </div>
-            )}
-            
-            <BlockRenderer blocks={blocks} title={title} />
-          </>
-        ) : (
-          <div className="animate-pulse space-y-6 p-4 text-center mt-12">
-            <div className="w-20 h-20 bg-blue-50 dark:bg-blue-950/40 text-blue-500 dark:text-blue-400 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-blue-100 dark:border-blue-900/30">
-              <LayoutTemplate className="w-10 h-10" />
-            </div>
-            <div className="space-y-3 max-w-md mx-auto">
-              <div className="h-6 bg-slate-200 dark:bg-slate-800 rounded-xl w-3/4 mx-auto" />
-              <div className="h-4 bg-slate-100 dark:bg-slate-850 rounded-lg w-full" />
-              <div className="h-4 bg-slate-100 dark:bg-slate-850 rounded-lg w-5/6 mx-auto" />
-            </div>
-            <p className="text-sm text-slate-400 dark:text-slate-500 font-semibold pt-4">Add your first content block on the left to start building</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-});
-PreviewPane.displayName = 'PreviewPane';
-
-const PreviewFallback = () => (
-  <div className="w-full max-w-3xl rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-10 animate-pulse">
-    <div className="h-8 bg-slate-200 dark:bg-slate-700 rounded w-2/3 mb-4" />
-    <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded w-full mb-2" />
-    <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded w-5/6" />
-  </div>
-);
-
 // ─── Main Editor ───────────────────────────────────────────────────────────
 export function BlogEditor({ blogId, initialData, onBack }: {
   blogId?: string;
@@ -146,6 +74,7 @@ export function BlogEditor({ blogId, initialData, onBack }: {
   const autoSaveTimer = useRef<NodeJS.Timeout | null>(null);
   const draftChecked = useRef(false);
   const broadcastChannel = useRef<BroadcastChannel | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // ── Derived state from store ─────────────────────────────
   const blog      = useBlogEditorStore(s => s.blog);
@@ -156,7 +85,6 @@ export function BlogEditor({ blogId, initialData, onBack }: {
   const isLoading = useBlogEditorStore(s => s.isLoading);
   const past      = useBlogEditorStore(s => s.past);
   const future    = useBlogEditorStore(s => s.future);
-  const previewMode     = useBlogEditorStore(s => s.previewMode);
   const publishErrors   = useBlogEditorStore(s => s.publishErrors);
   const saveError       = useBlogEditorStore(s => s.saveError);
   const lastSavedAt     = useBlogEditorStore(s => s.lastSavedAt);
@@ -359,6 +287,7 @@ export function BlogEditor({ blogId, initialData, onBack }: {
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-50 dark:bg-slate-950 flex flex-col h-screen overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <BlogSettingsDrawer isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
 
       {/* ── HEADER ──────────────────────────────────────── */}
       <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 flex items-center justify-between shrink-0 gap-2">
@@ -433,15 +362,13 @@ export function BlogEditor({ blogId, initialData, onBack }: {
           </button>
 
           <button
-            onClick={() => {
-              const key = `blog_draft_${blogId || 'new'}`;
-              localStorage.setItem(key, JSON.stringify(blog));
-              window.open(`/preview/blog/${blogId || 'new'}`, '_blank');
-            }}
-            className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 dark:text-blue-400 dark:bg-blue-900/30 rounded-lg transition-colors flex items-center gap-2"
+            onClick={() => setIsSettingsOpen(true)}
+            className="px-4 py-2 text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 dark:border-slate-700 dark:text-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg transition-colors flex items-center gap-2 shadow-sm"
           >
-            <LayoutTemplate className="w-4 h-4" /> Preview
+            <Settings className="w-4 h-4" /> Settings
           </button>
+
+
 
           <button
             onClick={handlePublish}
@@ -477,38 +404,40 @@ export function BlogEditor({ blogId, initialData, onBack }: {
       {/* ── MAIN LAYOUT ──────────────────────────────────── */}
       <div className="flex-1 flex overflow-hidden">
 
-        {/* LEFT: Editor Pane */}
-        <div className="w-1/2 flex flex-col border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 overflow-hidden">
+        {/* Editor Pane */}
+        <div className="w-full flex flex-col bg-slate-50 dark:bg-slate-900/50 overflow-hidden">
 
           {/* Block Adder Toolbar */}
-          <div className="shrink-0 px-4 py-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Add Content Block</p>
-            <div className="flex flex-wrap gap-1.5">
-              {Object.values(BlockRegistry).map((def) => {
-                const Icon = BLOCK_ICONS[def.icon] || AlignLeft;
-                const isDisabled = def.singleton && blocks.some((b: any) => b.type === def.type);
-                return (
-                  <button
-                    key={def.type}
-                    onClick={() => handleAddBlock(def.type)}
-                    disabled={isDisabled}
-                    className={`px-3 py-1.5 border rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                      isDisabled
-                        ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-50 dark:bg-slate-800/50 dark:border-slate-800 dark:text-slate-500'
-                        : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                    }`}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    {def.label}
-                  </button>
-                );
-              })}
+          <div className="shrink-0 px-4 py-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-center">
+            <div className="max-w-4xl w-full flex items-center gap-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 shrink-0">Add Content Block</p>
+              <div className="flex flex-wrap gap-1.5 flex-1">
+                {Object.values(BlockRegistry).map((def) => {
+                  const Icon = BLOCK_ICONS[def.icon] || AlignLeft;
+                  const isDisabled = def.singleton && blocks.some((b: any) => b.type === def.type);
+                  return (
+                    <button
+                      key={def.type}
+                      onClick={() => handleAddBlock(def.type)}
+                      disabled={isDisabled}
+                      className={`px-3 py-1.5 border rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                        isDisabled
+                          ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-50 dark:bg-slate-800/50 dark:border-slate-800 dark:text-slate-500'
+                          : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                      }`}
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                      {def.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
           {/* Scrollable Block List */}
           <div className="flex-1 overflow-y-auto">
-            <div className="p-6 max-w-2xl mx-auto w-full space-y-6">
+            <div className="p-6 max-w-4xl mx-auto w-full space-y-6">
               {blocks.map((block: any, index: number) => (
                 <BlockCard
                   key={block.id}
@@ -528,22 +457,6 @@ export function BlogEditor({ blogId, initialData, onBack }: {
                 </div>
               )}
             </div>
-          </div>
-        </div>
-
-        {/* RIGHT: Preview Pane */}
-        <div className="w-1/2 flex flex-col bg-slate-100/50 dark:bg-slate-950">
-          {/* Mode toggle */}
-          <div className="shrink-0 flex items-center justify-center py-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
-              <button onClick={() => store.setPreviewMode('desktop')} className={`p-1.5 rounded-md transition-colors ${previewMode === 'desktop' ? 'bg-white dark:bg-slate-700 shadow-sm' : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}><Monitor className="w-4 h-4" /></button>
-              <button onClick={() => store.setPreviewMode('mobile')} className={`p-1.5 rounded-md transition-colors ${previewMode === 'mobile' ? 'bg-white dark:bg-slate-700 shadow-sm' : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}><Smartphone className="w-4 h-4" /></button>
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto p-6 flex justify-center">
-            <Suspense fallback={<PreviewFallback />}>
-              <PreviewPane previewMode={previewMode} />
-            </Suspense>
           </div>
         </div>
 

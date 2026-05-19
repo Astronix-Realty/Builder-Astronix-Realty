@@ -3,17 +3,14 @@ import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Property from "@/models/Property";
 import Unit from "@/models/Unit";
-import { getTokenFromRequest, verifyToken } from "@/lib/auth";
+import { checkRBAC, getOwnershipQuery } from "@/lib/rbac";
 import { aggregateTowerPricing } from "@/lib/services/pricing-sync";
 
 
 export async function POST(req: NextRequest) {
   try {
-    const token = getTokenFromRequest(req);
-    if (!token) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-
-    const decoded = verifyToken(token);
-    if (!decoded) return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    if (errorResponse) return errorResponse;
 
     const body = await req.json();
     const { units } = body;
@@ -25,7 +22,7 @@ export async function POST(req: NextRequest) {
 
     await dbConnect();
 
-    // Attach builder context implicitly and clean up the object for insertMany
+    // Attach tenancy attributes based on verified RBAC context
     const unitsToInsert = units.map((u: any) => ({
       type: "unit",
       unitNumber: u.unitNumber,
@@ -39,15 +36,16 @@ export async function POST(req: NextRequest) {
       facing: u.facing,
       location: u.location || {},
       status: u.status || "available",
-      // Metadata
-      builderId: decoded.userId,
-      createdBy: decoded.userId,
-      updatedBy: decoded.userId,
+      // Tenancy & RBAC Metadata
+      builderId: context!.userId,
+      accountId: context!.userId,
+      role: context!.role,
+      mandateId: context!.mandateId || null,
+      createdBy: context!.userId,
+      updatedBy: context!.userId,
     }));
 
     // Perform bulk insertion
-    // Use ordered: false so if one fails (e.g., unique constraint), others might still succeed, 
-    // though dropping the whole batch on error is safer explicitly. Let's use ordered: true (default) for atomicity
     const insertedUnits = await Unit.insertMany(unitsToInsert, { ordered: true });
 
     if (process.env.NODE_ENV !== "production") {
@@ -71,11 +69,8 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const token = getTokenFromRequest(req);
-    if (!token) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-
-    const decoded = verifyToken(token);
-    if (!decoded) return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    if (errorResponse) return errorResponse;
 
     const { searchParams } = new URL(req.url);
     const propertyId = searchParams.get("propertyId");
@@ -98,14 +93,17 @@ export async function PATCH(req: NextRequest) {
     
     let standaloneModified = 0;
     if (validObjectIds.length > 0 || unitIds.length > 0) {
-      const query: any = { builderId: decoded.userId, $or: [] };
+      const query: any = { 
+        ...getOwnershipQuery(context!), 
+        $or: [] 
+      };
       if (validObjectIds.length > 0) {
         query.$or.push({ _id: { $in: validObjectIds } });
       }
       // Always check originalId with ALL unitIds (these are string matches)
       query.$or.push({ originalId: { $in: unitIds } });
 
-      const result = await Unit.updateMany(query, { $set: { status, updatedBy: decoded.userId } });
+      const result = await Unit.updateMany(query, { $set: { status, updatedBy: context!.userId } });
       standaloneModified = result.modifiedCount;
       console.log(`[BULK PATCH] Standalone Unit.updateMany matched=${result.matchedCount}, modified=${standaloneModified}`);
     }
@@ -116,7 +114,10 @@ export async function PATCH(req: NextRequest) {
       // Find the property - try direct ID first, then check child properties
       let property = null;
       if (mongoose.isValidObjectId(propertyId)) {
-        property = await Property.findOne({ _id: propertyId, builderId: decoded.userId });
+        property = await Property.findOne({ 
+          _id: propertyId, 
+          ...getOwnershipQuery(context!) 
+        });
       }
 
       if (property) {
@@ -153,14 +154,17 @@ export async function PATCH(req: NextRequest) {
           }
         }
       } else {
-        console.log(`[BULK PATCH] Property ${propertyId} not found in DB`);
+        console.log(`[BULK PATCH] Property ${propertyId} not found or unauthorized in DB`);
       }
     }
 
     // Trigger pricing aggregation (best-effort)
     if (standaloneModified > 0) {
       const updatedUnits = await Unit.find(
-        { $or: [{ _id: { $in: validObjectIds } }, { originalId: { $in: unitIds } }], builderId: decoded.userId }
+        { 
+          $or: [{ _id: { $in: validObjectIds } }, { originalId: { $in: unitIds } }], 
+          ...getOwnershipQuery(context!) 
+        }
       ).select("towerId").lean();
       const towerIds = Array.from(new Set(updatedUnits.map(u => u.towerId?.toString()).filter(Boolean)));
       Promise.allSettled(towerIds.map(id => aggregateTowerPricing(id))).catch(err =>
@@ -178,3 +182,4 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Failed to update units in bulk" }, { status: 500 });
   }
 }
+

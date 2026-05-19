@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Blog from "@/models/Blog";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth"; // Assuming you have an authOptions
+import { checkRBAC, getOwnershipQuery } from "@/lib/rbac";
 
 // Utility to generate slug
 const generateSlug = async (title: string, currentSlug?: string) => {
@@ -28,6 +27,9 @@ const generateSlug = async (title: string, currentSlug?: string) => {
 // GET /api/blogs
 export async function GET(req: NextRequest) {
   try {
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    if (errorResponse) return errorResponse;
+
     await dbConnect();
     
     // Parse query params
@@ -38,7 +40,9 @@ export async function GET(req: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "20");
 
-    const query: any = {};
+    const query: any = {
+      ...getOwnershipQuery(context!)
+    };
 
     if (status && status !== 'all') query.status = status;
     if (category && category !== 'all') query.category = category;
@@ -79,12 +83,13 @@ export async function GET(req: NextRequest) {
 // POST /api/blogs
 export async function POST(req: NextRequest) {
   try {
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    if (errorResponse) return errorResponse;
+
     await dbConnect();
-    // const session = await getServerSession(authOptions);
-    // if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const { title, excerpt, blocks, category, coverImage, seo, status, publishedAt } = body;
+    const { title, excerpt, blocks, category, coverImage, seo, status, publishedAt, authorName, authorRole, readTime, linkedProperties } = body;
 
     if (!title) {
       return NextResponse.json({ error: "Title is required" }, { status: 400 });
@@ -102,8 +107,15 @@ export async function POST(req: NextRequest) {
       seo,
       status: status || "draft",
       publishedAt: status === "published" ? (publishedAt || new Date()) : null,
-      // authorId: session?.user?.id,
-      // authorName: session?.user?.name,
+      authorName: authorName || context!.email.split('@')[0],
+      authorRole: authorRole || context!.role,
+      readTime,
+      linkedProperties,
+      authorId: context!.userId,
+      accountId: context!.userId,
+      role: context!.role,
+      builderId: context!.builderId || null,
+      mandateId: context!.mandateId || null
     });
 
     return NextResponse.json({ blog: newBlog }, { status: 201 });

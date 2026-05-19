@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Lead from "@/models/Lead";
+import { checkRBAC, getOwnershipQuery } from "@/lib/rbac";
 import { broadcastEvent } from "@/lib/sse";
 import mongoose from "mongoose";
 
@@ -19,8 +20,15 @@ export async function GET(
     return NextResponse.json({ success: false, error: "Invalid lead ID" }, { status: 400 });
   }
   try {
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    if (errorResponse) return errorResponse;
+
     await dbConnect();
-    const lead = await Lead.findOne({ _id: id, isArchived: { $ne: true } });
+    const lead = await Lead.findOne({ 
+      _id: id, 
+      ...getOwnershipQuery(context!),
+      isArchived: { $ne: true } 
+    });
 
     if (!lead) {
       return NextResponse.json(
@@ -48,11 +56,18 @@ export async function PATCH(
     return NextResponse.json({ success: false, error: "Invalid lead ID" }, { status: 400 });
   }
   try {
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    if (errorResponse) return errorResponse;
+
     await dbConnect();
     const body = await req.json();
     const { status, assignee, notes, interestedUnit, actionType, actionDesc } = body;
 
-    const lead = await Lead.findOne({ _id: id, isArchived: { $ne: true } });
+    const lead = await Lead.findOne({ 
+      _id: id, 
+      ...getOwnershipQuery(context!),
+      isArchived: { $ne: true } 
+    });
 
     if (!lead) {
       return NextResponse.json(
@@ -142,8 +157,15 @@ export async function DELETE(
     return NextResponse.json({ success: false, error: "Invalid lead ID" }, { status: 400 });
   }
   try {
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    if (errorResponse) return errorResponse;
+
     await dbConnect();
-    const lead = await Lead.findOne({ _id: id, isArchived: { $ne: true } });
+    const lead = await Lead.findOne({ 
+      _id: id, 
+      ...getOwnershipQuery(context!),
+      isArchived: { $ne: true } 
+    });
 
     if (!lead) {
       return NextResponse.json(

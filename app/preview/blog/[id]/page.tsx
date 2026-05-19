@@ -126,15 +126,66 @@ export default function BlogPreviewPage() {
       </div>
 
       {/* Main Content Render */}
-      <main className="pb-24">
+      <main className="max-w-[1200px] mx-auto px-4 md:px-8 py-10">
+        
         {/* Dynamic Title if no Hero block exists to show it */}
         {(!blog.blocks || !blog.blocks.find((b: any) => b.type === 'hero')) && (
-           <div className="max-w-3xl mx-auto px-5 sm:px-6 md:px-8 mt-12 mb-8">
+           <div className="mb-10">
              <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 dark:text-white leading-tight tracking-tight">{blog.title || "Untitled Blog"}</h1>
            </div>
         )}
         
-        <BlockRenderer blocks={blog.blocks || []} />
+        <div className="flex flex-col lg:flex-row gap-12 items-start relative">
+          
+          {/* LEFT: Main Content */}
+          <div className="flex-1 w-full min-w-0 pb-24 lg:pb-0">
+            <BlockRenderer blocks={blog.blocks || []} title={blog.title} blog={blog} />
+          </div>
+          
+          {/* RIGHT: Sticky Sidebar */}
+          <aside className="w-full lg:w-[340px] shrink-0 sticky top-[100px] hidden lg:flex flex-col gap-8">
+            
+            {/* Table of Contents */}
+            <div className="bg-slate-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-slate-200 dark:border-slate-800">
+              <h3 className="text-sm font-bold uppercase tracking-widest text-slate-900 dark:text-white mb-4">Table of Contents</h3>
+              <ul className="space-y-3">
+                {blog.blocks?.filter((b: any) => b.type === 'takeaways' || b.type === 'pros-cons' || b.type === 'faq').map((b: any, idx: number) => {
+                  const labels: any = { 'takeaways': 'Key Takeaways', 'pros-cons': 'Pros & Cons', 'faq': 'FAQs' };
+                  return (
+                    <li key={idx}>
+                      <a href="#" className="text-sm font-medium text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                        {labels[b.type]}
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+
+            {/* Featured Projects placeholder if IDs exist */}
+            {blog.linkedProperties && blog.linkedProperties.length > 0 && (
+              <div className="bg-gradient-to-br from-blue-50 to-slate-50 dark:from-blue-950/20 dark:to-slate-900/50 rounded-2xl p-6 border border-blue-100 dark:border-blue-900/30">
+                <h3 className="text-sm font-bold uppercase tracking-widest text-blue-900 dark:text-blue-400 mb-4">Featured Projects</h3>
+                <div className="space-y-4">
+                  {blog.linkedProperties.map((pid: string | any, i: number) => {
+                    const id = typeof pid === 'string' ? pid : pid._id;
+                    const name = typeof pid === 'string' ? `Project ID: ${id.slice(-6)}` : pid.name;
+                    return (
+                      <div key={i} className="flex gap-3 items-center bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                        <div className="w-10 h-10 rounded-lg bg-slate-200 dark:bg-slate-800 shrink-0" />
+                        <div>
+                          <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{name}</p>
+                          <p className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wider">Explore</p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+          </aside>
+        </div>
       </main>
 
     </div>

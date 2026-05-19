@@ -376,7 +376,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
 
         const rate = parseFloat(towerRateForm.rate)
         if (isNaN(rate) || rate <= 0) {
-            alert("Please enter a valid rate per sqft")
+            toast.error("Please enter a valid rate per sqft")
             return
         }
 
@@ -388,13 +388,17 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
             })
 
             if (res.ok) {
-                fetchFullProperty(selectedPropertyId)
+                toast.success(`Successfully updated all units in tower to ₹${rate}/sqft`)
                 setIsPricingDialogOpen(false)
                 setTowerRateForm({ rate: "", applyToAllConfigurations: true })
-                alert(`Successfully updated all units in tower to ₹${rate}/sqft`)
+                fetchFullProperty(selectedPropertyId)
+            } else {
+                const err = await res.json()
+                toast.error(err.error || "Failed to update tower pricing")
             }
         } catch (e) {
             console.error("Failed to update tower pricing", e)
+            toast.error("An error occurred while updating tower pricing")
         }
     }
 

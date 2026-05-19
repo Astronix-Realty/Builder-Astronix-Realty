@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Conversation from "@/models/Conversation";
+import { checkRBAC, getOwnershipQuery } from "@/lib/rbac";
 import { broadcastEvent } from "@/lib/sse";
 
 // GET /api/conversations — list all conversations for a builder
 export async function GET(req: NextRequest) {
   try {
-    await dbConnect();
-    const { searchParams } = new URL(req.url);
-    const builderId = searchParams.get("builderId");
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    if (errorResponse) return errorResponse;
 
-    const query: any = {};
-    if (builderId) query.builderId = builderId;
+    await dbConnect();
+
+    // Query isolation by tenancy
+    const query: any = {
+      ...getOwnershipQuery(context!)
+    };
 
     const conversations = await Conversation.find(query)
       .sort({ isPinned: -1, lastMessageAt: -1 })
@@ -27,23 +31,29 @@ export async function GET(req: NextRequest) {
 // POST /api/conversations — create or get existing conversation for a lead
 export async function POST(req: NextRequest) {
   try {
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    if (errorResponse) return errorResponse;
+
     await dbConnect();
-    const { leadId, builderId, leadName, leadPhone, assignee } = await req.json();
+    const { leadId, leadName, leadPhone, assignee } = await req.json();
 
     if (!leadId) {
       return NextResponse.json({ success: false, error: "leadId required" }, { status: 400 });
     }
 
-    // Upsert — find or create
-    let conversation = await Conversation.findOne({ leadId });
+    // Upsert — find or create under the isolated tenant boundary
+    let conversation = await Conversation.findOne({ leadId, ...getOwnershipQuery(context!) });
 
     if (!conversation) {
       conversation = await Conversation.create({
         leadId,
-        builderId,
+        builderId: context!.userId, // legacy compatibility
+        accountId: context!.userId,
+        role: context!.role,
+        mandateId: context!.mandateId || null,
         leadName,
         leadPhone,
-        assignee,
+        assignee: assignee || context!.email,
         messages: [],
         lastMessage: "Conversation started",
         lastMessageAt: new Date(),

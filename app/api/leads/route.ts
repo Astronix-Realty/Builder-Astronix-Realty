@@ -1,25 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Lead from "@/models/Lead";
+import { checkRBAC, getOwnershipQuery } from "@/lib/rbac";
 import { broadcastEvent } from "@/lib/sse";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
     try {
+        const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+        if (errorResponse) return errorResponse;
+
         await dbConnect();
         
         const { searchParams } = new URL(req.url);
-        const builderId = searchParams.get("builderId");
         const status = searchParams.get("status");
         const search = searchParams.get("search");
         const assignee = searchParams.get("assignee");
         const page = parseInt(searchParams.get("page") || "1");
         const limit = parseInt(searchParams.get("limit") || "200");
 
-        let query: any = { isArchived: { $ne: true } };
+        // Dynamic isolation query
+        let query: any = { 
+            ...getOwnershipQuery(context!),
+            isArchived: { $ne: true } 
+        };
 
-        if (builderId) query.builderId = builderId;
         if (status) query.status = status;
         if (assignee && assignee !== "all") query.assignee = { $regex: assignee, $options: "i" };
         if (search) {
@@ -54,6 +60,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
     try {
+        const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+        if (errorResponse) return errorResponse;
+
         await dbConnect();
         const body = await req.json();
 
@@ -65,7 +74,7 @@ export async function POST(req: NextRequest) {
             }, { status: 400 });
         }
 
-        // Create the new lead
+        // Create the new lead with injected tenancy attributes
         const newLead = await Lead.create({
             name: body.name,
             email: body.email?.toLowerCase(),
@@ -73,12 +82,15 @@ export async function POST(req: NextRequest) {
             source: body.source || "Website",
             requirement: body.requirement,
             budget: body.budget,
-            assignee: body.assignee,
-            builderId: body.builderId,
+            assignee: body.assignee || context!.email,
+            builderId: context!.userId, // legacy compatibility
+            accountId: context!.userId,
+            role: context!.role,
+            mandateId: context!.mandateId || null,
             status: "Fresh",
             timeline: [{
                 title: "Lead Created",
-                desc: `Created manually via CRM by ${body.assignee || "Team"}`,
+                desc: `Created manually via CRM by ${body.assignee || context!.email || "Team"}`,
                 type: "system"
             }]
         });

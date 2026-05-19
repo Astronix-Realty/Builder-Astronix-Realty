@@ -2,23 +2,24 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, CheckCircle2, XCircle, ArrowRight } from 'lucide-react';
+import { ChevronDown, CheckCircle2, XCircle, ArrowRight, Star, ShieldCheck } from 'lucide-react';
 import { optimizeCloudinaryUrl } from '@/components/builder/blog/blocks/CoreBlocks';
 import { normalizeListItems } from '@/lib/utils/blog-migration';
 import Link from 'next/link';
 
-export const BlockRenderer = ({ blocks, title }: { blocks: any[]; title?: string }) => {
+export const BlockRenderer = ({ blocks, title, blog }: { blocks: any[]; title?: string; blog?: any }) => {
   if (!blocks || blocks.length === 0) return null;
   return (
     <div className="w-full max-w-4xl mx-auto space-y-12">
       {blocks.map((block, index) => {
         switch (block.type) {
-          case 'hero':     return <HeroRenderer     key={block.id || index} data={block.data} title={title} />;
+          case 'hero':     return <HeroRenderer     key={block.id || index} data={block.data} title={title} blog={blog} />;
           case 'text':     return <TextRenderer     key={block.id || index} data={block.data} />;
           case 'faq':      return <FaqRenderer      key={block.id || index} data={block.data} />;
           case 'gallery':  return <GalleryRenderer  key={block.id || index} data={block.data} />;
           case 'pros-cons':return <ProsConsRenderer key={block.id || index} data={block.data} />;
           case 'cta':      return <CtaRenderer      key={block.id || index} data={block.data} />;
+          case 'takeaways':return <TakeawaysRenderer key={block.id || index} data={block.data} />;
           default:         return null;
         }
       })}
@@ -27,42 +28,78 @@ export const BlockRenderer = ({ blocks, title }: { blocks: any[]; title?: string
 };
 
 // ─── Hero ──────────────────────────────────────────────────────────────────
-const HeroRenderer = ({ data, title }: { data: any; title?: string }) => (
-  <div style={{ containerType: 'inline-size' }} className="relative w-full min-h-[420px] bg-slate-900 rounded-2xl md:rounded-3xl overflow-hidden mb-12 shadow-xl mt-4 md:mt-8 flex flex-wrap items-center justify-between p-[clamp(1.5rem,5cqw,4rem)] gap-[clamp(1.5rem,5cqw,3rem)]">
-    {data.imageUrl ? (
-      <img
-        src={optimizeCloudinaryUrl(data.imageUrl, 1920)}
-        alt="Background"
-        className="absolute inset-0 w-full h-full object-cover object-center opacity-40 select-none pointer-events-none"
-        loading="lazy"
-      />
-    ) : (
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900" />
-    )}
-    <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-transparent" />
-    <div className="absolute inset-0 bg-gradient-to-r from-black/80 to-transparent hidden md:block" />
-    
-    <div className="relative z-10 flex-1 min-w-[280px] text-left space-y-[clamp(1rem,3cqw,1.5rem)]">
-      <motion.h1 initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
-        className="text-[clamp(2rem,7cqw,4rem)] font-black text-white leading-[1.1] tracking-tight drop-shadow-xl break-words">
-        {title || data.heading}
-      </motion.h1>
-      {data.subtitle && (
-        <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-          className="text-[clamp(0.9rem,2.5cqw,1.25rem)] text-slate-200 font-medium leading-relaxed max-w-2xl drop-shadow-md">
-          {data.subtitle}
-        </motion.p>
+const HeroRenderer = ({ data, title, blog }: { data: any; title?: string; blog?: any }) => {
+  const publishedDate = blog?.publishedAt ? new Date(blog.publishedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'Draft Preview';
+  const category = blog?.category || 'General';
+  const readTime = blog?.readTime || '5 min read';
+  const authorName = blog?.authorName || 'Astronix Audit Team';
+  const authorRole = blog?.authorRole || 'Real Estate Analyst';
+  const initial = authorName.charAt(0).toUpperCase();
+
+  return (
+    <div style={{ containerType: 'inline-size' }} className="relative w-full min-h-[500px] bg-slate-900 overflow-hidden mb-12 flex flex-wrap items-center justify-between p-[clamp(2rem,6cqw,5rem)] gap-[clamp(1.5rem,5cqw,3rem)]">
+      {data.imageUrl ? (
+        <img
+          src={optimizeCloudinaryUrl(data.imageUrl, 1920)}
+          alt="Background"
+          className="absolute inset-0 w-full h-full object-cover object-center opacity-40 select-none pointer-events-none"
+          loading="lazy"
+        />
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900" />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-black/20" />
+      <div className="absolute inset-0 bg-gradient-to-r from-black/80 to-transparent hidden md:block" />
+      
+      <div className="relative z-10 w-full mb-auto pb-8">
+        <Link href="/blogs" className="text-xs font-bold uppercase tracking-widest text-slate-300 hover:text-white transition-colors flex items-center gap-1">
+          <ChevronDown className="w-4 h-4 rotate-90" /> BACK TO INSIGHTS
+        </Link>
+      </div>
+
+      <div className="relative z-10 flex-1 min-w-[280px] text-left space-y-[clamp(1rem,3cqw,1.5rem)] mt-auto w-full max-w-4xl mx-auto md:mx-0">
+        <div className="flex items-center gap-4 flex-wrap">
+          <span className="px-3 py-1 bg-amber-500/20 text-amber-400 text-[10px] font-bold uppercase tracking-widest rounded-full border border-amber-500/30 backdrop-blur-md">
+            {category}
+          </span>
+          <div className="flex items-center gap-3 text-xs font-semibold text-slate-300 uppercase tracking-widest">
+            <span>{publishedDate}</span>
+            <span className="w-1 h-1 rounded-full bg-slate-500"></span>
+            <span>{readTime}</span>
+          </div>
+        </div>
+
+        <motion.h1 initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
+          className="text-[clamp(2.5rem,7cqw,4.5rem)] font-black text-white leading-[1.1] tracking-tight drop-shadow-2xl break-words">
+          {title || data.heading}
+        </motion.h1>
+        {data.subtitle && (
+          <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+            className="text-[clamp(1rem,2.5cqw,1.25rem)] text-slate-300 font-medium leading-relaxed max-w-3xl drop-shadow-md">
+            {data.subtitle}
+          </motion.p>
+        )}
+        
+        <div className="flex items-center gap-4 pt-4 border-t border-white/10 mt-6 max-w-md">
+          <div className="w-12 h-12 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center shadow-lg shrink-0">
+            <span className="text-lg font-black text-slate-300">{initial}</span>
+          </div>
+          <div>
+            <p className="text-sm font-bold text-white leading-tight">{authorName}</p>
+            <p className="text-xs font-semibold text-slate-400 tracking-wide uppercase mt-0.5">{authorRole}</p>
+          </div>
+        </div>
+      </div>
+      
+      {data.heroImageUrl && (
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2, duration: 0.6 }}
+          className="relative z-10 w-[clamp(10rem,25cqw,25rem)] aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl border border-white/20 shrink-0 mx-auto hidden lg:block mt-auto mb-10">
+          <img src={optimizeCloudinaryUrl(data.heroImageUrl, 900)} alt="Hero" className="w-full h-full object-cover" loading="lazy" />
+        </motion.div>
       )}
     </div>
-    
-    {data.heroImageUrl && (
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2, duration: 0.6 }}
-        className="relative z-10 w-[clamp(8rem,20cqw,20rem)] aspect-[4/5] rounded-xl overflow-hidden shadow-2xl border border-white/20 shrink-0 mx-auto">
-        <img src={optimizeCloudinaryUrl(data.heroImageUrl, 900)} alt="Hero" className="w-full h-full object-cover" loading="lazy" />
-      </motion.div>
-    )}
-  </div>
-);
+  );
+};
 
 // ─── Text ──────────────────────────────────────────────────────────────────
 const TextRenderer = ({ data }: { data: any }) => {
@@ -159,6 +196,34 @@ const ProsConsRenderer = ({ data }: { data: any }) => {
   );
 };
 
+// ─── Takeaways ─────────────────────────────────────────────────────────────
+const TakeawaysRenderer = ({ data }: { data: any }) => {
+  const items = normalizeListItems(data.items).filter(i => i.value.trim());
+  if (!items.length) return null;
+  return (
+    <div className="px-4 md:px-8 mb-8">
+      <div className="rounded-2xl border border-amber-200 bg-amber-50/50 dark:bg-amber-950/10 dark:border-amber-900/40 p-6 shadow-sm">
+        <div className="flex items-center gap-3 mb-6 border-b border-amber-200/50 dark:border-amber-900/30 pb-4">
+          <div className="p-2 bg-amber-100 dark:bg-amber-900/40 rounded-xl shrink-0">
+            <Star className="w-5 h-5 text-amber-600 dark:text-amber-400 fill-amber-600 dark:fill-amber-400" />
+          </div>
+          <h3 className="text-xl md:text-2xl font-black text-amber-900 dark:text-amber-100 tracking-tight">KEY TAKEAWAYS</h3>
+        </div>
+        <ul className="space-y-4">
+          {items.map(item => (
+            <li key={item.id} className="flex items-start gap-3 text-amber-900 dark:text-amber-200 font-medium">
+              <div className="mt-1 w-5 h-5 rounded-full bg-amber-200 dark:bg-amber-900/60 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
+              </div>
+              <span className="leading-relaxed text-[15px] md:text-base">{item.value}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+};
+
 // ─── CTA ───────────────────────────────────────────────────────────────────
 import { getButtonConfig, CTA_VARIANTS } from '@/components/builder/blog/blocks/AdvancedBlocks';
 
@@ -193,39 +258,68 @@ const CtaRenderer = ({ data }: { data: any }) => {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.15),transparent_40%)] pointer-events-none" />
         )}
         
-        <h3 className={`text-2xl md:text-3xl font-black mb-3 leading-tight tracking-tight ${cfg.heading}`}>
-          {heading}
-        </h3>
-        {description && (
-          <p className={`text-sm md:text-base mb-8 max-w-xl mx-auto leading-relaxed ${cfg.sub}`}>
-            {description}
-          </p>
+        {variant === 'rera' ? (
+          <div className="flex flex-col md:flex-row items-center justify-between text-left gap-6">
+            <div className="flex-1 flex items-start gap-5">
+              <div className="hidden md:flex shrink-0 w-16 h-16 rounded-2xl bg-white border border-slate-200 shadow-sm items-center justify-center">
+                <ShieldCheck className="w-8 h-8 text-emerald-600" />
+              </div>
+              <div>
+                <h3 className={`text-xl md:text-2xl font-black mb-2 leading-tight tracking-tight ${cfg.heading}`}>{heading}</h3>
+                <p className={`text-sm leading-relaxed max-w-lg ${cfg.sub}`}>{description}</p>
+              </div>
+            </div>
+            <div className="shrink-0">
+              {isExternal ? (
+                <motion.a href={href} target="_blank" rel="noopener noreferrer" whileHover={{ scale: 1.04, y: -2 }} whileTap={{ scale: 0.98 }} {...buttonProps}>
+                  {buttonInner}
+                </motion.a>
+              ) : (
+                <motion.div whileHover={{ scale: 1.04, y: -2 }} whileTap={{ scale: 0.98 }} className="inline-block">
+                  <Link href={href} {...buttonProps}>
+                    {buttonInner}
+                  </Link>
+                </motion.div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <>
+            <h3 className={`text-2xl md:text-3xl font-black mb-3 leading-tight tracking-tight ${cfg.heading}`}>
+              {heading}
+            </h3>
+            {description && (
+              <p className={`text-sm md:text-base mb-8 max-w-xl mx-auto leading-relaxed ${cfg.sub}`}>
+                {description}
+              </p>
+            )}
+            
+            <div className="flex justify-center">
+              {isExternal ? (
+                <motion.a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  whileHover={{ scale: 1.04, y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                  {...buttonProps}
+                >
+                  {buttonInner}
+                </motion.a>
+              ) : (
+                <motion.div
+                  whileHover={{ scale: 1.04, y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="inline-block"
+                >
+                  <Link href={href} {...buttonProps}>
+                    {buttonInner}
+                  </Link>
+                </motion.div>
+              )}
+            </div>
+          </>
         )}
-        
-        <div className="flex justify-center">
-          {isExternal ? (
-            <motion.a
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              whileHover={{ scale: 1.04, y: -2 }}
-              whileTap={{ scale: 0.98 }}
-              {...buttonProps}
-            >
-              {buttonInner}
-            </motion.a>
-          ) : (
-            <motion.div
-              whileHover={{ scale: 1.04, y: -2 }}
-              whileTap={{ scale: 0.98 }}
-              className="inline-block"
-            >
-              <Link href={href} {...buttonProps}>
-                {buttonInner}
-              </Link>
-            </motion.div>
-          )}
-        </div>
       </div>
     </div>
   );

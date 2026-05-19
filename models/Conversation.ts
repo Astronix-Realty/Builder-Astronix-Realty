@@ -20,6 +20,22 @@ const ConversationSchema = new mongoose.Schema({
     ref: "User",
     index: true,
   },
+  accountId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    index: true,
+  },
+  role: {
+    type: String,
+    enum: ["builder", "mandate"],
+    default: "builder",
+    index: true,
+  },
+  mandateId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Mandate",
+    index: true,
+  },
   // Denormalized for fast list rendering
   leadName: { type: String },
   leadPhone: { type: String },
@@ -33,6 +49,9 @@ const ConversationSchema = new mongoose.Schema({
 
 // Compound indexes for fast inbox loading
 ConversationSchema.index({ builderId: 1, lastMessageAt: -1 });
+ConversationSchema.index({ accountId: 1, lastMessageAt: -1 });
+ConversationSchema.index({ mandateId: 1, lastMessageAt: -1 });
+ConversationSchema.index({ role: 1 });
 ConversationSchema.index({ leadId: 1 }, { unique: true });
 
 const Conversation =

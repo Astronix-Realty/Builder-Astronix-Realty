@@ -2,18 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Property from "@/models/Property";
 import Unit from "@/models/Unit";
-import { getTokenFromRequest, verifyToken } from "@/lib/auth";
+import { checkRBAC, getOwnershipQuery } from "@/lib/rbac";
 import { slugify, generateRandomSlug } from "@/lib/utils/slug";
 
-// GET /api/properties - Fetch root properties for the authenticated builder.
+// GET /api/properties - Fetch root properties for the authenticated user.
 // Optional query param: ?status=draft|active|archived
 export async function GET(req: NextRequest) {
   try {
-    const token = getTokenFromRequest(req);
-    if (!token) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-
-    const decoded = verifyToken(token);
-    if (!decoded) return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    if (errorResponse) return errorResponse;
 
     await dbConnect();
 
@@ -22,7 +19,7 @@ export async function GET(req: NextRequest) {
 
     // Root entities: parentId is null (townships and standalone projects/towers)
     const query: Record<string, any> = {
-      builderId: decoded.userId,
+      ...getOwnershipQuery(context!),
       parentId: null,
       isDeleted: false,
     };
@@ -141,11 +138,8 @@ export async function GET(req: NextRequest) {
 // POST /api/properties - Create a new property sequentially
 export async function POST(req: NextRequest) {
   try {
-    const token = getTokenFromRequest(req);
-    if (!token) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-
-    const decoded = verifyToken(token);
-    if (!decoded) return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    if (errorResponse) return errorResponse;
 
     const body = await req.json();
     const { type, flowType, parentId, name, slug, location, status, details } = body;
@@ -173,7 +167,10 @@ export async function POST(req: NextRequest) {
         const finalSlug = generateRandomSlug(name, slug || "");
 
         newProperty = await Property.create({
-          builderId: decoded.userId,
+          builderId: context!.userId,
+          accountId: context!.userId,
+          role: context!.role,
+          mandateId: context!.mandateId || null,
           type,
           flowType: resolvedFlowType,
           parentId: parentId || null,
@@ -182,8 +179,8 @@ export async function POST(req: NextRequest) {
           location: location || {},
           status: status || "draft",
           details: details || {},
-          createdBy: decoded.userId,
-          updatedBy: decoded.userId
+          createdBy: context!.userId,
+          updatedBy: context!.userId
         });
         break; // Success!
       } catch (err: any) {

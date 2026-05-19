@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Conversation from "@/models/Conversation";
+import { checkRBAC, getOwnershipQuery } from "@/lib/rbac";
 import { broadcastEvent } from "@/lib/sse";
 
 // GET /api/conversations/[id]/messages — get full message history
@@ -10,11 +11,17 @@ export async function GET(
 ) {
   const { id } = await params;
   try {
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    if (errorResponse) return errorResponse;
+
     await dbConnect();
-    const conversation = await Conversation.findById(id);
+    const conversation = await Conversation.findOne({
+      _id: id,
+      ...getOwnershipQuery(context!)
+    });
 
     if (!conversation) {
-      return NextResponse.json({ success: false, error: "Conversation not found" }, { status: 404 });
+      return NextResponse.json({ success: false, error: "Conversation not found or unauthorized" }, { status: 404 });
     }
 
     if (conversation.unreadCount > 0) {
@@ -35,6 +42,9 @@ export async function POST(
 ) {
   const { id } = await params;
   try {
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    if (errorResponse) return errorResponse;
+
     await dbConnect();
     const { text, sender, senderName } = await req.json();
 
@@ -42,9 +52,12 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Message text required" }, { status: 400 });
     }
 
-    const conversation = await Conversation.findById(id);
+    const conversation = await Conversation.findOne({
+      _id: id,
+      ...getOwnershipQuery(context!)
+    });
     if (!conversation) {
-      return NextResponse.json({ success: false, error: "Conversation not found" }, { status: 404 });
+      return NextResponse.json({ success: false, error: "Conversation not found or unauthorized" }, { status: 404 });
     }
 
     const newMessage = {

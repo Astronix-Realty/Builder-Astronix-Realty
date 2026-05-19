@@ -25,6 +25,14 @@ interface BuilderProfile {
   reraNumber: string
   website: string
   logo?: string
+  establishedYear?: string
+  tagline?: string
+  state?: string
+  reraCertificate?: string
+  operatingCities?: string
+  experience?: string
+  aboutCompany?: string
+  specialization?: string
 }
 
 interface Property {
@@ -353,7 +361,15 @@ function DashboardContent() {
     address: "",
     description: "",
     reraNumber: "",
-    website: ""
+    website: "",
+    establishedYear: "",
+    tagline: "",
+    state: "",
+    reraCertificate: "",
+    operatingCities: "",
+    experience: "",
+    aboutCompany: "",
+    specialization: ""
   })
 
   useEffect(() => {
@@ -379,6 +395,14 @@ function DashboardContent() {
       reraNumber: p.reraNumber || "",
       website: p.website || "",
       logo: p.logo || "",
+      establishedYear: p.establishedYear || "",
+      tagline: p.tagline || "",
+      state: p.state || "",
+      reraCertificate: p.reraCertificate || "",
+      operatingCities: p.operatingCities || "",
+      experience: p.experience || "",
+      aboutCompany: p.aboutCompany || "",
+      specialization: p.specialization || ""
     });
   }, [currentUser])
 
@@ -397,6 +421,14 @@ function DashboardContent() {
           reraNumber: profile.reraNumber,
           website: profile.website,
           logo: profile.logo,
+          establishedYear: profile.establishedYear,
+          tagline: profile.tagline,
+          state: profile.state,
+          reraCertificate: profile.reraCertificate,
+          operatingCities: profile.operatingCities,
+          experience: profile.experience,
+          aboutCompany: profile.aboutCompany,
+          specialization: profile.specialization
         }),
       });
 
@@ -515,6 +547,7 @@ function DashboardContent() {
   }
 
   const [activeTab, setActiveTab] = useState<"properties" | "inventory" | "crm" | "chat" | "documents" | "offers" | "blog" | "settings">("properties")
+  const [activeSettingsTab, setActiveSettingsTab] = useState<"profile" | "preferences">("profile")
   const [showAddProperty, setShowAddProperty] = useState(false)
   const [propertyFilter, setPropertyFilter] = useState<'published' | 'pending' | 'draft' | 'rejected'>('published')
 
@@ -872,6 +905,17 @@ function DashboardContent() {
                     <span className="hidden sm:inline">Add Offer</span>
                   </button>
                 )}
+
+                {activeTab === "settings" && activeSettingsTab === "profile" && (
+                  <button
+                    onClick={handleSaveProfile}
+                    disabled={isSavingProfile}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm disabled:opacity-50"
+                  >
+                    {isSavingProfile ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
+                    <span>Save Profile</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -917,8 +961,8 @@ function DashboardContent() {
 
         {/* Content Scroll Area */}
         <div className={`flex-1 overflow-y-auto ${activeTab === "blog" ? "p-0" : "p-8"}`}>
-          {activeTab === "inventory" && <InventoryView />}
-          {activeTab === "crm" && <CRMView />}
+          {activeTab === "inventory" && <InventoryView userRole={currentUser?.role || "builder"} />}
+          {activeTab === "crm" && <CRMView userRole={currentUser?.role || "builder"} />}
           {activeTab === "chat" && <ChatView />}
           {activeTab === "documents" && <DocumentsView />}
 
@@ -1678,9 +1722,9 @@ function DashboardContent() {
                         <Save className="h-5 w-5" />
                         {editingOffer ? "Update Offer" : "🚀 Publish Offer"}
                       </button>
-                    </div >
-                  </div >
-                </div >
+                    </div>
+                  </div>
+                </div>
               )
               }
 
@@ -1788,7 +1832,7 @@ function DashboardContent() {
                   </>
                 )
               }
-            </div >
+            </div>
           )}
 
           {
@@ -1799,7 +1843,7 @@ function DashboardContent() {
                   <p className="text-slate-500 dark:text-slate-400">Manage your company details and system preferences.</p>
                 </div>
 
-                <Tabs defaultValue="profile" className="space-y-6">
+                <Tabs value={activeSettingsTab} onValueChange={(val: any) => setActiveSettingsTab(val)} className="space-y-6">
                   <TabsList className="bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-full md:w-auto inline-flex">
                     <TabsTrigger value="profile" className="flex-1 md:w-48 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-950 data-[state=active]:shadow-sm px-4 py-2">Builder Profile</TabsTrigger>
                     <TabsTrigger value="preferences" className="flex-1 md:w-48 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-950 data-[state=active]:shadow-sm px-4 py-2">System Preferences</TabsTrigger>
@@ -1817,6 +1861,8 @@ function DashboardContent() {
                             className="w-full"
                           />
                         </div>
+
+
 
                         <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-6">
                           <h3 className="font-semibold text-slate-900 dark:text-white mb-4">Quick Stats</h3>
@@ -1864,6 +1910,56 @@ function DashboardContent() {
                                     placeholder="RERA Registration No."
                                   />
                                 </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Established Year</label>
+                                  <input
+                                    type="text"
+                                    value={profile.establishedYear}
+                                    onChange={(e) => setProfile({ ...profile, establishedYear: e.target.value })}
+                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="e.g. 1998"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">State</label>
+                                  <input
+                                    type="text"
+                                    value={profile.state}
+                                    onChange={(e) => setProfile({ ...profile, state: e.target.value })}
+                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="e.g. Maharashtra"
+                                  />
+                                </div>
+                                <div className="md:col-span-2">
+                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Operating Cities / Locations of Work</label>
+                                  <input
+                                    type="text"
+                                    value={profile.operatingCities}
+                                    onChange={(e) => setProfile({ ...profile, operatingCities: e.target.value })}
+                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="e.g. Mumbai, Pune, Thane"
+                                  />
+                                </div>
+                                <div className="md:col-span-2">
+                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tagline</label>
+                                  <input
+                                    type="text"
+                                    value={profile.tagline}
+                                    onChange={(e) => setProfile({ ...profile, tagline: e.target.value })}
+                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Company tagline or short bio"
+                                  />
+                                </div>
+                                <div className="md:col-span-2">
+                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">About Company</label>
+                                  <textarea
+                                    value={profile.aboutCompany}
+                                    onChange={(e) => setProfile({ ...profile, aboutCompany: e.target.value })}
+                                    rows={4}
+                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Detailed description of the company..."
+                                  />
+                                </div>
                               </div>
                             </div>
 
@@ -1884,14 +1980,25 @@ function DashboardContent() {
                                     placeholder="Full Name"
                                   />
                                 </div>
+
                                 <div>
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Description</label>
+                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Experience</label>
                                   <input
                                     type="text"
-                                    value={profile.description}
-                                    onChange={(e) => setProfile({ ...profile, description: e.target.value })}
+                                    value={profile.experience}
+                                    onChange={(e) => setProfile({ ...profile, experience: e.target.value })}
                                     className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="Short bio or tagline"
+                                    placeholder="e.g. 25+ Years"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Specializations</label>
+                                  <input
+                                    type="text"
+                                    value={profile.specialization}
+                                    onChange={(e) => setProfile({ ...profile, specialization: e.target.value })}
+                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="e.g. Luxury, Commercial"
                                   />
                                 </div>
                               </div>
@@ -2077,8 +2184,8 @@ function DashboardContent() {
               </div>
             )
           }
-        </div >
-      </main >
+        </div>
+      </main>
 
       {/* Banner Editor Modal */}
       {
@@ -2167,78 +2274,7 @@ function DashboardContent() {
           </div>
         </div>
       )}
-
-      {/* Password Change Modal */}
-      {isChangingPassword && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Change Password</h3>
-              <button onClick={() => setIsChangingPassword(false)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors">
-                <X className="h-5 w-5 text-slate-500" />
-              </button>
-            </div>
-
-            <form onSubmit={handlePasswordChange} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Current Password</label>
-                <input
-                  type="password"
-                  required
-                  value={passwordData.currentPassword}
-                  onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                  placeholder="••••••••"
-                />
-              </div>
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">New Password</label>
-                <input
-                  type="password"
-                  required
-                  value={passwordData.newPassword}
-                  onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                  placeholder="Min 8 characters"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Confirm New Password</label>
-                <input
-                  type="password"
-                  required
-                  value={passwordData.confirmPassword}
-                  onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                  placeholder="••••••••"
-                />
-              </div>
-
-              <div className="pt-4 flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsChangingPassword(false)}
-                  className="flex-1 px-4 py-2.5 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-medium rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSavingProfile}
-                  className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-all shadow-lg hover:shadow-xl disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {isSavingProfile ? (
-                    <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</>
-                  ) : (
-                    "Update Password"
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div >
+    </div>
   )
 }
 export default function BuilderDashboard() {

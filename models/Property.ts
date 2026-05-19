@@ -5,6 +5,9 @@ export interface IProperty extends Document {
   flowType: 'township' | 'project' | 'tower'; // Entry-point flow (determines hierarchy mode)
   parentId: mongoose.Types.ObjectId | null;
   builderId: mongoose.Types.ObjectId;
+  accountId?: mongoose.Types.ObjectId;
+  role?: 'builder' | 'mandate';
+  mandateId?: mongoose.Types.ObjectId;
   name: string;
   slug: string;
   location: { city?: string; state?: string; address?: string };
@@ -39,6 +42,9 @@ const PropertySchema = new Schema<IProperty>({
   },
   parentId: { type: Schema.Types.ObjectId, ref: 'Property', default: null },
   builderId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  accountId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+  role: { type: String, enum: ['builder', 'mandate'], default: 'builder' },
+  mandateId: { type: Schema.Types.ObjectId, ref: 'Mandate', default: null },
   name: { type: String, required: true, trim: true },
   slug: { type: String, unique: true, required: true },
   location: { city: String, state: String, address: String },
@@ -63,6 +69,9 @@ const PropertySchema = new Schema<IProperty>({
 
 // Indexing Strategy
 PropertySchema.index({ builderId: 1 });
+PropertySchema.index({ accountId: 1 });
+PropertySchema.index({ mandateId: 1 });
+PropertySchema.index({ role: 1 });
 PropertySchema.index({ parentId: 1 });
 PropertySchema.index({ builderId: 1, type: 1 });
 PropertySchema.index({ builderId: 1, publishedId: 1, status: 1 });
