@@ -4,6 +4,7 @@ import Unit from "@/models/Unit";
 import { extractCloudinaryUrls } from "@/lib/utils/extract-media";
 import { deleteCloudinaryFile } from "@/lib/utils/cloudinary";
 import { generateRandomSlug } from "@/lib/utils/slug";
+import { getOwnershipQuery, RBACContext } from "@/lib/rbac";
 
 /**
  * Securely deletes a property and all its descendants (Projects, Towers, Units).
@@ -11,13 +12,13 @@ import { generateRandomSlug } from "@/lib/utils/slug";
  * Cross-references Cloudinary URLs to prevent deleting shared/cloned media.
  *
  * @param propertyId ID of the root property to delete.
- * @param builderId Ensures ownership constraints.
+ * @param context RBAC context for ownership constraints.
  */
-export async function secureDeleteProperty(propertyId: string, builderId: string) {
+export async function secureDeleteProperty(propertyId: string, context: RBACContext) {
   // Step 1: Deep Fetch Descendant IDs across the hierarchy
   const propertiesToDelete = await Property.find({
     $or: [{ _id: propertyId }, { parentId: propertyId }],
-    builderId: builderId
+    ...getOwnershipQuery(context)
   }).lean();
 
   if (propertiesToDelete.length === 0) {
@@ -137,12 +138,12 @@ export async function secureDeleteProperty(propertyId: string, builderId: string
  * back-reference to catch cases where the draft's `publishedId` field is stale
  * but a published doc still exists that was created from this draft.
  */
-export async function publishProperty(draftId: string, builderId: string) {
+export async function publishProperty(draftId: string, context: RBACContext) {
   const session = await mongoose.startSession();
   try {
     session.startTransaction();
 
-    const rootDraft = await Property.findOne({ _id: draftId, builderId, status: { $in: ['draft', 'pending'] } }).session(session);
+    const rootDraft = await Property.findOne({ _id: draftId, ...getOwnershipQuery(context), status: { $in: ['draft', 'pending'] } }).session(session);
     if (!rootDraft) throw new Error("Draft/Pending property not found or unauthorized");
 
     // 1. Collect all draft properties in hierarchy
@@ -192,12 +193,12 @@ export async function publishProperty(draftId: string, builderId: string) {
       // --- FIX 5: Find published doc by publishedId (forward link on draft) ---
       if (draft.publishedId) {
         // Try to update the existing published document referenced by this draft
-        const existingPub = await Property.findOne({ _id: draft.publishedId, builderId }).session(session).lean();
+        const existingPub = await Property.findOne({ _id: draft.publishedId, ...getOwnershipQuery(context) }).session(session).lean();
         if (existingPub) {
           // Preserve the existing slug to keep URLs stable
           baseData.slug = existingPub.slug;
           publishedProp = await Property.findOneAndUpdate(
-            { _id: draft.publishedId, builderId },
+            { _id: draft.publishedId, ...getOwnershipQuery(context) },
             { $set: baseData, $unset: { draftId: "" } },
             { session, new: true }
           );
@@ -214,14 +215,14 @@ export async function publishProperty(draftId: string, builderId: string) {
         // (handles edge case where draft.publishedId was cleared but published doc still exists)
         const existingByDraftRef = await Property.findOne({
           draftSourceId: draft._id,
-          builderId,
+          ...getOwnershipQuery(context),
           status: 'published',
         }).session(session).lean();
 
         if (existingByDraftRef) {
           baseData.slug = existingByDraftRef.slug;
           publishedProp = await Property.findOneAndUpdate(
-            { _id: existingByDraftRef._id, builderId },
+            { _id: existingByDraftRef._id, ...getOwnershipQuery(context) },
             { $set: baseData, $unset: { draftId: "" } },
             { session, new: true }
           );
@@ -314,9 +315,9 @@ export async function publishProperty(draftId: string, builderId: string) {
         facing: unit.facing,
         location: resolvedLocations.get(unit.towerId?.toString()) || {},
         status: 'available', // Explicitly set to available for inventory
-        builderId: unit.builderId || builderId,
-        createdBy: unit.createdBy || builderId,
-        updatedBy: builderId,
+        builderId: unit.builderId || rootDraft.builderId,
+        createdBy: unit.createdBy || context.userId,
+        updatedBy: context.userId,
       };
 
       if (unit._id && (unit.status === 'draft' || unit.status === 'pending') && !unit.isNew) {
@@ -329,14 +330,14 @@ export async function publishProperty(draftId: string, builderId: string) {
         } else {
           const newUnit = await Unit.create([{
             ...unitData,
-            createdBy: unit.createdBy || builderId,
+            createdBy: unit.createdBy || context.userId,
           }], { session });
           await Unit.updateOne({ _id: unit._id }, { $set: { publishedId: newUnit[0]._id } }, { session });
         }
       } else {
         await Unit.create([{
           ...unitData,
-          createdBy: unit.createdBy || builderId,
+          createdBy: unit.createdBy || context.userId,
         }], { session });
       }
     }
@@ -369,12 +370,12 @@ export async function publishProperty(draftId: string, builderId: string) {
  * 2. Query for any draft with publishedId === this published doc's _id (catches stale links).
  * 3. Only create a new clone if both checks come up empty.
  */
-export async function clonePropertyToDraft(publishedId: string, builderId: string) {
+export async function clonePropertyToDraft(publishedId: string, context: RBACContext) {
   const session = await mongoose.startSession();
   try {
     session.startTransaction();
 
-    const rootPublished = await Property.findOne({ _id: publishedId, builderId, status: 'published' }).session(session);
+    const rootPublished = await Property.findOne({ _id: publishedId, ...getOwnershipQuery(context), status: 'published' }).session(session);
     if (!rootPublished) throw new Error("Published property not found or unauthorized");
 
     // --- Guard Layer 1: Check forward link on published doc ---
@@ -393,7 +394,7 @@ export async function clonePropertyToDraft(publishedId: string, builderId: strin
     // --- Guard Layer 2: Query back-reference (publishedId field on draft docs) ---
     const existingDraftByBackRef = await Property.findOne({
       publishedId: publishedId,
-      builderId,
+      ...getOwnershipQuery(context),
       status: 'draft',
     }).session(session);
 
@@ -521,16 +522,16 @@ export async function clonePropertyToDraft(publishedId: string, builderId: strin
 /**
  * Submits a draft property for approval.
  */
-export async function submitPropertyForApproval(draftId: string, builderId: string) {
+export async function submitPropertyForApproval(draftId: string, context: RBACContext) {
   const session = await mongoose.startSession();
   try {
     session.startTransaction();
 
-    const rootDraft = await Property.findOne({ _id: draftId, builderId, status: { $in: ['draft', 'pending'] } }).session(session);
+    const rootDraft = await Property.findOne({ _id: draftId, ...getOwnershipQuery(context), status: { $in: ['draft', 'pending'] } }).session(session);
     if (!rootDraft) {
         const exists = await Property.findById(draftId).session(session).lean();
         if (!exists) throw new Error("DRAFT_NOT_FOUND: The draft you are trying to publish no longer exists.");
-        if ((exists as any).builderId.toString() !== builderId.toString()) throw new Error("UNAUTHORIZED_ACCESS: You do not have permission to publish this draft.");
+        if ((exists as any).builderId.toString() !== context.userId.toString() && context.role !== 'mandate') throw new Error("UNAUTHORIZED_ACCESS: You do not have permission to publish this draft.");
         if ((exists as any).status !== 'draft' && (exists as any).status !== 'pending') throw new Error(`INVALID_STATUS: This property is already ${(exists as any).status}.`);
 
         throw new Error("Draft not found or unauthorized");

@@ -3,6 +3,9 @@ import dbConnect from "@/lib/db";
 import Project from "@/models/Project";
 import Tower from "@/models/Tower";
 import Unit from "@/models/Unit";
+import { checkRBAC, getOwnershipQuery } from "@/lib/rbac";
+
+export const dynamic = "force-dynamic";
 
 export async function DELETE(
   req: NextRequest,
@@ -10,10 +13,16 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    if (errorResponse) return errorResponse;
+
     await dbConnect();
 
     // Trigger findOneAndDelete so the pre-hook cascades
-    const deletedProject = await Project.findOneAndDelete({ _id: id });
+    const deletedProject = await Project.findOneAndDelete({ 
+      _id: id,
+      ...getOwnershipQuery(context!)
+    });
 
     if (!deletedProject) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });

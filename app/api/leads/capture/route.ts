@@ -169,6 +169,10 @@ export async function POST(req: NextRequest) {
         broadcastEvent({
             type: "LEAD_CREATED",
             leadId: newLead._id.toString(),
+            role: newLead.role,
+            accountId: newLead.accountId?.toString(),
+            builderId: newLead.builderId?.toString(),
+            mandateId: newLead.mandateId?.toString(),
             data: newLead,
             timestamp: Date.now()
         });
@@ -177,6 +181,10 @@ export async function POST(req: NextRequest) {
             type: "CONVERSATION_CREATED",
             leadId: newLead._id.toString(),
             conversationId: conversation._id.toString(),
+            role: conversation.role,
+            accountId: conversation.accountId?.toString(),
+            builderId: conversation.builderId?.toString(),
+            mandateId: conversation.mandateId?.toString(),
             data: conversation,
             timestamp: Date.now()
         });

@@ -1,22 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
+import { checkRBAC, getOwnershipQuery } from "@/lib/rbac";
 
-// GET /api/team — returns all active team members (agents) for a builder
+export const dynamic = "force-dynamic";
+
+// GET /api/team — returns all active team members (agents) for a builder or mandate
 export async function GET(req: NextRequest) {
   try {
-    await dbConnect();
-    const { searchParams } = new URL(req.url);
-    const builderId = searchParams.get("builderId");
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    if (errorResponse) return errorResponse;
 
-    const query: any = { isDeleted: { $ne: true }, status: "active" };
-    if (builderId) {
-      // Match users whose builderId matches OR the builder themselves
-      query.$or = [
-        { builderId },
-        { _id: builderId }
-      ];
-    }
+    await dbConnect();
+
+    // Query based on ownership isolation
+    const query: any = { 
+        isDeleted: { $ne: true }, 
+        status: "active",
+        ...getOwnershipQuery(context!)
+    };
 
     const users = await User.find(query)
       .select("profile email role")

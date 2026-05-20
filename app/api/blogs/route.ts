@@ -3,6 +3,8 @@ import dbConnect from "@/lib/db";
 import Blog from "@/models/Blog";
 import { checkRBAC, getOwnershipQuery } from "@/lib/rbac";
 
+export const dynamic = "force-dynamic";
+
 // Utility to generate slug
 const generateSlug = async (title: string, currentSlug?: string) => {
   let baseSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');

@@ -5,6 +5,8 @@ import Unit from "@/models/Unit";
 import { checkRBAC, getOwnershipQuery } from "@/lib/rbac";
 import { slugify, generateRandomSlug } from "@/lib/utils/slug";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/properties - Fetch root properties for the authenticated user.
 // Optional query param: ?status=draft|active|archived
 export async function GET(req: NextRequest) {

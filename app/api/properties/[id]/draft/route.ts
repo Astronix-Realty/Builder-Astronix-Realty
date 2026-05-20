@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Property from "@/models/Property";
-import { getTokenFromRequest, verifyToken } from "@/lib/auth";
+import { checkRBAC, getOwnershipQuery } from "@/lib/rbac";
 import { secureDeleteProperty } from "@/services/property-service";
+
+export const dynamic = "force-dynamic";
 
 /**
  * PATCH /api/properties/[id]/draft
@@ -12,11 +14,8 @@ import { secureDeleteProperty } from "@/services/property-service";
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const token = getTokenFromRequest(req);
-    if (!token) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-
-    const decoded = verifyToken(token);
-    if (!decoded) return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    if (errorResponse) return errorResponse;
 
     const body = await req.json();
 
@@ -24,7 +23,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     // Only allow updating these safe fields — never status, type, builderId, parentId
     const $set: Record<string, any> = {
-      updatedBy: decoded.userId,
+      updatedBy: context!.userId,
     };
 
     if (body.name !== undefined)          $set.name = body.name;
@@ -40,7 +39,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const property = await Property.findOneAndUpdate(
       { 
         _id: id, 
-        builderId: decoded.userId, 
+        ...getOwnershipQuery(context!), 
         isDeleted: false,
         status: { $in: ["draft", "pending"] } // allow editing pending properties
       },
@@ -81,11 +80,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const token = getTokenFromRequest(req);
-    if (!token) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-
-    const decoded = verifyToken(token);
-    if (!decoded) return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    if (errorResponse) return errorResponse;
 
     // Guard: invalid ObjectId format → skip DB call, return clean 200 (idempotent)
     if (!/^[a-f\d]{24}$/i.test(id)) {
@@ -95,7 +91,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     await dbConnect();
     
     // Ensure the property is actually a draft before letting the service delete it
-    const draftProp = await Property.findOne({ _id: id, builderId: decoded.userId });
+    const draftProp = await Property.findOne({ _id: id, ...getOwnershipQuery(context!) });
     if (!draftProp) {
         return NextResponse.json({ success: true, message: "Draft already removed or published" }, { status: 200 });
     }

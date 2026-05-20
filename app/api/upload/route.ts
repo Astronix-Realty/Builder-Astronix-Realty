@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { v2 as cloudinary } from "cloudinary"
 import { deleteCloudinaryFile } from "@/lib/utils/cloudinary"
+import { checkRBAC } from "@/lib/rbac"
 
 // Configure Cloudinary
 cloudinary.config({
@@ -12,6 +13,8 @@ cloudinary.config({
 // POST /api/upload
 export async function POST(req: NextRequest) {
   try {
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    if (errorResponse) return errorResponse;
     // Check if Cloud Name is configured
     if (!process.env.CLOUDINARY_CLOUD_NAME) {
       return NextResponse.json(
@@ -92,6 +95,8 @@ export async function POST(req: NextRequest) {
 // Body: { url: string } — the Cloudinary URL of the file to delete
 export async function DELETE(req: NextRequest) {
   try {
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    if (errorResponse) return errorResponse;
     const { url } = await req.json()
 
     if (!url || typeof url !== "string") {

@@ -5,6 +5,8 @@ import { checkRBAC, getOwnershipQuery } from "@/lib/rbac";
 import { getTokenFromRequest } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const token = getTokenFromRequest(req);

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -33,9 +33,74 @@ export function DocumentsView() {
     const [previewMode, setPreviewMode] = useState(true)
 
     // Form States
+    const [customers, setCustomers] = useState(CUSTOMERS)
+    const [units, setUnits] = useState(UNITS)
     const [selectedCustomer, setSelectedCustomer] = useState(CUSTOMERS[0])
     const [selectedUnit, setSelectedUnit] = useState(UNITS[0])
     const [discount, setDiscount] = useState(0)
+    const [loadingData, setLoadingData] = useState(false)
+
+    useEffect(() => {
+        let isMounted = true
+        async function fetchContextData() {
+            setLoadingData(true)
+            try {
+                // Fetch Leads dynamically
+                const leadsRes = await fetch("/api/leads?limit=100")
+                if (leadsRes.ok && isMounted) {
+                    const data = await leadsRes.json()
+                    if (data.success && data.leads && data.leads.length > 0) {
+                        const mappedLeads = data.leads.map((l: any) => ({
+                            id: l._id || l.id,
+                            name: l.name,
+                            phone: l.phone || "+91 N/A",
+                            email: l.email || "N/A"
+                        }))
+                        setCustomers(mappedLeads)
+                        setSelectedCustomer(mappedLeads[0])
+                    }
+                }
+
+                // Fetch Properties dynamically
+                const propRes = await fetch("/api/properties")
+                if (propRes.ok && isMounted) {
+                    const data = await propRes.json()
+                    const allUnits: any[] = []
+                    
+                    if (data.properties && data.properties.length > 0) {
+                        for (const p of data.properties) {
+                            const detailRes = await fetch(`/api/properties/${p._id}`)
+                            if (detailRes.ok && isMounted) {
+                                const detailData = await detailRes.json()
+                                const genUnits = detailData.property?.details?.generatedUnits || []
+                                genUnits.forEach((u: any) => {
+                                    allUnits.push({
+                                        id: u._dbId || u.id || Math.random().toString(),
+                                        name: `${p.name} - ${u.unitNumber} (${u.configuration})`,
+                                        area: u.area || 1000,
+                                        rate: u.area ? Math.round((u.price || 5000000) / u.area) : 5000,
+                                        floorRise: 150
+                                    })
+                                })
+                            }
+                        }
+                    }
+                    if (allUnits.length > 0 && isMounted) {
+                        setUnits(allUnits)
+                        setSelectedUnit(allUnits[0])
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to load documents context dynamically:", err)
+            } finally {
+                if (isMounted) setLoadingData(false)
+            }
+        }
+        fetchContextData()
+        return () => {
+            isMounted = false
+        }
+    }, [])
 
     // --- GENERATORS ---
 
@@ -65,19 +130,19 @@ export function DocumentsView() {
                     <CardContent className="space-y-4">
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Select Customer</label>
-                            <Select defaultValue={CUSTOMERS[0].id} onValueChange={(v) => setSelectedCustomer(CUSTOMERS.find(c => c.id === v) || CUSTOMERS[0])}>
+                            <Select defaultValue={selectedCustomer?.id || ""} onValueChange={(v) => setSelectedCustomer(customers.find(c => c.id === v) || customers[0])}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
-                                    {CUSTOMERS.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                                    {customers.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Select Unit</label>
-                            <Select defaultValue={UNITS[0].id} onValueChange={(v) => setSelectedUnit(UNITS.find(u => u.id === v) || UNITS[0])}>
+                            <Select defaultValue={selectedUnit?.id || ""} onValueChange={(v) => setSelectedUnit(units.find(u => u.id === v) || units[0])}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
-                                    {UNITS.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                                    {units.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -188,9 +253,9 @@ export function DocumentsView() {
                     <CardContent className="space-y-4">
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Select Customer</label>
-                            <Select defaultValue={CUSTOMERS[0].id} onValueChange={(v) => setSelectedCustomer(CUSTOMERS.find(c => c.id === v) || CUSTOMERS[0])}>
+                            <Select defaultValue={selectedCustomer?.id || ""} onValueChange={(v) => setSelectedCustomer(customers.find(c => c.id === v) || customers[0])}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>{CUSTOMERS.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                                <SelectContent>{customers.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
                             </Select>
                         </div>
                         <div className="space-y-2">

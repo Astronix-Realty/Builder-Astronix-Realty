@@ -399,11 +399,17 @@ function DashboardContent() {
     fetchProperties()
   }
 
-  // Load mock/local offers for now (Keep localStorage for non-critical settings)
+  // Dynamic offers storage key based on active role context
+  const offersStorageKey = useMemo(() => {
+    return currentUser?.role === "mandate" ? "mandateOffers" : "builderOffers"
+  }, [currentUser])
+
+  // Load mock/local offers based on dynamic key
   useEffect(() => {
-    const savedOffers = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem("builderOffers") || "[]") : []
+    if (!currentUser) return
+    const savedOffers = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem(offersStorageKey) || "[]") : []
     setOffers(savedOffers)
-  }, [])
+  }, [currentUser, offersStorageKey])
 
   const [profile, setProfile] = useState<BuilderProfile>({
     companyName: "",
@@ -562,7 +568,7 @@ function DashboardContent() {
     }
 
     setOffers(updatedOffers)
-    localStorage.setItem("builderOffers", JSON.stringify(updatedOffers))
+    localStorage.setItem(offersStorageKey, JSON.stringify(updatedOffers))
     setShowAddOffer(false)
     setEditingOffer(null)
     setNewOffer({
@@ -586,7 +592,7 @@ function DashboardContent() {
     if (confirm("Are you sure you want to delete this offer?")) {
       const updatedOffers = offers.filter(o => o.id !== id)
       setOffers(updatedOffers)
-      localStorage.setItem("builderOffers", JSON.stringify(updatedOffers))
+      localStorage.setItem(offersStorageKey, JSON.stringify(updatedOffers))
     }
   }
 
@@ -595,7 +601,7 @@ function DashboardContent() {
       o.id === id ? { ...o, isActive: !o.isActive } : o
     )
     setOffers(updatedOffers)
-    localStorage.setItem("builderOffers", JSON.stringify(updatedOffers))
+    localStorage.setItem(offersStorageKey, JSON.stringify(updatedOffers))
   }
 
   const [activeTab, setActiveTab] = useState<"properties" | "inventory" | "crm" | "chat" | "documents" | "offers" | "blog" | "settings">("properties")

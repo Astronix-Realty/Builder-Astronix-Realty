@@ -4,6 +4,8 @@ import Conversation from "@/models/Conversation";
 import { checkRBAC, getOwnershipQuery } from "@/lib/rbac";
 import { broadcastEvent } from "@/lib/sse";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/conversations — list all conversations for a builder
 export async function GET(req: NextRequest) {
   try {

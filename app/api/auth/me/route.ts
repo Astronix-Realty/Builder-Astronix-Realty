@@ -5,6 +5,8 @@ import Builder from "@/models/Builder"
 import Mandate from "@/models/Mandate"
 import { getTokenFromRequest, verifyToken } from "@/lib/auth"
 
+export const dynamic = "force-dynamic";
+
 // GET /api/auth/me — Return current logged-in user
 export async function GET(req: NextRequest) {
   try {

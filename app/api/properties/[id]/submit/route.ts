@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
-import { getTokenFromRequest, verifyToken } from "@/lib/auth";
+import { checkRBAC } from "@/lib/rbac";
 import { submitPropertyForApproval } from "@/services/property-service";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -12,15 +14,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "DRAFT_NOT_FOUND: Invalid draft ID format" }, { status: 404 });
     }
 
-    const token = getTokenFromRequest(req);
-    if (!token) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-
-    const decoded = verifyToken(token);
-    if (!decoded) return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    if (errorResponse) return errorResponse;
 
     await dbConnect();
 
-    const result = await submitPropertyForApproval(draftId, decoded.userId);
+    // Pass the actual authenticated context to the service function
+    const result = await submitPropertyForApproval(draftId, context!);
 
     return NextResponse.json(result, { status: 200 });
   } catch (error: any) {

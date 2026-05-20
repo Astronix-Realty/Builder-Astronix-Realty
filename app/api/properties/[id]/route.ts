@@ -5,6 +5,8 @@ import Unit from "@/models/Unit";
 import { checkRBAC, getOwnershipQuery } from "@/lib/rbac";
 import { secureDeleteProperty } from "@/services/property-service";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/properties/[id] - Fetch a single property
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
