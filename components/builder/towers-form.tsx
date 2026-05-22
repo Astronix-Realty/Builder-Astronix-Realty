@@ -120,7 +120,7 @@ export function TowersForm({
                             if (globalIdx >= 0) {
                                 next[globalIdx] = typeof updaterOrData === "function"
                                     ? updaterOrData(next[globalIdx])
-                                    : updaterOrData
+                                    : { ...next[globalIdx], ...updaterOrData } as TowerData
                                 onTowersChange(next)
                             }
                         }}

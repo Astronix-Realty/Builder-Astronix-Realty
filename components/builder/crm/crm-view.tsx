@@ -405,7 +405,7 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
         optimisticUpdateStatus(leadId, status, mutationId);
 
         try {
-            const res = await offlineSafeFetch(`/api/leads/${leadId}`, {
+            const res: any = await offlineSafeFetch(`/api/leads/${leadId}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ status, clientMutationId: mutationId })

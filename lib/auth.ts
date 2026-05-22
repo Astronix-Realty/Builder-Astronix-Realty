@@ -18,5 +18,13 @@ export function verifyToken(token: string) {
 }
 
 export function getTokenFromRequest(request: NextRequest): string | null {
-  return request.cookies.get(AUTH_COOKIE)?.value || null
+  const cookieVal = request.cookies.get(AUTH_COOKIE)?.value;
+  if (cookieVal) return cookieVal;
+
+  const authHeader = request.headers.get("authorization");
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    return authHeader.substring(7);
+  }
+  return null;
 }
+

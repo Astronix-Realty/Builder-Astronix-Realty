@@ -6,7 +6,7 @@ const UnitSchema = new mongoose.Schema(
     unitNumber: { type: String, required: true },
     parentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Property', required: true },
     towerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Property', required: true },
-    projectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Property', required: true },
+    projectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Property', required: false },
     floorNumber: { type: Number },
     configuration: { type: String },
     area: { type: Number },

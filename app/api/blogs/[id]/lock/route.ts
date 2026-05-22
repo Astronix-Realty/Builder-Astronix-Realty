@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Blog from "@/models/Blog";
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     await dbConnect();
     const { action, userId } = await req.json(); // action: 'acquire', 'release', 'ping'
 
@@ -11,7 +12,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ error: "User ID is required" }, { status: 400 });
     }
 
-    const blog = await Blog.findById(params.id).select("lockedBy lockedAt");
+    const blog = await Blog.findById(id).select("lockedBy lockedAt");
     if (!blog) {
       return NextResponse.json({ error: "Blog not found" }, { status: 404 });
     }

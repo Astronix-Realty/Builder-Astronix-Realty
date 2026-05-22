@@ -792,7 +792,7 @@ function UnitConfigCard({
                         </TabsContent>
 
                         <TabsContent value="canvas" className="space-y-6 focus-visible:outline-none">
-                            <Section id="about" title="About Variant" description="Short tagline or description for 'Your Dream Canvas'" icon={Info} openIds={openIds} setOpenIds={openIds}>
+                            <Section id="about" title="About Variant" description="Short tagline or description for 'Your Dream Canvas'" icon={Info} openIds={openIds} setOpenIds={setOpenIds}>
                                 <div className="space-y-4">
                                     <Field label="Tagline / Short Title">
                                         <Input
@@ -1152,11 +1152,15 @@ data, onChange, towerName, projectName, townshipName,
             ratePerSqft: 0,
             parkingCharges: 500000,
             gstPercentage: 5,
+            gstAmount: 0,
             stampDutyPercentage: 7,
+            stampDutyAmount: 0,
             registrationCharges: 30000,
             maintenancePerSqft: 3.5,
             maintenanceType: "monthly",
             otherCharges: 0,
+            allInclusivePrice: 0,
+            totalTaxes: 0,
             facingPremiums: { north: "0", south: "0", east: "0", west: "0", "north-east": "0", "north-west": "0", "south-east": "0", "south-west": "0" },
             facing: "East",
             balconyCount: 1,
@@ -1983,11 +1987,15 @@ data, onChange, towerName, projectName, townshipName,
                                                         basePrice: Math.round((parseFloat(data.baseRatePerSqft) || 5000) * Math.round(initialArea * (1 + (parseFloat(data.loadingFactor) || 40) / 100))), 
                                                         ratePerSqft: parseFloat(data.baseRatePerSqft) || 5000, 
                                                         parkingCharges: parseFloat(data.parkingCharges) || 500000,
-                                                        gstPercentage: parseFloat(data.gstPercentage) || 5, 
-                                                        stampDutyPercentage: parseFloat(data.stampDutyPercentage) || 7, 
+                                                        gstPercentage: parseFloat(data.gstPercentage) || 5,
+                                                        gstAmount: 0,
+                                                        stampDutyPercentage: parseFloat(data.stampDutyPercentage) || 7,
+                                                        stampDutyAmount: 0,
                                                         registrationCharges: parseFloat(data.registrationCharges) || 30000,
                                                         maintenancePerSqft: parseFloat(data.maintenancePerSqft) || 3.5, 
                                                         maintenanceType: data.maintenanceType || "monthly", otherCharges: 0,
+                                                        allInclusivePrice: 0,
+                                                        totalTaxes: 0,
                                                         facingPremiums: { north: "0", south: "0", east: "0", west: "0", "north-east": "0", "north-west": "0", "south-east": "0", "south-west": "0" },
                                                         facing: "East", balconyCount: 1, bathroomCount: 2, servantRoom: false, studyRoom: false, poojaRoom: false, dryBalcony: true,
                                                         flooringType: data.defaultFlooringType || "", wallFinish: data.defaultWallFinish || "", ceilingHeight: data.defaultCeilingHeight || "10.5 Ft",

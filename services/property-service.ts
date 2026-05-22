@@ -31,7 +31,7 @@ export async function secureDeleteProperty(propertyId: string, context: RBACCont
   // While loop to traverse n-levels dynamically
   while (idsToSearch.length > 0) {
     const children = await Property.find({ parentId: { $in: idsToSearch } }, { _id: 1 }).lean();
-    const childrenIds = children.map(c => c._id.toString());
+    const childrenIds = children.map((c: any) => c._id.toString());
 
     if (childrenIds.length === 0) break;
 
@@ -153,11 +153,31 @@ export async function publishProperty(draftId: string, context: RBACContext) {
       const children = await Property.find({ parentId: { $in: idsToSearch }, status: { $in: ['draft', 'pending'] } }).session(session).lean();
       if (children.length === 0) break;
       allDrafts.push(...children);
-      idsToSearch = children.map(c => c._id.toString());
+      idsToSearch = children.map((c: any) => c._id.toString());
     }
 
     const draftToPublishedMap = new Map<string, string>();
+    const publishedIdToTypeMap = new Map<string, string>();
     const resolvedLocations = new Map<string, any>();
+
+    // Parse _autoDraftIds to find frontend UUID to draft ObjectId mappings
+    const autoDraftIds = rootDraft.details?._autoDraftIds || {};
+    const projectMap = autoDraftIds.projectMap || {};
+    const towerMap = autoDraftIds.towerMap || {};
+
+    const draftProjectToFrontend = new Map<string, string>();
+    const draftTowerToFrontend = new Map<string, string>();
+
+    for (const [frontendId, dId] of Object.entries(projectMap)) {
+      if (typeof dId === 'string') {
+        draftProjectToFrontend.set(dId, frontendId);
+      }
+    }
+    for (const [frontendId, dId] of Object.entries(towerMap)) {
+      if (typeof dId === 'string') {
+        draftTowerToFrontend.set(dId, frontendId);
+      }
+    }
 
     // 2. Process properties (Top-down order ensures parentId mapping works)
     for (const draft of allDrafts) {
@@ -185,6 +205,9 @@ export async function publishProperty(draftId: string, context: RBACContext) {
         isActive: true,
         approvedAt: new Date(),
         builderId: draft.builderId,
+        accountId: draft.accountId || context.userId,
+        role: draft.role || context.role,
+        mandateId: draft.mandateId !== undefined ? draft.mandateId : (context.mandateId || null),
         updatedBy: draft.updatedBy,
       };
 
@@ -196,7 +219,7 @@ export async function publishProperty(draftId: string, context: RBACContext) {
         const existingPub = await Property.findOne({ _id: draft.publishedId, ...getOwnershipQuery(context) }).session(session).lean();
         if (existingPub) {
           // Preserve the existing slug to keep URLs stable
-          baseData.slug = existingPub.slug;
+          baseData.slug = (existingPub as any).slug;
           publishedProp = await Property.findOneAndUpdate(
             { _id: draft.publishedId, ...getOwnershipQuery(context) },
             { $set: baseData, $unset: { draftId: "" } },
@@ -220,9 +243,9 @@ export async function publishProperty(draftId: string, context: RBACContext) {
         }).session(session).lean();
 
         if (existingByDraftRef) {
-          baseData.slug = existingByDraftRef.slug;
+          baseData.slug = (existingByDraftRef as any).slug;
           publishedProp = await Property.findOneAndUpdate(
-            { _id: existingByDraftRef._id, ...getOwnershipQuery(context) },
+            { _id: (existingByDraftRef as any)._id, ...getOwnershipQuery(context) },
             { $set: baseData, $unset: { draftId: "" } },
             { session, new: true }
           );
@@ -248,9 +271,20 @@ export async function publishProperty(draftId: string, context: RBACContext) {
       }
 
       draftToPublishedMap.set(draft._id.toString(), publishedProp._id.toString());
+      publishedIdToTypeMap.set(publishedProp._id.toString(), draft.type);
       
-      // Also map the frontend 'id' if it exists in details (important for units extracted from details)
-      const frontendId = (draft as any).details?.id || (draft as any).details?.towerId || (draft as any).details?.projectId;
+      // Also map the frontend 'id' (UUID) if it exists
+      let frontendId: string | undefined = undefined;
+      if (draft.type === 'project') {
+        frontendId = draftProjectToFrontend.get(draft._id.toString()) || 
+          rootDraft.details?.projects?.find((p: any) => p.name === draft.name)?.id;
+      } else if (draft.type === 'tower') {
+        frontendId = draftTowerToFrontend.get(draft._id.toString()) || 
+          rootDraft.details?.towers?.find((t: any) => t.name === draft.name)?.id;
+      } else if (draft.type === 'township') {
+        frontendId = autoDraftIds.townshipId || rootDraft.details?.township?.id;
+      }
+
       if (frontendId && typeof frontendId === 'string') {
         draftToPublishedMap.set(frontendId, publishedProp._id.toString());
       }
@@ -277,23 +311,33 @@ export async function publishProperty(draftId: string, context: RBACContext) {
       $or: [{ towerId: { $in: draftPropIds } }, { projectId: { $in: draftPropIds } }]
     }).session(session);
 
-    // If no units found in Unit collection, extract from details of towers
-    if (units.length === 0) {
-      const extractedUnits: any[] = [];
-      for (const draft of allDrafts) {
-        if (draft.type === 'tower' && draft.details?.generatedUnits) {
-          const towerUnits = draft.details.generatedUnits.filter((u: any) => u.towerId === draft._id.toString() || u.towerId === (draft as any).id);
-          towerUnits.forEach((u: any) => {
-            extractedUnits.push({
-              ...u,
-              towerId: draft._id,
-              projectId: draft.parentId,
-              parentId: draft._id,
-              status: 'pending'
-            });
+    let extractedUnits: any[] = [];
+    for (const draft of allDrafts) {
+      if (draft.type === 'tower' && draft.details?.generatedUnits && draft.details.generatedUnits.length > 0) {
+        const resolvedFrontendTowerId = draftTowerToFrontend.get(draft._id.toString()) || 
+          rootDraft.details?.towers?.find((t: any) => t.name === draft.name)?.id;
+
+        const towerUnits = draft.details.generatedUnits.filter((u: any) => 
+          u.towerId === draft._id.toString() || 
+          (resolvedFrontendTowerId && u.towerId === resolvedFrontendTowerId) ||
+          allDrafts.length === 1
+        );
+
+        towerUnits.forEach((u: any) => {
+          extractedUnits.push({
+            ...u,
+            towerId: draft._id,
+            projectId: draft.parentId,
+            parentId: draft._id,
+            status: 'pending'
           });
-        }
+        });
       }
+    }
+    
+    // Prioritize extracted units from the draft doc (which is the frontend's source of truth)
+    // over any stale draft units lingering in the DB collection.
+    if (extractedUnits.length > 0) {
       units = extractedUnits;
     }
 
@@ -302,12 +346,38 @@ export async function publishProperty(draftId: string, context: RBACContext) {
       const activeProjectId = draftToPublishedMap.get(unit.projectId?.toString()) || unit.projectId;
       const activeParentId = draftToPublishedMap.get(unit.parentId?.toString()) || unit.parentId;
 
+      // Validate activeTowerId is a valid ObjectId (must not insert invalid IDs)
+      if (!activeTowerId || !mongoose.isValidObjectId(activeTowerId.toString())) {
+        console.warn(`[publishProperty] Skipping unit with invalid activeTowerId: ${activeTowerId}`);
+        continue;
+      }
+
+      let cleanProjectId = (activeProjectId && mongoose.isValidObjectId(activeProjectId.toString()))
+        ? activeProjectId
+        : null;
+
+      if (cleanProjectId) {
+        const type = publishedIdToTypeMap.get(cleanProjectId.toString());
+        if (type === 'township') {
+          cleanProjectId = null;
+        }
+      }
+
+      const cleanParentId = (activeParentId && mongoose.isValidObjectId(activeParentId.toString()))
+        ? activeParentId
+        : activeTowerId;
+
+      const draftTower = allDrafts.find(d => d._id.toString() === unit.towerId?.toString());
+      const fallbackAccountId = draftTower?.accountId || rootDraft.accountId || context.userId;
+      const fallbackRole = draftTower?.role || rootDraft.role || context.role;
+      const fallbackMandateId = draftTower?.mandateId !== undefined ? draftTower.mandateId : (rootDraft.mandateId !== undefined ? rootDraft.mandateId : (context.mandateId || null));
+
       const unitData = {
         type: 'unit',
         unitNumber: unit.unitNumber,
         towerId: activeTowerId,
-        projectId: activeProjectId,
-        parentId: activeParentId || activeTowerId, // Ensure parentId is at least the towerId
+        projectId: cleanProjectId,
+        parentId: cleanParentId,
         floorNumber: unit.floorNumber || unit.floor,
         configuration: unit.configuration || unit.type,
         area: unit.area || unit.carpetArea,
@@ -315,13 +385,19 @@ export async function publishProperty(draftId: string, context: RBACContext) {
         facing: unit.facing,
         location: resolvedLocations.get(unit.towerId?.toString()) || {},
         status: 'available', // Explicitly set to available for inventory
+        // ── RBAC Tenancy Stamps (critical for getOwnershipQuery to work) ──
         builderId: unit.builderId || rootDraft.builderId,
+        accountId: unit.accountId || fallbackAccountId,           // needed for builder ownership check
+        role: unit.role || fallbackRole,                  // needed for mandate role filter
+        mandateId: unit.mandateId !== undefined ? unit.mandateId : fallbackMandateId, // needed for mandate ownership check
         createdBy: unit.createdBy || context.userId,
         updatedBy: context.userId,
       };
 
-      if (unit._id && (unit.status === 'draft' || unit.status === 'pending') && !unit.isNew) {
-        if (unit.publishedId) {
+      const hasValidUnitId = unit._id && mongoose.isValidObjectId(unit._id.toString());
+
+      if (hasValidUnitId && (unit.status === 'draft' || unit.status === 'pending') && !unit.isNew) {
+        if (unit.publishedId && mongoose.isValidObjectId(unit.publishedId.toString())) {
           await Unit.findOneAndUpdate(
             { _id: unit.publishedId },
             { $set: unitData },
@@ -346,10 +422,16 @@ export async function publishProperty(draftId: string, context: RBACContext) {
     const draftIds = allDrafts.map(d => d._id);
     await Property.deleteMany({ _id: { $in: draftIds } }).session(session);
 
-    await Unit.deleteMany({
-      _id: { $in: units.filter((u: any) => u._id).map((u: any) => u._id) },
-      status: { $in: ['draft', 'pending'] }
-    }).session(session);
+    const validUnitDraftIdsToDelete = units
+      .filter((u: any) => u._id && mongoose.isValidObjectId(u._id.toString()))
+      .map((u: any) => u._id);
+
+    if (validUnitDraftIdsToDelete.length > 0) {
+      await Unit.deleteMany({
+        _id: { $in: validUnitDraftIdsToDelete },
+        status: { $in: ['draft', 'pending'] }
+      }).session(session);
+    }
 
     await session.commitTransaction();
     return { success: true, publishedId: draftToPublishedMap.get(draftId) };
@@ -419,7 +501,7 @@ export async function clonePropertyToDraft(publishedId: string, context: RBACCon
       const children = await Property.find({ parentId: { $in: idsToSearch }, status: 'published' }).session(session).lean();
       if (children.length === 0) break;
       allPublished.push(...children);
-      idsToSearch = children.map(c => c._id.toString());
+      idsToSearch = children.map((c: any) => c._id.toString());
     }
 
     const publishedToDraftMap = new Map<string, string>();
@@ -449,14 +531,17 @@ export async function clonePropertyToDraft(publishedId: string, context: RBACCon
         details: prop.details,
         status: 'draft',
         builderId: prop.builderId,
+        accountId: prop.accountId || context.userId,
+        role: prop.role || context.role,
+        mandateId: prop.mandateId !== undefined ? prop.mandateId : (context.mandateId || null),
         publishedId: prop._id,
         slug: draftSlug,
         createdBy: prop.builderId,
         updatedBy: prop.builderId,
       };
 
-      let draft = await Property.create([draftData], { session });
-      draft = draft[0];
+      const createdDrafts = await Property.create([draftData], { session });
+      const draft = createdDrafts[0];
       publishedToDraftMap.set(prop._id.toString(), draft._id.toString());
 
       // Set forward link on published doc → draft
@@ -488,6 +573,11 @@ export async function clonePropertyToDraft(publishedId: string, context: RBACCon
       const draftTowerId = publishedToDraftMap.get(unit.towerId?.toString());
       const draftProjectId = publishedToDraftMap.get(unit.projectId?.toString());
 
+      const pubTower = allPublished.find(p => p._id.toString() === unit.towerId?.toString());
+      const fallbackAccountId = pubTower?.accountId || rootPublished.accountId || context.userId;
+      const fallbackRole = pubTower?.role || rootPublished.role || context.role;
+      const fallbackMandateId = pubTower?.mandateId !== undefined ? pubTower.mandateId : (rootPublished.mandateId !== undefined ? rootPublished.mandateId : (context.mandateId || null));
+
       const draftUnitData = {
         unitNumber: unit.unitNumber,
         towerId: draftTowerId || unit.towerId,
@@ -497,10 +587,13 @@ export async function clonePropertyToDraft(publishedId: string, context: RBACCon
         area: unit.area,
         price: unit.price,
         status: 'draft',
-        builderId: unit.builderId,
+        builderId: unit.builderId || rootPublished.builderId,
+        accountId: unit.accountId || fallbackAccountId,
+        role: unit.role || fallbackRole,
+        mandateId: unit.mandateId !== undefined ? unit.mandateId : fallbackMandateId,
         publishedId: unit._id,
-        createdBy: unit.builderId,
-        updatedBy: unit.builderId,
+        createdBy: unit.builderId || context.userId,
+        updatedBy: context.userId,
       };
 
       await Unit.create([draftUnitData], { session });

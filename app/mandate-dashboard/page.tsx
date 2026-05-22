@@ -42,6 +42,7 @@ interface MandateProfile {
 interface Property {
   id: string
   townshipName: string
+  name?: string
   projects: number
   towers: number
   units: number
@@ -879,7 +880,6 @@ function DashboardContent() {
                     {activeTab === "chat" && "Communications"}
                     {activeTab === "documents" && "Document Center"}
                     {activeTab === "offers" && "Offers Management"}
-                    {activeTab === "blog" && "Blog & News"}
                     {activeTab === "settings" && "Settings & Profile"}
                   </h2>
 
@@ -891,7 +891,6 @@ function DashboardContent() {
                     {activeTab === "chat" && "Chat with potential buyers and agents"}
                     {activeTab === "documents" && "Organize brochures, legal docs, and plans"}
                     {activeTab === "offers" && "Create and track special deals"}
-                    {activeTab === "blog" && "Write and publish articles for your audience"}
                     {activeTab === "settings" && (currentUser?.role === 'mandate' ? "Manage mandate profile and preferences" : "Manage company profile and preferences")}
                   </p>
                 </div>

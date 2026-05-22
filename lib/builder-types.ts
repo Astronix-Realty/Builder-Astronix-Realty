@@ -542,6 +542,9 @@ export interface UnitTemplate {
   loadingFactor: string         // "40" (%)
   otherChargesAmount?: string
   otherChargesType?: "none" | "rs" | "percentage" | "stamp_duty_percentage"
+  otherChargesName?: string
+  basePrice?: string
+  ratePerSqft?: string
 
   // ── FACING PREMIUMS ──────────────────────
   facingPremiums: FacingPremium
@@ -1069,6 +1072,7 @@ export interface LegacyWizardState {
 export interface GeneratedUnit {
   id: string
   towerId: string
+  projectId?: string
   floor: number
   floorNumber: number
   unit?: number

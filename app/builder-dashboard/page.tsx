@@ -38,6 +38,7 @@ interface BuilderProfile {
 interface Property {
   id: string
   townshipName: string
+  name?: string
   projects: number
   towers: number
   units: number
@@ -871,7 +872,6 @@ function DashboardContent() {
                     {activeTab === "documents" && "Document Center"}
 
                     {activeTab === "offers" && "Offers Management"}
-                    {activeTab === "blog" && "Blog & News"}
                     {activeTab === "settings" && "Settings & Profile"}
                   </h2>
 
@@ -884,7 +884,6 @@ function DashboardContent() {
                     {activeTab === "documents" && "Organize brochures, legal docs, and plans"}
 
                     {activeTab === "offers" && "Create and track special deals"}
-                    {activeTab === "blog" && "Write and publish articles for your audience"}
                     {activeTab === "settings" && "Manage company profile and system preferences"}
                   </p>
                 </div>
@@ -1241,8 +1240,8 @@ function DashboardContent() {
                       <div className="p-5 flex-1 min-w-0">
                         <div className="flex justify-between items-start gap-3 mb-3">
                           <div className="flex-1 min-w-0">
-                            <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight transition-colors group-hover:text-blue-600 dark:group-hover:text-blue-400 truncate" title={property.townshipName || property.name}>
-                              {highlightMatch(property.townshipName || property.name, debouncedPropertySearch[propertyFilter] || "")}
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight transition-colors group-hover:text-blue-600 dark:group-hover:text-blue-400 truncate" title={property.townshipName || property.name || ""}>
+                              {highlightMatch(property.townshipName || property.name || "", debouncedPropertySearch[propertyFilter] || "")}
                             </h3>
                           </div>
                           <div className="shrink-0 text-right">

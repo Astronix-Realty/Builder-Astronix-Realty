@@ -127,8 +127,9 @@ export async function PATCH(req: NextRequest) {
           const units = property.details.generatedUnits;
           
           property.details.generatedUnits = units.map((u: any) => {
-            // Check ALL possible ID fields against the requested unitIds
-            const possibleIds = [u.id, u.originalId, u._id?.toString()].filter(Boolean);
+            const uTowerId = u.towerId?.toString() || u.parentId?.toString() || propertyId;
+            const fallbackId = `${uTowerId}-${u.unitNumber}-${u.floorNumber}`;
+            const possibleIds = [u.id, u.originalId, u._id?.toString(), fallbackId].filter(Boolean);
             const isMatch = possibleIds.some((pid: string) => unitIds.includes(pid));
             
             if (isMatch) {

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Image from "next/image"
-import { Building2, MapPin, Layers, DefaultIcon, ChevronRight, CheckCircle2, DollarSign, LayoutGrid, Film } from "lucide-react"
+import { Building2, MapPin, Layers, ChevronRight, CheckCircle2, DollarSign, LayoutGrid, Film } from "lucide-react"
 import { VideoGallery } from "@/components/ui/video-gallery"
 
 export default function PropertyView() {

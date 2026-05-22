@@ -54,36 +54,36 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       // ── UPWARD RECONSTRUCTION (Inherit from parents if this is a child) ─────────────────
       let walk = finalProperty;
       while (walk.parentId) {
-        const parent = await Property.findById(walk.parentId).lean();
+        const parent: any = await Property.findById(walk.parentId).lean();
         if (!parent || parent.isDeleted) break;
 
         if (parent.type === 'township') {
-          wizardState.township = (parent as any).details?.township || (parent as any).details || {};
+          wizardState.township = parent.details?.township || parent.details || {};
         } else if (parent.type === 'project') {
-          const pData = extractProjectData((parent as any).details, parent._id.toString(), (parent as any).name);
+          const pData = extractProjectData(parent.details, parent._id.toString(), parent.name);
           wizardState.projects = [{ ...pData, _dbId: parent._id.toString(), id: parent._id.toString() }];
         }
-        walk = parent as any;
+        walk = parent;
       }
 
       // ── EXTRACTOR HELPERS ───────────────────────────────────────────────────────────
-      const extractProjectData = (details: any, dbId: string, nameFallback: string) => {
+      function extractProjectData(details: any, dbId: string, nameFallback: string) {
         if (!details) return {};
         if (details.projects && Array.isArray(details.projects)) {
           const match = details.projects.find((p: any) => p._dbId === dbId || p.id === dbId || p.name === nameFallback);
           return match || details.projects[0] || {};
         }
         return details;
-      };
+      }
 
-      const extractTowerData = (details: any, dbId: string, nameFallback: string) => {
+      function extractTowerData(details: any, dbId: string, nameFallback: string) {
         if (!details) return {};
         if (details.towers && Array.isArray(details.towers)) {
           const match = details.towers.find((t: any) => t._dbId === dbId || t.id === dbId || t.name === nameFallback);
           return match || details.towers[0] || {};
         }
         return details;
-      };
+      }
 
       // ── DOWNWARD RECONSTRUCTION (Fill children) ─────────────────────────────────────────
       // If we are editing a standalone project/tower, it might have common inherited data in its own details.township
@@ -96,25 +96,25 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
         const projects = await Property.find({ parentId: rootId, isDeleted: false, type: 'project' }).lean();
         wizardState.projects = projects.map(p => {
-          const pData = extractProjectData(p.details, p._id.toString(), (p as any).name);
-          projectDbIds.push(p._id.toString());
+          const pData = extractProjectData(p.details, (p as any)._id.toString(), (p as any).name);
+          projectDbIds.push((p as any)._id.toString());
           return {
-            name: p.name,
+            name: (p as any).name,
             ...pData,
-            _dbId: p._id.toString(),
-            id: p._id.toString() // Consistency Fix: Use MongoDB _id
+            _dbId: (p as any)._id.toString(),
+            id: (p as any)._id.toString() // Consistency Fix: Use MongoDB _id
           };
         });
 
         const towers = await Property.find({ parentId: { $in: projectDbIds }, isDeleted: false, type: 'tower' }).lean();
 
         wizardState.towers = towers.map(t => {
-          const tData = extractTowerData(t.details, t._id.toString(), (t as any).name);
+          const tData = extractTowerData(t.details, (t as any)._id.toString(), (t as any).name);
           const { unitConfig, ...rest } = tData as any;
-          const towerId = t._id.toString(); // Consistency Fix: Use MongoDB _id
+          const towerId = (t as any)._id.toString(); // Consistency Fix: Use MongoDB _id
           if (unitConfig) wizardState.towerUnitConfigs.push({ ...unitConfig, towerId });
-          towerDbIds.push(t._id.toString());
-          return { name: t.name, ...rest, id: towerId, _dbId: t._id.toString(), projectId: t.parentId?.toString() };
+          towerDbIds.push((t as any)._id.toString());
+          return { name: (t as any).name, ...rest, id: towerId, _dbId: (t as any)._id.toString(), projectId: (t as any).parentId?.toString() };
         });
 
       } else if (finalProperty.type === 'project') {
@@ -124,12 +124,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
         const towers = await Property.find({ parentId: rootId, isDeleted: false, type: 'tower' }).lean();
         wizardState.towers = towers.map(t => {
-          const tData = extractTowerData(t.details, t._id.toString(), (t as any).name);
+          const tData = extractTowerData(t.details, (t as any)._id.toString(), (t as any).name);
           const { unitConfig, ...rest } = tData as any;
-          const towerId = t._id.toString(); // Consistency Fix: Use MongoDB _id
+          const towerId = (t as any)._id.toString(); // Consistency Fix: Use MongoDB _id
           if (unitConfig) wizardState.towerUnitConfigs.push({ ...unitConfig, towerId });
-          towerDbIds.push(t._id.toString());
-          return { name: t.name, ...rest, id: towerId, _dbId: t._id.toString(), projectId: t.parentId?.toString() };
+          towerDbIds.push((t as any)._id.toString());
+          return { name: (t as any).name, ...rest, id: towerId, _dbId: (t as any)._id.toString(), projectId: (t as any).parentId?.toString() };
         });
 
       } else if (finalProperty.type === 'tower') {
@@ -152,8 +152,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
         if (units.length > 0) {
           wizardState.generatedUnits = units.map(u => ({
-            id: (u as any).originalId || u._id.toString(),
-            _dbId: u._id.toString(),
+            id: (u as any).originalId || (u as any)._id.toString(),
+            _dbId: (u as any)._id.toString(),
             towerId: (u as any).towerId?.toString(),
             projectId: (u as any).projectId?.toString(),
             unitNumber: u.unitNumber,
@@ -299,7 +299,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     await dbConnect();
 
-    const deleteResult = await secureDeleteProperty(id, context!.userId);
+    const deleteResult = await secureDeleteProperty(id, context!);
 
     return NextResponse.json(
       { success: true, message: "Property and associated media securely deleted", details: deleteResult },

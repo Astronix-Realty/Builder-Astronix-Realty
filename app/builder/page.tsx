@@ -18,6 +18,7 @@ import {
   type GeneratedUnit,
   type ProjectData,
   type TowerData,
+  type UnitConfiguration,
   initialTownshipData,
   initialProjectTemplate,
   initialTowerTemplate,
@@ -394,8 +395,8 @@ function BuilderContent() {
       console.log("Populating default configs for:", missingConfigTowerIds)
       const newConfigs = missingConfigTowerIds.map((towerId) => ({
         towerId,
-        configurations: (state.unitTemplate.configurations || []).map(c => ({ ...c })),
-        floorGroups: (state.unitTemplate.floorGroups || []).map(fg => ({ ...fg })),
+        configurations: (state.unitTemplate.configurations || []).map((c: any) => ({ ...c })),
+        floorGroups: (state.unitTemplate.floorGroups || []).map((fg: any) => ({ ...fg })),
         basePrice: state.unitTemplate.basePrice,
         ratePerSqft: state.unitTemplate.ratePerSqft,
         facingPremiums: { ...state.unitTemplate.facingPremiums },
@@ -459,12 +460,12 @@ function BuilderContent() {
       let configs = config?.configurations || []
       
       // Fallback to global template if tower config is empty or has no prices
-      if (configs.length === 0 || !configs.some(c => (c.allInclusivePrice || 0) > 0)) {
+      if (configs.length === 0 || !configs.some((c: any) => (c.allInclusivePrice || 0) > 0)) {
         configs = state.unitTemplate?.configurations || []
       }
 
       if (configs.length > 0) {
-        const prices = configs.map(c => c.allInclusivePrice || 0).filter(p => p > 0)
+        const prices = configs.map((c: any) => c.allInclusivePrice || 0).filter((p: number) => p > 0)
         if (prices.length > 0) {
           const min = Math.min(...prices)
           const max = Math.max(...prices)
@@ -753,6 +754,7 @@ function BuilderContent() {
       async function performLegacyCreation() {
         console.log("[handleCreate] Performing sequential entity creation fallback...");
         const projectIdMap: Record<string, string> = {}
+        const towerIdMap: Record<string, string> = {}
         const rootLoc = { city: state.township?.city, state: state.township?.state }
 
         if (flowType === "township") {
@@ -1218,9 +1220,10 @@ function BuilderContent() {
               onChange={(updaterOrData) => {
                 setState(prev => {
                   const updated = [...(prev.towers || [])]
+                  const currentTower = updated[0] || {}
                   updated[0] = typeof updaterOrData === "function"
-                    ? updaterOrData(updated[0])
-                    : updaterOrData
+                    ? updaterOrData(currentTower)
+                    : { ...currentTower, ...updaterOrData } as TowerData
                   return { ...prev, towers: updated }
                 })
               }}
@@ -1277,7 +1280,7 @@ function BuilderContent() {
                     const globalConfigs = newTemplate.configurations || []
                     globalConfigs.forEach(globalConfig => {
                       const localConfigs = towerConfig.configurations || []
-                      const localConfig = localConfigs.find(c => c.id === globalConfig.id)
+                      const localConfig = localConfigs.find((c: any) => c.id === globalConfig.id)
                       if (localConfig) {
                         // Exists locally. Merge fields, but respect overrides.
                         syncedConfigurations.push({

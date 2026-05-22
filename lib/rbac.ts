@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
@@ -26,8 +27,12 @@ export async function checkRBAC(
     }
 
     const decoded = verifyToken(token);
-    if (!decoded) {
-      return { errorResponse: NextResponse.json({ error: "Invalid token" }, { status: 401 }) };
+    if (!decoded || !decoded.userId) {
+      return { errorResponse: NextResponse.json({ error: "Invalid token structure" }, { status: 401 }) };
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(decoded.userId)) {
+      return { errorResponse: NextResponse.json({ error: "Invalid user ID in token payload" }, { status: 401 }) };
     }
 
     await dbConnect();
@@ -63,7 +68,22 @@ export async function checkRBAC(
     };
   } catch (error: any) {
     console.error("[RBAC Guard Error]:", error);
-    return { errorResponse: NextResponse.json({ error: "Internal Server Error during authorization" }, { status: 500 }) };
+    try {
+      require("fs").writeFileSync("rbac-error.log", error.stack || error.message || String(error));
+    } catch(e) {}
+    
+    // Identify database connection errors (network drops, MongoServerSelectionError, DNS timeouts)
+    const isDbError = error.name?.includes("Mongo") || error.message?.includes("getaddrinfo") || error.message?.includes("connection") || error.message?.includes("Mongoose");
+    const errorMsg = isDbError 
+      ? "Database connection failed. Please check your internet connection or MongoDB Atlas status." 
+      : "Internal Server Error during authorization";
+      
+    return { 
+      errorResponse: NextResponse.json(
+        { error: errorMsg, details: error.message, stack: error.stack }, 
+        { status: isDbError ? 503 : 500 } 
+      ) 
+    };
   }
 }
 

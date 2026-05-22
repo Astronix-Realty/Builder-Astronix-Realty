@@ -142,7 +142,7 @@ export function VideoGallery({ videos }: VideoGalleryProps) {
                 </div>
               </div>
             </div>
-          ))}
+          )})}
         </div>
 
       {/* ── FULLSCREEN PLAYER MODAL ── */}

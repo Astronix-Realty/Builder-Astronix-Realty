@@ -1,305 +1,437 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
+    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import {
-    Users,
-    Search,
-    Filter,
-    Home,
-    CheckCircle2,
-    Lock,
-    Clock,
-    Ban,
-    Building,
-    Layers,
-    LayoutGrid,
-    RefreshCw,
-    CircleDollarSign,
-    CheckSquare,
-    X,
-    User,
-    Phone,
-    Banknote
+    Users, Search, Home, CheckCircle2, Lock, Clock,
+    Building2, Layers, LayoutGrid, RefreshCw, CircleDollarSign,
+    CheckSquare, X, User, TrendingUp, Building, Filter,
+    ChevronRight, MapPin, AlertCircle
 } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
+import {
+    Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-// --- Types ---
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-interface SavedProperty {
+interface InventoryProperty {
     _id: string
-    id: string
-    flowType: "township" | "project" | "tower"
     name: string
-    details: {
-        township?: any
-        projects?: any[]
-        towers: any[]
-        generatedUnits: any[]
-    }
-    createdAt: string
+    type: "township" | "project" | "tower"
+    flowType: string
+    location: { city?: string; state?: string; address?: string }
+    projectCount: number
+    towerCount: number
+    unitCount: number
+    thumbnail: string | null
     status: string
 }
 
-interface Unit {
+interface InventoryProject {
+    _id: string
+    name: string
+    towerCount: number
+    unitCount: number
+}
+
+interface InventoryTower {
+    _id: string
+    name: string
+    projectId: string | null
+    floorCount: number
+    unitCount: number
+}
+
+interface InventoryUnit {
+    _id: string
     id: string
     unitNumber: string
     floorNumber: number
-    price: number
     configuration: string
-    status: "available" | "sold" | "blocked" | "reserved"
+    area: number
+    price: number
+    ratePerSqft: number
+    status: "available" | "sold" | "blocked" | "reserved" | "booked" | "published" | "archived"
     towerId: string
-    area?: number
-    ratePerSqft?: number
-
-    // Customer / Booking Details
-    customerName?: string
-    customerPhone?: string
-    bookingAmount?: number
-    bookingDate?: string
+    projectId: string | null
+    customerName: string
+    customerPhone: string
+    bookingAmount: number
+    bookingDate: string | null
+    facing: string
 }
 
-// --- Component ---
+interface InventoryHierarchy {
+    property: { _id: string; name: string; type: string; flowType: string; location: any }
+    projects: InventoryProject[]
+    towers: InventoryTower[]
+    units: InventoryUnit[]
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 interface InventoryViewProps {
     userRole?: "builder" | "mandate"
 }
 
 export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
-    const [properties, setProperties] = useState<SavedProperty[]>([])
+    const router = useRouter()
+    // ── Property List State ────────────────────────────────────────────────
+    const [properties, setProperties] = useState<InventoryProperty[]>([])
     const [selectedPropertyId, setSelectedPropertyId] = useState<string>("")
-    const [selectedProjectId, setSelectedProjectId] = useState<string>("all")
-    const [selectedTowerId, setSelectedTowerId] = useState<string>("all")
-    const [loading, setLoading] = useState(true)
+    const [hierarchy, setHierarchy] = useState<InventoryHierarchy | null>(null)
+
+    // ── Loading State ──────────────────────────────────────────────────────
+    const [loadingList, setLoadingList] = useState(true)
+    const [loadingHierarchy, setLoadingHierarchy] = useState(false)
     const [isRefreshing, setIsRefreshing] = useState(false)
 
-    // Filtering State
+    // ── Hierarchy Filter State ─────────────────────────────────────────────
+    const [selectedProjectId, setSelectedProjectId] = useState<string>("all")
+    const [selectedTowerId, setSelectedTowerId] = useState<string>("all")
+
+    // ── Unit Filter State ──────────────────────────────────────────────────
     const [statusFilter, setStatusFilter] = useState<string>("all")
     const [configFilter, setConfigFilter] = useState<string>("all")
     const [searchTerm, setSearchTerm] = useState("")
 
-    // Selection & Bulk Actions
+    // ── Bulk Selection ─────────────────────────────────────────────────────
     const [isSelectionMode, setIsSelectionMode] = useState(false)
     const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>([])
 
-    // Edit State
-    const [editingUnit, setEditingUnit] = useState<Unit | null>(null)
-    const [customerForm, setCustomerForm] = useState({
-        name: "",
-        phone: "",
-        amount: ""
-    })
+    // ── Unit Edit Dialog ───────────────────────────────────────────────────
+    const [editingUnit, setEditingUnit] = useState<InventoryUnit | null>(null)
+    const [customerForm, setCustomerForm] = useState({ name: "", phone: "", amount: "" })
 
-    // Tower Pricing State
+    // ── Tower Pricing Dialog ───────────────────────────────────────────────
     const [isPricingDialogOpen, setIsPricingDialogOpen] = useState(false)
-    const [towerRateForm, setTowerRateForm] = useState({
-        rate: "",
-        applyToAllConfigurations: true
-    })
+    const [towerRateForm, setTowerRateForm] = useState({ rate: "", applyToAll: true })
 
-    // Data Loading
-    useEffect(() => {
-        loadProperties()
-    }, [])
+    // ── Error State ────────────────────────────────────────────────────────
+    const [listError, setListError] = useState<string | null>(null)
+    const [hierarchyError, setHierarchyError] = useState<string | null>(null)
+
+    // ─── Load property list ────────────────────────────────────────────────
+    const loadProperties = useCallback(async (showRefresh = false) => {
+        if (showRefresh) setIsRefreshing(true)
+        else setLoadingList(true)
+        setListError(null)
+        try {
+            const res = await fetch(`/api/inventory?t=${Date.now()}`, { cache: "no-store" })
+            if (!res.ok) {
+                if (res.status === 401 || res.status === 403) {
+                    toast.error("Session expired or unauthorized. Redirecting to login...")
+                    setProperties([])
+                    setHierarchy(null)
+                    setSelectedPropertyId("")
+                    router.push("/login")
+                    return
+                }
+                const err = await res.json().catch(() => ({}))
+                throw new Error(err.error || `Failed to load inventory (Status: ${res.status})`)
+            }
+            const data = await res.json()
+            const props: InventoryProperty[] = data.properties || []
+            setProperties(props)
+
+            // Auto-select first property if none selected or current is gone
+            const currentStillValid = props.some(p => p._id === selectedPropertyId)
+            if (!currentStillValid && props.length > 0) {
+                setSelectedPropertyId(props[0]._id)
+            } else if (props.length === 0) {
+                setSelectedPropertyId("")
+                setHierarchy(null)
+            }
+        } catch (e: any) {
+            console.error("[InventoryView] loadProperties error:", e)
+            setListError(e.message || "Failed to load properties")
+        } finally {
+            setLoadingList(false)
+            setIsRefreshing(false)
+        }
+    }, [selectedPropertyId, router])
+
+    // ─── Load hierarchy for selected property ─────────────────────────────
+    const loadHierarchy = useCallback(async (propertyId: string, silent = false) => {
+        if (!propertyId) return
+        if (!silent) setLoadingHierarchy(true)
+        setHierarchyError(null)
+        try {
+            const res = await fetch(`/api/inventory/${propertyId}?t=${Date.now()}`, { cache: "no-store" })
+            if (!res.ok) {
+                if (res.status === 401 || res.status === 403) {
+                    toast.error("Session expired or unauthorized. Redirecting to login...")
+                    setProperties([])
+                    setHierarchy(null)
+                    setSelectedPropertyId("")
+                    router.push("/login")
+                    return
+                }
+                const err = await res.json().catch(() => ({}))
+                throw new Error(err.error || `Failed to load hierarchy (Status: ${res.status})`)
+            }
+            const data: InventoryHierarchy = await res.json()
+            setHierarchy(data)
+        } catch (e: any) {
+            if (silent) {
+                console.warn("[InventoryView] Silent background update failed to fetch:", e.message || e)
+            } else {
+                console.error("[InventoryView] loadHierarchy error:", e)
+                setHierarchyError(e.message || "Failed to load inventory data")
+            }
+            if (!silent) {
+                setHierarchy(null)
+            }
+        } finally {
+            setLoadingHierarchy(false)
+        }
+    }, [router])
+
+    // ─── Effects ──────────────────────────────────────────────────────────
+    useEffect(() => { loadProperties() }, [loadProperties])
 
     useEffect(() => {
         if (selectedPropertyId) {
-            // Reset filters when property switches
             setSelectedProjectId("all")
             setSelectedTowerId("all")
             setStatusFilter("all")
             setConfigFilter("all")
             setSearchTerm("")
-            fetchFullProperty(selectedPropertyId)
+            setSelectedUnitIds([])
+            setIsSelectionMode(false)
+            setHierarchy(null)
+            setHierarchyError(null)
+            loadHierarchy(selectedPropertyId)
         }
-    }, [selectedPropertyId])
+    }, [selectedPropertyId, loadHierarchy])
 
-    // Automatically reset tower selection when project phase changes
-    useEffect(() => {
-        setSelectedTowerId("all")
-    }, [selectedProjectId])
 
-    const loadProperties = async (showFullLoader = true) => {
-        if (showFullLoader) setLoading(true)
-        else setIsRefreshing(true)
-        try {
-            // Root-level fix: Query all properties to get draft/pending/published and filter properly in frontend
-            const res = await fetch("/api/properties")
-            if (res.ok) {
-                const data = await res.json()
-                const publishedOnly = (data.properties || []).filter((p: any) => 
-                    p.status === "published" || p.status === "active" || p.status === "pending"
-                )
-                
-                let targetId = selectedPropertyId;
-                
-                if (targetId) {
-                    const isStillValid = publishedOnly.some((p: any) => 
-                        (p._id || p.id)?.toString() === targetId.toString()
-                    )
-                    if (!isStillValid) {
-                        targetId = publishedOnly.length > 0 ? (publishedOnly[0]._id || publishedOnly[0].id)?.toString() : ""
-                    }
-                } else if (publishedOnly.length > 0) {
-                    targetId = (publishedOnly[0]._id || publishedOnly[0].id)?.toString() || ""
-                }
+    // Reset tower when project changes
+    useEffect(() => { setSelectedTowerId("all") }, [selectedProjectId])
 
-                if (targetId) {
-                    setSelectedPropertyId(targetId)
-                    const fullRes = await fetch(`/api/properties/${targetId}`)
-                    if (fullRes.ok) {
-                        const fullData = await fullRes.json()
-                        const updatedProperty = fullData.property
-                        const isValid = updatedProperty.status === "published" || updatedProperty.status === "active" || updatedProperty.status === "pending"
-                        
-                        if (isValid) {
-                            const mergedProperties = publishedOnly.map(p => 
-                                ((p._id || p.id)?.toString() === targetId) ? updatedProperty : p
-                            )
-                            setProperties(mergedProperties)
-                        } else {
-                            setProperties(publishedOnly.filter(p => (p._id || p.id)?.toString() !== targetId))
-                            setSelectedPropertyId("")
-                        }
-                    } else {
-                        setProperties(publishedOnly)
-                    }
-                } else {
-                    setSelectedPropertyId("")
-                    setProperties(publishedOnly)
-                }
-            }
-        } catch (e) {
-            console.error("Failed to load properties", e)
-        } finally {
-            setLoading(false)
-            setIsRefreshing(false)
-        }
-    }
-
-    // --- Auto Sync Logic ---
+    // Auto-sync every 60 seconds (silent)
     useEffect(() => {
         const interval = setInterval(() => {
-            if (selectedPropertyId && !isRefreshing && !loading) {
-                fetchFullProperty(selectedPropertyId)
+            if (selectedPropertyId && !isRefreshing && !loadingHierarchy) {
+                loadHierarchy(selectedPropertyId, true)
             }
-        }, 60000) // Auto-sync every 60 seconds
-
+        }, 60000)
         return () => clearInterval(interval)
-    }, [selectedPropertyId, isRefreshing, loading])
+    }, [selectedPropertyId, isRefreshing, loadingHierarchy, loadHierarchy])
 
-    const fetchFullProperty = async (id: string, showLoader = false) => {
-        if (!id) return
-        try {
-            const res = await fetch(`/api/properties/${id}`)
-            if (res.ok) {
-                const data = await res.json()
-                const updatedProperty = data.property
-                
-                // Root-level fix: Ensure the property is still in valid status before keeping it in inventory
-                const isValid = updatedProperty.status === "published" || updatedProperty.status === "active" || updatedProperty.status === "pending"
-                
-                setProperties(prev => {
-                    const newProps = prev.map(p => 
-                        ((p as any)._id?.toString() === id || p.id?.toString() === id) ? updatedProperty : p
-                    ).filter(p => p.status === "published" || p.status === "active" || p.status === "pending")
-                    
-                    // If the selected property was just filtered out, reset selection
-                    if (!isValid && selectedPropertyId === id) {
-                        setTimeout(() => {
-                            setSelectedPropertyId(newProps.length > 0 ? ((newProps[0] as any)._id || newProps[0].id)?.toString() : "")
-                        }, 0)
-                    }
-                    
-                    return newProps
-                })
+    // ─── Derived Data ──────────────────────────────────────────────────────
+    const currentProperty = useMemo(
+        () => properties.find(p => p._id === selectedPropertyId) || null,
+        [properties, selectedPropertyId]
+    )
+
+    const propertyType = useMemo(
+        () => (hierarchy?.property.type || currentProperty?.type || "tower") as string,
+        [hierarchy, currentProperty]
+    )
+
+    // Normalize towers: if projectId is not in project list, treat as null (direct township tower)
+    const normalizedTowers = useMemo(() => {
+        if (!hierarchy) return []
+        const projectIds = new Set(hierarchy.projects.map(p => p._id))
+        return hierarchy.towers.map(t => {
+            if (t.projectId && !projectIds.has(t.projectId)) {
+                return { ...t, projectId: null }
             }
-        } catch (e) {
-            console.error("Failed to fetch full property", e)
-        }
-    }
+            return t
+        })
+    }, [hierarchy])
 
-    // Save changes to backend
-    const handleUnitClick = (unit: Unit) => {
+    // Detect if township has towers directly attached to it (no projectId)
+    const hasDirectTowers = useMemo(() => {
+        return normalizedTowers.some(t => !t.projectId)
+    }, [normalizedTowers])
+
+    // Towers visible given project selection
+    const visibleTowers = useMemo(() => {
+        if (selectedProjectId === "all") return normalizedTowers
+        if (selectedProjectId === "direct") return normalizedTowers.filter(t => !t.projectId)
+        return normalizedTowers.filter(t => t.projectId === selectedProjectId)
+    }, [normalizedTowers, selectedProjectId])
+
+    // Units that belong to the selected Township/Project/Tower (ignoring status/config/search filters)
+    const scopeUnits = useMemo(() => {
+        if (!hierarchy) return []
+        return hierarchy.units.filter((unit) => {
+            if (selectedTowerId !== "all" && unit.towerId !== selectedTowerId) return false
+            if (selectedProjectId !== "all" && selectedTowerId === "all") {
+                const tower = normalizedTowers.find(t => t._id === unit.towerId)
+                if (selectedProjectId === "direct") {
+                    if (unit.projectId || tower?.projectId) return false
+                } else {
+                    const matchesUnit = unit.projectId === selectedProjectId
+                    const matchesTower = tower?.projectId === selectedProjectId
+                    if (!matchesUnit && !matchesTower) return false
+                }
+            }
+            return true
+        })
+    }, [hierarchy, normalizedTowers, selectedProjectId, selectedTowerId])
+
+    // Filtered units (applying status, config, and search filters on scopeUnits)
+    const filteredUnits = useMemo(() => {
+        return scopeUnits.filter((unit) => {
+            // Attribute filters
+            if (statusFilter !== "all" && (unit.status || "available") !== statusFilter) return false
+            if (configFilter !== "all" && unit.configuration !== configFilter) return false
+            if (searchTerm.trim()) {
+                const term = searchTerm.toLowerCase()
+                return (
+                    unit.unitNumber.toLowerCase().includes(term) ||
+                    unit.configuration.toLowerCase().includes(term) ||
+                    unit.customerName.toLowerCase().includes(term) ||
+                    unit.facing.toLowerCase().includes(term)
+                )
+            }
+            return true
+        })
+    }, [scopeUnits, statusFilter, configFilter, searchTerm])
+
+    // Stats calculated on scopeUnits (i.e. respecting hierarchy selection but ignoring search/status/config filters)
+    const stats = useMemo(() => {
+        const total = scopeUnits.length
+        const available = scopeUnits.filter(u => (u.status || "available") === "available").length
+        const sold = scopeUnits.filter(u => u.status === "sold").length
+        const reserved = scopeUnits.filter(u => u.status === "reserved").length
+        const blocked = scopeUnits.filter(u => u.status === "blocked").length
+        const revenue = scopeUnits
+            .filter(u => u.status === "sold")
+            .reduce((sum, u) => sum + (u.price || 0), 0)
+        return { total, available, sold, reserved, blocked, revenue }
+    }, [scopeUnits])
+
+    // Unique configurations for filter dropdown
+    const configurations = useMemo(
+        () => Array.from(new Set(hierarchy?.units.map(u => u.configuration).filter(Boolean) || [])).sort(),
+        [hierarchy]
+    )
+
+    // Breadcrumbs showing current hierarchy location
+    const breadcrumbs = useMemo(() => {
+        if (!hierarchy) return null
+        const items = []
+        
+        // Root property level
+        items.push({
+            name: hierarchy.property.name,
+            onClick: () => {
+                setSelectedProjectId("all")
+                setSelectedTowerId("all")
+            }
+        })
+        
+        // Project level
+        if (propertyType === "township") {
+            if (selectedProjectId !== "all") {
+                if (selectedProjectId === "direct") {
+                    items.push({
+                        name: "Direct Towers",
+                        onClick: () => {
+                            setSelectedTowerId("all")
+                        }
+                    })
+                } else {
+                    const proj = hierarchy.projects.find(p => p._id === selectedProjectId)
+                    items.push({
+                        name: proj?.name || "Unknown Project",
+                        onClick: () => {
+                            setSelectedTowerId("all")
+                        }
+                    })
+                }
+            }
+        }
+        
+        // Tower level
+        if (selectedTowerId !== "all") {
+            const tw = normalizedTowers.find(t => t._id === selectedTowerId)
+            items.push({
+                name: tw?.name || "Unknown Tower",
+                onClick: null
+            })
+        }
+        
+        return items
+    }, [hierarchy, propertyType, selectedProjectId, selectedTowerId, normalizedTowers])
+
+    // Current inventory scope indicator
+    const currentScope = useMemo(() => {
+        if (!hierarchy) return ""
+        if (selectedTowerId !== "all") return "Tower Inventory"
+        if (propertyType === "township") {
+            if (selectedProjectId === "all") return "Township Inventory"
+            return "Project Inventory"
+        }
+        if (propertyType === "project") return "Project Inventory"
+        return "Tower Inventory"
+    }, [hierarchy, propertyType, selectedProjectId, selectedTowerId])
+
+    // ─── Handlers ─────────────────────────────────────────────────────────
+    const handleUnitClick = (unit: InventoryUnit) => {
         if (isSelectionMode) {
             setSelectedUnitIds(prev =>
-                prev.includes(unit.id)
-                    ? prev.filter(id => id !== unit.id)
-                    : [...prev, unit.id]
+                prev.includes(unit._id) ? prev.filter(id => id !== unit._id) : [...prev, unit._id]
             )
         } else {
             setEditingUnit(unit)
             setCustomerForm({
                 name: unit.customerName || "",
                 phone: unit.customerPhone || "",
-                amount: unit.bookingAmount?.toString() || ""
+                amount: unit.bookingAmount?.toString() || "",
             })
         }
     }
 
-    const handleSingleStatusChange = async (status: Unit['status']) => {
-        if (!editingUnit || !currentProperty) return
+    const handleSingleStatusChange = async (status: InventoryUnit["status"]) => {
+        if (!editingUnit || !selectedPropertyId) return
 
         if ((status === "sold" || status === "reserved") && !customerForm.name.trim()) {
             toast.error("Please enter the buyer's name")
             return
         }
-
         if ((status === "sold" || status === "reserved") && !customerForm.phone.trim()) {
             toast.error("Please enter the buyer's phone number")
             return
         }
-
         const bookingAmt = parseFloat(customerForm.amount)
         if ((status === "sold" || status === "reserved") && (isNaN(bookingAmt) || bookingAmt <= 0)) {
             toast.error("Please enter a valid booking amount")
             return
         }
 
-        // --- Optimistic Update ---
-        const updatedUnit: Unit = {
+        // Optimistic update
+        const updatedUnit: InventoryUnit = {
             ...editingUnit,
             status,
-            customerName: status === "available" ? "" : (customerForm.name || editingUnit.customerName || ""),
-            customerPhone: status === "available" ? "" : (customerForm.phone || editingUnit.customerPhone || ""),
-            bookingAmount: status === "available" ? 0 : 
-                           (customerForm.amount === "" ? (editingUnit.bookingAmount || 0) : parseFloat(customerForm.amount)),
-            bookingDate: status === "available" ? null : (editingUnit.bookingDate || new Date().toISOString())
+            customerName: status === "available" ? "" : (customerForm.name || editingUnit.customerName),
+            customerPhone: status === "available" ? "" : (customerForm.phone || editingUnit.customerPhone),
+            bookingAmount: status === "available" ? 0 : (parseFloat(customerForm.amount) || editingUnit.bookingAmount),
+            bookingDate: status === "available" ? null : (editingUnit.bookingDate || new Date().toISOString()),
         }
-
-        // Update local properties state immediately
-        setProperties(prev => prev.map(p => {
-            const pId = (p._id || p.id)?.toString()
-            if (pId === selectedPropertyId) {
-                const updatedUnits = (p.details?.generatedUnits || []).map((u: any) => 
-                    (u.id === editingUnit.id || u._id?.toString() === editingUnit.id) ? updatedUnit : u
-                )
-                return { ...p, details: { ...p.details, generatedUnits: updatedUnits } }
-            }
-            return p
-        }))
+        setHierarchy(prev => prev ? {
+            ...prev,
+            units: prev.units.map(u => u._id === editingUnit._id ? updatedUnit : u)
+        } : null)
         setEditingUnit(null)
 
-        console.log(`[InventoryView] Updating unit ${editingUnit.id} to ${status}`, {
-            propertyId: selectedPropertyId,
-            updatedUnit
-        })
-
         try {
-            const res = await fetch(`/api/units/${editingUnit.id}?propertyId=${selectedPropertyId}`, {
+            const res = await fetch(`/api/units/${editingUnit._id}?propertyId=${selectedPropertyId}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -307,503 +439,962 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                     customerName: updatedUnit.customerName,
                     customerPhone: updatedUnit.customerPhone,
                     bookingAmount: updatedUnit.bookingAmount,
-                    bookingDate: updatedUnit.bookingDate
-                })
+                    bookingDate: updatedUnit.bookingDate,
+                }),
             })
-
             if (res.ok) {
                 toast.success(`Unit marked as ${status}`)
-                // Full sync in background
-                fetchFullProperty(selectedPropertyId, false)
+                loadHierarchy(selectedPropertyId, true)
             } else {
-                const err = await res.json()
+                if (res.status === 401 || res.status === 403) {
+                    toast.error("Session expired or unauthorized. Redirecting to login...")
+                    setProperties([])
+                    setHierarchy(null)
+                    setSelectedPropertyId("")
+                    router.push("/login")
+                    return
+                }
+                const err = await res.json().catch(() => ({}))
                 toast.error(err.error || "Failed to update unit")
-                // Revert on error
-                fetchFullProperty(selectedPropertyId, false)
+                loadHierarchy(selectedPropertyId, true)
             }
-        } catch (e) {
-            console.error("Failed to update unit status", e)
+        } catch {
             toast.error("An error occurred while updating unit")
-            fetchFullProperty(selectedPropertyId, false)
+            loadHierarchy(selectedPropertyId, true)
         }
     }
 
-    const handleBulkStatusChange = async (status: Unit['status']) => {
-        if (!currentProperty || selectedUnitIds.length === 0) return
+    const handleBulkStatusChange = async (status: InventoryUnit["status"]) => {
+        if (!selectedPropertyId || selectedUnitIds.length === 0) return
+        if (!confirm(`Mark ${selectedUnitIds.length} units as ${status}?`)) return
 
-        if (!confirm(`Are you sure you want to mark ${selectedUnitIds.length} units as ${status}?`)) return
-
-        // --- Optimistic Update ---
-        setProperties(prev => prev.map(p => {
-            const pId = (p._id || p.id)?.toString()
-            if (pId === selectedPropertyId) {
-                const updatedUnits = (p.details?.generatedUnits || []).map((u: any) => {
-                    const uId = (u.id || u._id?.toString())
-                    if (selectedUnitIds.includes(uId)) {
-                        return { 
-                            ...u, 
-                            status,
-                            customerName: status === "available" ? "" : u.customerName,
-                            customerPhone: status === "available" ? "" : u.customerPhone,
-                            bookingAmount: status === "available" ? 0 : u.bookingAmount,
-                            bookingDate: status === "available" ? null : u.bookingDate
-                        }
+        // Optimistic update
+        setHierarchy(prev => prev ? {
+            ...prev,
+            units: prev.units.map(u =>
+                selectedUnitIds.includes(u._id)
+                    ? {
+                        ...u, status,
+                        customerName: status === "available" ? "" : u.customerName,
+                        customerPhone: status === "available" ? "" : u.customerPhone,
+                        bookingAmount: status === "available" ? 0 : u.bookingAmount,
                     }
-                    return u
-                })
-                return { ...p, details: { ...p.details, generatedUnits: updatedUnits } }
-            }
-            return p
-        }))
+                    : u
+            )
+        } : null)
 
         try {
             const res = await fetch(`/api/units/bulk?propertyId=${selectedPropertyId}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    unitIds: selectedUnitIds,
-                    status
-                })
+                body: JSON.stringify({ unitIds: selectedUnitIds, status }),
             })
-
             if (res.ok) {
-                toast.success(`Bulk updated ${selectedUnitIds.length} units to ${status}`)
-                fetchFullProperty(selectedPropertyId, false)
+                toast.success(`Updated ${selectedUnitIds.length} units`)
                 setSelectedUnitIds([])
                 setIsSelectionMode(false)
+                loadHierarchy(selectedPropertyId, true)
             } else {
-                const err = await res.json()
-                toast.error(err.error || "Failed to update units in bulk")
-                fetchFullProperty(selectedPropertyId, false)
+                if (res.status === 401 || res.status === 403) {
+                    toast.error("Session expired or unauthorized. Redirecting to login...")
+                    setProperties([])
+                    setHierarchy(null)
+                    setSelectedPropertyId("")
+                    router.push("/login")
+                    return
+                }
+                const err = await res.json().catch(() => ({}))
+                toast.error(err.error || "Bulk update failed")
+                loadHierarchy(selectedPropertyId, true)
             }
-        } catch (e) {
-            console.error("Failed to update bulk status", e)
-            toast.error("An error occurred during bulk update")
-            fetchFullProperty(selectedPropertyId, false)
+        } catch {
+            toast.error("Bulk update failed")
+            loadHierarchy(selectedPropertyId, true)
         }
     }
 
     const handleTowerPriceUpdate = async () => {
-        if (!currentProperty || selectedTowerId === "all") return
-
+        if (selectedTowerId === "all") return
         const rate = parseFloat(towerRateForm.rate)
         if (isNaN(rate) || rate <= 0) {
             toast.error("Please enter a valid rate per sqft")
             return
         }
-
         try {
             const res = await fetch(`/api/towers/${selectedTowerId}/pricing`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ratePerSqft: rate })
+                body: JSON.stringify({ ratePerSqft: rate }),
             })
-
             if (res.ok) {
-                toast.success(`Successfully updated all units in tower to ₹${rate}/sqft`)
+                toast.success(`Updated all units to ₹${rate}/sqft`)
                 setIsPricingDialogOpen(false)
-                setTowerRateForm({ rate: "", applyToAllConfigurations: true })
-                fetchFullProperty(selectedPropertyId)
+                setTowerRateForm({ rate: "", applyToAll: true })
+                loadHierarchy(selectedPropertyId, true)
             } else {
-                const err = await res.json()
-                toast.error(err.error || "Failed to update tower pricing")
+                if (res.status === 401 || res.status === 403) {
+                    toast.error("Session expired or unauthorized. Redirecting to login...")
+                    setProperties([])
+                    setHierarchy(null)
+                    setSelectedPropertyId("")
+                    router.push("/login")
+                    return
+                }
+                const err = await res.json().catch(() => ({}))
+                toast.error(err.error || "Failed to update pricing")
             }
-        } catch (e) {
-            console.error("Failed to update tower pricing", e)
-            toast.error("An error occurred while updating tower pricing")
+        } catch {
+            toast.error("Failed to update tower pricing")
         }
     }
 
-    // --- Derived Data ---
 
-    const currentProperty = properties.find((p: any) => 
-        (p._id?.toString() === selectedPropertyId || p.id?.toString() === selectedPropertyId)
-    )
-
-    // Hierarchy Options
-    const data = currentProperty?.details || {}
-    const projects = data.projects || []
-    const towers = data.towers || []
-
-    const propertyType = currentProperty ? (currentProperty.flowType || currentProperty.type || "township") : "township"
-
-    // Filtered Towers based on Project Selection
-    const visibleTowers = selectedProjectId === "all"
-        ? towers
-        : towers.filter((t: any) => (t.projectId || t.parentId)?.toString() === selectedProjectId)
-
-    // Units Processing
-    const allUnits = data.generatedUnits || []
-
-    const filteredUnits = allUnits.filter((unit: Unit) => {
-        // Hierarchy
-        if (selectedTowerId !== "all" && unit.towerId !== selectedTowerId) return false
-        if (selectedProjectId !== "all" && selectedTowerId === "all") {
-            if (unit.projectId) {
-                if (unit.projectId !== selectedProjectId) return false;
-            } else {
-                const tower = towers.find((t: any) => (t._dbId || t.id)?.toString() === unit.towerId)
-                if ((tower?.projectId || tower?.parentId)?.toString() !== selectedProjectId) return false
-            }
+    // ─── Unit Card Styles ──────────────────────────────────────────────────
+    const getUnitStyle = (status: string, isSelected: boolean) => {
+        const base = "relative aspect-square rounded-xl border-2 flex flex-col items-center justify-center p-1 transition-all duration-200 hover:scale-105 hover:shadow-lg cursor-pointer select-none"
+        const statusStyles: Record<string, string> = {
+            available: "bg-white hover:bg-emerald-50 border-emerald-200 hover:border-emerald-400 dark:bg-slate-900 dark:border-emerald-800",
+            sold: "bg-red-50 hover:bg-red-100 border-red-200 dark:bg-red-950/30 dark:border-red-800",
+            reserved: "bg-amber-50 hover:bg-amber-100 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800",
+            blocked: "bg-slate-100 hover:bg-slate-200 border-slate-300 dark:bg-slate-800 dark:border-slate-600",
+            booked: "bg-blue-50 hover:bg-blue-100 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800",
+            published: "bg-white hover:bg-emerald-50 border-emerald-200 hover:border-emerald-400 dark:bg-slate-900 dark:border-emerald-800",
+            archived: "bg-slate-50 hover:bg-slate-100 border-slate-200 dark:bg-slate-800/50 dark:border-slate-700",
         }
-
-        // Filters
-        if (statusFilter !== "all" && (unit.status || "available") !== statusFilter) return false
-        if (configFilter !== "all" && unit.configuration !== configFilter) return false
-        if (searchTerm) {
-            const term = searchTerm.toLowerCase()
-            return (unit.unitNumber || "").toLowerCase().includes(term) ||
-                (unit.configuration || "").toLowerCase().includes(term) ||
-                (unit.customerName || "").toLowerCase().includes(term)
-        }
-
-        return true
-    })
-
-    // Stats
-    const stats = {
-        total: filteredUnits.length,
-        available: filteredUnits.filter((u: Unit) => (u.status || "available") === "available").length,
-        sold: filteredUnits.filter((u: Unit) => u.status === "sold").length,
-        reserved: filteredUnits.filter((u: Unit) => u.status === "reserved").length,
-        blocked: filteredUnits.filter((u: Unit) => u.status === "blocked").length,
-        revenue: filteredUnits
-            .filter((u: Unit) => u.status === "sold")
-            .reduce((sum: number, u: Unit) => sum + (u.price || 0), 0)
+        const ring = isSelected ? " ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-slate-950 scale-95" : ""
+        return `${base} ${statusStyles[status] || statusStyles.available}${ring}`
     }
 
-    if (loading) return <div className="p-8 text-center text-slate-500">Loading Inventory System...</div>
-    if (properties.length === 0) return (
-        <div className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed rounded-xl m-8">
-            <Building className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No Published Properties</h3>
-            <p className="text-muted-foreground">Inventory only shows properties that have been approved and published.</p>
-        </div>
-    )
+    const getStatusDot = (status: string) => {
+        const dots: Record<string, string> = {
+            available: "bg-emerald-500",
+            sold: "bg-red-500",
+            reserved: "bg-amber-500",
+            blocked: "bg-slate-400",
+            booked: "bg-blue-500",
+            published: "bg-emerald-500",
+            archived: "bg-slate-300",
+        }
+        return dots[status] || dots.available
+    }
 
-    return (
-        <div className="flex h-full flex-col bg-slate-50/50 dark:bg-slate-950 p-6 space-y-6">
-            {/* Top Controls */}
-            <div className="flex flex-col md:flex-row justify-between gap-4">
-                <div>
-                    <h2 className="text-2xl font-bold tracking-tight">Inventory Management</h2>
-                    <p className="text-muted-foreground">Track usage, sales, pricing, and unit status</p>
+    const getTextStyle = (status: string) => {
+        const styles: Record<string, string> = {
+            available: "text-slate-900 dark:text-slate-100",
+            sold: "text-red-700 dark:text-red-300",
+            reserved: "text-amber-700 dark:text-amber-300",
+            blocked: "text-slate-600 dark:text-slate-400",
+            booked: "text-blue-700 dark:text-blue-300",
+            published: "text-slate-900 dark:text-slate-100",
+            archived: "text-slate-500 dark:text-slate-500",
+        }
+        return styles[status] || styles.available
+    }
+
+    // ─── Floor groups ──────────────────────────────────────────────────────
+    const groupedUnits = useMemo(() => {
+        // If a specific tower is selected, just group by floor
+        if (selectedTowerId !== "all") {
+            const groups: Record<number, InventoryUnit[]> = {}
+            filteredUnits.forEach(u => {
+                const f = typeof u.floorNumber === 'number' ? u.floorNumber : 0
+                if (!groups[f]) groups[f] = []
+                groups[f].push(u)
+            })
+            const floors = Object.entries(groups)
+                .map(([floor, units]) => ({ floor: Number(floor), units }))
+                .sort((a, b) => b.floor - a.floor)
+            
+            const towerMeta = normalizedTowers.find(t => t._id === selectedTowerId)
+            return [{
+                tower: towerMeta || { _id: selectedTowerId, name: "Selected Tower" },
+                floors
+            }]
+        }
+
+        // If multiple towers, group by Tower -> Floor
+        const tGroups: Record<string, { tower: any, floors: Record<number, InventoryUnit[]> }> = {}
+        filteredUnits.forEach(u => {
+            const tId = u.towerId || "unknown";
+            if (!tGroups[tId]) {
+                const towerMeta = normalizedTowers.find(t => t._id === tId);
+                tGroups[tId] = { tower: towerMeta || { _id: tId, name: "Unassigned Units / Orphan Tower" }, floors: {} };
+            }
+            const f = typeof u.floorNumber === 'number' ? u.floorNumber : 0
+            if (!tGroups[tId].floors[f]) tGroups[tId].floors[f] = []
+            tGroups[tId].floors[f].push(u)
+        })
+
+        return Object.values(tGroups).map(tGroup => {
+            const floorsArr = Object.entries(tGroup.floors)
+                .map(([floor, units]) => ({ floor: Number(floor), units }))
+                .sort((a, b) => b.floor - a.floor);
+            return {
+                tower: tGroup.tower,
+                floors: floorsArr
+            }
+        }).sort((a, b) => (a.tower.name || "").localeCompare(b.tower.name || ""));
+    }, [filteredUnits, normalizedTowers, selectedTowerId])
+
+    const floorLabel = (floor: number) => {
+        if (floor === 0) return "Ground Floor"
+        if (floor < 0) return `Basement ${Math.abs(floor)}`
+        return `Floor ${floor}`
+    }
+
+    // ─── Property type label ───────────────────────────────────────────────
+    const typeConfig: Record<string, { icon: typeof Building2; label: string; color: string }> = {
+        township: { icon: Building2, label: "Township", color: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300" },
+        project: { icon: Building, label: "Project", color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" },
+        tower: { icon: Layers, label: "Tower", color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" },
+    }
+
+    // ─── Loading / Empty States ────────────────────────────────────────────
+    if (loadingList) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full min-h-[60vh] gap-4">
+                <div className="relative w-14 h-14">
+                    <div className="absolute inset-0 rounded-full border-4 border-slate-200 dark:border-slate-800" />
+                    <div className="absolute inset-0 rounded-full border-4 border-t-indigo-500 animate-spin" />
                 </div>
+                <p className="text-sm font-semibold text-slate-500">Loading Inventory...</p>
+            </div>
+        )
+    }
 
-                <div className="flex items-center gap-2">
-                    <Select value={selectedPropertyId} onValueChange={setSelectedPropertyId}>
-                        <SelectTrigger className="w-[200px] md:w-[250px] bg-white dark:bg-slate-900 shadow-sm">
-                            <SelectValue placeholder="Select Property" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {properties.map((p: any, idx: number) => {
-                                const data = p.details || {}
-                                const name = p.name || data.township?.name ||
-                                    data.projects?.[0]?.name ||
-                                    data.towers?.[0]?.name ||
-                                    `Property ${p._id?.slice(-4) || idx}`
-                                return <SelectItem key={p._id?.toString() || p.id?.toString() || idx} value={p._id?.toString() || p.id?.toString() || `prop-${idx}`}>{name}</SelectItem>
-                            })}
-                        </SelectContent>
-                    </Select>
-                    <Button variant="outline" size="icon" onClick={() => loadProperties(false)} disabled={isRefreshing} title="Refresh Data">
-                        <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                    </Button>
+    if (listError) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full min-h-[60vh] gap-4 text-center p-8">
+                <div className="w-14 h-14 rounded-2xl bg-red-50 dark:bg-red-950/30 flex items-center justify-center">
+                    <AlertCircle className="h-7 w-7 text-red-500" />
+                </div>
+                <div>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Failed to Load Inventory</h3>
+                    <p className="text-sm text-slate-500 mt-1">{listError}</p>
+                </div>
+                <Button onClick={() => loadProperties()} className="bg-indigo-600 hover:bg-indigo-700">
+                    <RefreshCw className="h-4 w-4 mr-2" /> Try Again
+                </Button>
+            </div>
+        )
+    }
+
+    if (properties.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full min-h-[60vh] gap-6 text-center p-8">
+                <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-indigo-50 to-slate-100 dark:from-indigo-950/30 dark:to-slate-900 flex items-center justify-center shadow-inner">
+                    <Building2 className="h-10 w-10 text-indigo-400" />
+                </div>
+                <div>
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">No Published Properties</h3>
+                    <p className="text-sm text-slate-500 mt-2 max-w-sm">
+                        Inventory only shows properties that have been published. Publish a property to start tracking units.
+                    </p>
                 </div>
             </div>
+        )
+    }
 
-            {currentProperty && (
-                <div className="grid grid-cols-12 gap-6 h-full min-h-0">
+    // ─── Main Render ───────────────────────────────────────────────────────
+    const selectedTowerMeta = visibleTowers.find(t => t._id === selectedTowerId)
+    const TypeIcon = typeConfig[propertyType]?.icon || Building2
 
-                    {/* Sidebar Filters */}
-                    <div className="col-span-12 md:col-span-3 space-y-6">
-                        {/* Hierarchy Filters */}
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="text-sm font-medium">Filter Units</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                {propertyType === "township" && (
-                                    <div className="space-y-2">
-                                        <Label className="text-xs text-muted-foreground">Project Phase</Label>
-                                        <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="All Projects" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">All Projects</SelectItem>
-                                                {projects.map((proj: any) => (
-                                                    <SelectItem key={proj.id} value={proj.id}>{proj.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
+    return (
+        <div className="flex flex-col h-full bg-slate-50/50 dark:bg-slate-950 p-6 space-y-5">
+
+            {/* ── Top Header Bar ── */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                            <LayoutGrid className="h-6 w-6 text-white" />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <h2 className="text-xl font-black tracking-tight text-slate-900 dark:text-white">
+                                    Inventory Management
+                                </h2>
+                                {currentScope && (
+                                    <Badge className={`text-[10px] font-extrabold uppercase px-2 py-0.5 tracking-wider ${
+                                        currentScope === "Township Inventory" ? "bg-violet-100 text-violet-700 hover:bg-violet-100 border border-violet-200 dark:bg-violet-950/40 dark:text-violet-300 dark:border-violet-855" :
+                                        currentScope === "Project Inventory" ? "bg-blue-100 text-blue-700 hover:bg-blue-100 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-855" :
+                                        "bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-855"
+                                    }`}>
+                                        {currentScope}
+                                    </Badge>
                                 )}
+                            </div>
+                            <p className="text-xs text-slate-500 font-medium">
+                                Visual interactive grid of all property configurations, pricing, and availability
+                            </p>
+                        </div>
+                    </div>
 
-                                {propertyType !== "tower" && (
-                                    <div className="space-y-2">
-                                        <Label className="text-xs text-muted-foreground">Tower</Label>
-                                        <Select value={selectedTowerId} onValueChange={setSelectedTowerId}>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="All Towers" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem key="all" value="all">All Towers</SelectItem>
-                                                {visibleTowers.map((tw: any, idx: number) => (
-                                                    <SelectItem key={(tw._dbId || tw.id)?.toString() || `tower-${idx}`} value={(tw._dbId || tw.id)?.toString() || `tower-${idx}`}>{tw.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                )}
+                    {/* Cascading Hierarchy Selector */}
+                    <div className="flex items-center gap-2 flex-wrap md:justify-end">
+                        {/* Property Selector */}
+                        <div className="flex flex-col gap-1">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Property</span>
+                            <Select value={selectedPropertyId} onValueChange={setSelectedPropertyId}>
+                                <SelectTrigger className="w-[190px] bg-slate-50/50 hover:bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 shadow-sm font-semibold h-10 text-xs">
+                                    <SelectValue placeholder="Select Property" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {properties.map(p => {
+                                        const Ic = typeConfig[p.type]?.icon || Building2
+                                        return (
+                                            <SelectItem key={p._id} value={p._id}>
+                                                <div className="flex items-center gap-2">
+                                                    <Ic className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                                    <span className="truncate max-w-[130px] font-medium">{p.name}</span>
+                                                </div>
+                                            </SelectItem>
+                                        )
+                                    })}
+                                </SelectContent>
+                            </Select>
+                        </div>
 
-                                <div className="space-y-2">
-                                    <Label className="text-xs text-muted-foreground">Status</Label>
-                                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="All Status" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">All Status</SelectItem>
-                                            <SelectItem value="available">Available</SelectItem>
-                                            <SelectItem value="sold">Sold</SelectItem>
-                                            <SelectItem value="reserved">Reserved</SelectItem>
-                                            <SelectItem value="blocked">Blocked</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                        {/* Project Phase Selector */}
+                        {propertyType === "township" && hierarchy && (
+                            <>
+                                <div className="self-end pb-3 text-slate-300 dark:text-slate-700 hidden sm:block">
+                                    <ChevronRight className="h-5 w-5" />
                                 </div>
-
-                                <div className="space-y-2">
-                                    <Label className="text-xs text-muted-foreground">Configuration</Label>
-                                    <Select value={configFilter} onValueChange={setConfigFilter}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="All Configs" />
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Project Phase</span>
+                                    <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                                        <SelectTrigger className="w-[170px] bg-slate-50/50 hover:bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 shadow-sm font-semibold h-10 text-xs">
+                                            <SelectValue placeholder="All Projects" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem key="all" value="all">Check All</SelectItem>
-                                            {Array.from(new Set(allUnits.map((u: any) => u.configuration).filter(Boolean))).map((cfg: any, idx: number) => (
-                                                <SelectItem key={cfg || idx} value={cfg || `cfg-${idx}`}>{cfg}</SelectItem>
+                                            <SelectItem value="all">All Projects</SelectItem>
+                                            {hasDirectTowers && (
+                                                <SelectItem value="direct">Direct Towers</SelectItem>
+                                            )}
+                                            {hierarchy.projects.map(proj => (
+                                                <SelectItem key={proj._id} value={proj._id}>
+                                                    <span className="font-medium">{proj.name}</span>
+                                                </SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
                                 </div>
+                            </>
+                        )}
 
-                                <div className="space-y-2">
-                                    <Label className="text-xs text-muted-foreground">Search Unit / Customer</Label>
-                                    <Input
-                                        placeholder="Search..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                    />
+                        {/* Tower Selector */}
+                        {propertyType !== "tower" && visibleTowers.length > 0 && (
+                            <>
+                                <div className="self-end pb-3 text-slate-300 dark:text-slate-700 hidden sm:block">
+                                    <ChevronRight className="h-5 w-5" />
                                 </div>
-                            </CardContent>
-                        </Card>
-                    </div>
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Tower</span>
+                                    <Select value={selectedTowerId} onValueChange={setSelectedTowerId}>
+                                        <SelectTrigger className="w-[170px] bg-slate-50/50 hover:bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 shadow-sm font-semibold h-10 text-xs">
+                                            <SelectValue placeholder="All Towers" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All Towers</SelectItem>
+                                            {visibleTowers.map(tw => (
+                                                <SelectItem key={tw._id} value={tw._id}>
+                                                    <span className="font-medium">{tw.name}</span>
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </>
+                        )}
 
-                    {/* Main Content */}
-                    <div className="col-span-12 md:col-span-9 space-y-6">
-                        {/* Stats Cards */}
-                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                            <Card className="p-4 flex flex-col justify-between shadow-sm">
-                                <p className="text-sm text-muted-foreground font-medium">Total Units</p>
-                                <p className="text-2xl font-bold">{stats.total}</p>
-                            </Card>
-                            <Card className="p-4 bg-green-50/50 dark:bg-green-900/10 border-green-100 dark:border-green-900 flex flex-col justify-between shadow-sm">
-                                <p className="text-sm text-green-700 dark:text-green-400 font-medium">Available</p>
-                                <p className="text-2xl font-bold text-green-900 dark:text-green-300">{stats.available}</p>
-                            </Card>
-                            <Card className="p-4 bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900 flex flex-col justify-between shadow-sm">
-                                <p className="text-sm text-blue-700 dark:text-blue-400 font-medium">Sold</p>
-                                <p className="text-2xl font-bold text-blue-900 dark:text-blue-300">{stats.sold}</p>
-                            </Card>
-                            <Card className="p-4 bg-slate-50/50 dark:bg-slate-900/10 border-slate-100 dark:border-slate-900 flex flex-col justify-between shadow-sm border-l-4 border-l-slate-400">
-                                <p className="text-sm text-slate-700 dark:text-slate-400 font-medium">Blocked</p>
-                                <p className="text-2xl font-bold text-slate-900 dark:text-slate-300">{stats.blocked}</p>
-                            </Card>
-                            <Card className="p-4 bg-purple-50/50 dark:bg-purple-900/10 border-purple-100 dark:border-purple-900 flex flex-col justify-between shadow-sm">
-                                <span className="text-sm text-purple-700 dark:text-purple-400 font-medium">Revenue</span>
-                                <p className="text-xl font-bold text-purple-900 dark:text-purple-300">
-                                    ₹{(stats.revenue / 10000000).toFixed(2)} Cr
-                                </p>
-                            </Card>
+                        <div className="self-end pb-0">
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => { loadProperties(true); if (selectedPropertyId) loadHierarchy(selectedPropertyId) }}
+                                disabled={isRefreshing || loadingHierarchy}
+                                className="h-10 w-10 bg-slate-50/50 hover:bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 shrink-0 shadow-sm"
+                                title="Refresh"
+                            >
+                                <RefreshCw className={`h-4 w-4 ${(isRefreshing || loadingHierarchy) ? "animate-spin text-indigo-500" : "text-slate-600"}`} />
+                            </Button>
                         </div>
-
-                        {/* Interactive Grid Card */}
-                        <Card className="flex-1 min-h-[600px] flex flex-col overflow-hidden">
-                            <div className="flex items-center justify-between p-4 border-b">
-                                <div className="flex items-center gap-4">
-                                    <CardTitle className="text-base font-medium flex items-center gap-2">
-                                        <LayoutGrid className="h-5 w-5" />
-                                        Unit Grid
-                                    </CardTitle>
-
-                                    {/* Selection Mode Toggle */}
-                                    <div className="flex items-center gap-2 pl-4 border-l">
-                                        <Switch
-                                            id="select-mode"
-                                            checked={isSelectionMode}
-                                            onCheckedChange={(checked) => {
-                                                setIsSelectionMode(checked)
-                                                if (!checked) setSelectedUnitIds([])
-                                            }}
-                                        />
-                                        <Label htmlFor="select-mode" className="text-sm font-medium cursor-pointer flex items-center gap-1">
-                                            {isSelectionMode ? <CheckSquare className="h-4 w-4 text-blue-600" /> : <Users className="h-4 w-4 text-muted-foreground" />}
-                                            Bulk Actions
-                                        </Label>
-                                    </div>
-                                </div>
-
-                                {/* Legend or Bulk Actions */}
-                                {isSelectionMode && selectedUnitIds.length > 0 ? (
-                                    <div className="flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
-                                        <Badge variant="secondary" className="mr-2">{selectedUnitIds.length} Selected</Badge>
-                                        <Button size="sm" variant="outline" className="h-8 border-green-200 bg-green-50 text-green-700 hover:bg-green-100" onClick={() => handleBulkStatusChange("available")}>
-                                            Mark Available
-                                        </Button>
-                                        <Button size="sm" variant="outline" className="h-8 border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100" onClick={() => handleBulkStatusChange("blocked")}>
-                                            Bulk Block
-                                        </Button>
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center gap-4">
-                                        {selectedTowerId !== "all" && (
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                className="h-8 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold"
-                                                onClick={() => {
-                                                    const firstUnit = allUnits.find(u => u.towerId === selectedTowerId)
-                                                    setIsPricingDialogOpen(true)
-                                                    setTowerRateForm(prev => ({ ...prev, rate: (firstUnit?.ratePerSqft || "").toString() }))
-                                                }}
-                                            >
-                                                <CircleDollarSign className="h-4 w-4 mr-1.5" />
-                                                Update Tower Pricing
-                                            </Button>
-                                        )}
-                                        <div className="flex gap-3 text-xs text-muted-foreground">
-                                            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-green-500" /> Available</div>
-                                            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-red-500" /> Sold</div>
-                                            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-amber-500" /> Reserved</div>
-                                            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-slate-500" /> Blocked</div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30 dark:bg-slate-900/30 space-y-8">
-                                {filteredUnits.length > 0 ? (
-                                    Object.entries(
-                                        filteredUnits.reduce((acc, unit) => {
-                                            const floor = unit.floorNumber || 0
-                                            if (!acc[floor]) acc[floor] = []
-                                            acc[floor].push(unit)
-                                            return acc
-                                        }, {} as Record<number, Unit[]>)
-                                    )
-                                        .sort(([a], [b]) => Number(b) - Number(a)) // Show highest floor at top
-                                        .map(([floor, floorUnits]: [string, any], idx: number) => (
-                                            <div key={floor || idx} className="space-y-3">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-white dark:bg-slate-900 px-3 py-1 rounded-full border border-slate-100 dark:border-slate-800">
-                                                        Floor {floor}
-                                                    </span>
-                                                    <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
-                                                </div>
-
-                                                <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-3">
-                                                    {floorUnits.map((unit: any, idx: number) => {
-                                                        const status = unit.status || "available"
-                                                        const isSelected = selectedUnitIds.includes(unit.id)
-
-                                                        let baseClass = "relative aspect-square rounded-xl border flex flex-col items-center justify-center p-1 transition-all duration-300 hover:scale-105 hover:shadow-lg group/unit"
-                                                        let colorClass = ""
-                                                        let textClass = ""
-
-                                                        if (status === "sold") {
-                                                            colorClass = "bg-red-50 hover:bg-red-100 border-red-100 dark:bg-red-900/20 dark:border-red-900/50"
-                                                            textClass = "text-red-700 dark:text-red-300"
-                                                        } else if (status === "reserved") {
-                                                            colorClass = "bg-amber-50 hover:bg-amber-100 border-amber-100 dark:bg-amber-900/20 dark:border-amber-900/50"
-                                                            textClass = "text-amber-700 dark:text-amber-300"
-                                                        } else if (status === "blocked") {
-                                                            colorClass = "bg-slate-100 hover:bg-slate-200 border-slate-200 dark:bg-slate-800 dark:border-slate-700"
-                                                            textClass = "text-slate-700 dark:text-slate-300"
-                                                        } else {
-                                                            colorClass = "bg-white hover:bg-emerald-50 border-slate-200 hover:border-emerald-200 dark:bg-slate-900 dark:border-slate-800"
-                                                            textClass = "text-slate-900 dark:text-slate-100"
-                                                        }
-
-                                                        if (isSelectionMode && isSelected) {
-                                                            colorClass += " ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-slate-950 scale-95"
-                                                        }
-
-                                                        const unitKey = unit.id || `${unit.towerId}-${unit.unitNumber}-${idx}`
-
-                                                        return (
-                                                            <button
-                                                                key={unitKey}
-                                                                onClick={() => handleUnitClick(unit)}
-                                                                className={`${baseClass} ${colorClass}`}
-                                                            >
-                                                                {isSelectionMode && (
-                                                                    <div className={`absolute -top-1 -right-1 w-5 h-5 rounded-full border shadow-sm flex items-center justify-center transition-all ${isSelected ? "bg-blue-600 border-blue-600 scale-110" : "bg-white dark:bg-slate-800 border-slate-200"}`}>
-                                                                        {isSelected && <CheckCircle2 className="h-3 w-3 text-white" />}
-                                                                    </div>
-                                                                )}
-
-                                                                <span className={`text-[11px] font-black leading-none mb-1 ${textClass}`}>{unit.unitNumber.split('-').pop()}</span>
-                                                                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">{unit.configuration}</span>
-
-                                                                {/* Status Dot for better visual */}
-                                                                {!isSelectionMode && (
-                                                                    <div className={`absolute bottom-1.5 w-1 h-1 rounded-full ${status === 'sold' ? 'bg-red-500' : status === 'reserved' ? 'bg-amber-500' : status === 'blocked' ? 'bg-slate-500' : 'bg-emerald-500'}`} />
-                                                                )}
-                                                            </button>
-                                                        )
-                                                    })}
-                                                </div>
-                                            </div>
-                                        ))
-                                ) : (
-                                    <div className="h-full flex flex-col items-center justify-center text-muted-foreground py-20">
-                                        <Layers className="h-12 w-12 mb-4 opacity-20" />
-                                        <p className="text-sm font-medium">No units found matching filters.</p>
-                                    </div>
-                                )}
-                            </div>
-                        </Card>
                     </div>
+                </div>
+
+                {/* Breadcrumbs Row */}
+                {breadcrumbs && breadcrumbs.length > 0 && (
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800/80 pt-3 flex-wrap">
+                        <MapPin className="h-3.5 w-3.5 text-slate-400" />
+                        {breadcrumbs.map((crumb, idx) => (
+                            <div key={crumb.name} className="flex items-center gap-1.5">
+                                {idx > 0 && <ChevronRight className="h-3.5 w-3.5 text-slate-300" />}
+                                {crumb.onClick ? (
+                                    <button
+                                        onClick={crumb.onClick}
+                                        className="font-bold hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                                    >
+                                        {crumb.name}
+                                    </button>
+                                ) : (
+                                    <span className="font-medium text-slate-700 dark:text-slate-300">{crumb.name}</span>
+                                )}
+                            </div>
+                        ))}
+                        {currentProperty?.location?.city && (
+                            <>
+                                <div className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-700 mx-1.5" />
+                                <span className="text-[11px] font-semibold text-slate-455 flex items-center gap-1">
+                                    {currentProperty.location.city}
+                                    {currentProperty.location.state ? `, ${currentProperty.location.state}` : ""}
+                                </span>
+                            </>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* ── Hierarchy Error ── */}
+            {hierarchyError && (
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900">
+                    <AlertCircle className="h-5 w-5 text-red-500 shrink-0" />
+                    <p className="text-sm text-red-700 dark:text-red-300 font-medium">{hierarchyError}</p>
+                    <Button size="sm" variant="outline" onClick={() => loadHierarchy(selectedPropertyId)} className="ml-auto shrink-0 border-red-200 text-red-600 hover:bg-red-50">
+                        Retry
+                    </Button>
                 </div>
             )}
 
-            {/* Enhanced Edit Dialog */}
-            <Dialog open={!!editingUnit} onOpenChange={(open) => !open && setEditingUnit(null)}>
+            {/* ── Stats Row ── */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                {[
+                    { 
+                        label: "Total Units", 
+                        value: stats.total, 
+                        icon: Home,
+                        gradient: "from-blue-500/10 to-indigo-500/10 dark:from-blue-500/5 dark:to-indigo-500/5",
+                        borderColor: "border-blue-100 hover:border-blue-300 dark:border-blue-900/30 dark:hover:border-blue-800",
+                        textColor: "text-blue-700 dark:text-blue-400",
+                        iconColor: "text-blue-500"
+                    },
+                    { 
+                        label: "Available", 
+                        value: stats.available, 
+                        icon: CheckCircle2,
+                        gradient: "from-emerald-500/10 to-teal-500/10 dark:from-emerald-500/5 dark:to-teal-500/5",
+                        borderColor: "border-emerald-100 hover:border-emerald-300 dark:border-emerald-900/30 dark:hover:border-emerald-800",
+                        textColor: "text-emerald-700 dark:text-emerald-400",
+                        iconColor: "text-emerald-500"
+                    },
+                    { 
+                        label: "Sold", 
+                        value: stats.sold, 
+                        icon: CircleDollarSign,
+                        gradient: "from-rose-500/10 to-red-500/10 dark:from-rose-500/5 dark:to-red-500/5",
+                        borderColor: "border-rose-100 hover:border-rose-300 dark:border-rose-900/30 dark:hover:border-rose-800",
+                        textColor: "text-rose-700 dark:text-rose-400",
+                        iconColor: "text-rose-500"
+                    },
+                    { 
+                        label: "Reserved", 
+                        value: stats.reserved, 
+                        icon: Clock,
+                        gradient: "from-amber-500/10 to-orange-500/10 dark:from-amber-500/5 dark:to-orange-500/5",
+                        borderColor: "border-amber-100 hover:border-amber-300 dark:border-amber-900/30 dark:hover:border-amber-800",
+                        textColor: "text-amber-700 dark:text-amber-400",
+                        iconColor: "text-amber-500"
+                    },
+                    { 
+                        label: "Blocked", 
+                        value: stats.blocked, 
+                        icon: Lock,
+                        gradient: "from-slate-500/10 to-zinc-500/10 dark:from-slate-500/5 dark:to-zinc-500/5",
+                        borderColor: "border-slate-200 hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700",
+                        textColor: "text-slate-700 dark:text-slate-400",
+                        iconColor: "text-slate-500"
+                    },
+                    { 
+                        label: "Revenue", 
+                        value: null, 
+                        revenue: stats.revenue,
+                        icon: TrendingUp,
+                        gradient: "from-violet-500/10 to-purple-500/10 dark:from-violet-500/5 dark:to-violet-500/5",
+                        borderColor: "border-violet-100 hover:border-violet-300 dark:border-violet-900/30 dark:hover:border-violet-800",
+                        textColor: "text-violet-700 dark:text-violet-400",
+                        iconColor: "text-violet-500"
+                    },
+                ].map((card) => {
+                    const CardIcon = card.icon
+                    return (
+                        <Card 
+                            key={card.label} 
+                            className={`border ${card.borderColor} bg-gradient-to-br ${card.gradient} transition-all duration-200 hover:-translate-y-1 hover:shadow-md dark:shadow-slate-950/50 shadow-slate-100 overflow-hidden group`}
+                        >
+                            <CardContent className="p-4 flex flex-col justify-between h-full min-h-[90px]">
+                                <div className="flex items-center justify-between mb-2">
+                                    <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{card.label}</p>
+                                    <CardIcon className={`h-4 w-4 ${card.iconColor} group-hover:scale-110 transition-transform`} />
+                                </div>
+                                {card.revenue !== undefined ? (
+                                    <p className={`text-lg font-black tracking-tight ${card.textColor}`}>
+                                        ₹{(card.revenue / 10000000).toFixed(2)} <span className="text-xs font-bold uppercase">Cr</span>
+                                    </p>
+                                ) : (
+                                    <p className={`text-2xl font-black tracking-tight ${card.textColor}`}>{card.value}</p>
+                                )}
+                            </CardContent>
+                        </Card>
+                    )
+                })}
+            </div>
+
+            {/* ── Main Content: Sidebar + Grid ── */}
+            <div className="grid grid-cols-12 gap-5 flex-1 min-h-0">
+
+                {/* ── Left Sidebar: Deep Filters Only ── */}
+                <div className="col-span-12 md:col-span-3 space-y-4">
+                    <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                                <Filter className="h-4 w-4 text-indigo-500" />
+                                Filter Units
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {/* Status */}
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Status</Label>
+                                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                    <SelectTrigger className="h-9 text-xs font-semibold bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700">
+                                        <SelectValue placeholder="All Status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Status</SelectItem>
+                                        {[
+                                            { v: "available", label: "Available", dot: "bg-emerald-500" },
+                                            { v: "sold", label: "Sold", dot: "bg-red-500" },
+                                            { v: "reserved", label: "Reserved", dot: "bg-amber-500" },
+                                            { v: "blocked", label: "Blocked", dot: "bg-slate-400" },
+                                        ].map(s => (
+                                            <SelectItem key={s.v} value={s.v}>
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`w-2 h-2 rounded-full ${s.dot}`} />
+                                                    {s.label}
+                                                </div>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            {/* Configuration */}
+                            {configurations.length > 0 && (
+                                <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Configuration</Label>
+                                    <Select value={configFilter} onValueChange={setConfigFilter}>
+                                        <SelectTrigger className="h-9 text-xs font-semibold bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700">
+                                            <SelectValue placeholder="All Configs" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All Configs</SelectItem>
+                                            {configurations.map(cfg => (
+                                                <SelectItem key={cfg} value={cfg}>{cfg}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+
+                            {/* Search */}
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Search</Label>
+                                <div className="relative">
+                                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                                    <Input
+                                        placeholder="Unit, customer, config..."
+                                        value={searchTerm}
+                                        onChange={e => setSearchTerm(e.target.value)}
+                                        className="pl-8 h-9 text-xs bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
+                                    />
+                                    {searchTerm && (
+                                        <button onClick={() => setSearchTerm("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                                            <X className="h-3.5 w-3.5" />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Quick Clear */}
+                            {(statusFilter !== "all" || configFilter !== "all" || searchTerm) && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                        setStatusFilter("all")
+                                        setConfigFilter("all")
+                                        setSearchTerm("")
+                                    }}
+                                    className="w-full text-xs text-slate-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+                                >
+                                    <X className="h-3.5 w-3.5 mr-1" /> Clear All Filters
+                                </Button>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Summary card for selected tower */}
+                    {selectedTowerId !== "all" && selectedTowerMeta && (
+                        <Card className="border-indigo-100 dark:border-indigo-900/40 bg-indigo-50/50 dark:bg-indigo-950/10 shadow-sm">
+                            <CardContent className="p-4 space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <Layers className="h-4 w-4 text-indigo-500" />
+                                    <p className="text-xs font-black text-indigo-700 dark:text-indigo-300 uppercase tracking-wider">
+                                        {selectedTowerMeta.name}
+                                    </p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                    <div className="bg-white dark:bg-slate-900 rounded-lg p-2 text-center">
+                                        <p className="text-slate-400 font-medium">Units</p>
+                                        <p className="font-black text-slate-900 dark:text-white">{filteredUnits.length}</p>
+                                    </div>
+                                    <div className="bg-white dark:bg-slate-900 rounded-lg p-2 text-center">
+                                        <p className="text-slate-400 font-medium">Floors</p>
+                                        <p className="font-black text-slate-900 dark:text-white">{selectedTowerMeta.floorCount || groupedUnits.reduce((acc, tg) => acc + tg.floors.length, 0)}</p>
+                                    </div>
+                                </div>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="w-full h-8 text-xs border-indigo-200 text-indigo-600 hover:bg-indigo-100 dark:border-indigo-800 dark:text-indigo-400"
+                                    onClick={() => {
+                                        const firstUnit = filteredUnits[0]
+                                        setIsPricingDialogOpen(true)
+                                        setTowerRateForm(prev => ({ ...prev, rate: (firstUnit?.ratePerSqft || "").toString() }))
+                                    }}
+                                >
+                                    <CircleDollarSign className="h-3.5 w-3.5 mr-1.5" />
+                                    Update Tower Pricing
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    )}
+                </div>
+
+                {/* ── Right: Unit Grid ── */}
+                <div className="col-span-12 md:col-span-9">
+                    <Card className="flex flex-col h-full min-h-[550px] border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+
+                        {/* Grid Header */}
+                        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+                            <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2">
+                                    <LayoutGrid className="h-4.5 w-4.5 text-slate-500" />
+                                    <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Unit Grid</span>
+                                </div>
+                                {loadingHierarchy && (
+                                    <div className="w-4 h-4 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+                                )}
+                                <Badge variant="secondary" className="text-xs font-bold">
+                                    {filteredUnits.length} {filteredUnits.length === 1 ? "unit" : "units"}
+                                </Badge>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                                {/* Bulk mode toggle */}
+                                <div className="flex items-center gap-2 border-l pl-3 border-slate-100 dark:border-slate-800">
+                                    <Switch
+                                        id="bulk-mode"
+                                        checked={isSelectionMode}
+                                        onCheckedChange={checked => {
+                                            setIsSelectionMode(checked)
+                                            if (!checked) setSelectedUnitIds([])
+                                        }}
+                                    />
+                                    <Label htmlFor="bulk-mode" className="text-xs font-semibold cursor-pointer flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
+                                        {isSelectionMode
+                                            ? <CheckSquare className="h-3.5 w-3.5 text-indigo-500" />
+                                            : <Users className="h-3.5 w-3.5 text-slate-400" />
+                                        }
+                                        Bulk Actions
+                                    </Label>
+                                </div>
+
+                                {/* Bulk action buttons */}
+                                {isSelectionMode && selectedUnitIds.length > 0 && (
+                                    <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-3 duration-200">
+                                        <Badge className="bg-indigo-600">{selectedUnitIds.length} selected</Badge>
+                                        <Button size="sm" variant="outline" onClick={() => handleBulkStatusChange("available")}
+                                            className="h-7 text-xs border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100">
+                                            Mark Available
+                                        </Button>
+                                        <Button size="sm" variant="outline" onClick={() => handleBulkStatusChange("blocked")}
+                                            className="h-7 text-xs border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100">
+                                            Bulk Block
+                                        </Button>
+                                        <Button size="sm" variant="ghost" onClick={() => setSelectedUnitIds([])}
+                                            className="h-7 text-xs text-slate-400 hover:text-red-500">
+                                            <X className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </div>
+                                )}
+
+                                {/* Legend */}
+                                {!isSelectionMode && (
+                                    <div className="hidden sm:flex items-center gap-3 text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                                        {[
+                                            { dot: "bg-emerald-500", label: "Available" },
+                                            { dot: "bg-red-500", label: "Sold" },
+                                            { dot: "bg-amber-500", label: "Reserved" },
+                                            { dot: "bg-slate-400", label: "Blocked" },
+                                        ].map(s => (
+                                            <div key={s.label} className="flex items-center gap-1.5">
+                                                <div className={`w-2 h-2 rounded-full ${s.dot}`} />
+                                                {s.label}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Unit Grid Body */}
+                        <div className="flex-1 overflow-y-auto p-5 bg-slate-50/30 dark:bg-slate-900/30 space-y-6">
+                            {loadingHierarchy && !hierarchy ? (
+                                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                                    <div className="relative w-10 h-10">
+                                        <div className="absolute inset-0 rounded-full border-4 border-slate-200" />
+                                        <div className="absolute inset-0 rounded-full border-4 border-t-indigo-500 animate-spin" />
+                                    </div>
+                                    <p className="text-sm text-slate-400 font-medium">Loading units...</p>
+                                </div>
+                            ) : groupedUnits.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+                                    <div className="w-16 h-16 rounded-3xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center shadow-inner">
+                                        <Layers className="h-8 w-8 text-slate-300 dark:text-slate-600 animate-pulse" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                                            {hierarchy && hierarchy.units.length > 0
+                                                ? "No units match your active filters"
+                                                : "No units found in this scope"}
+                                        </p>
+                                        <p className="text-xs text-slate-400 mt-1 max-w-xs">
+                                            {hierarchy && hierarchy.units.length > 0
+                                                ? "Try clearing status, configuration or search filters."
+                                                : "There are no units published or generated for this tower or project."}
+                                        </p>
+                                    </div>
+                                    {hierarchy && hierarchy.units.length > 0 && (
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => {
+                                                setStatusFilter("all")
+                                                setConfigFilter("all")
+                                                setSearchTerm("")
+                                            }}
+                                            className="h-8 text-xs"
+                                        >
+                                            Reset Filters
+                                        </Button>
+                                    )}
+                                </div>
+                            ) : selectedTowerId !== "all" ? (
+                                /* Tower View: Floor -> Units */
+                                <div className="space-y-6">
+                                    {groupedUnits[0].floors.map(({ floor, units: floorUnits }) => (
+                                        <div 
+                                            key={floor} 
+                                            className="space-y-3"
+                                            style={{ contentVisibility: 'auto', containIntrinsicSize: '0 120px' }}
+                                        >
+                                            {/* Floor label */}
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-white dark:bg-slate-950 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-800 whitespace-nowrap shadow-sm">
+                                                    {floorLabel(floor)}
+                                                </span>
+                                                <div className="h-px flex-1 bg-slate-200 dark:bg-slate-850" />
+                                                <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">{floorUnits.length} Units</span>
+                                            </div>
+
+                                            {/* Units Grid */}
+                                            <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-2.5">
+                                                {floorUnits.map((unit, idx) => {
+                                                    const status = unit.status || "available"
+                                                    const isSelected = selectedUnitIds.includes(unit._id)
+                                                    const unitKey = unit._id || `${unit.towerId}-${unit.unitNumber}-${idx}`
+
+                                                    return (
+                                                        <button
+                                                            key={unitKey}
+                                                            onClick={() => handleUnitClick(unit)}
+                                                            className={getUnitStyle(status, isSelected)}
+                                                            title={`${unit.unitNumber} — ${unit.configuration} — ${status}`}
+                                                        >
+                                                            {/* Selection indicator */}
+                                                            {isSelectionMode && (
+                                                                <div className={`absolute -top-1 -right-1 w-5 h-5 rounded-full border-2 shadow flex items-center justify-center transition-all ${isSelected
+                                                                    ? "bg-blue-600 border-blue-600 scale-110"
+                                                                    : "bg-white dark:bg-slate-800 border-slate-300"
+                                                                    }`}>
+                                                                    {isSelected && <CheckCircle2 className="h-3 w-3 text-white" />}
+                                                                </div>
+                                                            )}
+
+                                                            {/* Unit number */}
+                                                            <span className={`text-[11px] font-black leading-none mb-0.5 ${getTextStyle(status)}`}>
+                                                                {unit.unitNumber.split("-").pop()}
+                                                            </span>
+
+                                                            {/* Config */}
+                                                            <span className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter leading-none">
+                                                                {unit.configuration}
+                                                            </span>
+
+                                                            {/* Status dot */}
+                                                            {!isSelectionMode && (
+                                                                <div className={`absolute bottom-1.5 w-1.5 h-1.5 rounded-full ${getStatusDot(status)}`} />
+                                                            )}
+                                                        </button>
+                                                    )
+                                                })}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                /* Township/Project View: Tower -> Floor -> Units */
+                                <div className="space-y-8">
+                                    {groupedUnits.map(({ tower, floors }) => (
+                                        <Card key={tower._id} className="border border-slate-200/80 dark:border-slate-800/80 shadow-sm overflow-hidden bg-white/50 dark:bg-slate-900/30">
+                                            {/* Tower Sub-Header */}
+                                            <div className="flex items-center justify-between bg-slate-100/60 dark:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800/60 px-4 py-3">
+                                                <div className="flex items-center gap-2">
+                                                    <Layers className="h-4 w-4 text-indigo-500" />
+                                                    <h3 className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-widest">{tower.name}</h3>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Badge variant="outline" className="text-[9px] font-extrabold uppercase bg-slate-50/50 dark:bg-slate-900/50">
+                                                        {floors.reduce((acc: number, f: any) => acc + f.units.length, 0)} Units
+                                                    </Badge>
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="sm" 
+                                                        onClick={() => {
+                                                            setSelectedTowerId(tower._id)
+                                                            if (tower.projectId) {
+                                                                setSelectedProjectId(tower.projectId)
+                                                            } else if (hasDirectTowers && !tower.projectId) {
+                                                                setSelectedProjectId("direct")
+                                                            }
+                                                        }}
+                                                        className="h-6 px-2 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50/50"
+                                                    >
+                                                        Focus Tower
+                                                    </Button>
+                                                </div>
+                                            </div>
+
+                                            <div className="p-4 space-y-6">
+                                                {floors.map(({ floor, units: floorUnits }) => (
+                                                    <div 
+                                                        key={floor} 
+                                                        className="space-y-3"
+                                                        style={{ contentVisibility: 'auto', containIntrinsicSize: '0 120px' }}
+                                                    >
+                                                        {/* Floor label */}
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-white dark:bg-slate-950 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-800 whitespace-nowrap shadow-sm">
+                                                                {floorLabel(floor)}
+                                                            </span>
+                                                            <div className="h-px flex-1 bg-slate-200 dark:bg-slate-850" />
+                                                            <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">{floorUnits.length} Units</span>
+                                                        </div>
+
+                                                        {/* Units Grid */}
+                                                        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-2.5">
+                                                            {floorUnits.map((unit, idx) => {
+                                                                const status = unit.status || "available"
+                                                                const isSelected = selectedUnitIds.includes(unit._id)
+                                                                const unitKey = unit._id || `${unit.towerId}-${unit.unitNumber}-${idx}`
+
+                                                                return (
+                                                                    <button
+                                                                        key={unitKey}
+                                                                        onClick={() => handleUnitClick(unit)}
+                                                                        className={getUnitStyle(status, isSelected)}
+                                                                        title={`${unit.unitNumber} — ${unit.configuration} — ${status}`}
+                                                                    >
+                                                                        {/* Selection indicator */}
+                                                                        {isSelectionMode && (
+                                                                            <div className={`absolute -top-1 -right-1 w-5 h-5 rounded-full border-2 shadow flex items-center justify-center transition-all ${isSelected
+                                                                                ? "bg-blue-600 border-blue-600 scale-110"
+                                                                                : "bg-white dark:bg-slate-800 border-slate-300"
+                                                                                }`}>
+                                                                                {isSelected && <CheckCircle2 className="h-3 w-3 text-white" />}
+                                                                            </div>
+                                                                        )}
+
+                                                                        {/* Unit number */}
+                                                                        <span className={`text-[11px] font-black leading-none mb-0.5 ${getTextStyle(status)}`}>
+                                                                            {unit.unitNumber.split("-").pop()}
+                                                                        </span>
+
+                                                                        {/* Config */}
+                                                                        <span className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter leading-none">
+                                                                            {unit.configuration}
+                                                                        </span>
+
+                                                                        {/* Status dot */}
+                                                                        {!isSelectionMode && (
+                                                                            <div className={`absolute bottom-1.5 w-1.5 h-1.5 rounded-full ${getStatusDot(status)}`} />
+                                                                        )}
+                                                                    </button>
+                                                                )
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </Card>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </Card>
+                </div>
+            </div>
+
+            {/* ── Unit Edit Dialog ── */}
+            <Dialog open={!!editingUnit} onOpenChange={open => !open && setEditingUnit(null)}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle className="flex items-center justify-between">
-                            <div className="flex flex-col items-start gap-1">
+                            <div className="flex flex-col gap-1">
                                 <div className="flex items-center gap-2 text-xl font-black">
                                     Unit {editingUnit?.unitNumber}
-                                    <Badge variant="secondary" className="uppercase">{editingUnit?.configuration}</Badge>
+                                    <Badge variant="secondary" className="uppercase text-[10px]">
+                                        {editingUnit?.configuration}
+                                    </Badge>
                                 </div>
-                                {editingUnit?.status === 'sold' && (
+                                {editingUnit?.status === "sold" && (
                                     <p className="text-xs font-bold text-red-600 uppercase tracking-tighter">
                                         Sold to {editingUnit.customerName || "N/A"}
                                     </p>
                                 )}
                             </div>
-                            <Badge 
-                                variant={editingUnit?.status === 'available' ? 'default' : 'outline'} 
-                                className={editingUnit?.status === 'available' ? "capitalize bg-green-600" : "capitalize border-red-600 text-red-600"}
-                            >
+                            <Badge className={
+                                editingUnit?.status === "available" ? "bg-emerald-600" :
+                                    editingUnit?.status === "sold" ? "bg-red-600" :
+                                        editingUnit?.status === "reserved" ? "bg-amber-500" : "bg-slate-500"
+                            }>
                                 {editingUnit?.status || "Available"}
                             </Badge>
                         </DialogTitle>
                         <DialogDescription>
-                            Tower {towers.find((t: any) => t.id === editingUnit?.towerId)?.name || "Unknown"}
+                            {hierarchy?.towers.find(t => t._id === editingUnit?.towerId)?.name || ""}
+                            {editingUnit?.floorNumber !== undefined && ` — Floor ${editingUnit.floorNumber}`}
                         </DialogDescription>
                     </DialogHeader>
 
@@ -814,170 +1405,143 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                         </TabsList>
 
                         <TabsContent value="status" className="py-4 space-y-4">
-                            {/* Action Buttons */}
-                            <div className="grid grid-cols-2 gap-3">
-                                <Button
-                                    variant={editingUnit?.status === "available" ? "default" : "outline"}
-                                    className={editingUnit?.status === "available" ? "bg-green-600 hover:bg-green-700 h-12" : "border-green-600 text-green-600 hover:bg-green-50 h-12"}
-                                    onClick={() => handleSingleStatusChange("available")}
-                                >
-                                    <CheckCircle2 className="h-4 w-4 mr-2" />
-                                    {editingUnit?.status === "available" ? "Unit Available" : "Mark as Available"}
-                                </Button>
-                                <Button
-                                    variant={editingUnit?.status === "blocked" ? "default" : "outline"}
-                                    className={editingUnit?.status === "blocked" ? "bg-slate-600 hover:bg-slate-700 h-12" : "border-slate-500 text-slate-600 hover:bg-slate-50 h-12"}
-                                    onClick={() => handleSingleStatusChange(editingUnit?.status === "blocked" ? "available" : "blocked")}
-                                >
-                                    <Lock className="h-4 w-4 mr-2" />
-                                    {editingUnit?.status === "blocked" ? "Unblock Unit" : "Block Unit"}
-                                </Button>
-                                <Button
-                                    variant={editingUnit?.status === "reserved" ? "default" : "outline"}
-                                    className={editingUnit?.status === "reserved" ? "bg-amber-500 hover:bg-amber-600 h-12" : "border-amber-500 text-amber-600 hover:bg-amber-50 h-12"}
-                                    onClick={() => handleSingleStatusChange(editingUnit?.status === "reserved" ? "available" : "reserved")}
-                                >
-                                    <Clock className="h-4 w-4 mr-2" />
-                                    {editingUnit?.status === "reserved" ? "Unreserve Unit" : "Reserve Unit"}
-                                </Button>
-                                <Button
-                                    variant={editingUnit?.status === "sold" ? "default" : "outline"}
-                                    className={editingUnit?.status === "sold" ? "bg-red-600 hover:bg-red-700 h-12" : "bg-white border-red-600 text-red-600 hover:bg-red-50 h-12"}
-                                    onClick={() => handleSingleStatusChange(editingUnit?.status === "sold" ? "available" : "sold")}
-                                >
-                                    <CircleDollarSign className="h-4 w-4 mr-2" />
-                                    {editingUnit?.status === "sold" ? "Mark Unsold" : "Mark as Sold"}
-                                </Button>
+                            <div className="grid grid-cols-2 gap-2.5">
+                                {[
+                                    { s: "available" as const, label: "Mark Available", activeLabel: "Unit Available", icon: CheckCircle2, colors: "border-emerald-500 text-emerald-600 hover:bg-emerald-50", activeColors: "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600" },
+                                    { s: "blocked" as const, label: "Block Unit", activeLabel: "Unblock Unit", icon: Lock, colors: "border-slate-400 text-slate-600 hover:bg-slate-50", activeColors: "bg-slate-600 hover:bg-slate-700 text-white border-slate-600" },
+                                    { s: "reserved" as const, label: "Reserve Unit", activeLabel: "Unreserve Unit", icon: Clock, colors: "border-amber-400 text-amber-600 hover:bg-amber-50", activeColors: "bg-amber-500 hover:bg-amber-600 text-white border-amber-500" },
+                                    { s: "sold" as const, label: "Mark as Sold", activeLabel: "Mark Unsold", icon: CircleDollarSign, colors: "border-red-500 text-red-600 hover:bg-red-50", activeColors: "bg-red-600 hover:bg-red-700 text-white border-red-600" },
+                                ].map(({ s, label, activeLabel, icon: Icon, colors, activeColors }) => {
+                                    const isActive = editingUnit?.status === s
+                                    const targetStatus = isActive && s !== "available" ? "available" : s
+                                    return (
+                                        <Button
+                                            key={s}
+                                            variant="outline"
+                                            onClick={() => handleSingleStatusChange(targetStatus)}
+                                            className={`h-12 font-bold border ${isActive ? activeColors : colors}`}
+                                        >
+                                            <Icon className="h-4 w-4 mr-2" />
+                                            {isActive ? activeLabel : label}
+                                        </Button>
+                                    )
+                                })}
                             </div>
 
-                            {/* Customer Details Form (Only if selling or already sold) */}
-                            <div className="rounded-lg border p-4 bg-slate-50 dark:bg-slate-900/50 space-y-4">
+                            {/* Customer form */}
+                            <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/50 space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2 text-sm font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                                        <User className="h-4 w-4 text-blue-500" /> 
-                                        {editingUnit?.status === 'available' ? "New Buyer Details" : "Current Customer Info"}
-                                    </div>
+                                    <p className="text-xs font-black text-slate-600 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                                        <User className="h-3.5 w-3.5 text-indigo-500" />
+                                        {editingUnit?.status === "available" ? "New Buyer Details" : "Customer Info"}
+                                    </p>
                                     <Badge variant="outline" className="text-[10px] font-bold">
-                                        Unit Price: ₹{editingUnit?.price?.toLocaleString()}
+                                        ₹{editingUnit?.price?.toLocaleString("en-IN")}
                                     </Badge>
                                 </div>
-                                <div className="grid gap-3">
-                                    <div className="space-y-1.5">
-                                        <Label className="text-[10px] font-bold uppercase text-slate-400">Customer Name</Label>
+                                <div className="space-y-2">
+                                    <Input
+                                        placeholder="Buyer's full name"
+                                        className="h-9 text-sm font-semibold bg-white dark:bg-slate-800"
+                                        value={customerForm.name}
+                                        onChange={e => setCustomerForm(f => ({ ...f, name: e.target.value }))}
+                                    />
+                                    <div className="grid grid-cols-2 gap-2">
                                         <Input
-                                            placeholder="Enter buyer's full name"
-                                            className="h-10 text-sm font-semibold bg-white"
-                                            value={customerForm.name}
-                                            onChange={e => setCustomerForm({ ...customerForm, name: e.target.value })}
+                                            placeholder="Mobile number"
+                                            className="h-9 text-xs bg-white dark:bg-slate-800"
+                                            value={customerForm.phone}
+                                            onChange={e => setCustomerForm(f => ({ ...f, phone: e.target.value }))}
+                                        />
+                                        <Input
+                                            placeholder="Booking amount"
+                                            type="number"
+                                            className="h-9 text-xs bg-white dark:bg-slate-800"
+                                            value={customerForm.amount}
+                                            onChange={e => setCustomerForm(f => ({ ...f, amount: e.target.value }))}
                                         />
                                     </div>
-
-                                    {/* Collapsible extra details maybe? For now keeping it simple as requested */}
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="space-y-1.5">
-                                            <Label className="text-[10px] font-bold uppercase text-slate-400">Phone Number</Label>
-                                            <Input
-                                                placeholder="Mobile number"
-                                                className="h-9 text-xs bg-white/50"
-                                                value={customerForm.phone}
-                                                onChange={e => setCustomerForm({ ...customerForm, phone: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <Label className="text-[10px] font-bold uppercase text-slate-400">Booking Amount</Label>
-                                            <Input
-                                                placeholder="Amount paid"
-                                                type="number"
-                                                className="h-9 text-xs bg-white/50"
-                                                value={customerForm.amount}
-                                                onChange={e => setCustomerForm({ ...customerForm, amount: e.target.value })}
-                                            />
-                                        </div>
-                                    </div>
                                 </div>
-                                <p className="text-[10px] text-muted-foreground font-medium italic">
-                                    * Sale process will be completed when you click &apos;Mark as Sold&apos; above.
-                                </p>
                             </div>
                         </TabsContent>
 
-                        <TabsContent value="details" className="py-4 text-sm space-y-4">
-                            <div className="space-y-3">
-                                <div className="flex justify-between py-2 border-b">
-                                    <span className="text-muted-foreground">Configuration</span>
-                                    <span className="font-medium">{editingUnit?.configuration}</span>
+                        <TabsContent value="details" className="py-4 space-y-3 text-sm">
+                            {[
+                                { label: "Unit Number", value: editingUnit?.unitNumber },
+                                { label: "Floor", value: editingUnit?.floorNumber },
+                                { label: "Configuration", value: editingUnit?.configuration },
+                                { label: "Carpet Area", value: editingUnit?.area ? `${editingUnit.area} sq.ft` : "—" },
+                                { label: "Rate/sqft", value: editingUnit?.ratePerSqft ? `₹${editingUnit.ratePerSqft.toLocaleString("en-IN")}` : "—" },
+                                { label: "Total Price", value: editingUnit?.price ? new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(editingUnit.price) : "—" },
+                                ...(editingUnit?.facing ? [{ label: "Facing", value: editingUnit.facing }] : []),
+                            ].map(({ label, value }) => (
+                                <div key={label} className="flex justify-between py-2 border-b border-slate-100 dark:border-slate-800">
+                                    <span className="text-slate-500 text-sm">{label}</span>
+                                    <span className="font-semibold text-slate-900 dark:text-white">{String(value ?? "—")}</span>
                                 </div>
-                                <div className="flex justify-between py-2 border-b">
-                                    <span className="text-muted-foreground">Price</span>
-                                    <span className="font-medium">
-                                        {editingUnit && new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(editingUnit.price)}
-                                    </span>
-                                </div>
+                            ))}
 
-                                {editingUnit?.status === "sold" && (
-                                    <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg space-y-2">
-                                        <p className="font-semibold text-green-800 dark:text-green-300">Sale Record</p>
-                                        <div className="grid grid-cols-2 gap-2 text-xs">
-                                            <span className="text-muted-foreground">Customer:</span>
-                                            <span>{editingUnit.customerName || "-"}</span>
-
-                                            <span className="text-muted-foreground">Contact:</span>
-
-                                            <span>{editingUnit.customerPhone || "-"}</span>
-
-                                            <span className="text-muted-foreground">Booked On:</span>
-                                            <span>{editingUnit.bookingDate ? new Date(editingUnit.bookingDate).toLocaleDateString() : "-"}</span>
-
-                                            <span className="text-muted-foreground">Amount:</span>
-                                            <span>{editingUnit.bookingAmount ? `₹${editingUnit.bookingAmount}` : "-"}</span>
-                                        </div>
+                            {editingUnit?.status === "sold" && (
+                                <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-xl p-3 space-y-2 mt-2">
+                                    <p className="text-xs font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Sale Record</p>
+                                    <div className="grid grid-cols-2 gap-1 text-xs">
+                                        <span className="text-slate-500">Customer</span>
+                                        <span className="font-semibold">{editingUnit.customerName || "—"}</span>
+                                        <span className="text-slate-500">Phone</span>
+                                        <span className="font-semibold">{editingUnit.customerPhone || "—"}</span>
+                                        <span className="text-slate-500">Booking Date</span>
+                                        <span className="font-semibold">{editingUnit.bookingDate ? new Date(editingUnit.bookingDate).toLocaleDateString("en-IN") : "—"}</span>
+                                        <span className="text-slate-500">Amount Paid</span>
+                                        <span className="font-semibold">{editingUnit.bookingAmount ? `₹${editingUnit.bookingAmount.toLocaleString("en-IN")}` : "—"}</span>
                                     </div>
-                                )}
-                            </div>
+                                </div>
+                            )}
                         </TabsContent>
                     </Tabs>
                 </DialogContent>
             </Dialog>
 
-            {/* Tower Pricing Update Dialog */}
+            {/* ── Tower Pricing Dialog ── */}
             <Dialog open={isPricingDialogOpen} onOpenChange={setIsPricingDialogOpen}>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="sm:max-w-sm">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
-                            <CircleDollarSign className="h-5 w-5 text-blue-500" />
+                            <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
+                                <CircleDollarSign className="h-4 w-4 text-indigo-600" />
+                            </div>
                             Update Tower Pricing
                         </DialogTitle>
                         <DialogDescription>
-                            Change the base rate for all units in <b>{visibleTowers.find((t: any) => t.id === selectedTowerId)?.name}</b>.
+                            Set new base rate for all units in{" "}
+                            <strong>{selectedTowerMeta?.name}</strong>. Unit prices will be recalculated as Area × Rate.
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="py-6 space-y-6">
+                    <div className="py-4 space-y-4">
                         <div className="space-y-2">
-                            <Label className="text-sm font-bold uppercase tracking-wider text-slate-500">New Base Rate (₹ per sq.ft)</Label>
+                            <Label className="text-xs font-black uppercase tracking-wider text-slate-500">New Rate (₹ per sq.ft)</Label>
                             <div className="relative">
-                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</div>
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-black text-lg">₹</span>
                                 <Input
-                                    className="pl-8 h-12 text-lg font-black"
+                                    className="pl-8 h-12 text-xl font-black"
                                     placeholder="e.g. 6500"
                                     type="number"
                                     value={towerRateForm.rate}
-                                    onChange={e => setTowerRateForm({ ...towerRateForm, rate: e.target.value })}
+                                    onChange={e => setTowerRateForm(f => ({ ...f, rate: e.target.value }))}
                                 />
                             </div>
                         </div>
-
-                        <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 dark:bg-blue-900/10 dark:border-blue-900/50">
-                            <p className="text-[11px] font-bold text-blue-700 dark:text-blue-400 uppercase tracking-widest mb-1">Impact Analysis</p>
-                            <p className="text-xs text-blue-600/80 dark:text-blue-400/80 leading-relaxed font-medium">
-                                This will update the final price for every unit in this tower by multiplying their Area with this new rate.
+                        <div className="p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900">
+                            <p className="text-[11px] font-bold text-indigo-700 dark:text-indigo-400 uppercase tracking-wider mb-1">Impact</p>
+                            <p className="text-xs text-indigo-600/80 dark:text-indigo-400/80 font-medium leading-relaxed">
+                                This updates the price for every unit in this tower. Only available units will be recalculated.
                             </p>
                         </div>
                     </div>
 
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setIsPricingDialogOpen(false)}>Cancel</Button>
-                        <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleTowerPriceUpdate}>
+                        <Button className="bg-indigo-600 hover:bg-indigo-700" onClick={handleTowerPriceUpdate}>
                             Apply Tower-wide Price
                         </Button>
                     </DialogFooter>

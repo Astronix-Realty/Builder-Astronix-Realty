@@ -47,7 +47,7 @@ export async function aggregateTowerPricing(towerId: string | mongoose.Types.Obj
         }
       },
       { new: true }
-    ).lean();
+    ).lean() as any;
 
     if (tower && tower.parentId) {
       // Propagate upward to Project
@@ -96,7 +96,7 @@ export async function aggregateProjectPricing(projectId: string | mongoose.Types
         }
       },
       { new: true }
-    ).lean();
+    ).lean() as any;
 
     if (project && project.parentId) {
       // Propagate upward to Township

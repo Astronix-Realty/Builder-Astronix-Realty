@@ -55,7 +55,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         console.log(`[API] Searching embedded units in property ${propertyId}. Count: ${units.length}`);
         
         const unitIndex = units.findIndex((u: any) => {
-            const uId = (u.id || u.originalId || u._id?.toString());
+            const uTowerId = u.towerId?.toString() || u.parentId?.toString() || propertyId;
+            const fallbackId = `${uTowerId}-${u.unitNumber}-${u.floorNumber}`;
+            const uId = u.id || u.originalId || u._id?.toString() || fallbackId;
             return uId === id;
          });
         

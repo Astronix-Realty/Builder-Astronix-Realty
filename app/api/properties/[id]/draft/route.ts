@@ -52,7 +52,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     if (!property) {
       if (process.env.NODE_ENV !== "production") {
-        console.warn(`[PATCH /api/properties/${id}/draft] Not updated. Check: not draft status, deleted, or wrong builderId='${decoded.userId}'`);
+        console.warn(`[PATCH /api/properties/${id}/draft] Not updated. Check: not draft status, deleted, or wrong builderId='${context!.userId}'`);
       }
       return NextResponse.json({ error: "Draft not found or already published" }, { status: 404 });
     }
@@ -100,7 +100,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
         return NextResponse.json({ success: true, message: "Property is already active, cleaning up draft reference" }, { status: 200 });
     }
 
-    const deleteResult = await secureDeleteProperty(id, decoded.userId);
+    const deleteResult = await secureDeleteProperty(id, context!);
 
     return NextResponse.json(
       { success: true, message: "Draft deleted securely", details: deleteResult },

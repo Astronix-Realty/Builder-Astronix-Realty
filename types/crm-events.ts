@@ -31,6 +31,10 @@ export interface CRMEventPayload {
   type: CRMEventType;
   leadId?: string;
   conversationId?: string;
+  role?: string;
+  accountId?: string;
+  builderId?: string;
+  mandateId?: string;
   data?: LeadEventData | MessageEventData | any;
   timestamp: number;
 }
