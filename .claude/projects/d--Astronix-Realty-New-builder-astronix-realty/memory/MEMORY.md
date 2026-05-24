@@ -1,0 +1,1 @@
+- [Inventory Hierarchy Fixes](INVENTORY_HIERARCHY_FIXES.md) — Fixed Township/Project/Tower/Unit aggregation bugs: removed phantom direct tower logic from API and UI, enforced strict hierarchy

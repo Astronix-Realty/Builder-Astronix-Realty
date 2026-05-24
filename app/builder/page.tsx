@@ -231,19 +231,6 @@ function BuilderContent() {
     loadProperty()
   }, [editId])
 
-  // Auto draft hook
-  const { draftIds, isSaving, lastSaved, draftError, saveNow, clearDraft } = useAutoDraft({
-    flowType,
-    currentStep: state?.currentStep || 1,
-    state,
-    debounceMs: 10000,
-    // Turn off auto-save when creating to prevent "draft already published" errors
-    enabled: !isAuthChecking && !isCreating && !isComplete && !isEditLoading,
-    // FIX 4: Pass the resolved draftId so the hook immediately uses the correct
-    // draft document ID instead of the stale publishedId from the URL on first load.
-    forcedDraftId: resolvedDraftId,
-  })
-
   // Theme management
   const [theme, setTheme] = useState("system")
 
@@ -384,6 +371,21 @@ function BuilderContent() {
 
     return units
   }, [unitTemplate, generatedTowers, towerUnitConfigs])
+
+  // Auto draft hook
+  const { draftIds, isSaving, lastSaved, draftError, saveNow, clearDraft } = useAutoDraft({
+    flowType,
+    currentStep: state?.currentStep || 1,
+    state,
+    debounceMs: 10000,
+    // Turn off auto-save when creating to prevent "draft already published" errors
+    enabled: !isAuthChecking && !isCreating && !isComplete && !isEditLoading,
+    // FIX 4: Pass the resolved draftId so the hook immediately uses the correct
+    // draft document ID instead of the stale publishedId from the URL on first load.
+    forcedDraftId: resolvedDraftId,
+    generatedTowers,
+    generatedUnits,
+  })
 
   // Ensure towerUnitConfigs are populated for all towers
   useEffect(() => {
@@ -713,15 +715,13 @@ function BuilderContent() {
       }
 
       // ── STEP 1: FORCE SYNC BEFORE SUBMISSION ─────────────────────────────
-      // If we don't have draft IDs yet (e.g. user fills form and clicks Publish
-      // before the 10s auto-save kicks in), force a manual save now.
+      // Unconditionally force a save now to ensure the database draft has the 
+      // absolute latest generatedUnits and generatedTowers from the client state.
       let currentDraftIds = draftIds;
-      if (!draftIds.townshipId && !draftIds.projectId && !draftIds.towerId) {
-        console.log("[handleCreate] No draft IDs found. Forcing sync before submission...");
-        const newIds = await saveNow();
-        if (newIds) {
-          currentDraftIds = newIds;
-        }
+      console.log("[handleCreate] Forcing sync before submission to flush generated units...");
+      const newIds = await saveNow();
+      if (newIds) {
+        currentDraftIds = newIds;
       }
 
       // Re-read draft IDs securely using the resolved variable

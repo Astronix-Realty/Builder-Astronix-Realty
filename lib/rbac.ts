@@ -90,9 +90,12 @@ export async function checkRBAC(
 export function getOwnershipQuery(context: RBACContext): Record<string, any> {
   if (context.role === 'builder') {
     const conditions: any[] = [];
+    if (context.builderId) {
+      conditions.push({ builderId: context.builderId });
+    }
     if (context.userId) {
-      conditions.push({ builderId: context.userId });
       conditions.push({ accountId: context.userId });
+      conditions.push({ builderId: context.userId });
     }
     return {
       role: { $ne: 'mandate' },
@@ -108,7 +111,7 @@ export function getOwnershipQuery(context: RBACContext): Record<string, any> {
       conditions.push({ mandateId: context.userId });
     }
     return {
-      role: 'mandate',
+      role: { $in: ['builder', 'mandate'] },
       ...(conditions.length > 0 ? { $or: conditions } : { _id: null })
     };
   }

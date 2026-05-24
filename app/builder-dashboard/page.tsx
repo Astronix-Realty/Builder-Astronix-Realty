@@ -264,17 +264,23 @@ function DashboardContent() {
     let thumbnail = p.thumbnail || undefined
 
     // Fallback for draft/pending if counts are missing in calculatedCounts
-    if (projectsCount === 0 && towersCount === 0 && unitsCount === 0) {
+    if (projectsCount === 0) {
       if (flowType === "township") {
         projectsCount = details.projects?.length || 0
-        towersCount = details.towers?.length || 0
       } else if (flowType === "project") {
         projectsCount = 1
+      }
+    }
+
+    if (towersCount === 0) {
+      if (flowType === "township" || flowType === "project") {
         towersCount = details.towers?.length || 0
       } else if (flowType === "tower") {
         towersCount = 1
       }
+    }
 
+    if (unitsCount === 0) {
       // Calculate units dynamically from tower structure data
       // generatedUnits is a transient computed array, never persisted to DB
       const towers = details.towers || []
@@ -302,7 +308,7 @@ function DashboardContent() {
     }
 
     const totalValue = p.totalValue ||
-      details.generatedUnits?.reduce((sum: number, u: any) => sum + (u.price || 0), 0) ||
+      details.generatedUnits?.reduce((sum: number, u: any) => sum + (Number(u.price) || 0), 0) ||
       (unitsCount > 0 ? unitsCount * 5000000 : 0)
 
     let finalStatus: Property['status'] = p.status || defaultStatus

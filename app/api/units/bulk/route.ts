@@ -76,13 +76,13 @@ export async function PATCH(req: NextRequest) {
     const propertyId = searchParams.get("propertyId");
 
     const body = await req.json();
-    const { unitIds, status } = body;
+    const { unitIds, status, price, ratePerSqft } = body;
 
     if (!unitIds || !Array.isArray(unitIds) || unitIds.length === 0) {
       return NextResponse.json({ error: "No unit IDs provided for bulk update" }, { status: 400 });
     }
 
-    console.log(`[BULK PATCH] Request: ${unitIds.length} units -> status="${status}", propertyId=${propertyId}`);
+    console.log(`[BULK PATCH] Request: ${unitIds.length} units -> status="${status}", price=${price}, propertyId=${propertyId}`);
     console.log(`[BULK PATCH] Unit IDs sample:`, unitIds.slice(0, 3));
 
     await dbConnect();
@@ -91,10 +91,15 @@ export async function PATCH(req: NextRequest) {
     // Filter valid ObjectIds for _id query to avoid cast errors
     const validObjectIds = unitIds.filter((id: string) => mongoose.isValidObjectId(id));
     
+    let ownershipQuery = getOwnershipQuery(context!);
+    if (context!.role === "builder") {
+      ownershipQuery = { builderId: context!.userId, role: { $ne: 'mandate' } };
+    }
+
     let standaloneModified = 0;
     if (validObjectIds.length > 0 || unitIds.length > 0) {
       const query: any = { 
-        ...getOwnershipQuery(context!), 
+        ...ownershipQuery, 
         $or: [] 
       };
       if (validObjectIds.length > 0) {
@@ -103,7 +108,12 @@ export async function PATCH(req: NextRequest) {
       // Always check originalId with ALL unitIds (these are string matches)
       query.$or.push({ originalId: { $in: unitIds } });
 
-      const result = await Unit.updateMany(query, { $set: { status, updatedBy: context!.userId } });
+      const setObj: any = { updatedBy: context!.userId };
+      if (status !== undefined) setObj.status = status;
+      if (price !== undefined) setObj.price = price;
+      if (ratePerSqft !== undefined) setObj.ratePerSqft = ratePerSqft;
+
+      const result = await Unit.updateMany(query, { $set: setObj });
       standaloneModified = result.modifiedCount;
       console.log(`[BULK PATCH] Standalone Unit.updateMany matched=${result.matchedCount}, modified=${standaloneModified}`);
     }
@@ -116,7 +126,7 @@ export async function PATCH(req: NextRequest) {
       if (mongoose.isValidObjectId(propertyId)) {
         property = await Property.findOne({ 
           _id: propertyId, 
-          ...getOwnershipQuery(context!) 
+          ...ownershipQuery 
         });
       }
 
@@ -134,14 +144,17 @@ export async function PATCH(req: NextRequest) {
             
             if (isMatch) {
               embeddedModified++;
-              return {
+              const updatedU = {
                 ...u,
-                status,
                 customerName: status === "available" ? "" : u.customerName,
                 customerPhone: status === "available" ? "" : u.customerPhone,
                 bookingAmount: status === "available" ? 0 : u.bookingAmount,
                 updatedAt: new Date().toISOString()
               };
+              if (status !== undefined) updatedU.status = status;
+              if (price !== undefined) updatedU.price = price;
+              if (ratePerSqft !== undefined) updatedU.ratePerSqft = ratePerSqft;
+              return updatedU;
             }
             return u;
           });

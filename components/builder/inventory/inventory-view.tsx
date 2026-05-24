@@ -21,7 +21,11 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { HierarchyAccordion } from "./hierarchy-accordion"
+import { HierarchyBreadcrumb } from "./hierarchy-breadcrumb"
+import { StatusBadge } from "./status-badge"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -112,7 +116,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
 
     // ── Unit Edit Dialog ───────────────────────────────────────────────────
     const [editingUnit, setEditingUnit] = useState<InventoryUnit | null>(null)
-    const [customerForm, setCustomerForm] = useState({ name: "", phone: "", amount: "" })
+    const [customerForm, setCustomerForm] = useState({ name: "", phone: "", amount: "", price: "", ratePerSqft: "" })
 
     // ── Tower Pricing Dialog ───────────────────────────────────────────────
     const [isPricingDialogOpen, setIsPricingDialogOpen] = useState(false)
@@ -241,27 +245,27 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
         [hierarchy, currentProperty]
     )
 
-    // Normalize towers: if projectId is not in project list, treat as null (direct township tower)
+    // Normalize towers: all towers have a projectId (no standalone direct towers on township)
     const normalizedTowers = useMemo(() => {
         if (!hierarchy) return []
         const projectIds = new Set(hierarchy.projects.map(p => p._id))
         return hierarchy.towers.map(t => {
-            if (t.projectId && !projectIds.has(t.projectId)) {
-                return { ...t, projectId: null }
+            // In strict hierarchy, all towers must have a valid projectId
+            if (!t.projectId || !projectIds.has(t.projectId)) {
+                console.warn(`[InventoryView] Tower ${t._id} has invalid projectId: ${t.projectId}`)
             }
             return t
         })
     }, [hierarchy])
 
-    // Detect if township has towers directly attached to it (no projectId)
+    // Detect if township has towers directly attached (should not happen in strict hierarchy)
     const hasDirectTowers = useMemo(() => {
-        return normalizedTowers.some(t => !t.projectId)
-    }, [normalizedTowers])
+        return false // Disabled: strict hierarchy forbids towers on townships
+    }, [])
 
     // Towers visible given project selection
     const visibleTowers = useMemo(() => {
         if (selectedProjectId === "all") return normalizedTowers
-        if (selectedProjectId === "direct") return normalizedTowers.filter(t => !t.projectId)
         return normalizedTowers.filter(t => t.projectId === selectedProjectId)
     }, [normalizedTowers, selectedProjectId])
 
@@ -269,16 +273,13 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
     const scopeUnits = useMemo(() => {
         if (!hierarchy) return []
         return hierarchy.units.filter((unit) => {
+            // Filter by tower if specific tower selected
             if (selectedTowerId !== "all" && unit.towerId !== selectedTowerId) return false
+            // Filter by project if specific project selected (and no specific tower)
             if (selectedProjectId !== "all" && selectedTowerId === "all") {
                 const tower = normalizedTowers.find(t => t._id === unit.towerId)
-                if (selectedProjectId === "direct") {
-                    if (unit.projectId || tower?.projectId) return false
-                } else {
-                    const matchesUnit = unit.projectId === selectedProjectId
-                    const matchesTower = tower?.projectId === selectedProjectId
-                    if (!matchesUnit && !matchesTower) return false
-                }
+                const matchesProject = tower?.projectId === selectedProjectId
+                if (!matchesProject) return false
             }
             return true
         })
@@ -326,7 +327,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
     const breadcrumbs = useMemo(() => {
         if (!hierarchy) return null
         const items = []
-        
+
         // Root property level
         items.push({
             name: hierarchy.property.name,
@@ -335,29 +336,18 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                 setSelectedTowerId("all")
             }
         })
-        
-        // Project level
-        if (propertyType === "township") {
-            if (selectedProjectId !== "all") {
-                if (selectedProjectId === "direct") {
-                    items.push({
-                        name: "Direct Towers",
-                        onClick: () => {
-                            setSelectedTowerId("all")
-                        }
-                    })
-                } else {
-                    const proj = hierarchy.projects.find(p => p._id === selectedProjectId)
-                    items.push({
-                        name: proj?.name || "Unknown Project",
-                        onClick: () => {
-                            setSelectedTowerId("all")
-                        }
-                    })
+
+        // Project level (for township properties)
+        if (propertyType === "township" && selectedProjectId !== "all") {
+            const proj = hierarchy.projects.find(p => p._id === selectedProjectId)
+            items.push({
+                name: proj?.name || "Unknown Project",
+                onClick: () => {
+                    setSelectedTowerId("all")
                 }
-            }
+            })
         }
-        
+
         // Tower level
         if (selectedTowerId !== "all") {
             const tw = normalizedTowers.find(t => t._id === selectedTowerId)
@@ -366,7 +356,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                 onClick: null
             })
         }
-        
+
         return items
     }, [hierarchy, propertyType, selectedProjectId, selectedTowerId, normalizedTowers])
 
@@ -384,6 +374,10 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
 
     // ─── Handlers ─────────────────────────────────────────────────────────
     const handleUnitClick = (unit: InventoryUnit) => {
+        if (currentProperty?.status === "pending") {
+            toast.info("Property is pending admin approval. Inventory is read-only.");
+            return;
+        }
         if (isSelectionMode) {
             setSelectedUnitIds(prev =>
                 prev.includes(unit._id) ? prev.filter(id => id !== unit._id) : [...prev, unit._id]
@@ -394,11 +388,13 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                 name: unit.customerName || "",
                 phone: unit.customerPhone || "",
                 amount: unit.bookingAmount?.toString() || "",
+                price: unit.price?.toString() || "",
+                ratePerSqft: unit.ratePerSqft?.toString() || "",
             })
         }
     }
 
-    const handleSingleStatusChange = async (status: InventoryUnit["status"]) => {
+    const handleUnitUpdate = async (status: InventoryUnit["status"]) => {
         if (!editingUnit || !selectedPropertyId) return
 
         if ((status === "sold" || status === "reserved") && !customerForm.name.trim()) {
@@ -415,6 +411,9 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
             return
         }
 
+        const parsedPrice = parseFloat(customerForm.price)
+        const parsedRate = parseFloat(customerForm.ratePerSqft)
+
         // Optimistic update
         const updatedUnit: InventoryUnit = {
             ...editingUnit,
@@ -423,6 +422,8 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
             customerPhone: status === "available" ? "" : (customerForm.phone || editingUnit.customerPhone),
             bookingAmount: status === "available" ? 0 : (parseFloat(customerForm.amount) || editingUnit.bookingAmount),
             bookingDate: status === "available" ? null : (editingUnit.bookingDate || new Date().toISOString()),
+            price: !isNaN(parsedPrice) ? parsedPrice : editingUnit.price,
+            ratePerSqft: !isNaN(parsedRate) ? parsedRate : editingUnit.ratePerSqft,
         }
         setHierarchy(prev => prev ? {
             ...prev,
@@ -440,6 +441,8 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                     customerPhone: updatedUnit.customerPhone,
                     bookingAmount: updatedUnit.bookingAmount,
                     bookingDate: updatedUnit.bookingDate,
+                    price: updatedUnit.price,
+                    ratePerSqft: updatedUnit.ratePerSqft,
                 }),
             })
             if (res.ok) {
@@ -592,49 +595,51 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
     }
 
     // ─── Floor groups ──────────────────────────────────────────────────────
-    const groupedUnits = useMemo(() => {
-        // If a specific tower is selected, just group by floor
-        if (selectedTowerId !== "all") {
-            const groups: Record<number, InventoryUnit[]> = {}
-            filteredUnits.forEach(u => {
-                const f = typeof u.floorNumber === 'number' ? u.floorNumber : 0
-                if (!groups[f]) groups[f] = []
-                groups[f].push(u)
-            })
-            const floors = Object.entries(groups)
-                .map(([floor, units]) => ({ floor: Number(floor), units }))
-                .sort((a, b) => b.floor - a.floor)
-            
-            const towerMeta = normalizedTowers.find(t => t._id === selectedTowerId)
-            return [{
-                tower: towerMeta || { _id: selectedTowerId, name: "Selected Tower" },
-                floors
-            }]
-        }
+    const groupedHierarchy = useMemo(() => {
+        const projectsMap: Record<string, any> = {}
 
-        // If multiple towers, group by Tower -> Floor
-        const tGroups: Record<string, { tower: any, floors: Record<number, InventoryUnit[]> }> = {}
         filteredUnits.forEach(u => {
             const tId = u.towerId || "unknown";
-            if (!tGroups[tId]) {
-                const towerMeta = normalizedTowers.find(t => t._id === tId);
-                tGroups[tId] = { tower: towerMeta || { _id: tId, name: "Unassigned Units / Orphan Tower" }, floors: {} };
+            const towerMeta = normalizedTowers.find(t => t._id === tId) || { _id: tId, name: "System Generated Tower", projectId: u.projectId || "unknown" };
+            const pId = towerMeta.projectId || "unknown";
+            
+            if (!projectsMap[pId]) {
+                const projMeta = hierarchy?.projects?.find(p => p._id === pId) || { _id: pId, name: pId === "unknown" ? "System Generated Project" : "Property Project" };
+                projectsMap[pId] = { project: projMeta, towers: {} }
             }
+
+            if (!projectsMap[pId].towers[tId]) {
+                projectsMap[pId].towers[tId] = { tower: towerMeta, floors: {} }
+            }
+
             const f = typeof u.floorNumber === 'number' ? u.floorNumber : 0
-            if (!tGroups[tId].floors[f]) tGroups[tId].floors[f] = []
-            tGroups[tId].floors[f].push(u)
+            if (!projectsMap[pId].towers[tId].floors[f]) projectsMap[pId].towers[tId].floors[f] = []
+            projectsMap[pId].towers[tId].floors[f].push(u)
         })
 
-        return Object.values(tGroups).map(tGroup => {
-            const floorsArr = Object.entries(tGroup.floors)
-                .map(([floor, units]) => ({ floor: Number(floor), units }))
-                .sort((a, b) => b.floor - a.floor);
-            return {
+        return Object.values(projectsMap).map((pGroup: any) => ({
+            project: pGroup.project,
+            towers: Object.values(pGroup.towers).map((tGroup: any) => ({
                 tower: tGroup.tower,
-                floors: floorsArr
-            }
-        }).sort((a, b) => (a.tower.name || "").localeCompare(b.tower.name || ""));
-    }, [filteredUnits, normalizedTowers, selectedTowerId])
+                floors: Object.entries(tGroup.floors)
+                    .map(([floor, units]) => ({ floor: Number(floor), units }))
+                    .sort((a, b) => b.floor - a.floor)
+            })).sort((a, b) => (a.tower.name || "").localeCompare(b.tower.name || ""))
+        })).sort((a, b) => (a.project.name || "").localeCompare(b.project.name || ""))
+    }, [filteredUnits, normalizedTowers, hierarchy])
+
+    const groupedTowerFloors = useMemo(() => {
+        if (selectedTowerId === "all") return [];
+        const groups: Record<number, InventoryUnit[]> = {}
+        filteredUnits.forEach(u => {
+            const f = typeof u.floorNumber === 'number' ? u.floorNumber : 0
+            if (!groups[f]) groups[f] = []
+            groups[f].push(u)
+        })
+        return Object.entries(groups)
+            .map(([floor, units]) => ({ floor: Number(floor), units }))
+            .sort((a, b) => b.floor - a.floor)
+    }, [filteredUnits, selectedTowerId])
 
     const floorLabel = (floor: number) => {
         if (floor === 0) return "Ground Floor"
@@ -711,8 +716,13 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                         </div>
                         <div>
                             <div className="flex items-center gap-2 flex-wrap">
-                                <h2 className="text-xl font-black tracking-tight text-slate-900 dark:text-white">
+                                <h2 className="text-xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
                                     Inventory Management
+                                    {currentProperty?.status === "pending" && (
+                                        <Badge variant="secondary" className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-amber-200">
+                                            Pending (Read-Only)
+                                        </Badge>
+                                    )}
                                 </h2>
                                 {currentScope && (
                                     <Badge className={`text-[10px] font-extrabold uppercase px-2 py-0.5 tracking-wider ${
@@ -769,9 +779,6 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="all">All Projects</SelectItem>
-                                            {hasDirectTowers && (
-                                                <SelectItem value="direct">Direct Towers</SelectItem>
-                                            )}
                                             {hierarchy.projects.map(proj => (
                                                 <SelectItem key={proj._id} value={proj._id}>
                                                     <span className="font-medium">{proj.name}</span>
@@ -1060,7 +1067,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                     </div>
                                     <div className="bg-white dark:bg-slate-900 rounded-lg p-2 text-center">
                                         <p className="text-slate-400 font-medium">Floors</p>
-                                        <p className="font-black text-slate-900 dark:text-white">{selectedTowerMeta.floorCount || groupedUnits.reduce((acc, tg) => acc + tg.floors.length, 0)}</p>
+                                        <p className="font-black text-slate-900 dark:text-white">{selectedTowerMeta.floorCount || 0}</p>
                                     </div>
                                 </div>
                                 <Button
@@ -1168,7 +1175,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                     </div>
                                     <p className="text-sm text-slate-400 font-medium">Loading units...</p>
                                 </div>
-                            ) : groupedUnits.length === 0 ? (
+                            ) : groupedHierarchy.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
                                     <div className="w-16 h-16 rounded-3xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center shadow-inner">
                                         <Layers className="h-8 w-8 text-slate-300 dark:text-slate-600 animate-pulse" />
@@ -1203,7 +1210,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                             ) : selectedTowerId !== "all" ? (
                                 /* Tower View: Floor -> Units */
                                 <div className="space-y-6">
-                                    {groupedUnits[0].floors.map(({ floor, units: floorUnits }) => (
+                                    {groupedTowerFloors.map(({ floor, units: floorUnits }: any) => (
                                         <div 
                                             key={floor} 
                                             className="space-y-3"
@@ -1220,7 +1227,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
 
                                             {/* Units Grid */}
                                             <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-2.5">
-                                                {floorUnits.map((unit, idx) => {
+                                                {floorUnits.map((unit: any, idx: number) => {
                                                     const status = unit.status || "available"
                                                     const isSelected = selectedUnitIds.includes(unit._id)
                                                     const unitKey = unit._id || `${unit.towerId}-${unit.unitNumber}-${idx}`
@@ -1264,101 +1271,122 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                     ))}
                                 </div>
                             ) : (
-                                /* Township/Project View: Tower -> Floor -> Units */
-                                <div className="space-y-8">
-                                    {groupedUnits.map(({ tower, floors }) => (
-                                        <Card key={tower._id} className="border border-slate-200/80 dark:border-slate-800/80 shadow-sm overflow-hidden bg-white/50 dark:bg-slate-900/30">
-                                            {/* Tower Sub-Header */}
-                                            <div className="flex items-center justify-between bg-slate-100/60 dark:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800/60 px-4 py-3">
-                                                <div className="flex items-center gap-2">
-                                                    <Layers className="h-4 w-4 text-indigo-500" />
-                                                    <h3 className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-widest">{tower.name}</h3>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <Badge variant="outline" className="text-[9px] font-extrabold uppercase bg-slate-50/50 dark:bg-slate-900/50">
-                                                        {floors.reduce((acc: number, f: any) => acc + f.units.length, 0)} Units
-                                                    </Badge>
-                                                    <Button 
-                                                        variant="ghost" 
-                                                        size="sm" 
-                                                        onClick={() => {
-                                                            setSelectedTowerId(tower._id)
-                                                            if (tower.projectId) {
-                                                                setSelectedProjectId(tower.projectId)
-                                                            } else if (hasDirectTowers && !tower.projectId) {
-                                                                setSelectedProjectId("direct")
-                                                            }
-                                                        }}
-                                                        className="h-6 px-2 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50/50"
-                                                    >
-                                                        Focus Tower
-                                                    </Button>
-                                                </div>
-                                            </div>
-
-                                            <div className="p-4 space-y-6">
-                                                {floors.map(({ floor, units: floorUnits }) => (
-                                                    <div 
-                                                        key={floor} 
-                                                        className="space-y-3"
-                                                        style={{ contentVisibility: 'auto', containIntrinsicSize: '0 120px' }}
-                                                    >
-                                                        {/* Floor label */}
+                                /* Accordion based Township/Project/Tower View */
+                                <div className="space-y-4">
+                                    <Accordion type="multiple" defaultValue={groupedHierarchy.map(p => p.project._id)} className="space-y-4">
+                                        {groupedHierarchy.map(({ project, towers }) => (
+                                            <AccordionItem key={project._id} value={project._id} className="border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-950 shadow-sm overflow-hidden px-4">
+                                                <AccordionTrigger className="hover:no-underline py-4">
+                                                    <div className="flex items-center justify-between w-full pr-4">
                                                         <div className="flex items-center gap-3">
-                                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-white dark:bg-slate-950 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-800 whitespace-nowrap shadow-sm">
-                                                                {floorLabel(floor)}
-                                                            </span>
-                                                            <div className="h-px flex-1 bg-slate-200 dark:bg-slate-850" />
-                                                            <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">{floorUnits.length} Units</span>
+                                                            <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
+                                                                <Building className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                                            </div>
+                                                            <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase tracking-widest">{project.name}</h3>
                                                         </div>
-
-                                                        {/* Units Grid */}
-                                                        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-2.5">
-                                                            {floorUnits.map((unit, idx) => {
-                                                                const status = unit.status || "available"
-                                                                const isSelected = selectedUnitIds.includes(unit._id)
-                                                                const unitKey = unit._id || `${unit.towerId}-${unit.unitNumber}-${idx}`
-
-                                                                return (
-                                                                    <button
-                                                                        key={unitKey}
-                                                                        onClick={() => handleUnitClick(unit)}
-                                                                        className={getUnitStyle(status, isSelected)}
-                                                                        title={`${unit.unitNumber} — ${unit.configuration} — ${status}`}
-                                                                    >
-                                                                        {/* Selection indicator */}
-                                                                        {isSelectionMode && (
-                                                                            <div className={`absolute -top-1 -right-1 w-5 h-5 rounded-full border-2 shadow flex items-center justify-center transition-all ${isSelected
-                                                                                ? "bg-blue-600 border-blue-600 scale-110"
-                                                                                : "bg-white dark:bg-slate-800 border-slate-300"
-                                                                                }`}>
-                                                                                {isSelected && <CheckCircle2 className="h-3 w-3 text-white" />}
-                                                                            </div>
-                                                                        )}
-
-                                                                        {/* Unit number */}
-                                                                        <span className={`text-[11px] font-black leading-none mb-0.5 ${getTextStyle(status)}`}>
-                                                                            {unit.unitNumber.split("-").pop()}
-                                                                        </span>
-
-                                                                        {/* Config */}
-                                                                        <span className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter leading-none">
-                                                                            {unit.configuration}
-                                                                        </span>
-
-                                                                        {/* Status dot */}
-                                                                        {!isSelectionMode && (
-                                                                            <div className={`absolute bottom-1.5 w-1.5 h-1.5 rounded-full ${getStatusDot(status)}`} />
-                                                                        )}
-                                                                    </button>
-                                                                )
-                                                            })}
-                                                        </div>
+                                                        <Badge variant="outline" className="text-[10px] font-extrabold uppercase bg-slate-50 dark:bg-slate-900">
+                                                            {towers.reduce((acc: number, t: any) => acc + t.floors.reduce((fAcc: number, f: any) => fAcc + f.units.length, 0), 0)} Units
+                                                        </Badge>
                                                     </div>
-                                                ))}
-                                            </div>
-                                        </Card>
-                                    ))}
+                                                </AccordionTrigger>
+                                                <AccordionContent className="pt-2 pb-4">
+                                                    <div className="space-y-6">
+                                                        {towers.map(({ tower, floors }: any) => (
+                                                            <Card key={tower._id} className="border border-slate-200/80 dark:border-slate-800/80 shadow-sm overflow-hidden bg-slate-50/50 dark:bg-slate-900/30">
+                                                                <div className="flex items-center justify-between bg-slate-100/60 dark:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800/60 px-4 py-3">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Layers className="h-4 w-4 text-indigo-500" />
+                                                                        <h4 className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-widest">{tower.name}</h4>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Badge variant="outline" className="text-[9px] font-extrabold uppercase bg-white dark:bg-slate-950">
+                                                                            {floors.reduce((acc: number, f: any) => acc + f.units.length, 0)} Units
+                                                                        </Badge>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation()
+                                                                                setSelectedTowerId(tower._id)
+                                                                                if (tower.projectId && tower.projectId !== "unknown") {
+                                                                                    setSelectedProjectId(tower.projectId)
+                                                                                }
+                                                                            }}
+                                                                            className="h-6 px-2 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950"
+                                                                        >
+                                                                            Focus Tower
+                                                                        </Button>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="p-4 space-y-6">
+                                                                    {floors.map(({ floor, units: floorUnits }: any) => (
+                                                                        <div 
+                                                                            key={floor} 
+                                                                            className="space-y-3"
+                                                                            style={{ contentVisibility: 'auto', containIntrinsicSize: '0 120px' }}
+                                                                        >
+                                                                            {/* Floor label */}
+                                                                            <div className="flex items-center gap-3">
+                                                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-white dark:bg-slate-950 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-800 whitespace-nowrap shadow-sm">
+                                                                                    {floorLabel(floor)}
+                                                                                </span>
+                                                                                <div className="h-px flex-1 bg-slate-200 dark:bg-slate-850" />
+                                                                                <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">{floorUnits.length} Units</span>
+                                                                            </div>
+
+                                                                            {/* Units Grid */}
+                                                                            <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-2.5">
+                                                                                {floorUnits.map((unit: any, idx: number) => {
+                                                                                    const status = unit.status || "available"
+                                                                                    const isSelected = selectedUnitIds.includes(unit._id)
+                                                                                    const unitKey = unit._id || `${unit.towerId}-${unit.unitNumber}-${idx}`
+
+                                                                                    return (
+                                                                                        <button
+                                                                                            key={unitKey}
+                                                                                            onClick={() => handleUnitClick(unit)}
+                                                                                            className={getUnitStyle(status, isSelected)}
+                                                                                            title={`${unit.unitNumber} — ${unit.configuration} — ${status}`}
+                                                                                        >
+                                                                                            {/* Selection indicator */}
+                                                                                            {isSelectionMode && (
+                                                                                                <div className={`absolute -top-1 -right-1 w-5 h-5 rounded-full border-2 shadow flex items-center justify-center transition-all ${isSelected
+                                                                                                    ? "bg-blue-600 border-blue-600 scale-110"
+                                                                                                    : "bg-white dark:bg-slate-800 border-slate-300"
+                                                                                                    }`}>
+                                                                                                    {isSelected && <CheckCircle2 className="h-3 w-3 text-white" />}
+                                                                                                </div>
+                                                                                            )}
+
+                                                                                            {/* Unit number */}
+                                                                                            <span className={`text-[11px] font-black leading-none mb-0.5 ${getTextStyle(status)}`}>
+                                                                                                {unit.unitNumber.split("-").pop()}
+                                                                                            </span>
+
+                                                                                            {/* Config */}
+                                                                                            <span className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter leading-none">
+                                                                                                {unit.configuration}
+                                                                                            </span>
+
+                                                                                            {/* Status dot */}
+                                                                                            {!isSelectionMode && (
+                                                                                                <div className={`absolute bottom-1.5 w-1.5 h-1.5 rounded-full ${getStatusDot(status)}`} />
+                                                                                            )}
+                                                                                        </button>
+                                                                                    )
+                                                                                })}
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </Card>
+                                                        ))}
+                                                    </div>
+                                                </AccordionContent>
+                                            </AccordionItem>
+                                        ))}
+                                    </Accordion>
                                 </div>
                             )}
                         </div>
@@ -1418,7 +1446,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                         <Button
                                             key={s}
                                             variant="outline"
-                                            onClick={() => handleSingleStatusChange(targetStatus)}
+                                            onClick={() => handleUnitUpdate(targetStatus)}
                                             className={`h-12 font-bold border ${isActive ? activeColors : colors}`}
                                         >
                                             <Icon className="h-4 w-4 mr-2" />
@@ -1440,6 +1468,29 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                     </Badge>
                                 </div>
                                 <div className="space-y-2">
+                                     <div className="grid grid-cols-2 gap-2 mb-2">
+                                         <div>
+                                            <Label className="text-[10px] uppercase text-slate-500 mb-1 block">Price</Label>
+                                            <Input
+                                                placeholder="Total Price"
+                                                type="number"
+                                                className="h-9 text-xs bg-white dark:bg-slate-800"
+                                                value={customerForm.price}
+                                                onChange={e => setCustomerForm(f => ({ ...f, price: e.target.value }))}
+                                            />
+                                         </div>
+                                         <div>
+                                            <Label className="text-[10px] uppercase text-slate-500 mb-1 block">Rate / sq.ft</Label>
+                                            <Input
+                                                placeholder="Rate"
+                                                type="number"
+                                                className="h-9 text-xs bg-white dark:bg-slate-800"
+                                                value={customerForm.ratePerSqft}
+                                                onChange={e => setCustomerForm(f => ({ ...f, ratePerSqft: e.target.value }))}
+                                            />
+                                         </div>
+                                     </div>
+                                     <hr className="border-slate-100 dark:border-slate-800 my-2" />
                                     <Input
                                         placeholder="Buyer's full name"
                                         className="h-9 text-sm font-semibold bg-white dark:bg-slate-800"

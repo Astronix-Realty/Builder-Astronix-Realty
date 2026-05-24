@@ -35,17 +35,72 @@ export function UnitsForm({
         const reraNumber = tower?.reraNumber || data.reraNumber || ""
 
         if (config) {
+            // MERGE floorGroups (Global defines skeleton structure, Tower can override floor ranges)
+            let mergedGroups = [...(config.floorGroups || [])];
+            const towerGroupIds = new Set(mergedGroups.map(g => g.id));
+            const globalGroups = data.floorGroups || [];
+            
+            globalGroups.forEach(gg => {
+                if (!towerGroupIds.has(gg.id)) {
+                    mergedGroups.push({ ...gg });
+                } else {
+                    const existingIdx = mergedGroups.findIndex(g => g.id === gg.id);
+                    if (existingIdx >= 0) {
+                        const existing = mergedGroups[existingIdx];
+                        const hasCustomFloors = existing.floors && existing.floors.length > 0;
+                        mergedGroups[existingIdx] = {
+                            ...gg,
+                            floors: hasCustomFloors ? existing.floors : gg.floors,
+                            floorRange: hasCustomFloors ? existing.floorRange : gg.floorRange
+                        };
+                    }
+                }
+            });
+            // Keep ONLY the groups that are defined in Global (Global is the master skeleton)
+            const globalGroupIds = new Set(globalGroups.map(g => g.id));
+            mergedGroups = mergedGroups.filter(g => globalGroupIds.has(g.id));
+
+            // MERGE configurations (Units)
+            let mergedConfigs = [...(config.configurations || [])];
+            const towerConfigIds = new Set(mergedConfigs.map(c => c.id));
+            const globalConfigs = data.configurations || [];
+            
+            globalConfigs.forEach(gc => {
+                if (!towerConfigIds.has(gc.id)) {
+                    mergedConfigs.push({ ...gc });
+                } else {
+                    const existingIdx = mergedConfigs.findIndex(c => c.id === gc.id);
+                    if (existingIdx >= 0) {
+                        mergedConfigs[existingIdx] = {
+                            ...gc,
+                            isRateOverridden: mergedConfigs[existingIdx].isRateOverridden,
+                            ratePerSqft: mergedConfigs[existingIdx].isRateOverridden ? mergedConfigs[existingIdx].ratePerSqft : gc.ratePerSqft,
+                            basePrice: mergedConfigs[existingIdx].isRateOverridden ? mergedConfigs[existingIdx].basePrice : gc.basePrice,
+                            allInclusivePrice: mergedConfigs[existingIdx].isRateOverridden ? mergedConfigs[existingIdx].allInclusivePrice : gc.allInclusivePrice,
+                            totalTaxes: mergedConfigs[existingIdx].isRateOverridden ? mergedConfigs[existingIdx].totalTaxes : gc.totalTaxes,
+                        }
+                    }
+                }
+            });
+            mergedConfigs = mergedConfigs.filter(c => new Set(globalConfigs.map(g => g.id)).has(c.id));
+
             return {
                 ...data, // Include any missing global inherited fields like posessionDate, GST, etc.
                 towerId: config.towerId,
                 baseRatePerSqft: config.ratePerSqft || data.baseRatePerSqft,
                 facingPremiums: config.facingPremiums || data.facingPremiums,
-                configurations: config.configurations,
-                floorGroups: config.floorGroups?.length ? config.floorGroups : data.floorGroups || [],
+                configurations: mergedConfigs,
+                floorGroups: mergedGroups,
                 reraNumber
             }
         }
-        return { ...data, towerId, reraNumber, floorGroups: data.floorGroups || [] }
+        return { 
+            ...data, 
+            towerId, 
+            reraNumber, 
+            floorGroups: data.floorGroups || [],
+            configurations: data.configurations || []
+        }
     }
 
     const isTowerConfigured = (towerId: string) => {
@@ -99,7 +154,61 @@ export function UnitsForm({
                                 </p>
                             </div>
                         </div>
-                        <UnitFlowForm data={data} onChange={onChange} />
+                        <UnitFlowForm data={data} onChange={(updated) => {
+                            onChange(updated)
+                            if (towerConfigs && towerConfigs.length > 0) {
+                                const newTowerConfigs = towerConfigs.map(tc => {
+                                    let tcConfigs = [...(tc.configurations || [])]
+                                    let tcGroups = [...(tc.floorGroups || [])]
+                                    
+                                    const updatedConfigs = updated.configurations || []
+                                    const updatedGroups = updated.floorGroups || []
+                                    
+                                    // 1. Sync configurations (units)
+                                    updatedConfigs.forEach(globalUnit => {
+                                        const existingIdx = tcConfigs.findIndex(u => u.id === globalUnit.id)
+                                        if (existingIdx >= 0) {
+                                            const existing = tcConfigs[existingIdx]
+                                            tcConfigs[existingIdx] = {
+                                                ...globalUnit,
+                                                isRateOverridden: existing.isRateOverridden,
+                                                ratePerSqft: existing.isRateOverridden ? existing.ratePerSqft : globalUnit.ratePerSqft,
+                                                basePrice: existing.isRateOverridden ? existing.basePrice : globalUnit.basePrice,
+                                                allInclusivePrice: existing.isRateOverridden ? existing.allInclusivePrice : globalUnit.allInclusivePrice,
+                                                totalTaxes: existing.isRateOverridden ? existing.totalTaxes : globalUnit.totalTaxes,
+                                            }
+                                        } else {
+                                            tcConfigs.push({ ...globalUnit })
+                                        }
+                                    })
+                                    const globalUnitIds = new Set(updatedConfigs.map(u => u.id))
+                                    tcConfigs = tcConfigs.filter(u => globalUnitIds.has(u.id))
+
+                                    // 2. Sync floorGroups (Tower Skeleton & Live Map Layouts)
+                                    updatedGroups.forEach(globalGroup => {
+                                        const existingIdx = tcGroups.findIndex(g => g.id === globalGroup.id)
+                                        if (existingIdx >= 0) {
+                                            const existing = tcGroups[existingIdx]
+                                            const hasCustomFloors = existing.floors && existing.floors.length > 0;
+                                            tcGroups[existingIdx] = {
+                                                ...globalGroup,
+                                                // Preserve tower-specific assigned floors so we don't accidentally shrink/expand a tower's height
+                                                // when global is updated, BUT inherit global if the tower hasn't customized it yet.
+                                                floors: hasCustomFloors ? existing.floors : globalGroup.floors,
+                                                floorRange: hasCustomFloors ? existing.floorRange : globalGroup.floorRange,
+                                            }
+                                        } else {
+                                            tcGroups.push({ ...globalGroup })
+                                        }
+                                    })
+                                    const globalGroupIds = new Set(updatedGroups.map(g => g.id))
+                                    tcGroups = tcGroups.filter(g => globalGroupIds.has(g.id))
+
+                                    return { ...tc, configurations: tcConfigs, floorGroups: tcGroups }
+                                })
+                                onTowerConfigsChange(newTowerConfigs)
+                            }
+                        }} />
                     </>
                 ) : (
                     (() => {

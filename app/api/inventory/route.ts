@@ -35,16 +35,6 @@ async function countUnitsForTowers(towerDocs: any[], ownershipQuery: Record<stri
     });
   }
 
-  if (count === 0) {
-    // Strategy 2: Embedded units in property.details.generatedUnits
-    for (const towerDoc of towerDocs) {
-      const embedded = towerDoc.details?.generatedUnits;
-      if (Array.isArray(embedded)) {
-        count += embedded.length;
-      }
-    }
-  }
-
   return count;
 }
 
@@ -60,14 +50,19 @@ export async function GET(req: NextRequest) {
 
     await dbConnect();
 
-    const ownershipQuery = getOwnershipQuery(context!);
+    let ownershipQuery = getOwnershipQuery(context!);
+    
+    // Relax ownership query for builder to only check builderId, ignoring strict accountId matches.
+    if (context!.role === "builder") {
+      ownershipQuery = { builderId: context!.userId, role: { $ne: 'mandate' } };
+    }
 
     // Root-level, non-deleted, published properties owned by this user
     const rootProperties = await Property.find({
       ...ownershipQuery,
       parentId: null,
       isDeleted: false,
-      status: { $in: ["published", "active"] },
+      status: { $in: ["published", "active", "pending"] },
     })
       .sort({ updatedAt: -1 })
       .lean();
@@ -91,6 +86,7 @@ export async function GET(req: NextRequest) {
             parentId: prop._id,
             type: "project",
             isDeleted: false,
+            status: { $nin: ["draft", "rejected"] },
             ...ownershipQuery,
           })
             .select("_id name")
@@ -100,9 +96,13 @@ export async function GET(req: NextRequest) {
 
           const projectIds = projects.map((p: any) => p._id);
           const towerDocs = await Property.find({
-            parentId: { $in: [prop._id, ...projectIds] },
+            $or: [
+              { parentId: { $in: projectIds } },
+              { parentId: prop._id }
+            ],
             type: "tower",
             isDeleted: false,
+            status: { $nin: ["draft", "rejected"] },
             ...ownershipQuery,
           })
             .select("_id name details")
@@ -116,6 +116,7 @@ export async function GET(req: NextRequest) {
             parentId: prop._id,
             type: "tower",
             isDeleted: false,
+            status: { $nin: ["draft", "rejected"] },
             ...ownershipQuery,
           })
             .select("_id name details")

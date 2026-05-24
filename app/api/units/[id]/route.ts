@@ -14,12 +14,28 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (errorResponse) return errorResponse;
 
     const body = await req.json();
-    const { status, customerName, customerPhone, bookingAmount, bookingDate } = body;
+    const { status, customerName, customerPhone, bookingAmount, bookingDate, price, ratePerSqft } = body;
 
     const { searchParams } = new URL(req.url);
     const propertyId = searchParams.get("propertyId");
 
     await dbConnect();
+
+    let ownershipQuery = getOwnershipQuery(context!);
+    if (context!.role === "builder") {
+      ownershipQuery = { builderId: context!.userId, role: { $ne: 'mandate' } };
+    }
+
+    const setObj: any = {
+      status, 
+      customerName, 
+      customerPhone, 
+      bookingAmount, 
+      bookingDate,
+      updatedBy: context!.userId
+    };
+    if (price !== undefined) setObj.price = price;
+    if (ratePerSqft !== undefined) setObj.ratePerSqft = ratePerSqft;
 
     // 1. Try to find and update the standalone unit document
     let unit = await Unit.findOneAndUpdate(
@@ -28,17 +44,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           { _id: mongoose.isValidObjectId(id) ? id : new mongoose.Types.ObjectId() }, 
           { originalId: id }
         ], 
-        ...getOwnershipQuery(context!) 
+        ...ownershipQuery
       },
       { 
-        $set: { 
-          status, 
-          customerName, 
-          customerPhone, 
-          bookingAmount, 
-          bookingDate,
-          updatedBy: context!.userId
-        } 
+        $set: setObj 
       },
       { new: true }
     );
@@ -47,7 +56,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!unit && propertyId) {
       const property = await Property.findOne({ 
         _id: mongoose.isValidObjectId(propertyId) ? propertyId : null,
-        ...getOwnershipQuery(context!) 
+        ...ownershipQuery
       });
 
       if (property && property.details?.generatedUnits) {
@@ -73,6 +82,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             bookingDate,
             updatedAt: new Date().toISOString()
           };
+          if (price !== undefined) units[unitIndex].price = price;
+          if (ratePerSqft !== undefined) units[unitIndex].ratePerSqft = ratePerSqft;
 
           // Mark details as modified for Mongoose to save correctly
           property.markModified('details');

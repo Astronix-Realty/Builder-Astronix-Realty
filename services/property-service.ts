@@ -15,113 +15,93 @@ import { getOwnershipQuery, RBACContext } from "@/lib/rbac";
  * @param context RBAC context for ownership constraints.
  */
 export async function secureDeleteProperty(propertyId: string, context: RBACContext) {
-  // Step 1: Deep Fetch Descendant IDs across the hierarchy
-  const propertiesToDelete = await Property.find({
-    $or: [{ _id: propertyId }, { parentId: propertyId }],
-    ...getOwnershipQuery(context)
-  }).lean();
-
-  if (propertiesToDelete.length === 0) {
-    throw new Error("Property not found or unauthorized");
-  }
-
-  let allPropertyIds = new Set<string>([propertyId]);
-  let idsToSearch = [propertyId];
-
-  // While loop to traverse n-levels dynamically
-  while (idsToSearch.length > 0) {
-    const children = await Property.find({ parentId: { $in: idsToSearch } }, { _id: 1 }).lean();
-    const childrenIds = children.map((c: any) => c._id.toString());
-
-    if (childrenIds.length === 0) break;
-
-    childrenIds.forEach(id => allPropertyIds.add(id));
-    idsToSearch = childrenIds;
-  }
-
-  const allCollectedPropertyIds = Array.from(allPropertyIds);
-
-  // Fetch all full property documents to analyze their URLs
-  const fullProperties = await Property.find({ _id: { $in: allCollectedPropertyIds } }).lean();
-
-  // Step 2: Fetch related Units
-  const unitsToDelete = await Unit.find({
-    $or: [
-      { projectId: { $in: allCollectedPropertyIds } },
-      { towerId: { $in: allCollectedPropertyIds } }
-    ]
-  }).lean();
-
-  const unitIds = unitsToDelete.map(u => u._id);
-
-  // Step 3: Extract Media URLs from everything we are deleting
-  const cloudinaryUrls = new Set<string>();
-  fullProperties.forEach((prop: any) => {
-    extractCloudinaryUrls(prop).forEach(u => cloudinaryUrls.add(u));
-  });
-  unitsToDelete.forEach((unit: any) => {
-    extractCloudinaryUrls(unit).forEach(u => cloudinaryUrls.add(u));
-  });
-
-  const urlsToCheck = Array.from(cloudinaryUrls);
-
-  // Step 4: Validate URLs to prevent shared-media deletion (Orphan Check)
-  const safeToDeleteUrls: string[] = [];
-
-  for (const url of urlsToCheck) {
-    const urlRegex = new RegExp(url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-
-    const isSharedProperty = await Property.exists({
-      _id: { $nin: allCollectedPropertyIds },
-      details: { $regex: urlRegex }
-    });
-
-    if (isSharedProperty) continue;
-
-    const isSharedUnit = await Unit.exists({
-      _id: { $nin: unitIds },
-      $or: [
-        { floorPlanImage2D: { $regex: urlRegex } },
-        { floorPlanImage3D: { $regex: urlRegex } },
-        { heroImage: { $regex: urlRegex } },
-        { galleryImages: { $regex: urlRegex } }
-      ]
-    });
-
-    if (isSharedUnit) continue;
-
-    safeToDeleteUrls.push(url);
-  }
-
-  // Step 5: Execute atomic Database Transaction
   const session = await mongoose.startSession();
-
   try {
-    session.startTransaction();
+    const result = await session.withTransaction(async () => {
+      // Step 1: Deep Fetch Descendant IDs across the hierarchy
+      const propertiesToDelete = await Property.find({
+        $or: [{ _id: propertyId }, { parentId: propertyId }],
+        ...getOwnershipQuery(context)
+      }).session(session).lean();
 
-    const deletedPropertiesResult = await Property.deleteMany({ _id: { $in: allCollectedPropertyIds } }).session(session);
-    const deletedUnitsResult = await Unit.deleteMany({ _id: { $in: unitIds } }).session(session);
+      if (propertiesToDelete.length === 0) {
+        throw new Error("Property not found or unauthorized");
+      }
 
-    await session.commitTransaction();
+      let allPropertyIds = new Set<string>([propertyId]);
+      let idsToSearch = [propertyId];
 
-    // Step 6: Post-DB Commit Cleanup (Cloudinary)
-    const cloudinaryDeletes = safeToDeleteUrls.map(url => deleteCloudinaryFile(url));
-    const cloudinaryResults = await Promise.allSettled(cloudinaryDeletes);
+      // While loop to traverse n-levels dynamically
+      while (idsToSearch.length > 0) {
+        const children = await Property.find({ parentId: { $in: idsToSearch } }, { _id: 1 }).session(session).lean();
+        const childrenIds = children.map((c: any) => c._id.toString());
 
-    const failedCloudinary = cloudinaryResults.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
-    if (failedCloudinary.length > 0) {
-      console.warn(`[secureDeleteProperty] DB successfully deleted but ${failedCloudinary.length} Cloudinary deletes failed.`);
-    }
+        if (childrenIds.length === 0) break;
 
-    return {
-      success: true,
-      propertiesDeleted: deletedPropertiesResult.deletedCount,
-      unitsDeleted: deletedUnitsResult.deletedCount,
-      mediaOrphanedAndDeleted: safeToDeleteUrls.length
-    };
+        childrenIds.forEach(id => allPropertyIds.add(id));
+        idsToSearch = childrenIds;
+      }
 
+      const allCollectedPropertyIds = Array.from(allPropertyIds);
+
+      // Fetch all full property documents to analyze their URLs
+      const fullProperties = await Property.find({ _id: { $in: allCollectedPropertyIds } }).session(session).lean();
+
+      // Step 2: Fetch related Units
+      const unitsToDelete = await Unit.find({
+        $or: [
+          { projectId: { $in: allCollectedPropertyIds } },
+          { towerId: { $in: allCollectedPropertyIds } }
+        ]
+      }).session(session).lean();
+
+      const unitIds = unitsToDelete.map(u => u._id);
+
+      // Step 3: Extract Media URLs from everything we are deleting
+      const cloudinaryUrls = new Set<string>();
+      fullProperties.forEach((prop: any) => {
+        extractCloudinaryUrls(prop).forEach(u => cloudinaryUrls.add(u));
+      });
+      unitsToDelete.forEach((unit: any) => {
+        extractCloudinaryUrls(unit).forEach(u => cloudinaryUrls.add(u));
+      });
+
+      // Step 5: Execute atomic Database Transaction
+      await Property.deleteMany({ _id: { $in: allCollectedPropertyIds } }).session(session);
+      
+      // 2. Delete all descendant Units
+      await Unit.deleteMany({ _id: { $in: unitIds } }, { session });
+
+      // Step 4: After DB success, trigger Cloudinary deletions
+      let safeToDeleteUrls = [];
+      if (cloudinaryUrls.size > 0) {
+        // Find what IS NOT deleted yet to ensure we don't delete shared media
+        const remainingProperties = await Property.find({}).session(session).lean();
+        const remainingUnits = await Unit.find({}).session(session).lean();
+
+        const remainingMedia = new Set<string>();
+        remainingProperties.forEach((prop: any) => extractCloudinaryUrls(prop).forEach(u => remainingMedia.add(u)));
+        remainingUnits.forEach((unit: any) => extractCloudinaryUrls(unit).forEach(u => remainingMedia.add(u)));
+
+        const urlsToDelete = Array.from(cloudinaryUrls).filter(url => !remainingMedia.has(url));
+        safeToDeleteUrls = urlsToDelete;
+        
+        // Note: We don't block the transaction on cloudinary failures. 
+        // Orphaned files on Cloudinary are better than partial DB failures.
+        Promise.all(urlsToDelete.map(url => deleteCloudinaryFile(url))).catch(e => {
+          console.error("Failed to delete some files from Cloudinary:", e);
+        });
+      }
+
+      return { 
+        success: true, 
+        propertiesDeleted: allCollectedPropertyIds.length,
+        unitsDeleted: unitIds.length,
+        mediaOrphanedAndDeleted: safeToDeleteUrls.length
+      };
+    });
+    return result;
   } catch (error) {
-    await session.abortTransaction();
     console.error(`[secureDeleteProperty] Transaction aborted. Rollback applied.`, error);
     throw error;
   } finally {
@@ -141,10 +121,9 @@ export async function secureDeleteProperty(propertyId: string, context: RBACCont
 export async function publishProperty(draftId: string, context: RBACContext) {
   const session = await mongoose.startSession();
   try {
-    session.startTransaction();
-
-    const rootDraft = await Property.findOne({ _id: draftId, ...getOwnershipQuery(context), status: { $in: ['draft', 'pending'] } }).session(session);
-    if (!rootDraft) throw new Error("Draft/Pending property not found or unauthorized");
+    const result = await session.withTransaction(async () => {
+      const rootDraft = await Property.findOne({ _id: draftId, ...getOwnershipQuery(context), status: { $in: ['draft', 'pending'] } }).session(session);
+      if (!rootDraft) throw new Error("Draft/Pending property not found or unauthorized");
 
     // 1. Collect all draft properties in hierarchy
     let allDrafts: any[] = [rootDraft];
@@ -291,17 +270,22 @@ export async function publishProperty(draftId: string, context: RBACContext) {
     }
 
     // 3. Fix Parent IDs in the published records
+    const propertyBulkOps = [];
     for (const draft of allDrafts) {
       if (draft.parentId) {
         const newParentId = draftToPublishedMap.get(draft.parentId.toString());
         if (newParentId) {
-          await Property.updateOne(
-            { _id: draftToPublishedMap.get(draft._id.toString()) },
-            { $set: { parentId: newParentId } },
-            { session }
-          );
+          propertyBulkOps.push({
+            updateOne: {
+              filter: { _id: draftToPublishedMap.get(draft._id.toString()) },
+              update: { $set: { parentId: newParentId } }
+            }
+          });
         }
       }
+    }
+    if (propertyBulkOps.length > 0) {
+      await Property.bulkWrite(propertyBulkOps, { session });
     }
 
     // 4. Promote Units
@@ -312,34 +296,142 @@ export async function publishProperty(draftId: string, context: RBACContext) {
     }).session(session);
 
     let extractedUnits: any[] = [];
+    
+    const getOrCreateSystemProject = async (townshipPublishedId: string, location: any, builderId: string, accountId: string, role: string, mandateId: any) => {
+        let sysProj = await Property.findOne({ parentId: townshipPublishedId, name: "System Generated Project", type: "project", isDeleted: false }).session(session);
+        if (!sysProj) {
+            const created = await Property.create([{
+                name: "System Generated Project",
+                type: "project",
+                flowType: "project",
+                location,
+                status: 'published',
+                isActive: true,
+                parentId: townshipPublishedId,
+                builderId, accountId, role, mandateId,
+                slug: generateRandomSlug("system-generated-project", "active")
+            }], { session });
+            sysProj = created[0];
+            publishedIdToTypeMap.set(sysProj._id.toString(), 'project');
+        }
+        return sysProj._id.toString();
+    }
+
+    const getOrCreateSystemTower = async (projectPublishedId: string, location: any, builderId: string, accountId: string, role: string, mandateId: any) => {
+        let sysTow = await Property.findOne({ parentId: projectPublishedId, name: "System Generated Tower", type: "tower", isDeleted: false }).session(session);
+        if (!sysTow) {
+            const created = await Property.create([{
+                name: "System Generated Tower",
+                type: "tower",
+                flowType: "tower",
+                location,
+                status: 'published',
+                isActive: true,
+                parentId: projectPublishedId,
+                builderId, accountId, role, mandateId,
+                slug: generateRandomSlug("system-generated-tower", "active")
+            }], { session });
+            sysTow = created[0];
+            publishedIdToTypeMap.set(sysTow._id.toString(), 'tower');
+        }
+        return sysTow._id.toString();
+    }
+
     for (const draft of allDrafts) {
-      if (draft.type === 'tower' && draft.details?.generatedUnits && draft.details.generatedUnits.length > 0) {
+      if (draft.details?.generatedUnits && draft.details.generatedUnits.length > 0) {
+        // --- GUARD: Skip parent-level unit generation if child drafts exist ---
+        // If we are publishing a township, and it has child project drafts, skip unit processing here
+        // (the child towers will handle their own units).
+        if (draft.type === 'township' && allDrafts.some(d => d.type === 'project' && d.parentId?.toString() === draft._id.toString())) {
+            continue;
+        }
+        // If we are publishing a project, and it has child tower drafts, skip unit processing here
+        if (draft.type === 'project' && allDrafts.some(d => d.type === 'tower' && d.parentId?.toString() === draft._id.toString())) {
+            continue;
+        }
+
         const resolvedFrontendTowerId = draftTowerToFrontend.get(draft._id.toString()) || 
           rootDraft.details?.towers?.find((t: any) => t.name === draft.name)?.id;
 
-        const towerUnits = draft.details.generatedUnits.filter((u: any) => 
-          u.towerId === draft._id.toString() || 
-          (resolvedFrontendTowerId && u.towerId === resolvedFrontendTowerId) ||
-          allDrafts.length === 1
-        );
+        let sysProjId: string | null = null;
+        let sysTowId: string | null = null;
 
-        towerUnits.forEach((u: any) => {
-          extractedUnits.push({
-            ...u,
-            towerId: draft._id,
-            projectId: draft.parentId,
-            parentId: draft._id,
-            status: 'pending'
-          });
-        });
+        if (draft.type === 'township' || draft.type === 'project') {
+            const publishedDraftId = draftToPublishedMap.get(draft._id.toString());
+            if (publishedDraftId) {
+                const pubLoc = resolvedLocations.get(draft._id.toString());
+                const bId = draft.builderId;
+                const aId = draft.accountId || context.userId;
+                const r = draft.role || context.role;
+                const mId = draft.mandateId;
+
+                if (draft.type === 'township') {
+                    sysProjId = await getOrCreateSystemProject(publishedDraftId, pubLoc, bId, aId, r, mId);
+                    sysTowId = await getOrCreateSystemTower(sysProjId as string, pubLoc, bId, aId, r, mId);
+                    
+                    draftToPublishedMap.set(sysProjId as string, sysProjId as string);
+                    draftToPublishedMap.set(sysTowId as string, sysTowId as string);
+                } else if (draft.type === 'project') {
+                    sysTowId = await getOrCreateSystemTower(publishedDraftId, pubLoc, bId, aId, r, mId);
+                    
+                    draftToPublishedMap.set(sysTowId as string, sysTowId as string);
+                }
+            }
+        }
+
+        const unitsToProcess = draft.details.generatedUnits;
+
+        for (const u of unitsToProcess) {
+            let targetTowerId = draft._id.toString();
+            let targetProjectId = draft.parentId?.toString() || null;
+            let targetParentId = draft._id.toString();
+
+            if (draft.type === 'tower') {
+                if (u.towerId !== draft._id.toString() && (!resolvedFrontendTowerId || u.towerId !== resolvedFrontendTowerId) && allDrafts.length > 1) {
+                    continue; 
+                }
+            } else if (draft.type === 'township' || draft.type === 'project') {
+                if (!draftToPublishedMap.get(draft._id.toString())) continue;
+
+                if (draft.type === 'township' && sysProjId && sysTowId) {
+                    targetTowerId = sysTowId;
+                    targetProjectId = sysProjId;
+                    targetParentId = sysTowId;
+                } else if (draft.type === 'project' && sysTowId) {
+                    targetTowerId = sysTowId;
+                    targetProjectId = draft._id.toString();
+                    targetParentId = sysTowId;
+                } else {
+                    continue; // Skip if we couldn't create system towers
+                }
+            }
+
+            extractedUnits.push({
+                ...u,
+                towerId: targetTowerId,
+                projectId: targetProjectId,
+                parentId: targetParentId,
+                status: 'pending',
+                builderId: draft.builderId
+            });
+        }
       }
     }
     
+    // Capture the DB _id of the old draft units BEFORE we overwrite the `units` array
+    // with the freshly extracted frontend units (which lack DB _id).
+    const validUnitDraftIdsToDelete = units
+      .filter((u: any) => u._id && mongoose.isValidObjectId(u._id.toString()))
+      .map((u: any) => u._id);
+
     // Prioritize extracted units from the draft doc (which is the frontend's source of truth)
     // over any stale draft units lingering in the DB collection.
     if (extractedUnits.length > 0) {
       units = extractedUnits;
     }
+
+    const newUnitsToInsert: any[] = [];
+    const unitBulkOps: any[] = [];
 
     for (const unit of units) {
       const activeTowerId = draftToPublishedMap.get(unit.towerId?.toString()) || unit.towerId;
@@ -349,6 +441,13 @@ export async function publishProperty(draftId: string, context: RBACContext) {
       // Validate activeTowerId is a valid ObjectId (must not insert invalid IDs)
       if (!activeTowerId || !mongoose.isValidObjectId(activeTowerId.toString())) {
         console.warn(`[publishProperty] Skipping unit with invalid activeTowerId: ${activeTowerId}`);
+        continue;
+      }
+
+      // Check if activeTowerId is actually an unpromoted draft ID to prevent orphaned units
+      const isDraftId = allDrafts.some(d => d._id.toString() === activeTowerId.toString());
+      if (isDraftId) {
+        console.warn(`[publishProperty] Skipping unit because activeTowerId is an unpromoted draft ID: ${activeTowerId}`);
         continue;
       }
 
@@ -398,33 +497,37 @@ export async function publishProperty(draftId: string, context: RBACContext) {
 
       if (hasValidUnitId && (unit.status === 'draft' || unit.status === 'pending') && !unit.isNew) {
         if (unit.publishedId && mongoose.isValidObjectId(unit.publishedId.toString())) {
-          await Unit.findOneAndUpdate(
-            { _id: unit.publishedId },
-            { $set: unitData },
-            { session }
-          );
+          unitBulkOps.push({
+            updateOne: {
+              filter: { _id: unit.publishedId },
+              update: { $set: unitData }
+            }
+          });
         } else {
-          const newUnit = await Unit.create([{
+          newUnitsToInsert.push({
             ...unitData,
             createdBy: unit.createdBy || context.userId,
-          }], { session });
-          await Unit.updateOne({ _id: unit._id }, { $set: { publishedId: newUnit[0]._id } }, { session });
+          });
         }
       } else {
-        await Unit.create([{
+        newUnitsToInsert.push({
           ...unitData,
           createdBy: unit.createdBy || context.userId,
-        }], { session });
+        });
       }
+    }
+
+    if (unitBulkOps.length > 0) {
+      await Unit.bulkWrite(unitBulkOps, { session });
+    }
+
+    if (newUnitsToInsert.length > 0) {
+      await Unit.insertMany(newUnitsToInsert, { session });
     }
 
     // 5. Final Step: Delete draft docs to prevent dual-card appearance
     const draftIds = allDrafts.map(d => d._id);
     await Property.deleteMany({ _id: { $in: draftIds } }).session(session);
-
-    const validUnitDraftIdsToDelete = units
-      .filter((u: any) => u._id && mongoose.isValidObjectId(u._id.toString()))
-      .map((u: any) => u._id);
 
     if (validUnitDraftIdsToDelete.length > 0) {
       await Unit.deleteMany({
@@ -433,11 +536,10 @@ export async function publishProperty(draftId: string, context: RBACContext) {
       }).session(session);
     }
 
-    await session.commitTransaction();
     return { success: true, publishedId: draftToPublishedMap.get(draftId) };
-
+    });
+    return result;
   } catch (error) {
-    await session.abortTransaction();
     throw error;
   } finally {
     session.endSession();
@@ -455,19 +557,17 @@ export async function publishProperty(draftId: string, context: RBACContext) {
 export async function clonePropertyToDraft(publishedId: string, context: RBACContext) {
   const session = await mongoose.startSession();
   try {
-    session.startTransaction();
+    const result = await session.withTransaction(async () => {
+      const rootPublished = await Property.findOne({ _id: publishedId, ...getOwnershipQuery(context), status: 'published' }).session(session);
+      if (!rootPublished) throw new Error("Published property not found or unauthorized");
 
-    const rootPublished = await Property.findOne({ _id: publishedId, ...getOwnershipQuery(context), status: 'published' }).session(session);
-    if (!rootPublished) throw new Error("Published property not found or unauthorized");
-
-    // --- Guard Layer 1: Check forward link on published doc ---
-    if (rootPublished.draftId) {
-      const existingDraft = await Property.findOne({ _id: rootPublished.draftId, status: 'draft' }).session(session);
-      if (existingDraft) {
-        await session.commitTransaction();
-        console.log(`[clonePropertyToDraft] Returning existing draft via draftId link: ${existingDraft._id}`);
-        return { success: true, draftId: existingDraft._id };
-      }
+      // --- Guard Layer 1: Check forward link on published doc ---
+      if (rootPublished.draftId) {
+        const existingDraft = await Property.findOne({ _id: rootPublished.draftId, status: 'draft' }).session(session);
+        if (existingDraft) {
+          console.log(`[clonePropertyToDraft] Returning existing draft via draftId link: ${existingDraft._id}`);
+          return { success: true, draftId: existingDraft._id };
+        }
       // Stale link — clear it and continue to create a fresh clone
       console.warn(`[clonePropertyToDraft] Stale draftId=${rootPublished.draftId} on published doc ${publishedId}. Clearing and re-cloning.`);
       await Property.updateOne({ _id: publishedId }, { $unset: { draftId: "" } }, { session });
@@ -487,7 +587,6 @@ export async function clonePropertyToDraft(publishedId: string, context: RBACCon
         { $set: { draftId: existingDraftByBackRef._id } },
         { session }
       );
-      await session.commitTransaction();
       console.log(`[clonePropertyToDraft] Returning existing draft via back-reference query: ${existingDraftByBackRef._id}`);
       return { success: true, draftId: existingDraftByBackRef._id };
     }
@@ -599,13 +698,12 @@ export async function clonePropertyToDraft(publishedId: string, context: RBACCon
       await Unit.create([draftUnitData], { session });
     }
 
-    await session.commitTransaction();
     const newDraftId = publishedToDraftMap.get(publishedId);
     console.log(`[clonePropertyToDraft] Created fresh draft hierarchy. Root draft: ${newDraftId}`);
     return { success: true, draftId: newDraftId };
-
+    });
+    return result;
   } catch (error) {
-    await session.abortTransaction();
     throw error;
   } finally {
     session.endSession();
@@ -618,63 +716,62 @@ export async function clonePropertyToDraft(publishedId: string, context: RBACCon
 export async function submitPropertyForApproval(draftId: string, context: RBACContext) {
   const session = await mongoose.startSession();
   try {
-    session.startTransaction();
+    const result = await session.withTransaction(async () => {
+      const rootDraft = await Property.findOne({ _id: draftId, ...getOwnershipQuery(context), status: { $in: ['draft', 'pending'] } }).session(session);
+      if (!rootDraft) {
+          const exists = await Property.findById(draftId).session(session).lean();
+          if (!exists) throw new Error("DRAFT_NOT_FOUND: The draft you are trying to publish no longer exists.");
+          if ((exists as any).builderId.toString() !== context.userId.toString() && context.role !== 'mandate') throw new Error("UNAUTHORIZED_ACCESS: You do not have permission to publish this draft.");
+          if ((exists as any).status !== 'draft' && (exists as any).status !== 'pending') throw new Error(`INVALID_STATUS: This property is already ${(exists as any).status}.`);
 
-    const rootDraft = await Property.findOne({ _id: draftId, ...getOwnershipQuery(context), status: { $in: ['draft', 'pending'] } }).session(session);
-    if (!rootDraft) {
-        const exists = await Property.findById(draftId).session(session).lean();
-        if (!exists) throw new Error("DRAFT_NOT_FOUND: The draft you are trying to publish no longer exists.");
-        if ((exists as any).builderId.toString() !== context.userId.toString() && context.role !== 'mandate') throw new Error("UNAUTHORIZED_ACCESS: You do not have permission to publish this draft.");
-        if ((exists as any).status !== 'draft' && (exists as any).status !== 'pending') throw new Error(`INVALID_STATUS: This property is already ${(exists as any).status}.`);
+          throw new Error("Draft not found or unauthorized");
+      }
 
-        throw new Error("Draft not found or unauthorized");
-    }
+      // Get all drafts in hierarchy
+      let allDrafts: any[] = [rootDraft];
+      let idsToSearch = [draftId];
+      while (idsToSearch.length > 0) {
+        const children = await Property.find({ parentId: { $in: idsToSearch }, status: { $in: ['draft', 'pending'] } }).session(session);
+        if (children.length === 0) break;
+        allDrafts.push(...children);
+        idsToSearch = children.map(c => c._id.toString());
+      }
 
-    // Get all drafts in hierarchy
-    let allDrafts: any[] = [rootDraft];
-    let idsToSearch = [draftId];
-    while (idsToSearch.length > 0) {
-      const children = await Property.find({ parentId: { $in: idsToSearch }, status: { $in: ['draft', 'pending'] } }).session(session);
-      if (children.length === 0) break;
-      allDrafts.push(...children);
-      idsToSearch = children.map(c => c._id.toString());
-    }
+      const draftIds = allDrafts.map(d => d._id);
 
-    const draftIds = allDrafts.map(d => d._id);
+      // Update Properties to pending
+      await Property.updateMany(
+        { _id: { $in: draftIds } },
+        {
+          $set: {
+            status: 'pending',
+            submittedAt: new Date(),
+            rejectionReason: null
+          }
+        },
+        { session }
+      );
 
-    // Update Properties to pending
-    await Property.updateMany(
-      { _id: { $in: draftIds } },
-      {
-        $set: {
-          status: 'pending',
-          submittedAt: new Date(),
-          rejectionReason: null
-        }
-      },
-      { session }
-    );
+      // Update Units to pending
+      await Unit.updateMany(
+        {
+          status: { $in: ['draft', 'pending'] },
+          $or: [{ towerId: { $in: draftIds } }, { projectId: { $in: draftIds } }]
+        },
+        {
+          $set: {
+            status: 'pending',
+            submittedAt: new Date(),
+            rejectionReason: null
+          }
+        },
+        { session }
+      );
 
-    // Update Units to pending
-    await Unit.updateMany(
-      {
-        status: { $in: ['draft', 'pending'] },
-        $or: [{ towerId: { $in: draftIds } }, { projectId: { $in: draftIds } }]
-      },
-      {
-        $set: {
-          status: 'pending',
-          submittedAt: new Date(),
-          rejectionReason: null
-        }
-      },
-      { session }
-    );
-
-    await session.commitTransaction();
-    return { success: true };
+      return { success: true };
+    });
+    return result;
   } catch (error) {
-    await session.abortTransaction();
     throw error;
   } finally {
     session.endSession();

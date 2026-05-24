@@ -30,6 +30,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (body.location !== undefined)      $set.location = body.location;
     if (body.details !== undefined)       $set.details = body.details;
     if (body.lastSavedStep !== undefined) $set.lastSavedStep = body.lastSavedStep;
+    if (body.parentId !== undefined)      $set.parentId = body.parentId;
 
     // If a property was "pending", editing it reverts it to "draft" so they must resubmit
     $set.status = "draft";

@@ -99,6 +99,8 @@ interface UseAutoDraftOptions {
    * publishedId before the URL ?edit param is updated.
    */
   forcedDraftId?: string | null
+  generatedTowers?: any[]
+  generatedUnits?: any[]
 }
 
 export function useAutoDraft({
@@ -108,6 +110,8 @@ export function useAutoDraft({
   debounceMs = 10000,
   enabled = true,
   forcedDraftId,
+  generatedTowers,
+  generatedUnits,
 }: UseAutoDraftOptions): AutoDraftState {
   const [draftIds, setDraftIds] = useState<DraftIds>(() => loadDraftIds(flowType, forcedDraftId))
   const [isSaving, setIsSaving] = useState(false)
@@ -226,6 +230,7 @@ export function useAutoDraft({
           location: safeLocation,
           details: payload.details ?? {},
           lastSavedStep: currentStep,
+          ...(payload.parentId ? { parentId: payload.parentId } : {}),
         }),
       })
       if (!res.ok) {
@@ -295,7 +300,11 @@ export function useAutoDraft({
         // including any IDs injected after a clone-to-draft resolve.
         const newIds: DraftIds = { ...draftIdsRef.current }
 
-        const fullStateSnapshot = state
+        const fullStateSnapshot = {
+          ...state,
+          ...(generatedTowers ? { generatedTowers } : {}),
+          ...(generatedUnits ? { generatedUnits } : {}),
+        }
 
         if (flowType === "township") {
           const tp = state.township

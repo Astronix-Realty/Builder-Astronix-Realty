@@ -54,30 +54,7 @@ function normalizeCollectionUnit(u: any, towerId: string, projectId: string | nu
   };
 }
 
-// ─── Helper: Normalize a unit embedded in property.details.generatedUnits ────
 
-function normalizeEmbeddedUnit(u: any, towerId: string, projectId: string | null): NormalizedUnit {
-  const id = u._id?.toString() || u.id || u.originalId || `${towerId}-${u.unitNumber}-${u.floorNumber}`;
-  return {
-    _id: id,
-    id,
-    unitNumber: u.unitNumber || "",
-    floorNumber: u.floorNumber || u.floor || 0,
-    configuration: u.configuration || u.type || "",
-    area: u.area || u.carpetArea || 0,
-    price: u.price || 0,
-    ratePerSqft: u.ratePerSqft || 0,
-    status: u.status || "available",
-    towerId,
-    projectId,
-    customerName: u.customerName || "",
-    customerPhone: u.customerPhone || "",
-    bookingAmount: u.bookingAmount || 0,
-    bookingDate: u.bookingDate || null,
-    facing: u.facing || "",
-    source: "embedded",
-  };
-}
 
 // ─── Helper: Fetch units for a set of tower IDs ───────────────────────────────
 // Multi-strategy: tries Unit collection first, then falls back to embedded units
@@ -93,54 +70,62 @@ async function fetchUnitsForTowers(
   if (towerDocs.length === 0) return [];
 
   const towerMongoIds = towerDocs.map((t) => t._id);
-  const towerIdStrs = towerDocs.map((t) => t._id.toString());
 
-  // ── Strategy 1: Unit collection ──────────────────────────────────────────
-  // Include ALL non-draft/non-pending/non-rejected statuses
   const INVENTORY_STATUSES = ["available", "sold", "blocked", "reserved", "booked", "published", "archived"];
 
   const unitQuery: any = {
     towerId: { $in: towerMongoIds },
-    status: { $in: INVENTORY_STATUSES },
-    ...ownershipQuery
+    status: { $in: INVENTORY_STATUSES }
+    // Intentionally omitting ownershipQuery here to allow all units of the visible tower to be shown
   };
 
   let collectionUnits = await Unit.find(unitQuery).session(session as any).lean();
 
-  // If nothing found via status whitelist, try without status filter (broader net)
   if (collectionUnits.length === 0) {
     collectionUnits = await Unit.find({
       towerId: { $in: towerMongoIds },
-      status: { $nin: ["draft", "pending", "rejected"] },
-      ...ownershipQuery
+      status: { $nin: ["draft", "rejected"] }
     }).session(session as any).lean();
   }
 
+  const unitsToReturn: NormalizedUnit[] = [];
+
   if (collectionUnits.length > 0) {
-    return collectionUnits.map((u: any) => {
+    unitsToReturn.push(...collectionUnits.map((u: any) => {
       const uTowerId = u.towerId?.toString() || "";
       const uProjectId = u.projectId?.toString() || projectIdStr;
       return normalizeCollectionUnit(u, uTowerId, uProjectId);
-    });
-  }
-
-  // ── Strategy 2: Extract from Property.details.generatedUnits ─────────────
-  // Some older drafts or properties store units embedded in the property document
-  const embeddedUnits: NormalizedUnit[] = [];
-
-  for (const towerDoc of towerDocs) {
-    const towerIdStr = towerDoc._id.toString();
-    const embeds = towerDoc.details?.generatedUnits;
-
-    if (embeds && Array.isArray(embeds) && embeds.length > 0) {
-      for (const u of embeds) {
-        // Defensive: even if u.towerId is a frontend UUID, if it's inside towerDoc.details.generatedUnits, it belongs here.
-        embeddedUnits.push(normalizeEmbeddedUnit(u, towerIdStr, projectIdStr));
+    }));
+  } else {
+    // Fallback: Extract from embedded generatedUnits
+    for (const tower of towerDocs) {
+      if (tower.details?.generatedUnits && Array.isArray(tower.details.generatedUnits)) {
+        unitsToReturn.push(...tower.details.generatedUnits.map((u: any) => {
+          return {
+            _id: u.id || u.originalId || u._id?.toString() || `${tower._id.toString()}-${u.unitNumber}-${u.floorNumber}`,
+            id: u.id || u.originalId || u._id?.toString() || `${tower._id.toString()}-${u.unitNumber}-${u.floorNumber}`,
+            unitNumber: u.unitNumber || "",
+            floorNumber: u.floorNumber || u.floor || 0,
+            configuration: u.configuration || u.type || "",
+            area: u.area || u.carpetArea || 0,
+            price: u.price || 0,
+            ratePerSqft: u.ratePerSqft || 0,
+            status: u.status || "available",
+            towerId: tower._id.toString(),
+            projectId: projectIdStr,
+            customerName: u.customerName || "",
+            customerPhone: u.customerPhone || "",
+            bookingAmount: u.bookingAmount || 0,
+            bookingDate: u.bookingDate || null,
+            facing: u.facing || "",
+            source: "embedded",
+          };
+        }));
       }
     }
   }
 
-  return embeddedUnits;
+  return unitsToReturn;
 }
 
 // ─── Helper: Recursively collect all towers and units ────────────────────────
@@ -159,6 +144,7 @@ async function buildHierarchy(
     const projectDocs = await Property.find({
       parentId: rootProperty._id,
       isDeleted: false,
+      status: { $nin: ["draft", "rejected"] },
       type: "project",
       ...ownershipQuery
     })
@@ -171,6 +157,7 @@ async function buildHierarchy(
       const towerDocs = await Property.find({
         parentId: proj._id,
         isDeleted: false,
+        status: { $nin: ["draft", "rejected"] },
         type: "tower",
         ...ownershipQuery
       })
@@ -201,10 +188,11 @@ async function buildHierarchy(
       });
     }
 
-    // Also fetch direct Towers belonging to the Township (not inside any Project)
+    // Direct towers of the township
     const directTowerDocs = await Property.find({
       parentId: rootProperty._id,
       isDeleted: false,
+      status: { $nin: ["draft", "rejected"] },
       type: "tower",
       ...ownershipQuery
     })
@@ -212,16 +200,16 @@ async function buildHierarchy(
       .lean() as any[];
 
     if (directTowerDocs.length > 0) {
-      const directTowerUnits = await fetchUnitsForTowers(directTowerDocs, null, ownershipQuery);
-      allUnits.push(...directTowerUnits);
+      const directProjectUnits = await fetchUnitsForTowers(directTowerDocs, null, ownershipQuery);
+      allUnits.push(...directProjectUnits);
 
       for (const tower of directTowerDocs) {
         const towerIdStr = tower._id.toString();
-        const towerUnitCount = directTowerUnits.filter((u) => u.towerId === towerIdStr).length;
+        const towerUnitCount = directProjectUnits.filter((u) => u.towerId === towerIdStr).length;
         towers.push({
           _id: towerIdStr,
-          name: tower.name || "Unnamed Tower",
-          projectId: null,
+          name: tower.name || "System Generated Tower",
+          projectId: "unknown",
           floorCount: tower.details?.floors || 0,
           unitCount: towerUnitCount,
         });
@@ -234,6 +222,7 @@ async function buildHierarchy(
     const towerDocs = await Property.find({
       parentId: rootProperty._id,
       isDeleted: false,
+      status: { $nin: ["draft", "rejected"] },
       type: "tower",
       ...ownershipQuery
     })
@@ -298,7 +287,10 @@ export async function GET(
 
     await dbConnect();
 
-    const ownershipQuery = getOwnershipQuery(context!);
+    let ownershipQuery = getOwnershipQuery(context!);
+    if (context!.role === "builder") {
+      ownershipQuery = { builderId: context!.userId, role: { $ne: 'mandate' } };
+    }
 
     // 1. Verify root property ownership — no status restriction so draft previews also work
     //    (inventory API called after publishing, but being lenient here lets dev test)
