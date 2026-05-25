@@ -294,8 +294,24 @@ function BuilderContent() {
 
   const generatedTowers = useMemo<GeneratedTower[]>(() => {
     return (towers || []).filter(Boolean).map((tower) => {
-      const floors = Number.parseInt(String(tower.totalFloors || "").replace(/\D/g, "")) || 20
-      const unitsPerFloor = Number.parseInt(String(tower.unitsPerFloor || "")) || 4
+      const towerConfig = towerUnitConfigs?.find((c) => c.towerId === tower.id)
+      const floorGroups = towerConfig?.floorGroups || unitTemplate?.floorGroups || []
+      
+      let floors = Number.parseInt(String(tower.totalFloors || "").replace(/\D/g, ""))
+      let unitsPerFloor = Number.parseInt(String(tower.unitsPerFloor || ""))
+
+      if (!floors && floorGroups.length > 0) {
+        const allFloors = floorGroups.flatMap(g => g.floors || [])
+        floors = allFloors.length > 0 ? Math.max(...allFloors) : 0
+      }
+      if (!floors) floors = 20
+
+      if (!unitsPerFloor && floorGroups.length > 0) {
+        const allLayouts = floorGroups.map(g => (g.layout || []).length)
+        unitsPerFloor = allLayouts.length > 0 ? Math.max(...allLayouts) : 0
+      }
+      if (!unitsPerFloor) unitsPerFloor = 4
+
       return {
         id: tower.id,
         projectId: tower.projectId,
@@ -303,10 +319,10 @@ function BuilderContent() {
         reraNumber: tower.reraNumber,
         totalFloors: floors,
         unitsPerFloor,
-        totalUnits: floors * unitsPerFloor,
+        totalUnits: floors * unitsPerFloor, // This gets overridden by the true count in the sync effect
       }
     })
-  }, [towers])
+  }, [towers, towerUnitConfigs, unitTemplate])
 
   const generatedUnits = useMemo<GeneratedUnit[]>(() => {
     const units: GeneratedUnit[] = []
@@ -316,6 +332,7 @@ function BuilderContent() {
 
     generatedTowers.forEach((tower) => {
       const towerConfig = towerUnitConfigs?.find((c) => c.towerId === tower.id)
+      const floorGroups = towerConfig?.floorGroups || unitTemplate?.floorGroups || []
       const configs = towerConfig?.configurations || unitTemplate?.configurations || []
       const basePrice = towerConfig?.basePrice
         ? Number.parseFloat(towerConfig.basePrice)
@@ -328,7 +345,55 @@ function BuilderContent() {
       let unitNumber = 0
       const totalFloors = tower.totalFloors || 0
       
-      if (Array.isArray(configs)) {
+      if (floorGroups && floorGroups.length > 0) {
+        // Collect all unique floors across all groups
+        const allFloorsSet = new Set<number>()
+        floorGroups.forEach(g => (g.floors || []).forEach(f => allFloorsSet.add(f)))
+        const allFloors = Array.from(allFloorsSet).sort((a, b) => a - b)
+
+        allFloors.forEach(floor => {
+          // Find the primary group for this floor (matches Live Tower Map logic)
+          const group = floorGroups.find(g => (g.floors || []).includes(floor))
+          if (!group || !group.layout) return
+
+          group.layout.forEach(slot => {
+            const config = configs.find(c => c.id === slot.configId) || configs[0]
+            if (!config) return
+            
+            unitNumber++
+            const facing = slot.facingOverride || facings[(unitNumber - 1) % facings.length]
+            const carpetArea = slot.carpetAreaOverride || config.carpetArea || 0
+            let finalPrice = slot.priceOverride || (carpetArea * ratePerSqft || basePrice)
+
+            const floorRiseStart = 5
+            if (floor >= floorRiseStart) {
+              const floorDiff = floor - floorRiseStart
+              const risePercent = 0.5 / 100
+              finalPrice = finalPrice * (1 + floorDiff * risePercent)
+            }
+
+            const premiumValue = facingPremiums[facing as keyof typeof facingPremiums]
+            const facingPremium = (Number.parseFloat(String(premiumValue || "0")) || 0) / 100
+            finalPrice = finalPrice * (1 + facingPremium)
+
+            units.push({
+              id: `unit-${tower.id}-${floor}-${slot.slotNumber}`,
+              towerId: tower.id,
+              projectId: tower.projectId,
+              unitNumber: `${tower.name?.replace("Tower ", "") || "T"}-${floor}${slot.slotNumber.padStart(2, "0")}`,
+              floor,
+              floorNumber: floor,
+              configuration: slot.typeOverride || config?.type || "1BHK",
+              carpetArea,
+              area: carpetArea,
+              price: Math.round(finalPrice),
+              facing,
+              status: slot.status || "available",
+            })
+          })
+        })
+      } else if (Array.isArray(configs)) {
+        // Fallback to basic countPerFloor logic if no floorGroups
         for (let floor = 1; floor <= totalFloors; floor++) {
           configs.forEach((config: any) => {
             const countPerFloor = config?.countPerFloor || 0
@@ -353,6 +418,7 @@ function BuilderContent() {
               units.push({
                 id: `unit-${tower.id}-${floor}-${unitNumber}`,
                 towerId: tower.id,
+                projectId: tower.projectId,
                 unitNumber: `${tower.name?.replace("Tower ", "") || "T"}-${floor}${String(unitNumber % 100).padStart(2, "0")}`,
                 floor,
                 floorNumber: floor,
@@ -455,8 +521,8 @@ function BuilderContent() {
       return `${formatPrice(min)} – ${formatPrice(max)}`
     }
 
-    // ── UPWARD PRICING SYNC ──
-    // 1. Calculate Tower Prices from Unit Configs
+    // ── UPWARD PRICING & COUNTS SYNC ──
+    // 1. Calculate Tower Prices & Counts from Unit Configs & Generated Units
     const updatedTowers = [...(state.towers || [])].map(tower => {
       const config = state.towerUnitConfigs?.find(c => c.towerId === tower.id)
       let configs = config?.configurations || []
@@ -464,6 +530,12 @@ function BuilderContent() {
       // Fallback to global template if tower config is empty or has no prices
       if (configs.length === 0 || !configs.some((c: any) => (c.allInclusivePrice || 0) > 0)) {
         configs = state.unitTemplate?.configurations || []
+      }
+
+      const towerUnitsCount = (state?.generatedUnits || []).filter(u => u.towerId === tower.id).length;
+      let newTower = { ...tower };
+      if (newTower.totalUnits !== towerUnitsCount) {
+        newTower.totalUnits = towerUnitsCount;
       }
 
       if (configs.length > 0) {
@@ -477,21 +549,28 @@ function BuilderContent() {
           const shouldUpdateLabel = !tower.priceLabel || tower.priceLabel.includes("L") || tower.priceLabel.includes("Cr")
           
           if (tower.priceRangeMin !== min || tower.priceRangeMax !== max || (shouldUpdateLabel && tower.priceLabel !== autoLabel)) {
-            return { 
-              ...tower, 
-              priceRangeMin: min, 
-              priceRangeMax: max, 
-              priceLabel: shouldUpdateLabel ? autoLabel : tower.priceLabel 
-            }
+            newTower.priceRangeMin = min;
+            newTower.priceRangeMax = max;
+            newTower.priceLabel = shouldUpdateLabel ? autoLabel : tower.priceLabel;
           }
         }
       }
-      return tower
+      return newTower
     })
 
-    // 2. Calculate Project Prices from Towers
+    // 2. Calculate Project Prices & Counts from Towers
     const updatedProjects = [...(state.projects || [])].map(proj => {
       const projTowers = updatedTowers.filter(t => t.projectId === proj.id)
+      
+      let newProj = { ...proj };
+      const projectTowersCount = projTowers.length;
+      const projectUnitsCount = projTowers.reduce((acc, t) => acc + (t.totalUnits || 0), 0);
+      
+      if (newProj.totalTowers !== projectTowersCount || newProj.totalUnits !== projectUnitsCount) {
+        newProj.totalTowers = projectTowersCount;
+        newProj.totalUnits = projectUnitsCount;
+      }
+
       if (projTowers.length > 0) {
         const mins = projTowers.map(t => t.priceRangeMin).filter(p => p > 0)
         const maxs = projTowers.map(t => t.priceRangeMax).filter(p => p > 0)
@@ -502,16 +581,13 @@ function BuilderContent() {
           const shouldUpdateLabel = !proj.priceLabel || proj.priceLabel.includes("L") || proj.priceLabel.includes("Cr")
           
           if (proj.priceRangeMin !== min || proj.priceRangeMax !== max || (shouldUpdateLabel && proj.priceLabel !== autoLabel)) {
-            return { 
-              ...proj, 
-              priceRangeMin: min, 
-              priceRangeMax: max, 
-              priceLabel: shouldUpdateLabel ? autoLabel : proj.priceLabel 
-            }
+            newProj.priceRangeMin = min;
+            newProj.priceRangeMax = max;
+            newProj.priceLabel = shouldUpdateLabel ? autoLabel : proj.priceLabel;
           }
         }
       }
-      return proj
+      return newProj
     })
 
     // 3. Calculate Township Prices from Projects
@@ -561,7 +637,7 @@ function BuilderContent() {
         projects: updatedProjects
       }))
     }
-  }, [state.projects, state.towers, state.towerUnitConfigs, state.township.name])
+  }, [state.projects, state.towers, state.towerUnitConfigs, state.township.name, state.generatedUnits])
 
   const handleAddProject = useCallback(() => {
     const safeProjects = state.projects.filter(Boolean)

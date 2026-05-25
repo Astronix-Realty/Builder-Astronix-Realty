@@ -100,7 +100,31 @@ async function fetchUnitsForTowers(
     // Fallback: Extract from embedded generatedUnits
     for (const tower of towerDocs) {
       if (tower.details?.generatedUnits && Array.isArray(tower.details.generatedUnits)) {
-        unitsToReturn.push(...tower.details.generatedUnits.map((u: any) => {
+        let frontendTowerId: string | null = null;
+
+        // Attempt 1: Find frontend ID using autoDraftIds
+        if (tower.details._autoDraftIds?.towerMap) {
+          const towerMap = tower.details._autoDraftIds.towerMap;
+          frontendTowerId = Object.keys(towerMap).find((k) => towerMap[k] === tower._id.toString()) || null;
+        }
+
+        // Attempt 2: Match by name in details.towers
+        if (!frontendTowerId && Array.isArray(tower.details.towers)) {
+          const matchedTower = tower.details.towers.find((t: any) => t.name === tower.name);
+          if (matchedTower) {
+            frontendTowerId = matchedTower.id;
+          }
+        }
+
+        // Filter units to only those belonging to this tower
+        const relevantUnits = tower.details.generatedUnits.filter((u: any) => {
+          if (!u.towerId) return true; // Edge case: no towerId
+          if (frontendTowerId && u.towerId === frontendTowerId) return true;
+          if (u.towerId === tower._id.toString()) return true;
+          return false;
+        });
+
+        unitsToReturn.push(...relevantUnits.map((u: any) => {
           return {
             _id: u.id || u.originalId || u._id?.toString() || `${tower._id.toString()}-${u.unitNumber}-${u.floorNumber}`,
             id: u.id || u.originalId || u._id?.toString() || `${tower._id.toString()}-${u.unitNumber}-${u.floorNumber}`,
@@ -111,7 +135,7 @@ async function fetchUnitsForTowers(
             price: u.price || 0,
             ratePerSqft: u.ratePerSqft || 0,
             status: u.status || "available",
-            towerId: tower._id.toString(),
+            towerId: tower._id.toString(), // Safely set to DB ID now
             projectId: projectIdStr,
             customerName: u.customerName || "",
             customerPhone: u.customerPhone || "",

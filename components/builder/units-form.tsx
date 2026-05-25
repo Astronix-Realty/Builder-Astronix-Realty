@@ -47,11 +47,9 @@ export function UnitsForm({
                     const existingIdx = mergedGroups.findIndex(g => g.id === gg.id);
                     if (existingIdx >= 0) {
                         const existing = mergedGroups[existingIdx];
-                        const hasCustomFloors = existing.floors && existing.floors.length > 0;
                         mergedGroups[existingIdx] = {
                             ...gg,
-                            floors: hasCustomFloors ? existing.floors : gg.floors,
-                            floorRange: hasCustomFloors ? existing.floorRange : gg.floorRange
+                            ...existing,
                         };
                     }
                 }
@@ -71,14 +69,11 @@ export function UnitsForm({
                 } else {
                     const existingIdx = mergedConfigs.findIndex(c => c.id === gc.id);
                     if (existingIdx >= 0) {
+                        const existing = mergedConfigs[existingIdx];
                         mergedConfigs[existingIdx] = {
                             ...gc,
-                            isRateOverridden: mergedConfigs[existingIdx].isRateOverridden,
-                            ratePerSqft: mergedConfigs[existingIdx].isRateOverridden ? mergedConfigs[existingIdx].ratePerSqft : gc.ratePerSqft,
-                            basePrice: mergedConfigs[existingIdx].isRateOverridden ? mergedConfigs[existingIdx].basePrice : gc.basePrice,
-                            allInclusivePrice: mergedConfigs[existingIdx].isRateOverridden ? mergedConfigs[existingIdx].allInclusivePrice : gc.allInclusivePrice,
-                            totalTaxes: mergedConfigs[existingIdx].isRateOverridden ? mergedConfigs[existingIdx].totalTaxes : gc.totalTaxes,
-                        }
+                            ...existing,
+                        };
                     }
                 }
             });
@@ -86,8 +81,9 @@ export function UnitsForm({
 
             return {
                 ...data, // Include any missing global inherited fields like posessionDate, GST, etc.
+                ...config, // Override with specific tower config settings
                 towerId: config.towerId,
-                baseRatePerSqft: config.ratePerSqft || data.baseRatePerSqft,
+                baseRatePerSqft: config.ratePerSqft || config.baseRatePerSqft || data.baseRatePerSqft,
                 facingPremiums: config.facingPremiums || data.facingPremiums,
                 configurations: mergedConfigs,
                 floorGroups: mergedGroups,
@@ -248,6 +244,7 @@ export function UnitsForm({
                                         const next = [...(towerConfigs || [])]
                                         const idx = next.findIndex(c => c.towerId === activeTowerId)
                                         const newTowerConfig: TowerUnitConfig = {
+                                            ...updated,
                                             towerId: activeTowerId,
                                             configurations: updated.configurations,
                                             floorGroups: updated.floorGroups || [],

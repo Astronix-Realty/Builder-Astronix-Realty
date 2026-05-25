@@ -1038,13 +1038,13 @@ export type { TownshipData as TownshipDataLegacy }
 export type ProjectTemplate = Pick<ProjectData, "name" | "tagType" | "constructionStatus" | "bhkConfigs">
 export type TowerTemplate = Pick<TowerData, "totalFloors" | "unitsPerFloor" | "liftsConfiguration" | "constructionStatus">
 
-export interface TowerUnitConfig {
+export interface TowerUnitConfig extends Partial<UnitTemplate> {
   towerId: string
   configurations: UnitConfiguration[]
   floorGroups: FloorGroup[]
-  basePrice: string
-  ratePerSqft: string
-  facingPremiums: FacingPremium
+  basePrice?: string
+  ratePerSqft?: string
+  facingPremiums?: FacingPremium
 }
 
 // Legacy WizardState for backward compatibility with existing code

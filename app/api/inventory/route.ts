@@ -10,33 +10,6 @@ export const revalidate = 0;
 // Unit statuses that represent active inventory (not pre-publication states)
 const INVENTORY_STATUSES = ["available", "sold", "blocked", "reserved", "booked", "published", "archived"];
 
-/**
- * Count units for a set of tower property documents.
- * Multi-strategy: tries Unit collection first, then falls back to embedded details.generatedUnits
- */
-async function countUnitsForTowers(towerDocs: any[], ownershipQuery: Record<string, any>): Promise<number> {
-  if (towerDocs.length === 0) return 0;
-
-  const towerMongoIds = towerDocs.map((t) => t._id);
-
-  // Strategy 1: Unit collection (published units)
-  let count = await Unit.countDocuments({
-    towerId: { $in: towerMongoIds },
-    status: { $in: INVENTORY_STATUSES },
-    ...ownershipQuery,
-  });
-
-  if (count === 0) {
-    // Broader net - any non-draft/pending/rejected unit
-    count = await Unit.countDocuments({
-      towerId: { $in: towerMongoIds },
-      status: { $nin: ["draft", "pending", "rejected"] },
-      ...ownershipQuery,
-    });
-  }
-
-  return count;
-}
 
 /**
  * GET /api/inventory
@@ -82,51 +55,16 @@ export async function GET(req: NextRequest) {
         let unitCount = 0;
 
         if (prop.type === "township") {
-          const projects = await Property.find({
-            parentId: prop._id,
-            type: "project",
-            isDeleted: false,
-            status: { $nin: ["draft", "rejected"] },
-            ...ownershipQuery,
-          })
-            .select("_id name")
-            .lean();
-
-          projectCount = projects.length;
-
-          const projectIds = projects.map((p: any) => p._id);
-          const towerDocs = await Property.find({
-            $or: [
-              { parentId: { $in: projectIds } },
-              { parentId: prop._id }
-            ],
-            type: "tower",
-            isDeleted: false,
-            status: { $nin: ["draft", "rejected"] },
-            ...ownershipQuery,
-          })
-            .select("_id name details")
-            .lean();
-
-          towerCount = towerDocs.length;
-          unitCount = await countUnitsForTowers(towerDocs, ownershipQuery);
+          projectCount = prop.details?.projectCount || 0;
+          towerCount = prop.details?.totalTowers || 0;
+          unitCount = prop.details?.totalUnits || 0;
         } else if (prop.type === "project") {
           projectCount = 1;
-          const towerDocs = await Property.find({
-            parentId: prop._id,
-            type: "tower",
-            isDeleted: false,
-            status: { $nin: ["draft", "rejected"] },
-            ...ownershipQuery,
-          })
-            .select("_id name details")
-            .lean();
-
-          towerCount = towerDocs.length;
-          unitCount = await countUnitsForTowers(towerDocs, ownershipQuery);
+          towerCount = prop.details?.totalTowers || 0;
+          unitCount = prop.details?.totalUnits || 0;
         } else if (prop.type === "tower") {
           towerCount = 1;
-          unitCount = await countUnitsForTowers([prop], ownershipQuery);
+          unitCount = prop.details?.totalUnits || 0;
         }
 
         if (process.env.NODE_ENV !== "production") {

@@ -5,6 +5,7 @@ import { extractCloudinaryUrls } from "@/lib/utils/extract-media";
 import { deleteCloudinaryFile } from "@/lib/utils/cloudinary";
 import { generateRandomSlug } from "@/lib/utils/slug";
 import { getOwnershipQuery, RBACContext } from "@/lib/rbac";
+import { aggregateTownshipCounts, aggregateProjectCounts, aggregateTowerCounts } from "@/lib/services/hierarchy-sync";
 
 /**
  * Securely deletes a property and all its descendants (Projects, Towers, Units).
@@ -538,6 +539,21 @@ export async function publishProperty(draftId: string, context: RBACContext) {
 
     return { success: true, publishedId: draftToPublishedMap.get(draftId) };
     });
+    
+    if (result.success && result.publishedId) {
+      // Sync hierarchy counts after successful publish transaction
+      const publishedProp = await Property.findById(result.publishedId).lean();
+      if (publishedProp) {
+        if (publishedProp.type === 'township') {
+          await aggregateTownshipCounts(publishedProp._id);
+        } else if (publishedProp.type === 'project') {
+          await aggregateProjectCounts(publishedProp._id);
+        } else if (publishedProp.type === 'tower') {
+          await aggregateTowerCounts(publishedProp._id);
+        }
+      }
+    }
+    
     return result;
   } catch (error) {
     throw error;

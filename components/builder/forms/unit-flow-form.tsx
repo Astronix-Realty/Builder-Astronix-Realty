@@ -208,7 +208,8 @@ function UnitConfigCard({
                 gstAmount: Math.round(gstAmt),
                 stampDutyAmount: Math.round(stampAmt),
                 totalTaxes: Math.round(taxes),
-                allInclusivePrice: Math.round(allInclusive)
+                allInclusivePrice: Math.round(allInclusive),
+                isRateOverridden: true
             })
         } else if (builtUp !== config.builtUpArea) {
             onChange({ builtUpArea: builtUp, superBuiltUpArea: builtUp })
