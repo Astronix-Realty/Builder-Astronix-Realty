@@ -47,9 +47,9 @@ export function TowersForm({
         if (!confirm(`Are you sure you want to delete "${towerToDelete?.name || `Tower ${idx + 1}`}"? This will also remove all related units.`)) return;
         
         try {
-            await fetch(`/api/towers/${towerToDelete.id}`, { method: 'DELETE' });
+            await fetch(`/api/properties/${towerToDelete.id}/draft`, { method: 'DELETE' });
         } catch (error) {
-            console.error("API delete failed (might be a draft):", error);
+            console.error("API delete failed:", error);
         }
 
         const next = towers.filter(t => t.id !== towerToDelete.id);
