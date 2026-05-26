@@ -420,11 +420,34 @@ function TowerFlowFormBase({ data, unitConfig, unitTemplate, onChange, projectNa
     if (configs.length === 0 || !configs.some((c: any) => (c.allInclusivePrice || 0) > 0)) {
       configs = unitTemplate?.configurations || []
     }
-    const calculatedPerFloor = configs.reduce((sum: number, c: any) => sum + (Number(c.countPerFloor) || 0), 0)
     
-    // Always strictly use the calculated per floor value now that it's read-only
-    const perFloor = calculatedPerFloor
-    const total = floors * perFloor
+    const floorGroups = unitConfig?.floorGroups || unitTemplate?.floorGroups || []
+    let total = 0
+    let calculatedPerFloor = 0
+
+    if (floorGroups.length > 0) {
+      // Collect all unique floors across all groups
+      const allFloorsSet = new Set<number>()
+      floorGroups.forEach((g: any) => (g.floors || []).forEach((f: number) => allFloorsSet.add(f)))
+      let allFloors = Array.from(allFloorsSet).sort((a, b) => a - b)
+      
+      if (floors > 0) {
+        allFloors = allFloors.filter(f => f <= floors)
+      }
+
+      allFloors.forEach(floor => {
+        const group = floorGroups.find((g: any) => (g.floors || []).includes(floor))
+        if (group && group.layout) {
+          total += group.layout.length
+        }
+      })
+      
+      const allLayouts = floorGroups.map((g: any) => (g.layout || []).length)
+      calculatedPerFloor = allLayouts.length > 0 ? Math.max(...allLayouts) : 0
+    } else {
+      calculatedPerFloor = configs.reduce((sum: number, c: any) => sum + (Number(c.countPerFloor) || 0), 0)
+      total = floors * calculatedPerFloor
+    }
     
     const updates: Partial<TowerData> = {}
     if (total !== data.totalUnits) {

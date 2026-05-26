@@ -312,6 +312,26 @@ function BuilderContent() {
       }
       if (!unitsPerFloor) unitsPerFloor = 4
 
+      let totalUnits = floors * unitsPerFloor
+      
+      if (floorGroups.length > 0) {
+        totalUnits = 0
+        const allFloorsSet = new Set<number>()
+        floorGroups.forEach(g => (g.floors || []).forEach(f => allFloorsSet.add(f)))
+        let allFloors = Array.from(allFloorsSet).sort((a, b) => a - b)
+        
+        if (floors > 0) {
+          allFloors = allFloors.filter(f => f <= floors)
+        }
+
+        allFloors.forEach(floor => {
+          const group = floorGroups.find(g => (g.floors || []).includes(floor))
+          if (group && group.layout) {
+            totalUnits += group.layout.length
+          }
+        })
+      }
+
       return {
         id: tower.id,
         projectId: tower.projectId,
@@ -319,7 +339,7 @@ function BuilderContent() {
         reraNumber: tower.reraNumber,
         totalFloors: floors,
         unitsPerFloor,
-        totalUnits: floors * unitsPerFloor, // This gets overridden by the true count in the sync effect
+        totalUnits, // Calculated perfectly based on floor layout slots
       }
     })
   }, [towers, towerUnitConfigs, unitTemplate])

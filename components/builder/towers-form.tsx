@@ -58,7 +58,7 @@ export function TowersForm({
     }
 
     const isComplete = (t: TowerData) =>
-        !!(t.name && t.totalFloors && t.unitsPerFloor && t.reraNumber)
+        !!(t.name && t.totalFloors && t.reraNumber)
 
     const totalTowers = towers.length
     const completedTowers = towers.filter(isComplete).length

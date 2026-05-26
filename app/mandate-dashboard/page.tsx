@@ -290,7 +290,7 @@ function DashboardContent() {
         unitsCount = towers.reduce((total: number, t: any) => {
           const floors = parseInt(t.totalFloors) || t.totalFloorsNum || 0
           const perFloor = parseInt(t.unitsPerFloor) || 0
-          return total + (floors * perFloor)
+          return total + (t.totalUnits || (floors * perFloor))
         }, 0)
       }
 
