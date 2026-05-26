@@ -16,97 +16,124 @@ import { aggregateTownshipCounts, aggregateProjectCounts, aggregateTowerCounts }
  * @param context RBAC context for ownership constraints.
  */
 export async function secureDeleteProperty(propertyId: string, context: RBACContext) {
-  const session = await mongoose.startSession();
   try {
-    const result = await session.withTransaction(async () => {
-      // Step 1: Deep Fetch Descendant IDs across the hierarchy
-      const propertiesToDelete = await Property.find({
-        $or: [{ _id: propertyId }, { parentId: propertyId }],
-        ...getOwnershipQuery(context)
-      }).session(session).lean();
+    // Step 1: Identify all root variants (draft and published versions)
+    const initialProp = await Property.findOne({ 
+      _id: propertyId, 
+      ...getOwnershipQuery(context) 
+    }).lean();
 
-      if (propertiesToDelete.length === 0) {
-        throw new Error("Property not found or unauthorized");
-      }
+    if (!initialProp) {
+      throw new Error("Property not found or unauthorized");
+    }
 
-      let allPropertyIds = new Set<string>([propertyId]);
-      let idsToSearch = [propertyId];
+    // Collect the ID itself, plus any linked draft or published IDs
+    const rootIdsToSearch = [propertyId];
+    if ((initialProp as any).publishedId) rootIdsToSearch.push((initialProp as any).publishedId.toString());
+    if ((initialProp as any).draftId) rootIdsToSearch.push((initialProp as any).draftId.toString());
+    if ((initialProp as any).draftSourceId) rootIdsToSearch.push((initialProp as any).draftSourceId.toString());
 
-      // While loop to traverse n-levels dynamically
-      while (idsToSearch.length > 0) {
-        const children = await Property.find({ parentId: { $in: idsToSearch } }, { _id: 1 }).session(session).lean();
-        const childrenIds = children.map((c: any) => c._id.toString());
+    // Find any properties that claim this as their publishedId or draftSourceId (reverse lookup)
+    const linkedProps = await Property.find({
+      $or: [
+        { publishedId: propertyId },
+        { draftSourceId: propertyId },
+        { draftId: propertyId }
+      ],
+      ...getOwnershipQuery(context)
+    }).lean();
 
-        if (childrenIds.length === 0) break;
+    linkedProps.forEach(p => rootIdsToSearch.push((p as any)._id.toString()));
 
-        childrenIds.forEach(id => allPropertyIds.add(id));
-        idsToSearch = childrenIds;
-      }
+    // Deduplicate the root IDs
+    const uniqueRootIds = Array.from(new Set(rootIdsToSearch));
 
-      const allCollectedPropertyIds = Array.from(allPropertyIds);
+    // Deep Fetch Descendant IDs across the hierarchy for ALL root IDs
+    const propertiesToDelete = await Property.find({
+      $or: [
+        { _id: { $in: uniqueRootIds } }, 
+        { parentId: { $in: uniqueRootIds } }
+      ],
+      ...getOwnershipQuery(context)
+    }).lean();
 
-      // Fetch all full property documents to analyze their URLs
-      const fullProperties = await Property.find({ _id: { $in: allCollectedPropertyIds } }).session(session).lean();
+    if (propertiesToDelete.length === 0) {
+      throw new Error("Property not found or unauthorized");
+    }
 
-      // Step 2: Fetch related Units
-      const unitsToDelete = await Unit.find({
-        $or: [
-          { projectId: { $in: allCollectedPropertyIds } },
-          { towerId: { $in: allCollectedPropertyIds } }
-        ]
-      }).session(session).lean();
+    let allPropertyIds = new Set<string>(uniqueRootIds);
+    let idsToSearch = [...uniqueRootIds];
 
-      const unitIds = unitsToDelete.map(u => u._id);
+    // While loop to traverse n-levels dynamically
+    while (idsToSearch.length > 0) {
+      const children = await Property.find({ parentId: { $in: idsToSearch } }, { _id: 1 }).lean();
+      const childrenIds = children.map((c: any) => c._id.toString());
 
-      // Step 3: Extract Media URLs from everything we are deleting
-      const cloudinaryUrls = new Set<string>();
-      fullProperties.forEach((prop: any) => {
-        extractCloudinaryUrls(prop).forEach(u => cloudinaryUrls.add(u));
-      });
-      unitsToDelete.forEach((unit: any) => {
-        extractCloudinaryUrls(unit).forEach(u => cloudinaryUrls.add(u));
-      });
+      if (childrenIds.length === 0) break;
 
-      // Step 5: Execute atomic Database Transaction
-      await Property.deleteMany({ _id: { $in: allCollectedPropertyIds } }).session(session);
-      
-      // 2. Delete all descendant Units
-      await Unit.deleteMany({ _id: { $in: unitIds } }, { session });
+      childrenIds.forEach(id => allPropertyIds.add(id));
+      idsToSearch = childrenIds;
+    }
 
-      // Step 4: After DB success, trigger Cloudinary deletions
-      let safeToDeleteUrls = [];
-      if (cloudinaryUrls.size > 0) {
-        // Find what IS NOT deleted yet to ensure we don't delete shared media
-        const remainingProperties = await Property.find({}).session(session).lean();
-        const remainingUnits = await Unit.find({}).session(session).lean();
+    const allCollectedPropertyIds = Array.from(allPropertyIds);
 
-        const remainingMedia = new Set<string>();
-        remainingProperties.forEach((prop: any) => extractCloudinaryUrls(prop).forEach(u => remainingMedia.add(u)));
-        remainingUnits.forEach((unit: any) => extractCloudinaryUrls(unit).forEach(u => remainingMedia.add(u)));
+    // Fetch all full property documents to analyze their URLs
+    const fullProperties = await Property.find({ _id: { $in: allCollectedPropertyIds } }).lean();
 
-        const urlsToDelete = Array.from(cloudinaryUrls).filter(url => !remainingMedia.has(url));
-        safeToDeleteUrls = urlsToDelete;
-        
-        // Note: We don't block the transaction on cloudinary failures. 
-        // Orphaned files on Cloudinary are better than partial DB failures.
-        Promise.all(urlsToDelete.map(url => deleteCloudinaryFile(url))).catch(e => {
-          console.error("Failed to delete some files from Cloudinary:", e);
-        });
-      }
+    // Step 2: Fetch related Units
+    const unitsToDelete = await Unit.find({
+      $or: [
+        { projectId: { $in: allCollectedPropertyIds } },
+        { towerId: { $in: allCollectedPropertyIds } }
+      ]
+    }).lean();
 
-      return { 
-        success: true, 
-        propertiesDeleted: allCollectedPropertyIds.length,
-        unitsDeleted: unitIds.length,
-        mediaOrphanedAndDeleted: safeToDeleteUrls.length
-      };
+    const unitIds = unitsToDelete.map(u => u._id);
+
+    // Step 3: Extract Media URLs from everything we are deleting
+    const cloudinaryUrls = new Set<string>();
+    fullProperties.forEach((prop: any) => {
+      extractCloudinaryUrls(prop).forEach(u => cloudinaryUrls.add(u));
     });
-    return result;
+    unitsToDelete.forEach((unit: any) => {
+      extractCloudinaryUrls(unit).forEach(u => cloudinaryUrls.add(u));
+    });
+
+    // Step 4: Execute Database Deletions
+    await Property.deleteMany({ _id: { $in: allCollectedPropertyIds } });
+    
+    // 2. Delete all descendant Units
+    await Unit.deleteMany({ _id: { $in: unitIds } });
+
+    // Step 5: After DB success, trigger Cloudinary deletions
+    let safeToDeleteUrls = [];
+    if (cloudinaryUrls.size > 0) {
+      // Find what IS NOT deleted yet to ensure we don't delete shared media
+      const remainingProperties = await Property.find({}).lean();
+      const remainingUnits = await Unit.find({}).lean();
+
+      const remainingMedia = new Set<string>();
+      remainingProperties.forEach((prop: any) => extractCloudinaryUrls(prop).forEach(u => remainingMedia.add(u)));
+      remainingUnits.forEach((unit: any) => extractCloudinaryUrls(unit).forEach(u => remainingMedia.add(u)));
+
+      const urlsToDelete = Array.from(cloudinaryUrls).filter(url => !remainingMedia.has(url));
+      safeToDeleteUrls = urlsToDelete;
+      
+      // Note: We don't block the execution on cloudinary failures. 
+      Promise.all(urlsToDelete.map(url => deleteCloudinaryFile(url))).catch(e => {
+        console.error("Failed to delete some files from Cloudinary:", e);
+      });
+    }
+
+    return { 
+      success: true, 
+      propertiesDeleted: allCollectedPropertyIds.length,
+      unitsDeleted: unitIds.length,
+      mediaOrphanedAndDeleted: safeToDeleteUrls.length
+    };
   } catch (error) {
-    console.error(`[secureDeleteProperty] Transaction aborted. Rollback applied.`, error);
+    console.error(`[secureDeleteProperty] Deletion failed.`, error);
     throw error;
-  } finally {
-    session.endSession();
   }
 }
 

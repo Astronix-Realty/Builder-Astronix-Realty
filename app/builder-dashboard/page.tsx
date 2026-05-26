@@ -725,8 +725,8 @@ function DashboardContent() {
     }
   }
 
-  // Show loading while checking auth
-  if (isLoading) {
+  // Show loading while checking auth or if user is missing (during redirect)
+  if (isLoading || !currentUser) {
     return (
       <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -837,8 +837,8 @@ function DashboardContent() {
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{currentUser?.profile?.companyName || profile.companyName || "Builder"}</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{currentUser?.email || "builder@astronix.com"}</p>
+              <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{currentUser?.profile?.companyName || profile.companyName || currentUser?.name || ""}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{currentUser?.email || ""}</p>
             </div>
           </div>
           <button

@@ -343,13 +343,19 @@ function BuilderContent() {
       const facingPremiums = towerConfig?.facingPremiums || unitTemplate?.facingPremiums || {}
 
       let unitNumber = 0
-      const totalFloors = tower.totalFloors || 0
+      const totalFloors = parseInt(tower.totalFloors) || parseInt(tower.totalFloorsNum) || 0
       
       if (floorGroups && floorGroups.length > 0) {
         // Collect all unique floors across all groups
         const allFloorsSet = new Set<number>()
         floorGroups.forEach(g => (g.floors || []).forEach(f => allFloorsSet.add(f)))
-        const allFloors = Array.from(allFloorsSet).sort((a, b) => a - b)
+        let allFloors = Array.from(allFloorsSet).sort((a, b) => a - b)
+        
+        // Fix: Ensure we don't generate units for floors beyond the current totalFloors limit
+        // This handles cases where totalFloors was reduced after floorGroups were created
+        if (totalFloors > 0) {
+          allFloors = allFloors.filter(f => f <= totalFloors)
+        }
 
         allFloors.forEach(floor => {
           // Find the primary group for this floor (matches Live Tower Map logic)
@@ -357,8 +363,12 @@ function BuilderContent() {
           if (!group || !group.layout) return
 
           group.layout.forEach(slot => {
-            const config = configs.find(c => c.id === slot.configId) || configs[0]
-            if (!config) return
+            // Fix: Don't return early if config is missing (before Smart Sync).
+            // This ensures units are correctly counted based on layout slots even before configs are generated.
+            const config = configs.find(c => c.id === slot.configId) || configs[0] || { 
+              type: slot.unitTypeOverride || "Pending BHK", 
+              carpetArea: slot.carpetAreaOverride || 0 
+            }
             
             unitNumber++
             const facing = slot.facingOverride || facings[(unitNumber - 1) % facings.length]
@@ -504,7 +514,7 @@ function BuilderContent() {
   // ── Auto-sync township counts & pricing ──────────────────────────────────
   useEffect(() => {
     const towersCount = (state?.towers || []).filter(Boolean).length
-    const unitsCount = (state?.generatedUnits || []).length || 0
+    const unitsCount = (generatedUnits || []).length || 0
     const projectsCount = (state?.projects || []).filter(Boolean).length
     const familiesCount = unitsCount
 
@@ -532,7 +542,8 @@ function BuilderContent() {
         configs = state.unitTemplate?.configurations || []
       }
 
-      const towerUnitsCount = (state?.generatedUnits || []).filter(u => u.towerId === tower.id).length;
+      // Fix: Use the live useMemo `generatedUnits` instead of `state.generatedUnits` which is only updated on Next step.
+      const towerUnitsCount = (generatedUnits || []).filter(u => u.towerId === tower.id).length;
       let newTower = { ...tower };
       if (newTower.totalUnits !== towerUnitsCount) {
         newTower.totalUnits = towerUnitsCount;
@@ -637,7 +648,16 @@ function BuilderContent() {
         projects: updatedProjects
       }))
     }
-  }, [state.projects, state.towers, state.towerUnitConfigs, state.township.name, state.generatedUnits])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    // Stringify complex objects to prevent infinite loops from reference changes
+    JSON.stringify(state.projects), 
+    JSON.stringify(state.towers), 
+    JSON.stringify(state.towerUnitConfigs), 
+    state.township.name, 
+    // Use the live count of generatedUnits so the UI updates instantly
+    generatedUnits.length
+  ])
 
   const handleAddProject = useCallback(() => {
     const safeProjects = state.projects.filter(Boolean)
@@ -988,9 +1008,15 @@ function BuilderContent() {
             <Check className="h-8 w-8 text-green-600" />
           </div>
           <h1 className="text-2xl font-bold mb-2">Properties Created Successfully!</h1>
-          <p className="text-xs text-muted-foreground mb-6">
-            {totalEntities.toLocaleString()} properties have been created and are ready for use.
-          </p>
+          <div className="text-sm text-slate-600 dark:text-slate-400 mb-6 flex flex-col gap-1">
+            <p>The following entities have been generated and saved:</p>
+            <p className="font-medium text-slate-800 dark:text-slate-200 mt-2">
+              {flowType === 'township' && `1 Township, `}
+              {(flowType === 'township' || flowType === 'project') && `${state?.projects?.length || (flowType === 'project' ? 1 : 0)} Project${(state?.projects?.length || 1) !== 1 ? 's' : ''}, `}
+              {`${generatedTowers?.length || 0} Tower${(generatedTowers?.length || 0) !== 1 ? 's' : ''}, `}
+              {`and ${generatedUnits?.length || 0} Unit${(generatedUnits?.length || 0) !== 1 ? 's' : ''}.`}
+            </p>
+          </div>
           <div className="flex gap-3 justify-center">
             <a href={`${currentUser?.role === "mandate" ? "/mandate-dashboard" : "/builder-dashboard"}?tab=properties&filter=published`} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">Go to Dashboard</a>
             <button onClick={() => window.location.reload()} className="px-6 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors font-medium">Create Another</button>

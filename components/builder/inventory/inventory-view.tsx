@@ -1433,12 +1433,12 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                         </TabsList>
 
                         <TabsContent value="status" className="py-4 space-y-4">
-                            <div className="grid grid-cols-2 gap-2.5">
+                            <div className="grid grid-cols-2 gap-3">
                                 {[
-                                    { s: "available" as const, label: "Mark Available", activeLabel: "Unit Available", icon: CheckCircle2, colors: "border-emerald-500 text-emerald-600 hover:bg-emerald-50", activeColors: "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600" },
-                                    { s: "blocked" as const, label: "Block Unit", activeLabel: "Unblock Unit", icon: Lock, colors: "border-slate-400 text-slate-600 hover:bg-slate-50", activeColors: "bg-slate-600 hover:bg-slate-700 text-white border-slate-600" },
-                                    { s: "reserved" as const, label: "Reserve Unit", activeLabel: "Unreserve Unit", icon: Clock, colors: "border-amber-400 text-amber-600 hover:bg-amber-50", activeColors: "bg-amber-500 hover:bg-amber-600 text-white border-amber-500" },
-                                    { s: "sold" as const, label: "Mark as Sold", activeLabel: "Mark Unsold", icon: CircleDollarSign, colors: "border-red-500 text-red-600 hover:bg-red-50", activeColors: "bg-red-600 hover:bg-red-700 text-white border-red-600" },
+                                    { s: "available" as const, label: "Mark Available", activeLabel: "Unit Available", icon: CheckCircle2, colors: "border-emerald-200 dark:border-emerald-900/60 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 dark:bg-slate-950/50", activeColors: "bg-emerald-600 dark:bg-emerald-600 hover:bg-emerald-700 dark:hover:bg-emerald-500 text-white border-emerald-600 shadow-md dark:shadow-emerald-900/20" },
+                                    { s: "blocked" as const, label: "Block Unit", activeLabel: "Unblock Unit", icon: Lock, colors: "border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/80 dark:bg-slate-950/50", activeColors: "bg-slate-600 dark:bg-slate-600 hover:bg-slate-700 dark:hover:bg-slate-500 text-white border-slate-600 shadow-md dark:shadow-slate-900/20" },
+                                    { s: "reserved" as const, label: "Reserve Unit", activeLabel: "Unreserve Unit", icon: Clock, colors: "border-amber-200 dark:border-amber-900/60 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 dark:bg-slate-950/50", activeColors: "bg-amber-500 dark:bg-amber-600 hover:bg-amber-600 dark:hover:bg-amber-500 text-white border-amber-500 dark:border-amber-600 shadow-md dark:shadow-amber-900/20" },
+                                    { s: "sold" as const, label: "Mark as Sold", activeLabel: "Mark Unsold", icon: CircleDollarSign, colors: "border-red-200 dark:border-red-900/60 text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 dark:bg-slate-950/50", activeColors: "bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white border-red-600 shadow-md dark:shadow-red-900/20" },
                                 ].map(({ s, label, activeLabel, icon: Icon, colors, activeColors }) => {
                                     const isActive = editingUnit?.status === s
                                     const targetStatus = isActive && s !== "available" ? "available" : s
@@ -1447,9 +1447,9 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                             key={s}
                                             variant="outline"
                                             onClick={() => handleUnitUpdate(targetStatus)}
-                                            className={`h-12 font-bold border ${isActive ? activeColors : colors}`}
+                                            className={`h-14 font-bold border-2 transition-all duration-300 rounded-xl ${isActive ? activeColors + ' ring-2 ring-offset-2 ring-offset-white dark:ring-offset-slate-950 scale-[1.02]' : colors + ' hover:scale-[1.02]'}`}
                                         >
-                                            <Icon className="h-4 w-4 mr-2" />
+                                            <Icon className={`mr-2 ${isActive ? 'h-5 w-5' : 'h-4 w-4 opacity-80'}`} />
                                             {isActive ? activeLabel : label}
                                         </Button>
                                     )
@@ -1457,57 +1457,57 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                             </div>
 
                             {/* Customer form */}
-                            <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/50 space-y-3">
+                            <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
                                 <div className="flex items-center justify-between">
                                     <p className="text-xs font-black text-slate-600 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
                                         <User className="h-3.5 w-3.5 text-indigo-500" />
                                         {editingUnit?.status === "available" ? "New Buyer Details" : "Customer Info"}
                                     </p>
-                                    <Badge variant="outline" className="text-[10px] font-bold">
+                                    <Badge variant="outline" className="text-[10px] font-bold dark:border-slate-700 dark:bg-slate-950">
                                         ₹{editingUnit?.price?.toLocaleString("en-IN")}
                                     </Badge>
                                 </div>
                                 <div className="space-y-2">
                                      <div className="grid grid-cols-2 gap-2 mb-2">
                                          <div>
-                                            <Label className="text-[10px] uppercase text-slate-500 mb-1 block">Price</Label>
+                                            <Label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block tracking-wider">Price</Label>
                                             <Input
                                                 placeholder="Total Price"
                                                 type="number"
-                                                className="h-9 text-xs bg-white dark:bg-slate-800"
+                                                className="h-10 text-sm font-medium bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500/50"
                                                 value={customerForm.price}
                                                 onChange={e => setCustomerForm(f => ({ ...f, price: e.target.value }))}
                                             />
                                          </div>
                                          <div>
-                                            <Label className="text-[10px] uppercase text-slate-500 mb-1 block">Rate / sq.ft</Label>
+                                            <Label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block tracking-wider">Rate / sq.ft</Label>
                                             <Input
                                                 placeholder="Rate"
                                                 type="number"
-                                                className="h-9 text-xs bg-white dark:bg-slate-800"
+                                                className="h-10 text-sm font-medium bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500/50"
                                                 value={customerForm.ratePerSqft}
                                                 onChange={e => setCustomerForm(f => ({ ...f, ratePerSqft: e.target.value }))}
                                             />
                                          </div>
                                      </div>
-                                     <hr className="border-slate-100 dark:border-slate-800 my-2" />
+                                     <hr className="border-slate-200 dark:border-slate-800 my-3" />
                                     <Input
                                         placeholder="Buyer's full name"
-                                        className="h-9 text-sm font-semibold bg-white dark:bg-slate-800"
+                                        className="h-10 text-sm font-semibold bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500/50"
                                         value={customerForm.name}
                                         onChange={e => setCustomerForm(f => ({ ...f, name: e.target.value }))}
                                     />
                                     <div className="grid grid-cols-2 gap-2">
                                         <Input
                                             placeholder="Mobile number"
-                                            className="h-9 text-xs bg-white dark:bg-slate-800"
+                                            className="h-10 text-sm font-medium bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500/50"
                                             value={customerForm.phone}
                                             onChange={e => setCustomerForm(f => ({ ...f, phone: e.target.value }))}
                                         />
                                         <Input
                                             placeholder="Booking amount"
                                             type="number"
-                                            className="h-9 text-xs bg-white dark:bg-slate-800"
+                                            className="h-10 text-sm font-medium bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500/50"
                                             value={customerForm.amount}
                                             onChange={e => setCustomerForm(f => ({ ...f, amount: e.target.value }))}
                                         />
