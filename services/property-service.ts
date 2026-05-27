@@ -100,7 +100,8 @@ export async function secureDeleteProperty(propertyId: string, context: RBACCont
     });
 
     // Step 4: Execute Database Deletions
-    await Property.deleteMany({ _id: { $in: allCollectedPropertyIds } });
+    const propertyObjectIds = allCollectedPropertyIds.map(id => new mongoose.Types.ObjectId(id));
+    await Property.deleteMany({ _id: { $in: propertyObjectIds } });
     
     // 2. Delete all descendant Units
     await Unit.deleteMany({ _id: { $in: unitIds } });

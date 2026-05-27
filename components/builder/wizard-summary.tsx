@@ -77,34 +77,34 @@ export function WizardSummary({ state, flowType = "township" }: WizardSummaryPro
     <div className="space-y-16 animate-in fade-in slide-in-from-bottom-4 duration-700">
 
       {/* ── 1. HERO CELEBRATION BANNER ──────────────── */}
-      <div className="relative overflow-hidden rounded-[32px] border border-emerald-100 dark:border-emerald-900/30 bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:from-emerald-900/20 dark:via-slate-900 dark:to-teal-900/20 p-8 md:p-12 shadow-xl shadow-emerald-500/5">
-        <div className="absolute top-0 right-0 p-8 opacity-10">
-          <CheckCircle2 className="w-64 h-64 text-emerald-500 animate-pulse" />
+      <div className="relative overflow-hidden rounded-[24px] border border-emerald-100 dark:border-emerald-900/30 bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:from-emerald-900/20 dark:via-slate-900 dark:to-teal-900/20 p-6 md:p-8 shadow-md">
+        <div className="absolute top-1/2 -translate-y-1/2 right-0 pr-8 opacity-[0.08] pointer-events-none">
+          <CheckCircle2 className="w-40 h-40 text-emerald-500 animate-pulse" />
         </div>
 
-        <div className="relative z-10 flex flex-col items-center md:items-start text-center md:text-left gap-6">
-          <Badge className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.2em]">
+        <div className="relative z-10 flex flex-col items-center md:items-start text-center md:text-left gap-4">
+          <Badge className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-[0.15em]">
             {flowSummary.badge}
           </Badge>
 
-          <div className="space-y-3">
-            <h2 className="text-4xl md:text-5xl font-black text-slate-900 dark:text-white tracking-tight">
+          <div className="space-y-1">
+            <h2 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
               {flowSummary.title}
             </h2>
-            <p className="text-slate-500 dark:text-slate-400 text-base md:text-lg max-w-xl font-medium leading-relaxed">
+            <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base max-w-xl font-medium leading-relaxed">
               {flowSummary.description}
             </p>
           </div>
 
-          <div className="flex items-center gap-4 mt-2">
-            <div className="flex -space-x-3">
+          <div className="flex items-center gap-3 mt-1">
+            <div className="flex -space-x-2">
               {[1, 2, 3, 4].map(i => (
-                <div key={i} className="w-10 h-10 rounded-full border-4 border-white dark:border-slate-900 bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
+                <div key={i} className="w-8 h-8 rounded-full border-[3px] border-white dark:border-slate-900 bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
                   <div className="w-full h-full bg-gradient-to-br from-emerald-400 to-teal-600 opacity-80" />
                 </div>
               ))}
             </div>
-            <p className="text-xs font-bold text-emerald-700 uppercase tracking-widest bg-emerald-100/50 dark:bg-emerald-900/20 px-3 py-1.5 rounded-lg border border-emerald-200/50 dark:border-emerald-800/50">
+            <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest bg-emerald-100/50 dark:bg-emerald-900/20 px-2.5 py-1 rounded-md border border-emerald-200/50 dark:border-emerald-800/50">
               Verified & Validated
             </p>
           </div>

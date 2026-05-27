@@ -59,7 +59,8 @@ import {
     LayoutGrid,
     FlipHorizontal,
     BarChart3,
-    ShieldCheck
+    ShieldCheck,
+    RefreshCw
 } from "lucide-react"
 import { getVastuDetails } from "@/lib/algorithms/vastu/vastuAlgorithm"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -1846,35 +1847,88 @@ data, onChange, towerName, projectName, townshipName,
                                                             <div className={`flex items-center justify-center w-full gap-2 text-[10px] uppercase font-black tracking-widest ${textColor} border-l border-current/20`}>
                                                                 <Shield className="w-3.5 h-3.5 opacity-70" /> Refuge
                                                             </div>
-                                                        ) : group.layout && (group.layout || []).length > 0 ? (
-                                                            <div className="flex w-full items-center gap-1 border-l pl-2 border-gray-100 dark:border-slate-800">
-                                                                {(group.layout || []).map((s, i) => {
-                                                                    const typ = s.configId ? (data.configurations || []).find(c => c.id === s.configId)?.type : s.unitTypeOverride
-                                                                    const shortTyp = typ ? typ.replace('BHK', '').substring(0, 3) : "U"
-                                                                    
-                                                                    // Real-world numbering logic: Floor + Slot (e.g. 5 + 01 = 501)
-                                                                    const slotNum = s.slotNumber || (i + 1).toString();
-                                                                    const paddedSlot = slotNum.length === 1 ? `0${slotNum}` : slotNum;
-                                                                    let unitDisplay = "";
-                                                                    
-                                                                    if (floor === 0) unitDisplay = `G${paddedSlot}`;
-                                                                    else if (floor < 0) unitDisplay = `B${Math.abs(floor)}${paddedSlot}`;
-                                                                    else unitDisplay = `${floor}${paddedSlot}`;
+                                                            ) : (() => {
+                                                                const slotsToUse = group.floorOverrides?.[floor.toString()] || group.layout || []
+                                                                return slotsToUse.length > 0 ? (
+                                                                <div className="flex w-full items-center gap-1 border-l pl-2 border-gray-100 dark:border-slate-800 relative group/floor">
+                                                                    {slotsToUse.map((s, i) => {
+                                                                        const typ = s.configId ? (data.configurations || []).find(c => c.id === s.configId)?.type : s.unitTypeOverride
+                                                                        const shortTyp = typ ? typ.replace('BHK', '').substring(0, 3) : "U"
+                                                                        
+                                                                        const slotNum = s.slotNumber || (i + 1).toString();
+                                                                        const paddedSlot = slotNum.length === 1 ? `0${slotNum}` : slotNum;
+                                                                        let unitDisplay = "";
+                                                                        
+                                                                        if (floor === 0) unitDisplay = `G${paddedSlot}`;
+                                                                        else if (floor < 0) unitDisplay = `B${Math.abs(floor)}${paddedSlot}`;
+                                                                        else unitDisplay = `${floor}${paddedSlot}`;
 
-                                                                    return (
-                                                                        <div key={i} className="flex-1 min-w-0 bg-[#F5F7FA] border border-gray-200 dark:border-slate-700 rounded flex flex-col items-center justify-center py-0.5 shadow-inner">
-                                                                            <span className="text-[9px] font-bold text-[#1A3C8C] dark:text-blue-400 leading-none">{unitDisplay}</span>
-                                                                            <span className="text-[6px] uppercase tracking-wider text-gray-400 dark:text-slate-500 font-bold">{shortTyp}</span>
-                                                                        </div>
-                                                                    )
-                                                                })}
-                                                            </div>
-                                                        ) : (
-                                                            <div className="flex items-center justify-center w-full text-[9px] font-bold text-gray-300 uppercase tracking-widest border-l border-gray-100 dark:border-slate-800">
-                                                                No Units
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                                                        return (
+                                                                            <div key={i} className="flex-1 min-w-0 bg-[#F5F7FA] border border-gray-200 dark:border-slate-700 rounded flex flex-col items-center justify-center py-0.5 shadow-inner">
+                                                                                <span className="text-[9px] font-bold text-[#1A3C8C] dark:text-blue-400 leading-none">{unitDisplay}</span>
+                                                                                <span className="text-[6px] uppercase tracking-wider text-gray-400 dark:text-slate-500 font-bold">{shortTyp}</span>
+                                                                            </div>
+                                                                        )
+                                                                    })}
+                                                                    {/* Override Controls */}
+                                                                    <div className="absolute right-0 top-0 bottom-0 bg-white/90 dark:bg-slate-900/90 hidden group-hover/floor:flex items-center gap-1 px-1 backdrop-blur-sm">
+                                                                        <button 
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                const newLayout = [...slotsToUse];
+                                                                                const newSlotNumber = (newLayout.length + 1).toString();
+                                                                                const template = newLayout.length > 0 ? newLayout[newLayout.length - 1] : { id: `slot-${Date.now()}`, slotNumber: newSlotNumber, configId: "" };
+                                                                                newLayout.push({ ...template, id: `slot-${Date.now()}`, slotNumber: newSlotNumber });
+                                                                                
+                                                                                const updatedGroups = (data.floorGroups || []).map(g => {
+                                                                                    if (g.id !== group.id) return g;
+                                                                                    return { ...g, floorOverrides: { ...(g.floorOverrides || {}), [floor.toString()]: newLayout } };
+                                                                                });
+                                                                                updateData({ floorGroups: updatedGroups });
+                                                                            }}
+                                                                            className="w-5 h-5 rounded bg-blue-100 text-blue-600 flex items-center justify-center hover:bg-blue-200" title="Add Unit to Floor">
+                                                                            <Plus className="w-3 h-3" />
+                                                                        </button>
+                                                                        <button 
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                if (slotsToUse.length === 0) return;
+                                                                                const newLayout = slotsToUse.slice(0, -1);
+                                                                                
+                                                                                const updatedGroups = (data.floorGroups || []).map(g => {
+                                                                                    if (g.id !== group.id) return g;
+                                                                                    return { ...g, floorOverrides: { ...(g.floorOverrides || {}), [floor.toString()]: newLayout } };
+                                                                                });
+                                                                                updateData({ floorGroups: updatedGroups });
+                                                                            }}
+                                                                            className="w-5 h-5 rounded bg-red-100 text-red-600 flex items-center justify-center hover:bg-red-200" title="Remove Unit from Floor">
+                                                                            <Minus className="w-3 h-3" />
+                                                                        </button>
+                                                                        {group.floorOverrides?.[floor.toString()] && (
+                                                                            <button 
+                                                                                type="button"
+                                                                                onClick={() => {
+                                                                                    const updatedGroups = (data.floorGroups || []).map(g => {
+                                                                                        if (g.id !== group.id) return g;
+                                                                                        const overrides = { ...(g.floorOverrides || {}) };
+                                                                                        delete overrides[floor.toString()];
+                                                                                        return { ...g, floorOverrides: overrides };
+                                                                                    });
+                                                                                    updateData({ floorGroups: updatedGroups });
+                                                                                }}
+                                                                                className="w-5 h-5 rounded bg-gray-100 text-gray-600 flex items-center justify-center hover:bg-gray-200 ml-1" title="Reset Floor to Group Default">
+                                                                                <RefreshCw className="w-3 h-3" />
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex items-center justify-center w-full text-[9px] font-bold text-gray-300 uppercase tracking-widest border-l border-gray-100 dark:border-slate-800">
+                                                                    No Units
+                                                                </div>
+                                                            )
+                                                            })()}
+                                                        </div>
                                                 </div>
                                             )
                                         })

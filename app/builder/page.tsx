@@ -312,26 +312,6 @@ function BuilderContent() {
       }
       if (!unitsPerFloor) unitsPerFloor = 4
 
-      let totalUnits = floors * unitsPerFloor
-      
-      if (floorGroups.length > 0) {
-        totalUnits = 0
-        const allFloorsSet = new Set<number>()
-        floorGroups.forEach(g => (g.floors || []).forEach(f => allFloorsSet.add(f)))
-        let allFloors = Array.from(allFloorsSet).sort((a, b) => a - b)
-        
-        if (floors > 0) {
-          allFloors = allFloors.filter(f => f <= floors)
-        }
-
-        allFloors.forEach(floor => {
-          const group = floorGroups.find(g => (g.floors || []).includes(floor))
-          if (group && group.layout) {
-            totalUnits += group.layout.length
-          }
-        })
-      }
-
       return {
         id: tower.id,
         projectId: tower.projectId,
@@ -339,7 +319,7 @@ function BuilderContent() {
         reraNumber: tower.reraNumber,
         totalFloors: floors,
         unitsPerFloor,
-        totalUnits, // Calculated perfectly based on floor layout slots
+        totalUnits: floors * unitsPerFloor, // This gets overridden by the true count in the sync effect
       }
     })
   }, [towers, towerUnitConfigs, unitTemplate])
@@ -382,7 +362,9 @@ function BuilderContent() {
           const group = floorGroups.find(g => (g.floors || []).includes(floor))
           if (!group || !group.layout) return
 
-          group.layout.forEach(slot => {
+          const slotsToUse = group.floorOverrides?.[floor.toString()] || group.layout;
+
+          slotsToUse.forEach(slot => {
             // Fix: Don't return early if config is missing (before Smart Sync).
             // This ensures units are correctly counted based on layout slots even before configs are generated.
             const config = configs.find(c => c.id === slot.configId) || configs[0] || { 

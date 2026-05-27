@@ -506,6 +506,7 @@ export interface FloorGroup {
   floorRange: string            // "1-10, 12-18"
   floors: number[]               // [1,2,3,4,5,6,7,8,9,10,12,13,14,15,16,17,18]
   layout: UnitLayoutSlot[]
+  floorOverrides?: Record<string, UnitLayoutSlot[]> // Map floor number (string) -> custom layout slots
   groupTypes: Array<'basement' | 'ground' | 'podium' | 'typical' | 'refuge' | 'amenity' | 'other'>
   description?: string
   floorRise?: number            // Optional group-specific floor rise (₹/floor)
