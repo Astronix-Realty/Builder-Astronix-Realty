@@ -611,7 +611,7 @@ function DashboardContent() {
     localStorage.setItem(offersStorageKey, JSON.stringify(updatedOffers))
   }
 
-  const [activeTab, setActiveTab] = useState<"properties" | "inventory" | "crm" | "chat" | "documents" | "offers" | "blog" | "settings">("properties")
+  const [activeTab, setActiveTab] = useState<"properties" | "inventory" | "crm" | "chat" | "documents" | "offers" | "blog" | "settings" | "team">("properties")
   const [activeSettingsTab, setActiveSettingsTab] = useState<"profile" | "preferences">("profile")
   const [showAddProperty, setShowAddProperty] = useState(false)
   const [propertyFilter, setPropertyFilter] = useState<'published' | 'pending' | 'draft' | 'rejected'>('published')
@@ -818,6 +818,13 @@ function DashboardContent() {
             Blog
           </button>
           <button
+            onClick={() => { setActiveTab("team"); setIsMobileMenuOpen(false); }}
+            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "team" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
+          >
+            <Users className="h-5 w-5" />
+            Team
+          </button>
+          <button
             onClick={() => { setActiveTab("settings"); setIsMobileMenuOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "settings" ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
           >
@@ -878,6 +885,7 @@ function DashboardContent() {
                     {activeTab === "documents" && "Document Center"}
 
                     {activeTab === "offers" && "Offers Management"}
+                    {activeTab === "team" && "Team Management"}
                     {activeTab === "settings" && "Settings & Profile"}
                   </h2>
 
@@ -890,6 +898,7 @@ function DashboardContent() {
                     {activeTab === "documents" && "Organize brochures, legal docs, and plans"}
 
                     {activeTab === "offers" && "Create and track special deals"}
+                    {activeTab === "team" && "Manage your team members and roles"}
                     {activeTab === "settings" && "Manage company profile and system preferences"}
                   </p>
                 </div>
@@ -1028,6 +1037,7 @@ function DashboardContent() {
           {activeTab === "crm" && <CRMView userRole={currentUser?.role || "builder"} />}
           {activeTab === "chat" && <ChatView />}
           {activeTab === "documents" && <DocumentsView />}
+          {activeTab === "team" && <TeamView />}
 
           {activeTab === "blog" && <BlogView onMenuClick={() => setIsMobileMenuOpen(true)} />}
           {activeTab === "properties" && (

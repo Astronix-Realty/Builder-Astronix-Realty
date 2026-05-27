@@ -186,11 +186,13 @@ function UnitConfigCard({
     // Auto-calculate derived fields (initial defaults)
     useEffect(() => {
         const loading = config.loadingFactor || parseFloat(globalLoadingFactor || "40") || 40
-        const builtUp = config.builtUpArea || Math.round(config.carpetArea * (1 + loading / 100))
+        const safeCarpetArea = Number(config.carpetArea) || 0
+        const calculatedBuiltUp = Math.round(safeCarpetArea * (1 + loading / 100)) || 0
+        const builtUp = config.builtUpArea || calculatedBuiltUp
         const sbua = config.superBuiltUpArea || builtUp
         
         // If price is missing but area exists, use a default rate to help the user
-        if (config.carpetArea > 0 && !config.basePrice && !config.ratePerSqft) {
+        if (safeCarpetArea > 0 && !config.basePrice && !config.ratePerSqft) {
             const defaultRate = 5000
             const flatCost = defaultRate * builtUp
             const gstAmt = flatCost * 0.05
@@ -212,10 +214,11 @@ function UnitConfigCard({
                 allInclusivePrice: Math.round(allInclusive),
                 isRateOverridden: true
             })
-        } else if (builtUp !== config.builtUpArea) {
+        } else if (builtUp !== config.builtUpArea && !Number.isNaN(builtUp)) {
             onChange({ builtUpArea: builtUp, superBuiltUpArea: builtUp })
         }
-    }, [config.carpetArea, onChange])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [config.carpetArea, config.builtUpArea, config.basePrice, config.ratePerSqft, globalLoadingFactor])
 
     const addRoom = () => {
         const id = Date.now().toString()

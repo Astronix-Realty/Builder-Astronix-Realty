@@ -422,14 +422,7 @@ function TowerFlowFormBase({ data, unitConfig, unitTemplate, onChange, projectNa
     }
     const calculatedPerFloor = configs.reduce((sum: number, c: any) => sum + (Number(c.countPerFloor) || 0), 0)
     
-    // Always strictly use the calculated per floor value now that it's read-only
-    const perFloor = calculatedPerFloor
-    const total = floors * perFloor
-    
     const updates: Partial<TowerData> = {}
-    if (total !== data.totalUnits) {
-      updates.totalUnits = total
-    }
     if (String(calculatedPerFloor) !== String(data.unitsPerFloor)) {
       updates.unitsPerFloor = String(calculatedPerFloor)
     }
