@@ -7,7 +7,14 @@ import { AUTH_COOKIE, TOKEN_MAX_AGE } from "@/lib/auth";
 export async function POST(req: NextRequest) {
   try {
     const payload: ILoginPayload = await req.json();
-    const { token, user, message } = await authenticateUser(payload);
+
+    // Extract client IP for login tracking
+    const clientIp =
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      req.headers.get("x-real-ip") ||
+      "unknown";
+
+    const { token, user, message } = await authenticateUser(payload, clientIp);
 
     // Set HttpOnly cookie securely and return user data
     const response = NextResponse.json({ message, user }, { status: 200 });
@@ -22,15 +29,18 @@ export async function POST(req: NextRequest) {
     return response;
   } catch (error: any) {
     console.error("Login error:", error.message);
-    
+
     const msg = error.message;
-    if (msg.includes("Invalid")) {
+    if (msg.includes("locked") || msg.includes("suspended")) {
+      return NextResponse.json({ error: msg }, { status: 403 });
+    }
+    if (msg.includes("Invalid") || msg.includes("attempt")) {
       return NextResponse.json({ error: msg }, { status: 401 });
     }
     if (msg.includes("required")) {
       return NextResponse.json({ error: msg }, { status: 400 });
     }
-    
+
     return NextResponse.json({ error: "Login failed. Please try again." }, { status: 500 });
   }
 }

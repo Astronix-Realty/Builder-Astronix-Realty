@@ -41,16 +41,16 @@ export default function LoginPage() {
           {isForgotPassword ? (
             <ForgotPasswordForm onBackToLogin={handleBackToLogin} />
           ) : (
-            <LoginForm onForgotPassword={() => { 
-              setIsForgotPassword(true); 
-              setResetSuccessMessage(""); 
+            <LoginForm onForgotPassword={() => {
+              setIsForgotPassword(true);
+              setResetSuccessMessage("");
             }} />
           )}
         </div>
 
         {/* ── FOOTER ── */}
         <p className="text-center mt-6 text-slate-500 text-sm">
-          🔒 Secured by Astronix • Your data is protected
+          🔒 Secured by Astronix Realty • Your data is protected
         </p>
       </div>
     </div>

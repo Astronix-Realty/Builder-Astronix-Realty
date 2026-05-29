@@ -13,6 +13,7 @@ import { ChatView } from "@/components/builder/chat/chat-view"
 import { DocumentsView } from "@/components/builder/documents/documents-view"
 import { TeamView } from "@/components/builder/team/team-view"
 import { BlogView } from "@/components/builder/blog/blog-view"
+import { OffersView } from "@/components/builder/offers/offers-view"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface MandateProfile {
@@ -57,17 +58,6 @@ interface Property {
   searchBlob?: string
 }
 
-interface Offer {
-  id: string
-  offerName: string           // e.g., "Monsoon Dhamaka", "Gudi Padwa Offer"
-  benefitText: string         // e.g., "₹2 Lakh Off", "Free Modular Kitchen"
-  benefitHighlight: string    // Short highlight for badges e.g., "2L OFF"
-  projectId: string           // property id or "all"
-  expiryDate: string          // When offer expires
-  bannerImage?: string        // Optional banner image URL/base64
-  isActive: boolean
-  createdAt: string
-}
 
 function DashboardContent() {
   const router = useRouter()
@@ -76,10 +66,12 @@ function DashboardContent() {
   const [isSavingProfile, setIsSavingProfile] = useState(false)
   const [isChangingPassword, setIsChangingPassword] = useState(false)
   const [passwordData, setPasswordData] = useState({
-    currentPassword: "",
+    otp: "",
     newPassword: "",
     confirmPassword: ""
   })
+  const [otpSent, setOtpSent] = useState(false)
+  const [sendingOtp, setSendingOtp] = useState(false)
   const [properties, setProperties] = useState<Property[]>([])
   const [propertySearchInput, setPropertySearchInput] = useState<Record<string, string>>({
     published: "",
@@ -107,20 +99,6 @@ function DashboardContent() {
   const [isFetchingProperties, setIsFetchingProperties] = useState(false)
   const [deletingPropertyId, setDeletingPropertyId] = useState<string | null>(null)
   const [movingToDraftId, setMovingToDraftId] = useState<string | null>(null)
-  const [offers, setOffers] = useState<Offer[]>([])
-  const [showAddOffer, setShowAddOffer] = useState(false)
-  const [showBannerEditor, setShowBannerEditor] = useState(false)
-  const [bannerType, setBannerType] = useState<'strip' | 'badge' | 'card'>('strip')
-  const [editingOffer, setEditingOffer] = useState<Offer | null>(null)
-  const [newOffer, setNewOffer] = useState<Partial<Offer>>({
-    offerName: "",
-    benefitText: "",
-    benefitHighlight: "",
-    projectId: "all",
-    expiryDate: "",
-    bannerImage: "",
-    isActive: true
-  })
 
   // Theme Logic
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('light')
@@ -144,8 +122,6 @@ function DashboardContent() {
 
   // Notification Preferences Logic
   const [notifications, setNotifications] = useState<Record<string, boolean>>({
-    "New Lead Alerts": true,
-    "Weekly Performance Reports": true,
     "Offer Expiry Reminders": true
   })
 
@@ -406,17 +382,6 @@ function DashboardContent() {
     fetchProperties()
   }
 
-  // Dynamic offers storage key based on active role context
-  const offersStorageKey = useMemo(() => {
-    return currentUser?.role === "mandate" ? "mandateOffers" : "builderOffers"
-  }, [currentUser])
-
-  // Load local offers based on dynamic key
-  useEffect(() => {
-    if (!currentUser) return
-    const savedOffers = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem(offersStorageKey) || "[]") : []
-    setOffers(savedOffers)
-  }, [currentUser, offersStorageKey])
 
   const [profile, setProfile] = useState<MandateProfile>({
     companyName: "",
@@ -523,6 +488,25 @@ function DashboardContent() {
     }
   }
 
+  const handleSendOtp = async () => {
+    setSendingOtp(true);
+    try {
+      const res = await fetch("/api/auth/send-otp", { method: "POST" });
+      if (res.ok) {
+        toast.success("OTP sent to your email!");
+        setOtpSent(true);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        toast.error(errData.error || "Failed to send OTP");
+      }
+    } catch (error) {
+      console.error("Error sending OTP:", error);
+      toast.error("An error occurred. Please try again.");
+    } finally {
+      setSendingOtp(false);
+    }
+  }
+
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     if (passwordData.newPassword !== passwordData.confirmPassword) {
@@ -536,7 +520,7 @@ function DashboardContent() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          currentPassword: passwordData.currentPassword,
+          otp: passwordData.otp,
           newPassword: passwordData.newPassword,
         }),
       });
@@ -544,7 +528,8 @@ function DashboardContent() {
       if (res.ok) {
         toast.success("Password changed successfully!");
         setIsChangingPassword(false);
-        setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
+        setOtpSent(false);
+        setPasswordData({ otp: "", newPassword: "", confirmPassword: "" });
       } else {
         const errData = await res.json().catch(() => ({}));
         toast.error(errData.error || "Failed to change password");
@@ -557,68 +542,6 @@ function DashboardContent() {
     }
   }
 
-  // Offer CRUD functions
-  const handleSaveOffer = () => {
-    if (!newOffer.offerName || !newOffer.benefitText || !newOffer.expiryDate) {
-      alert("Please fill in Offer Name, Benefit, and Expiry Date")
-      return
-    }
-
-    const offerToSave: Offer = {
-      id: editingOffer?.id || `offer-${Date.now()}`,
-      offerName: newOffer.offerName || "",
-      benefitText: newOffer.benefitText || "",
-      benefitHighlight: newOffer.benefitHighlight || newOffer.benefitText?.slice(0, 10) || "",
-      projectId: newOffer.projectId || "all",
-      expiryDate: newOffer.expiryDate || "",
-      bannerImage: newOffer.bannerImage || "",
-      isActive: newOffer.isActive ?? true,
-      createdAt: editingOffer?.createdAt || new Date().toISOString()
-    }
-
-    let updatedOffers: Offer[]
-    if (editingOffer) {
-      updatedOffers = offers.map(o => o.id === editingOffer.id ? offerToSave : o)
-    } else {
-      updatedOffers = [...offers, offerToSave]
-    }
-
-    setOffers(updatedOffers)
-    localStorage.setItem(offersStorageKey, JSON.stringify(updatedOffers))
-    setShowAddOffer(false)
-    setEditingOffer(null)
-    setNewOffer({
-      offerName: "",
-      benefitText: "",
-      benefitHighlight: "",
-      projectId: "all",
-      expiryDate: "",
-      bannerImage: "",
-      isActive: true
-    })
-  }
-
-  const handleEditOffer = (offer: Offer) => {
-    setEditingOffer(offer)
-    setNewOffer(offer)
-    setShowAddOffer(true)
-  }
-
-  const handleDeleteOffer = (id: string) => {
-    if (confirm("Are you sure you want to delete this offer?")) {
-      const updatedOffers = offers.filter(o => o.id !== id)
-      setOffers(updatedOffers)
-      localStorage.setItem(offersStorageKey, JSON.stringify(updatedOffers))
-    }
-  }
-
-  const toggleOfferStatus = (id: string) => {
-    const updatedOffers = offers.map(o =>
-      o.id === id ? { ...o, isActive: !o.isActive } : o
-    )
-    setOffers(updatedOffers)
-    localStorage.setItem(offersStorageKey, JSON.stringify(updatedOffers))
-  }
 
   const [activeTab, setActiveTab] = useState<"properties" | "inventory" | "crm" | "chat" | "documents" | "offers" | "blog" | "settings" | "team">("properties")
   const [activeSettingsTab, setActiveSettingsTab] = useState<"profile" | "preferences">("profile")
@@ -838,7 +761,7 @@ function DashboardContent() {
             className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "settings" ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
           >
             <Settings className="h-5 w-5" />
-            Settings & Profile
+            Profile & Settings
           </button>
         </nav>
 
@@ -896,7 +819,7 @@ function DashboardContent() {
                     {activeTab === "documents" && "Document Center"}
                     {activeTab === "offers" && "Offers Management"}
                     {activeTab === "team" && "Team Management"}
-                    {activeTab === "settings" && "Settings & Profile"}
+                    {activeTab === "settings" && "Profile & Settings"}
                   </h2>
 
                   {/* Subtitle (Desktop only) */}
@@ -971,15 +894,6 @@ function DashboardContent() {
                   </button>
                 )}
 
-                {activeTab === "offers" && !showAddOffer && (
-                  <button
-                    onClick={() => setShowAddOffer(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-lg font-medium shadow-sm"
-                  >
-                    <Plus className="h-5 w-5" />
-                    <span className="hidden sm:inline">Add Offer</span>
-                  </button>
-                )}
 
                 {activeTab === "settings" && activeSettingsTab === "profile" && (
                   <button
@@ -1383,466 +1297,10 @@ function DashboardContent() {
           )}
 
           {/* Offers */}
-          {activeTab === "offers" && (
-            <div>
-              <div className="mb-8 flex justify-between items-center">
-                <div>
-                  <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">🎁 Special Offers</h2>
-                  <p className="text-slate-600 dark:text-slate-400">Create attractive offers in seconds - buyers ko turant dikhega!</p>
-                </div>
-              </div>
-
-              {showAddOffer && (
-                <div className="mb-8 bg-white dark:bg-slate-900 rounded-2xl border-2 border-purple-100 dark:border-slate-800 shadow-xl overflow-hidden">
-                  <div className="bg-gradient-to-r from-purple-600 to-pink-500 p-6 text-white">
-                    <h3 className="text-2xl font-bold flex items-center gap-3">
-                      <Gift className="h-7 w-7" />
-                      {editingOffer ? "Edit Offer" : "Create New Offer"}
-                    </h3>
-                    <p className="text-purple-100 mt-2">Form bharo, preview dekho, publish karo - bas itna simple!</p>
-                  </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
-                    <div className="p-8 border-r border-slate-200 dark:border-slate-800">
-                      <h4 className="text-lg font-semibold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
-                        <span className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300 flex items-center justify-center text-sm font-bold">1</span>
-                        Offer Details Bharo
-                      </h4>
-
-                      <div className="space-y-6">
-                        <div>
-                          <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                            Offer ka Naam <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={newOffer.offerName || ""}
-                            onChange={(e) => setNewOffer({ ...newOffer, offerName: e.target.value })}
-                            className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
-                            placeholder="e.g. Monsoon Dhamaka, Gudi Padwa Special"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                            Discount / Benefit <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={newOffer.benefitText || ""}
-                            onChange={(e) => setNewOffer({ ...newOffer, benefitText: e.target.value })}
-                            className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all text-lg font-semibold"
-                            placeholder="e.g. ₹2 Lakh Off, Free Modular Kitchen"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                            Badge Text (Short)
-                          </label>
-                          <input
-                            type="text"
-                            value={newOffer.benefitHighlight || ""}
-                            onChange={(e) => setNewOffer({ ...newOffer, benefitHighlight: e.target.value })}
-                            className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
-                            placeholder="e.g. 2L OFF, FREE GIFT"
-                            maxLength={15}
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                            Kis Project ke liye? <span className="text-red-500">*</span>
-                          </label>
-                          <select
-                            value={newOffer.projectId || "all"}
-                            onChange={(e) => setNewOffer({ ...newOffer, projectId: e.target.value })}
-                            className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
-                          >
-                            <option value="all">🏠 All Properties</option>
-                            {properties.map(p => (
-                              <option key={p.id} value={p.id}>📍 {p.townshipName}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                            Offer Kab Tak? <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="date"
-                            value={newOffer.expiryDate || ""}
-                            onChange={(e) => setNewOffer({ ...newOffer, expiryDate: e.target.value })}
-                            min={new Date().toISOString().split('T')[0]}
-                            className="w-full px-4 py-3 border-2 border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-semibold text-slate-700 mb-2">
-                            🎨 Custom Banner (Pro Feature!)
-                          </label>
-
-                          {newOffer.bannerImage ? (
-                            <div className="relative rounded-xl overflow-hidden border-2 border-purple-300 dark:border-purple-800">
-                              <div className="relative w-full h-32">
-                                <Image
-                                  src={newOffer.bannerImage}
-                                  alt="Custom Banner"
-                                  fill
-                                  className="object-cover"
-                                  unoptimized
-                                />
-                              </div>
-                              <div className="absolute inset-0 bg-black/40 flex items-center justify-center gap-2 opacity-0 hover:opacity-100 transition-opacity">
-                                <button
-                                  type="button"
-                                  onClick={() => setShowBannerEditor(true)}
-                                  className="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium flex items-center gap-2 hover:bg-purple-700"
-                                >
-                                  <Paintbrush className="h-4 w-4" />
-                                  Edit Banner
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setNewOffer({ ...newOffer, bannerImage: "" })}
-                                  className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => setShowBannerEditor(true)}
-                              className="w-full border-2 border-dashed border-purple-300 dark:border-slate-700 rounded-xl p-6 text-center hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/10 transition-all cursor-pointer group"
-                            >
-                              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                                <Paintbrush className="h-7 w-7 text-white" />
-                              </div>
-                              <p className="text-sm font-semibold text-purple-700 dark:text-purple-300">Design Custom Banner</p>
-                              <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">Canva jaisa editor - Drag, Resize, Edit!</p>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="p-8 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
-                      <h4 className="text-lg font-semibold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
-                        <span className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center text-sm font-bold">2</span>
-                        Live Preview - Click to Edit ✏️
-                      </h4>
-
-                      <div className="space-y-6">
-                        <div className="group relative">
-                          <div className="flex items-center justify-between mb-3">
-                            <p className="text-sm font-medium text-slate-600 dark:text-slate-400 flex items-center gap-2">
-                              <Eye className="h-4 w-4" />
-                              Listing Page Par (Blue Strip)
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setBannerType('strip')
-                                setShowBannerEditor(true)
-                              }}
-                              className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-lg flex items-center gap-1.5 transition-all opacity-0 group-hover:opacity-100"
-                            >
-                              <Paintbrush className="h-3 w-3" />
-                              Edit Design
-                            </button>
-                          </div>
-                          <div
-                            onClick={() => {
-                              setBannerType('strip')
-                              setShowBannerEditor(true)
-                            }}
-                            className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-4 text-white shadow-lg cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all ring-2 ring-transparent hover:ring-purple-400"
-                          >
-                            <div className="flex items-center gap-2 mb-2 pb-2 border-b border-white/20">
-                              <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-sm font-bold text-blue-600">
-                                {profile.companyName?.[0] || "M"}
-                              </div>
-                              <div className="flex-1">
-                                <p className="text-xs opacity-80">{profile.companyName || "Mandate Partner"}</p>
-                                <p className="text-sm font-medium">
-                                  {newOffer.projectId === "all"
-                                    ? "All Properties"
-                                    : properties.find(p => p.id === newOffer.projectId)?.townshipName || "Project Name"}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center">
-                                  <Gift className="h-5 w-5" />
-                                </div>
-                                <div>
-                                  <p className="font-bold text-lg">{newOffer.offerName || "Offer Title"}</p>
-                                  <p className="text-2xl font-black">{newOffer.benefitText || "₹2 Lakh Off"}</p>
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                {newOffer.expiryDate && (
-                                  <div className="bg-white/20 rounded-lg px-3 py-2">
-                                    <p className="text-xs opacity-80">Ends in</p>
-                                    <p className="font-bold">
-                                      {Math.max(0, Math.ceil((new Date(newOffer.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} Days
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="group relative">
-                          <div className="flex items-center justify-between mb-3">
-                            <p className="text-sm font-medium text-slate-600 dark:text-slate-400 flex items-center gap-2">
-                              <Tag className="h-4 w-4" />
-                              Hero Section Badge (Property Photo)
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setBannerType('badge')
-                                setShowBannerEditor(true)
-                              }}
-                              className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-lg flex items-center gap-1.5 transition-all opacity-0 group-hover:opacity-100"
-                            >
-                              <Paintbrush className="h-3 w-3" />
-                              Edit Design
-                            </button>
-                          </div>
-                          <div
-                            onClick={() => {
-                              setBannerType('badge')
-                              setShowBannerEditor(true)
-                            }}
-                            className="relative bg-slate-300 rounded-xl h-52 overflow-hidden cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all ring-2 ring-transparent hover:ring-purple-400"
-                          >
-                            <div className="absolute inset-0 bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center">
-                              <Building className="h-16 w-16 text-slate-300" />
-                            </div>
-                            <div className="absolute top-3 left-3">
-                              <div className="bg-gradient-to-r from-red-500 to-orange-500 text-white px-4 py-3 rounded-lg shadow-lg transform -rotate-3">
-                                <p className="text-[10px] font-semibold opacity-90">🎁 {newOffer.offerName || "Special Offer"}</p>
-                                <p className="text-xl font-black">{newOffer.benefitHighlight || newOffer.benefitText?.slice(0, 12) || "₹2L OFF"}</p>
-                                <p className="text-[10px] opacity-80 mt-0.5">Limited Period!</p>
-                              </div>
-                            </div>
-                            {newOffer.expiryDate && (
-                              <div className="absolute bottom-3 right-3 bg-black/80 text-white px-3 py-2 rounded-lg flex items-center gap-2">
-                                <Clock className="h-4 w-4" />
-                                <span className="text-sm font-bold">
-                                  {Math.max(0, Math.ceil((new Date(newOffer.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} days left
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="group relative">
-                          <div className="flex items-center justify-between mb-3">
-                            <p className="text-sm font-medium text-slate-600 dark:text-slate-400 flex items-center gap-2">
-                              <DollarSign className="h-4 w-4" />
-                              Price Card Ke Saath
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setBannerType('card')
-                                setShowBannerEditor(true)
-                              }}
-                              className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-lg flex items-center gap-1.5 transition-all opacity-0 group-hover:opacity-100"
-                            >
-                              <Paintbrush className="h-3 w-3" />
-                              Edit Design
-                            </button>
-                          </div>
-                          <div
-                            onClick={() => {
-                              setBannerType('card')
-                              setShowBannerEditor(true)
-                            }}
-                            className="bg-white dark:bg-slate-800 rounded-xl shadow-md border cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all ring-2 ring-transparent hover:ring-purple-400 overflow-hidden"
-                          >
-                            <div className="p-3 bg-slate-50 dark:bg-slate-700/50 border-b flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
-                                {profile.companyName?.[0] || "M"}
-                              </div>
-                              <div className="flex-1">
-                                <p className="text-sm font-bold text-slate-800 dark:text-white">{profile.companyName || "Mandate Partner"}</p>
-                                <p className="text-xs text-slate-500 dark:text-slate-400">
-                                  {newOffer.projectId === "all"
-                                    ? "All Properties"
-                                    : properties.find(p => p.id === newOffer.projectId)?.townshipName || "Project Name"}
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="p-4">
-                              <div className="flex items-center justify-between mb-3">
-                                <span className="text-slate-600 dark:text-slate-400">Base Price</span>
-                                <span className="text-xl font-bold text-slate-400 dark:text-slate-600 line-through">₹85 Lac</span>
-                              </div>
-                              <div className="flex items-center justify-between mb-3 bg-green-50 dark:bg-green-900/20 -mx-4 px-4 py-3">
-                                <div>
-                                  <p className="text-green-800 dark:text-green-400 font-bold flex items-center gap-2">
-                                    <Gift className="h-4 w-4" />
-                                    {newOffer.offerName || "Special Offer"}
-                                  </p>
-                                  <p className="text-xs text-green-600 dark:text-green-500">{newOffer.benefitText || "₹2 Lakh Off"}</p>
-                                </div>
-                                <span className="text-green-700 dark:text-green-400 font-black text-xl">-{newOffer.benefitText || "₹2 Lac"}</span>
-                              </div>
-                              <div className="flex items-center justify-between pt-3 border-t dark:border-slate-700">
-                                <span className="text-slate-900 dark:text-white font-semibold">You Pay</span>
-                                <span className="text-2xl font-black text-green-600 dark:text-green-400">₹83 Lac</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-6 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                    <button
-                      onClick={() => {
-                        setShowAddOffer(false)
-                        setEditingOffer(null)
-                      }}
-                      className="px-6 py-3 border-2 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-xl font-medium hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                    >
-                      Cancel
-                    </button>
-
-                    <div className="flex items-center gap-4">
-                      <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">Publish hote hi offer live ho jayega</p>
-                      <button
-                        onClick={handleSaveOffer}
-                        disabled={!newOffer.offerName || !newOffer.benefitText || !newOffer.expiryDate}
-                        className="px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold text-lg transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                      >
-                        <Save className="h-5 w-5" />
-                        {editingOffer ? "Update Offer" : "🚀 Publish Offer"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {!showAddOffer && (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {offers.map((offer) => {
-                      const isExpired = new Date(offer.expiryDate) < new Date()
-                      const daysLeft = Math.max(0, Math.ceil((new Date(offer.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
-                      const propertyName = offer.projectId === "all"
-                        ? "All Properties"
-                        : properties.find(p => p.id === offer.projectId)?.townshipName || "Unknown"
-
-                      return (
-                        <div
-                          key={offer.id}
-                          className={`bg-white dark:bg-slate-900 rounded-2xl border-2 shadow-lg hover:shadow-xl transition-all overflow-hidden ${!offer.isActive || isExpired ? "opacity-60 border-slate-200 dark:border-slate-800" : "border-purple-200 dark:border-purple-900/50"
-                            }`}
-                        >
-                          <div className="bg-gradient-to-r from-purple-600 to-pink-500 p-5 text-white relative">
-                            <div className="absolute top-3 right-3">
-                              {isExpired ? (
-                                <span className="px-2 py-1 bg-red-500 text-xs font-bold rounded-full">EXPIRED</span>
-                              ) : !offer.isActive ? (
-                                <span className="px-2 py-1 bg-slate-500 text-xs font-bold rounded-full">PAUSED</span>
-                              ) : (
-                                <span className="px-2 py-1 bg-green-500 text-xs font-bold rounded-full">LIVE</span>
-                              )}
-                            </div>
-
-                            <p className="text-purple-200 text-sm font-medium">{offer.offerName}</p>
-                            <p className="text-3xl font-black mt-1">{offer.benefitText}</p>
-
-                            {!isExpired && offer.isActive && (
-                              <div className="mt-3 flex items-center gap-2 text-purple-100">
-                                <Clock className="h-4 w-4" />
-                                <span className="text-sm">{daysLeft} days remaining</span>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="p-5">
-                            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 mb-4">
-                              <MapPin className="h-4 w-4" />
-                              <span className="text-sm">{propertyName}</span>
-                            </div>
-
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => toggleOfferStatus(offer.id)}
-                                disabled={isExpired}
-                                className={`flex-1 px-3 py-2 rounded-lg font-medium transition-all ${isExpired
-                                  ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed"
-                                  : offer.isActive
-                                    ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-900/50"
-                                    : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50"
-                                  }`}
-                              >
-                                {isExpired ? "Expired" : offer.isActive ? "Pause" : "Go Live"}
-                              </button>
-                              <button
-                                onClick={() => handleEditOffer(offer)}
-                                className="px-3 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                              >
-                                <Edit2 className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteOffer(offer.id)}
-                                className="px-3 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-
-                  {offers.length === 0 && (
-                    <div className="text-center py-20 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-2xl border-2 border-dashed border-purple-200 dark:border-purple-800/50">
-                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center mx-auto mb-6">
-                        <Gift className="h-10 w-10 text-white" />
-                      </div>
-                      <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Koi Offers Nahi Hai</h3>
-                      <p className="text-slate-600 dark:text-slate-400 mb-8 max-w-md mx-auto">
-                        Special offers create karo aur buyers ko attract karo! Diwali, Holi, New Year - har occasion ke liye offer banao.
-                      </p>
-                      <button
-                        onClick={() => setShowAddOffer(true)}
-                        className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white rounded-xl font-bold text-lg flex items-center gap-3 transition-all mx-auto shadow-lg hover:shadow-xl"
-                      >
-                        <Plus className="h-6 w-6" />
-                        Pehla Offer Banao
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          )}
+          {activeTab === "offers" && <OffersView userRole={currentUser?.role || "mandate"} />}
 
           {activeTab === "settings" && (
             <div className="max-w-6xl mx-auto">
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Settings & Profile</h2>
-                <p className="text-slate-500 dark:text-slate-400">
-                  {currentUser?.role === 'mandate' ? "Manage your mandate details and system preferences." : "Manage your company details and system preferences."}
-                </p>
-              </div>
 
               <Tabs value={activeSettingsTab} onValueChange={(val: any) => setActiveSettingsTab(val)} className="space-y-6">
                 <TabsList className="bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-full md:w-auto inline-flex">
@@ -2164,7 +1622,7 @@ function DashboardContent() {
                         Notification Preferences
                       </h3>
                       <div className="pl-10 grid gap-4">
-                        {['New Lead Alerts', 'Weekly Performance Reports', 'Offer Expiry Reminders'].map(item => {
+                        {['Offer Expiry Reminders'].map(item => {
                           const isOn = notifications[item] !== false
                           return (
                             <div key={item} className="flex items-center justify-between">
@@ -2213,21 +1671,7 @@ function DashboardContent() {
                             Change
                           </button>
                         </div>
-
-                        <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <Smartphone className="h-5 w-5 text-slate-500" />
-                            <div>
-                              <p className="font-medium text-slate-900 dark:text-white">Two-Factor Authentication</p>
-                              <p className="text-xs text-slate-500">Secure your account with 2FA</p>
-                            </div>
-                          </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" className="sr-only peer" />
-                            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-                          </label>
                         </div>
-                      </div>
                     </div>
                   </div>
                 </TabsContent>
@@ -2237,20 +1681,6 @@ function DashboardContent() {
         </div>
       </main>
 
-      {/* Banner Editor Modal */}
-      {showBannerEditor && (
-        <BannerEditor
-          offerName={newOffer.offerName || "Special Offer"}
-          benefitText={newOffer.benefitText || "₹2 Lakh Off"}
-          benefitHighlight={newOffer.benefitHighlight || "DEAL"}
-          bannerType={bannerType}
-          onSave={(dataUrl) => {
-            setNewOffer({ ...newOffer, bannerImage: dataUrl })
-            setShowBannerEditor(false)
-          }}
-          onClose={() => setShowBannerEditor(false)}
-        />
-      )}
 
       {/* Password Change Modal */}
       {isChangingPassword && (
@@ -2258,67 +1688,107 @@ function DashboardContent() {
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">Change Password</h3>
-              <button onClick={() => setIsChangingPassword(false)} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors">
-                <X className="h-5 w-5 text-slate-500" />
+              <button
+                onClick={() => {
+                  setIsChangingPassword(false);
+                  setOtpSent(false);
+                  setPasswordData({ otp: "", newPassword: "", confirmPassword: "" });
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+              >
+                <X className="h-5 w-5" />
               </button>
             </div>
-
-            <form onSubmit={handlePasswordChange} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Current Password</label>
-                <input
-                  type="password"
-                  required
-                  value={passwordData.currentPassword}
-                  onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                  placeholder="••••••••"
-                />
-              </div>
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">New Password</label>
-                <input
-                  type="password"
-                  required
-                  value={passwordData.newPassword}
-                  onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                  placeholder="Min 8 characters"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Confirm New Password</label>
-                <input
-                  type="password"
-                  required
-                  value={passwordData.confirmPassword}
-                  onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                  placeholder="••••••••"
-                />
-              </div>
-
-              <div className="pt-4 flex gap-3">
+            
+            {!otpSent ? (
+              <div className="p-6 text-center space-y-4">
+                <div className="mx-auto w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4">
+                  <Mail className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                </div>
+                <h4 className="text-lg font-semibold text-slate-900 dark:text-white">Verify Your Identity</h4>
+                <p className="text-slate-500 dark:text-slate-400 text-sm">
+                  We'll send a 6-digit OTP to your registered email address to verify it's you before changing your password.
+                </p>
                 <button
                   type="button"
-                  onClick={() => setIsChangingPassword(false)}
-                  className="flex-1 px-4 py-2.5 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-medium rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                  onClick={handleSendOtp}
+                  disabled={sendingOtp}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-xl transition-all shadow-sm shadow-blue-500/20 disabled:opacity-70 flex justify-center items-center gap-2 mt-4"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSavingProfile}
-                  className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-all shadow-lg hover:shadow-xl disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {isSavingProfile ? (
-                    <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</>
+                  {sendingOtp ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      Sending OTP...
+                    </>
                   ) : (
-                    "Update Password"
+                    "Send OTP to Email"
                   )}
                 </button>
               </div>
-            </form>
+            ) : (
+              <form onSubmit={handlePasswordChange} className="p-6 space-y-5">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Enter 6-digit OTP</label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={6}
+                    value={passwordData.otp}
+                    onChange={(e) => setPasswordData({ ...passwordData, otp: e.target.value })}
+                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all tracking-widest"
+                    placeholder="123456"
+                  />
+                </div>
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">New Password</label>
+                  <input
+                    type="password"
+                    required
+                    value={passwordData.newPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                    placeholder="Min 8 characters"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Confirm New Password</label>
+                  <input
+                    type="password"
+                    required
+                    value={passwordData.confirmPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                    placeholder="••••••••"
+                  />
+                </div>
+                <div className="pt-4 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsChangingPassword(false);
+                      setOtpSent(false);
+                    }}
+                    className="flex-1 px-4 py-2.5 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingProfile}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 px-4 rounded-xl transition-all shadow-sm shadow-blue-500/20 font-medium disabled:opacity-70 flex justify-center items-center gap-2"
+                  >
+                    {isSavingProfile ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Updating...
+                      </>
+                    ) : (
+                      "Update Password"
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

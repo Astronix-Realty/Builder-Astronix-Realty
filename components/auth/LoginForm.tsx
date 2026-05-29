@@ -23,7 +23,7 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
     e.preventDefault()
     setIsLoading(true)
     setError("")
-    
+
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
@@ -31,13 +31,13 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
         body: JSON.stringify({ email, password, userType }),
       })
       const data = await res.json()
-      
+
       if (!res.ok) {
         setError(data.error || "Login failed")
         setIsLoading(false)
         return
       }
-      
+
       if (userType === "builder") router.push("/builder-dashboard")
       else router.push("/mandate-dashboard")
     } catch {
@@ -141,11 +141,12 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
 
       {/* ── DIVIDER ── */}
       <div className="relative my-6">
+        <div className="border-t m-2"></div>
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-white/10" />
+          <div className="w-full  border-white/10" />
         </div>
         <div className="relative flex justify-center">
-          <span className="px-4 bg-transparent text-sm text-slate-500 backdrop-blur-sm">New to Astronix?</span>
+          <span className="px-4 bg-transparent text-sm text-slate-500 backdrop-blur-sm">New to AstronixRealty?</span>
         </div>
       </div>
 

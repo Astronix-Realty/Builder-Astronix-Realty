@@ -20,6 +20,13 @@ export async function PUT(req: NextRequest) {
 
     const body = await req.json()
 
+    if (body.phone) {
+      const phoneRegex = /^\+?[0-9]{10,15}$/;
+      if (!phoneRegex.test(body.phone)) {
+        return NextResponse.json({ error: "Invalid phone number format. Must be 10-15 digits." }, { status: 400 })
+      }
+    }
+
     // Whitelist allowed profile fields
     const allowedFields = [
       "companyName", "developerName", "fullName", "phone", "address",

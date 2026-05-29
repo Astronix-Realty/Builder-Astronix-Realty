@@ -34,6 +34,7 @@ export interface IRegisterMandatePayload {
   confirmPassword?: string;
   userType: "mandate";
   fullName?: string;
+  companyName?: string;
   phone?: string;
   address?: string;
   city?: string;

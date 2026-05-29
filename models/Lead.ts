@@ -50,6 +50,11 @@ const LeadSchema = new mongoose.Schema({
         ref: "Project",
         index: true
     },
+    offerId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Offer",
+        index: true
+    },
     requirement: { type: String },
     budget: { type: String },
     assignee: { type: String },

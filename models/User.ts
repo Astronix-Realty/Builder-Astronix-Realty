@@ -11,6 +11,23 @@ export interface IUser extends Document {
   isDeleted: boolean;
   createdAt: Date;
   updatedAt: Date;
+  // OTP for logged-in password change
+  otp?: string;
+  otpExpiry?: Date;
+  otpRequestCount?: number;
+  otpWindowStart?: Date;
+  lastOtpSentAt?: Date;
+  // Forgot password flow
+  passwordResetToken?: string;
+  passwordResetExpiry?: Date;
+  passwordResetRequestCount?: number;
+  passwordResetWindowStart?: Date;
+  lastPasswordResetSentAt?: Date;
+  // Security & login tracking
+  loginAttempts?: number;
+  lockUntil?: Date;
+  lastLoginAt?: Date;
+  lastLoginIp?: string;
 }
 
 const UserSchema = new Schema<IUser>({
@@ -21,7 +38,24 @@ const UserSchema = new Schema<IUser>({
   profile: { type: Schema.Types.Mixed, default: {} }, 
   builderId: { type: Schema.Types.ObjectId, ref: 'Builder' },
   mandateId: { type: Schema.Types.ObjectId, ref: 'Mandate' },
-  isDeleted: { type: Boolean, default: false }
+  isDeleted: { type: Boolean, default: false },
+  // OTP fields (logged-in password change)
+  otp: { type: String },
+  otpExpiry: { type: Date },
+  otpRequestCount: { type: Number, default: 0 },
+  otpWindowStart: { type: Date },
+  lastOtpSentAt: { type: Date },
+  // Forgot password fields
+  passwordResetToken: { type: String },
+  passwordResetExpiry: { type: Date },
+  passwordResetRequestCount: { type: Number, default: 0 },
+  passwordResetWindowStart: { type: Date },
+  lastPasswordResetSentAt: { type: Date },
+  // Security & login tracking
+  loginAttempts: { type: Number, default: 0 },
+  lockUntil: { type: Date },
+  lastLoginAt: { type: Date },
+  lastLoginIp: { type: String },
 }, { 
   timestamps: true 
 });
@@ -29,5 +63,6 @@ const UserSchema = new Schema<IUser>({
 // Indexing
 UserSchema.index({ email: 1 }, { unique: true });
 UserSchema.index({ role: 1, status: 1 });
+UserSchema.index({ passwordResetToken: 1 });
 
 export default mongoose.models.User || mongoose.model<IUser>('User', UserSchema);

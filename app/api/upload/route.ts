@@ -13,8 +13,12 @@ cloudinary.config({
 // POST /api/upload
 export async function POST(req: NextRequest) {
   try {
-    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
-    if (errorResponse) return errorResponse;
+    const isPublic = req.nextUrl.searchParams.get("public") === "true"
+
+    if (!isPublic) {
+      const { errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+      if (errorResponse) return errorResponse;
+    }
     // Check if Cloud Name is configured
     if (!process.env.CLOUDINARY_CLOUD_NAME) {
       return NextResponse.json(
