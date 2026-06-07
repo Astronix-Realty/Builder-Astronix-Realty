@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Property from "@/models/Property";
 import Unit from "@/models/Unit";
+import User from "@/models/User";
 import { checkRBAC, getOwnershipQuery } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ const INVENTORY_STATUSES = ["available", "sold", "blocked", "reserved", "booked"
  */
 export async function GET(req: NextRequest) {
   try {
-    const { context, errorResponse } = await checkRBAC(req, ["builder", "mandate"]);
+    const { context, errorResponse } = await checkRBAC(req, ["builder", "mandate", "teamLeader"]);
     if (errorResponse) return errorResponse;
 
     await dbConnect();
@@ -28,6 +29,12 @@ export async function GET(req: NextRequest) {
     // Relax ownership query for builder to only check builderId, ignoring strict accountId matches.
     if (context!.role === "builder") {
       ownershipQuery = { builderId: context!.userId, role: { $ne: 'mandate' } };
+    } else if (context!.role === "teamLeader") {
+      const leaderDoc = await User.findById(context!.userId).lean();
+      if (!leaderDoc || !leaderDoc.profile?.propertyId) {
+         return NextResponse.json({ properties: [] }, { status: 200 });
+      }
+      ownershipQuery = { _id: leaderDoc.profile.propertyId };
     }
 
     // Root-level, non-deleted, published properties owned by this user

@@ -462,7 +462,7 @@ export async function publishProperty(draftId: string, context: RBACContext) {
     const newUnitsToInsert: any[] = [];
     const unitBulkOps: any[] = [];
 
-    for (const unit of units) {
+    for (const unit of (units as any[])) {
       const activeTowerId = draftToPublishedMap.get(unit.towerId?.toString()) || unit.towerId;
       const activeProjectId = draftToPublishedMap.get(unit.projectId?.toString()) || unit.projectId;
       const activeParentId = draftToPublishedMap.get(unit.parentId?.toString()) || unit.parentId;
@@ -572,12 +572,12 @@ export async function publishProperty(draftId: string, context: RBACContext) {
       // Sync hierarchy counts after successful publish transaction
       const publishedProp = await Property.findById(result.publishedId).lean();
       if (publishedProp) {
-        if (publishedProp.type === 'township') {
-          await aggregateTownshipCounts(publishedProp._id);
-        } else if (publishedProp.type === 'project') {
-          await aggregateProjectCounts(publishedProp._id);
-        } else if (publishedProp.type === 'tower') {
-          await aggregateTowerCounts(publishedProp._id);
+        if (publishedProp && (publishedProp as any).type === 'township') {
+          await aggregateTownshipCounts((publishedProp as any)._id);
+        } else if (publishedProp && (publishedProp as any).type === 'project') {
+          await aggregateProjectCounts((publishedProp as any)._id);
+        } else if (publishedProp && (publishedProp as any).type === 'tower') {
+          await aggregateTowerCounts((publishedProp as any)._id);
         }
       }
     }

@@ -20,6 +20,7 @@ import type {
   EcoFeature, ApfDetail, VideoGalleryItem, MasterPlanHighlight
 } from "@/lib/builder-types"
 import { BannerUpload, GalleryUpload, VideoUpload, DocumentUpload, MasterPlanMapUpload, AboutImageUpload } from "@/components/ui/media-uploads"
+import { ImageUpload } from "@/components/ui/image-upload"
 import { AmenitiesManager } from "@/components/builder/shared/AmenitiesManager"
 
 // ─────────────────────────────────────────
@@ -652,41 +653,7 @@ function TowerFlowFormBase({ data, unitConfig, unitTemplate, onChange, projectNa
       </Section>
 
 
-      {/* ── 4. FLOOR PLAN BREAKDOWN ─────────────── */}
-      <Section id="tower-floors" title="Floor Distribution Breakdown" description="Parking, Podium, Refuge, Residential floors — Floor View Slider" icon={Layers} openIds={openIds} setOpenIds={setOpenIds}>
-        <p className="text-xs text-gray-500 dark:text-slate-400 mb-3">Tower ke andar har floor type ki range define karo — visitor panel mein interactive floor view slider pe dikhega</p>
-        {(data.floorsBreakdown || []).map(item => (
-          <Card key={item.id} className="mb-3 border-gray-100 dark:border-slate-800">
-            <CardContent className="p-3">
-              <Grid cols={2}>
-                <Field label="Floor Type">
-                  <Select value={item.floorType} onValueChange={v => updateFloorBreakdown(item.id, { floorType: v as FloorBreakdown["floorType"] })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {FLOOR_TYPES.map(t => <SelectItem key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="Description">
-                  <Input value={item.description ?? ""} onChange={e => updateFloorBreakdown(item.id, { description: e.target.value })} placeholder="Basement Parking / Grand Lobby..." />
-                </Field>
-                <Field label="From Floor">
-                  <Input value={item.fromFloor ?? ""} onChange={e => updateFloorBreakdown(item.id, { fromFloor: e.target.value })} placeholder="B2 or 1" />
-                </Field>
-                <Field label="To Floor">
-                  <Input value={item.toFloor ?? ""} onChange={e => updateFloorBreakdown(item.id, { toFloor: e.target.value })} placeholder="B1 or 24" />
-                </Field>
-              </Grid>
-              <button type="button" onClick={() => removeFloorBreakdown(item.id)} className="mt-2 text-xs text-red-400 flex items-center gap-1">
-                <X className="w-3 h-3" /> Remove
-              </button>
-            </CardContent>
-          </Card>
-        ))}
-        <Button type="button" variant="outline" size="sm" onClick={addFloorBreakdown} className="w-full border-dashed">
-          <Plus className="w-4 h-4 mr-1" /> Add Floor Range
-        </Button>
-      </Section>
+
 
       {/* ── 4. FLOOR PLAN IMAGES ─────────────────── */}
       <Section id="tower-floorplan" title="Floor Plan Images" description="Architectural layout & highlights" icon={FileText} openIds={openIds} setOpenIds={setOpenIds}>
@@ -780,8 +747,8 @@ function TowerFlowFormBase({ data, unitConfig, unitTemplate, onChange, projectNa
             </div>
           </div>
 
-          {/* 2. CC Certificate (Visible for both UC and RM) */}
-          {(data.constructionStatus === "under-construction" || data.constructionStatus === "ready-to-move") && (
+          {/* 2. CC Certificate (Visible for UC) */}
+          {data.constructionStatus === "under-construction" && (
             <div className="bg-blue-50/20 rounded-2xl p-5 border border-blue-100/50 hover:border-blue-200 transition-colors shadow-sm flex flex-col h-full">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -851,13 +818,18 @@ function TowerFlowFormBase({ data, unitConfig, unitTemplate, onChange, projectNa
           {!isBuilder && (
           <Section id="builder" title="Developer / Builder Info" description="Builder name, logo, contact — Hero pe dikhta hai" icon={Building2} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
              <div className="bg-gray-50 dark:bg-slate-800/50/50 p-4 sm:p-5 rounded-2xl border border-gray-100 dark:border-slate-800 flex flex-col gap-5">
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                 <Field label="Builder / Company Name" required hint="Registered company name (auto-filled for builders)">
-                   <Input value={townshipData.builderName} onChange={e => updateCommon("builderName", e.target.value)} placeholder="Astronix Realty" className="h-11 border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm focus-visible:ring-blue-500 rounded-xl" />
-                 </Field>
-                 <Field label="Builder Logo URL" hint="A publicly accessible logo URL">
-                   <Input value={townshipData.builderLogo} onChange={e => updateCommon("builderLogo", e.target.value)} placeholder="https://..." className="h-11 border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm focus-visible:ring-blue-500 rounded-xl" />
-                 </Field>
+               <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8">
+                 <div className="shrink-0">
+                   <div className="mb-2 text-center sm:text-left">
+                     <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Builder Logo</Label>
+                   </div>
+                   <ImageUpload value={townshipData.builderLogo} onChange={v => updateCommon("builderLogo", v)} />
+                 </div>
+                 <div className="flex-1 w-full">
+                   <Field label="Builder / Company Name" required hint="Registered company name (auto-filled for builders)">
+                     <Input value={townshipData.builderName} onChange={e => updateCommon("builderName", e.target.value)} placeholder="Astronix Realty" className="h-11 border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm focus-visible:ring-blue-500 rounded-xl" />
+                   </Field>
+                 </div>
                </div>
              </div>
           </Section>

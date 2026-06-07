@@ -60,6 +60,10 @@ const LeadSchema = new mongoose.Schema({
     assignee: { type: String },
     isTokenPaid: { type: Boolean, default: false },
     interestedUnit: { type: String },
+    isGroup: { type: Boolean, default: false },
+    groupSize: { type: Number, default: 0 },
+    groupDiscount: { type: String },
+    mergedMembers: [mongoose.Schema.Types.Mixed],
     notes: [String],
     timeline: [{
         date: { type: Date, default: Date.now },
@@ -88,7 +92,8 @@ LeadSchema.index({ accountId: 1, createdAt: -1, isArchived: 1 });
 LeadSchema.index({ mandateId: 1, createdAt: -1, isArchived: 1 });
 LeadSchema.index({ source: 1, isArchived: 1 });
 
-// Avoid re-compiling the model if it already exists
-const Lead = mongoose.models.Lead || mongoose.model("Lead", LeadSchema);
+// Avoid schema caching issues in Next.js dev mode
+delete mongoose.models.Lead;
+const Lead = mongoose.model("Lead", LeadSchema);
 
 export default Lead;

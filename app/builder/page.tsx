@@ -301,13 +301,13 @@ function BuilderContent() {
       let unitsPerFloor = Number.parseInt(String(tower.unitsPerFloor || ""))
 
       if (!floors && floorGroups.length > 0) {
-        const allFloors = floorGroups.flatMap(g => g.floors || [])
+        const allFloors = floorGroups.flatMap((g: any) => g.floors || [])
         floors = allFloors.length > 0 ? Math.max(...allFloors) : 0
       }
       if (!floors) floors = 20
 
       if (!unitsPerFloor && floorGroups.length > 0) {
-        const allLayouts = floorGroups.map(g => (g.layout || []).length)
+        const allLayouts = floorGroups.map((g: any) => (g.layout || []).length)
         unitsPerFloor = allLayouts.length > 0 ? Math.max(...allLayouts) : 0
       }
       if (!unitsPerFloor) unitsPerFloor = 4
@@ -319,10 +319,10 @@ function BuilderContent() {
         reraNumber: tower.reraNumber,
         totalFloors: floors,
         unitsPerFloor,
-        totalUnits: floors * unitsPerFloor, // This gets overridden by the true count in the sync effect
+        totalUnits: tower.totalUnits !== undefined ? tower.totalUnits : (floors * unitsPerFloor), // Use the true synced count if available
       }
     })
-  }, [towers, towerUnitConfigs, unitTemplate])
+  }, [state.towers, towerUnitConfigs, unitTemplate])
 
   const generatedUnits = useMemo<GeneratedUnit[]>(() => {
     const units: GeneratedUnit[] = []
@@ -332,8 +332,12 @@ function BuilderContent() {
 
     generatedTowers.forEach((tower) => {
       const towerConfig = towerUnitConfigs?.find((c) => c.towerId === tower.id)
-      const floorGroups = towerConfig?.floorGroups || unitTemplate?.floorGroups || []
-      const configs = towerConfig?.configurations || unitTemplate?.configurations || []
+      const floorGroups = (towerConfig?.floorGroups && towerConfig.floorGroups.length > 0) 
+        ? towerConfig.floorGroups 
+        : (unitTemplate?.floorGroups || [])
+      const configs = (towerConfig?.configurations && towerConfig.configurations.length > 0)
+        ? towerConfig.configurations
+        : (unitTemplate?.configurations || [])
       const basePrice = towerConfig?.basePrice
         ? Number.parseFloat(towerConfig.basePrice)
         : Number.parseFloat(unitTemplate?.basePrice || "0")
@@ -343,31 +347,29 @@ function BuilderContent() {
       const facingPremiums = towerConfig?.facingPremiums || unitTemplate?.facingPremiums || {}
 
       let unitNumber = 0
-      const totalFloors = parseInt(tower.totalFloors) || parseInt(tower.totalFloorsNum) || 0
+      const totalFloors = Number(tower.totalFloors) || 0
       
       if (floorGroups && floorGroups.length > 0) {
         // Collect all unique floors across all groups
         const allFloorsSet = new Set<number>()
-        floorGroups.forEach(g => (g.floors || []).forEach(f => allFloorsSet.add(f)))
+        floorGroups.forEach((g: any) => (g.floors || []).forEach((f: any) => allFloorsSet.add(f)))
         let allFloors = Array.from(allFloorsSet).sort((a, b) => a - b)
         
-        // Fix: Ensure we don't generate units for floors beyond the current totalFloors limit
-        // This handles cases where totalFloors was reduced after floorGroups were created
-        if (totalFloors > 0) {
-          allFloors = allFloors.filter(f => f <= totalFloors)
-        }
+        // Do NOT filter by totalFloors limit here anymore.
+        // We want to generate units for ALL floors explicitly mapped by the user in Phase 4 (Floor Groups),
+        // ensuring the total matches the Live Tower Map perfectly.
 
         allFloors.forEach(floor => {
           // Find the primary group for this floor (matches Live Tower Map logic)
-          const group = floorGroups.find(g => (g.floors || []).includes(floor))
+          const group = floorGroups.find((g: any) => (g.floors || []).includes(floor))
           if (!group || !group.layout) return
 
           const slotsToUse = group.floorOverrides?.[floor.toString()] || group.layout;
 
-          slotsToUse.forEach(slot => {
+          slotsToUse.forEach((slot: any) => {
             // Fix: Don't return early if config is missing (before Smart Sync).
             // This ensures units are correctly counted based on layout slots even before configs are generated.
-            const config = configs.find(c => c.id === slot.configId) || configs[0] || { 
+            const config = configs.find((c: any) => c.id === slot.configId) || configs[0] || { 
               type: slot.unitTypeOverride || "Pending BHK", 
               carpetArea: slot.carpetAreaOverride || 0 
             }
@@ -399,6 +401,7 @@ function BuilderContent() {
               carpetArea,
               area: carpetArea,
               price: Math.round(finalPrice),
+              ratePerSqft: ratePerSqft > 0 ? ratePerSqft : Math.round(finalPrice / (carpetArea || 1)),
               facing,
               status: slot.status || "available",
             })
@@ -438,6 +441,7 @@ function BuilderContent() {
                 carpetArea,
                 area: carpetArea,
                 price: Math.round(finalPrice),
+                ratePerSqft: ratePerSqft > 0 ? ratePerSqft : Math.round(finalPrice / (carpetArea || 1)),
                 facing,
                 status: "available",
               })
@@ -537,7 +541,9 @@ function BuilderContent() {
     // 1. Calculate Tower Prices & Counts from Unit Configs & Generated Units
     const updatedTowers = [...(state.towers || [])].map(tower => {
       const config = state.towerUnitConfigs?.find(c => c.towerId === tower.id)
-      let configs = config?.configurations || []
+      let configs = (config?.configurations && config.configurations.length > 0) 
+        ? config.configurations 
+        : []
       
       // Fallback to global template if tower config is empty or has no prices
       if (configs.length === 0 || !configs.some((c: any) => (c.allInclusivePrice || 0) > 0)) {
@@ -692,7 +698,12 @@ function BuilderContent() {
     const originalConfig = state.towerUnitConfigs.find(c => c.towerId === towerId)
     let newConfigs = state.towerUnitConfigs
     if (originalConfig) {
-      newConfigs = [...state.towerUnitConfigs, { ...originalConfig, towerId: newTowerId }]
+      newConfigs = [...state.towerUnitConfigs, { 
+        ...originalConfig, 
+        towerId: newTowerId,
+        configurations: originalConfig.configurations ? JSON.parse(JSON.stringify(originalConfig.configurations)) : [],
+        floorGroups: originalConfig.floorGroups ? JSON.parse(JSON.stringify(originalConfig.floorGroups)) : []
+      }]
     }
 
     setState(prev => ({
@@ -1202,10 +1213,10 @@ function BuilderContent() {
                     </button>
                   ))}
 
-                  {activeUnitProjectId !== "all" && (
+                  {(activeUnitProjectId !== "all" || flowType === "tower") && (
                     <Fragment key="unit-towers">
                       <div className="w-px h-4 bg-slate-200 mx-2" />
-                      {state.towers.filter(t => t.projectId === activeUnitProjectId).map((t) => (
+                      {state.towers.filter(t => flowType === "tower" || t.projectId === activeUnitProjectId).map((t) => (
                         <button
                           key={t.id}
                           onClick={() => setActiveUnitTowerId(t.id)}
@@ -1407,8 +1418,8 @@ function BuilderContent() {
 
                     return {
                       ...towerConfig,
-                      basePrice: newTemplate.basePrice || towerConfig.basePrice,
-                      ratePerSqft: newTemplate.ratePerSqft || towerConfig.ratePerSqft,
+                      basePrice: towerConfig.basePrice ?? newTemplate.basePrice,
+                      ratePerSqft: towerConfig.ratePerSqft ?? newTemplate.ratePerSqft,
                       facingPremiums: { ...newTemplate.facingPremiums },
                       configurations: syncedConfigurations,
                       floorGroups: (towerConfig.floorGroups || []).length === 0 ? (newTemplate.floorGroups || []).map(fg => ({ ...fg })) : towerConfig.floorGroups

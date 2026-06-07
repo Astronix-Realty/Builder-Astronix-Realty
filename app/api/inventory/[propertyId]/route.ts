@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Property from "@/models/Property";
 import Unit from "@/models/Unit";
+import User from "@/models/User";
 import { checkRBAC, getOwnershipQuery, RBACContext } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
@@ -65,6 +66,7 @@ async function fetchUnitsForTowers(
   towerDocs: any[],
   projectIdStr: string | null,
   ownershipQuery: Record<string, any>,
+  rootProperty: any,
   session?: mongoose.ClientSession
 ): Promise<NormalizedUnit[]> {
   if (towerDocs.length === 0) return [];
@@ -98,8 +100,9 @@ async function fetchUnitsForTowers(
     }));
   } else {
     // Fallback: Extract from embedded generatedUnits
-    for (const tower of towerDocs) {
-      if (tower.details?.generatedUnits && Array.isArray(tower.details.generatedUnits)) {
+    const rootEmbeddedUnits = rootProperty?.details?.generatedUnits || [];
+    if (rootEmbeddedUnits.length > 0) {
+      for (const tower of towerDocs) {
         let frontendTowerId: string | null = null;
 
         // Attempt 1: Find frontend ID using autoDraftIds
@@ -117,7 +120,7 @@ async function fetchUnitsForTowers(
         }
 
         // Filter units to only those belonging to this tower
-        const relevantUnits = tower.details.generatedUnits.filter((u: any) => {
+        const relevantUnits = rootEmbeddedUnits.filter((u: any) => {
           if (!u.towerId) return true; // Edge case: no towerId
           if (frontendTowerId && u.towerId === frontendTowerId) return true;
           if (u.towerId === tower._id.toString()) return true;
@@ -152,6 +155,47 @@ async function fetchUnitsForTowers(
   return unitsToReturn;
 }
 
+// ─── Helper: Derive floor count from tower details ───────────────────────────
+// Priority: totalFloorsNum → parse totalFloors string → max floor in floorGroups → units ÷ unitsPerFloor
+
+function deriveFloorCount(towerDetails: any, towerUnitConfigs: any[], towerId: string): number {
+  // 1. Direct numeric field (most reliable)
+  if (towerDetails?.totalFloorsNum && Number(towerDetails.totalFloorsNum) > 0) {
+    return Number(towerDetails.totalFloorsNum);
+  }
+
+  // 2. Parse totalFloors string — handles "G + 25", "G+30", "25", "B2 + 25" etc.
+  if (towerDetails?.totalFloors) {
+    const numMatches = String(towerDetails.totalFloors).match(/\d+/g);
+    if (numMatches && numMatches.length > 0) {
+      const parsed = parseInt(numMatches[numMatches.length - 1]);
+      if (parsed > 0) return parsed;
+    }
+  }
+
+  // 3. Derive from floorGroups (most accurate for wizard-configured towers)
+  const config = (towerUnitConfigs || []).find((c: any) =>
+    c.towerId === towerId ||
+    c.towerId === towerDetails?.id
+  );
+  const floorGroups = config?.floorGroups || towerDetails?.floorGroups || [];
+  if (Array.isArray(floorGroups) && floorGroups.length > 0) {
+    const allFloors = floorGroups.flatMap((g: any) => g.floors || []).filter((f: number) => f > 0);
+    if (allFloors.length > 0) {
+      return Math.max(...allFloors);
+    }
+  }
+
+  // 4. Fallback: totalUnits ÷ unitsPerFloor
+  const totalUnits = Number(towerDetails?.totalUnits) || 0;
+  const unitsPerFloor = Number(towerDetails?.unitsPerFloor) || parseInt(String(towerDetails?.unitsPerFloor || "")) || 0;
+  if (totalUnits > 0 && unitsPerFloor > 0) {
+    return Math.round(totalUnits / unitsPerFloor);
+  }
+
+  return 0;
+}
+
 // ─── Helper: Recursively collect all towers and units ────────────────────────
 
 async function buildHierarchy(
@@ -173,12 +217,39 @@ async function buildHierarchy(
       ...ownershipQuery
     })
       .select("_id name details")
-      .lean();
+      .lean() as any[];
+      
+    // Include embedded projects if no standalone documents exist (draft/builder support)
+    const embeddedProjects = (rootProperty.details?.projects || []).map((p: any) => ({
+      _id: p.id,
+      name: p.name || "Untitled Project",
+      details: { towers: p.towers || [] },
+      isEmbedded: true
+    }));
+    
+    let validProjectDocs = projectDocs.length > 0 ? projectDocs : embeddedProjects;
 
-    for (const proj of projectDocs as any[]) {
+    if (projectDocs.length > 0) {
+      const embeddedProjectNames = new Set(
+        (rootProperty.details?.projects || []).map((p: any) => p.name?.trim().toLowerCase()).filter(Boolean)
+      );
+      const hasEmbeddedProjectsList = embeddedProjectNames.size > 0;
+
+      validProjectDocs = projectDocs.filter((proj: any) => {
+        const projName = (proj.name || "").trim();
+        const isUntitled = !projName || projName.toLowerCase().startsWith("untitled");
+        
+        if (hasEmbeddedProjectsList) {
+          return embeddedProjectNames.has(projName.toLowerCase());
+        }
+        return !isUntitled; // fallback: drop untitled projects if no embedded list exists
+      });
+    }
+
+    for (const proj of validProjectDocs) {
       const projIdStr = proj._id.toString();
 
-      const towerDocs = await Property.find({
+      let towerDocs = await Property.find({
         parentId: proj._id,
         isDeleted: false,
         status: { $nin: ["draft", "rejected"] },
@@ -187,20 +258,82 @@ async function buildHierarchy(
       })
         .select("_id name details")
         .lean() as any[];
+        
+      // Include embedded towers
+      if (towerDocs.length === 0 && proj.details?.towers) {
+        towerDocs = proj.details.towers.map((t: any) => {
+          const fullTower = (rootProperty.details?.towers || []).find((rt: any) => rt.id === t.id) || t;
+          return {
+            _id: t.id,
+            name: t.name || "Untitled Tower",
+            details: fullTower,
+            isEmbedded: true
+          };
+        });
+      }
 
-      // Fetch units for this project's towers
-      const projectUnits = await fetchUnitsForTowers(towerDocs, projIdStr, ownershipQuery);
+      // Fetch units for this project's towers first
+      const projectUnits = await fetchUnitsForTowers(towerDocs, projIdStr, ownershipQuery, rootProperty);
       allUnits.push(...projectUnits);
 
-      for (const tower of towerDocs) {
+      // Cross-reference with the project's own embedded tower list to filter out orphaned/untitled towers
+      const embeddedTowerNames = new Set(
+        (proj.details?.towers || []).map((t: any) => t.name?.trim().toLowerCase()).filter(Boolean)
+      );
+      const hasEmbeddedList = embeddedTowerNames.size > 0;
+
+      // Filter towerDocs: keep only real configured towers
+      const validTowerDocs = towerDocs.filter((tower: any) => {
+        const towerName = (tower.name || "").trim();
+        const isUntitled = !towerName || towerName.toLowerCase().startsWith("untitled");
+        // If the project has an embedded tower list, only show towers whose name matches
+        if (hasEmbeddedList) {
+          return embeddedTowerNames.has(towerName.toLowerCase());
+        }
+        // Otherwise, skip untitled towers with 0 units
+        const towerUnitCount = projectUnits.filter((u) => u.towerId === tower._id.toString()).length;
+        return !isUntitled || towerUnitCount > 0;
+      });
+
+      for (const tower of validTowerDocs) {
         const towerIdStr = tower._id.toString();
         const towerUnitCount = projectUnits.filter((u) => u.towerId === towerIdStr).length;
+        // towerUnitConfigs uses frontend IDs - match by name or grab config for the tower
+        const towerConfigs = rootProperty.details?.towerUnitConfigs || [];
+        const towerConfig = towerConfigs.find((c: any) => {
+          if (c.towerId === towerIdStr) return true;
+          const matchedT = (rootProperty.details?.towers || []).find((t: any) => t.id === c.towerId && (t.name === tower.name || t._dbId === towerIdStr));
+          return !!matchedT;
+        });
+        let baseRate = 
+          parseFloat(tower.details?.baseRatePerSqft || "0") ||
+          parseFloat(towerConfig?.ratePerSqft || "0") ||
+          parseFloat(towerConfig?.baseRatePerSqft || "0") ||
+          parseFloat(rootProperty.details?.unitTemplate?.ratePerSqft || "0") ||
+          parseFloat(towerConfig?.configurations?.[0]?.ratePerSqft || "0") ||
+          0;
+        // Fallback: derive from unit price/area ratio
+        if (!baseRate) {
+          const towerUnitsList = projectUnits.filter(u => u.towerId === towerIdStr);
+          const withRate = towerUnitsList.find(u => u.ratePerSqft > 0);
+          if (withRate) {
+            baseRate = withRate.ratePerSqft;
+          } else {
+            // Derive from price ÷ area (use floor 1 to avoid floor-rise distortion)
+            const floor1 = towerUnitsList.find(u => (u.floorNumber === 1) && u.area > 0 && u.price > 0)
+              || towerUnitsList.find(u => u.area > 0 && u.price > 0);
+            if (floor1) baseRate = Math.round(floor1.price / floor1.area);
+          }
+        }
+        const derivedFloors = deriveFloorCount(tower.details, rootProperty.details?.towerUnitConfigs || [], towerIdStr);
+        const derivedUnitsPerFloor = Number(tower.details?.unitsPerFloor) || parseInt(String(tower.details?.unitsPerFloor || "")) || 0;
         towers.push({
           _id: towerIdStr,
           name: tower.name || "Unnamed Tower",
           projectId: projIdStr,
-          floorCount: tower.details?.floors || 0,
-          unitCount: towerUnitCount,
+          floorCount: derivedFloors,
+          unitCount: towerUnitCount || (derivedFloors * derivedUnitsPerFloor) || 0,
+          baseRate,
         });
       }
 
@@ -224,18 +357,40 @@ async function buildHierarchy(
       .lean() as any[];
 
     if (directTowerDocs.length > 0) {
-      const directProjectUnits = await fetchUnitsForTowers(directTowerDocs, null, ownershipQuery);
+      const directProjectUnits = await fetchUnitsForTowers(directTowerDocs, null, ownershipQuery, rootProperty);
       allUnits.push(...directProjectUnits);
 
       for (const tower of directTowerDocs) {
         const towerIdStr = tower._id.toString();
         const towerUnitCount = directProjectUnits.filter((u) => u.towerId === towerIdStr).length;
+        const towerConfigs = rootProperty.details?.towerUnitConfigs || [];
+        const towerConfig = towerConfigs.find((c: any) => c.towerId === towerIdStr || c.towerId === tower.id);
+        let baseRate =
+          parseFloat(tower.details?.baseRatePerSqft || "0") ||
+          parseFloat(towerConfig?.ratePerSqft || "0") ||
+          parseFloat(towerConfig?.baseRatePerSqft || "0") ||
+          parseFloat(rootProperty.details?.unitTemplate?.ratePerSqft || "0") ||
+          parseFloat(towerConfig?.configurations?.[0]?.ratePerSqft || "0") ||
+          0;
+        if (!baseRate) {
+          const towerUnitsList = directProjectUnits.filter(u => u.towerId === towerIdStr);
+          const withRate = towerUnitsList.find(u => u.ratePerSqft > 0);
+          if (withRate) {
+            baseRate = withRate.ratePerSqft;
+          } else {
+            const f1 = towerUnitsList.find(u => u.floorNumber === 1 && u.area > 0 && u.price > 0) || towerUnitsList.find(u => u.area > 0 && u.price > 0);
+            if (f1) baseRate = Math.round(f1.price / f1.area);
+          }
+        }
+        const derivedFloors = deriveFloorCount(tower.details, rootProperty.details?.towerUnitConfigs || [], towerIdStr);
+        const derivedUnitsPerFloor = Number(tower.details?.unitsPerFloor) || parseInt(String(tower.details?.unitsPerFloor || "")) || 0;
         towers.push({
           _id: towerIdStr,
           name: tower.name || "System Generated Tower",
           projectId: "unknown",
-          floorCount: tower.details?.floors || 0,
-          unitCount: towerUnitCount,
+          floorCount: derivedFloors,
+          unitCount: towerUnitCount || (derivedFloors * derivedUnitsPerFloor) || 0,
+          baseRate,
         });
       }
     }
@@ -243,7 +398,7 @@ async function buildHierarchy(
     // Standalone Project → Towers → Units
     const projIdStr = rootProperty._id.toString();
 
-    const towerDocs = await Property.find({
+    let towerDocs = await Property.find({
       parentId: rootProperty._id,
       isDeleted: false,
       status: { $nin: ["draft", "rejected"] },
@@ -252,19 +407,55 @@ async function buildHierarchy(
     })
       .select("_id name details")
       .lean() as any[];
+      
+    // Include embedded towers if no standalone documents exist (draft/builder support)
+    if (towerDocs.length === 0 && rootProperty.details?.towers) {
+      towerDocs = rootProperty.details.towers.map((t: any) => ({
+        _id: t.id,
+        name: t.name || "Untitled Tower",
+        details: t,
+        isEmbedded: true
+      }));
+    }
 
-    const projectUnits = await fetchUnitsForTowers(towerDocs, projIdStr, ownershipQuery);
+    const projectUnits = await fetchUnitsForTowers(towerDocs, projIdStr, ownershipQuery, rootProperty);
     allUnits.push(...projectUnits);
 
     for (const tower of towerDocs) {
       const towerIdStr = tower._id.toString();
       const towerUnitCount = projectUnits.filter((u) => u.towerId === towerIdStr).length;
+      const towerConfigs = rootProperty.details?.towerUnitConfigs || [];
+      const towerConfig = towerConfigs.find((c: any) => {
+        if (c.towerId === towerIdStr) return true;
+        const matchedT = (rootProperty.details?.towers || []).find((t: any) => t.id === c.towerId && (t.name === tower.name || t._dbId === towerIdStr));
+        return !!matchedT;
+      });
+      let baseRate =
+        parseFloat(tower.details?.baseRatePerSqft || "0") ||
+        parseFloat(towerConfig?.ratePerSqft || "0") ||
+        parseFloat(towerConfig?.baseRatePerSqft || "0") ||
+        parseFloat(rootProperty.details?.unitTemplate?.ratePerSqft || "0") ||
+        parseFloat(towerConfig?.configurations?.[0]?.ratePerSqft || "0") ||
+        0;
+      if (!baseRate) {
+        const towerUnitsList = projectUnits.filter(u => u.towerId === towerIdStr);
+        const withRate = towerUnitsList.find(u => u.ratePerSqft > 0);
+        if (withRate) {
+          baseRate = withRate.ratePerSqft;
+        } else {
+          const f1 = towerUnitsList.find(u => u.floorNumber === 1 && u.area > 0 && u.price > 0) || towerUnitsList.find(u => u.area > 0 && u.price > 0);
+          if (f1) baseRate = Math.round(f1.price / f1.area);
+        }
+      }
+      const derivedFloors = deriveFloorCount(tower.details, rootProperty.details?.towerUnitConfigs || [], towerIdStr);
+      const derivedUnitsPerFloor = Number(tower.details?.unitsPerFloor) || parseInt(String(tower.details?.unitsPerFloor || "")) || 0;
       towers.push({
         _id: towerIdStr,
         name: tower.name || "Unnamed Tower",
         projectId: projIdStr,
-        floorCount: tower.details?.floors || 0,
-        unitCount: towerUnitCount,
+        floorCount: derivedFloors,
+        unitCount: towerUnitCount || (derivedFloors * derivedUnitsPerFloor) || 0,
+        baseRate,
       });
     }
 
@@ -279,15 +470,51 @@ async function buildHierarchy(
     const towerDocs = [rootProperty]; // The root IS the tower
     const towerIdStr = rootProperty._id.toString();
 
-    const towerUnits = await fetchUnitsForTowers(towerDocs, null, ownershipQuery);
+    const towerUnits = await fetchUnitsForTowers(towerDocs, null, ownershipQuery, rootProperty);
     allUnits.push(...towerUnits);
 
+    // For standalone tower: towerUnitConfigs may use frontend ID (e.g. 'tower-standalone-1'),
+    // so just grab the first config if it exists, or fall back to unitTemplate.
+    const anyTowerConfig = (rootProperty.details?.towerUnitConfigs || [])[0];
+    
+    // Helper: safely derive base rate from a list of unit-like objects
+    const deriveRateFromUnits = (units: any[]): number => {
+      // Try ratePerSqft directly
+      const withRate = units.find((u: any) => parseFloat(u.ratePerSqft) > 0);
+      if (withRate) return parseFloat(withRate.ratePerSqft);
+      // Try price ÷ area (for floor 1 unit to avoid floor-rise distortion)
+      const floor1Unit = units.find((u: any) => 
+        (u.floor === 1 || u.floorNumber === 1) && (u.area || u.carpetArea) > 0 && u.price > 0
+      ) || units.find((u: any) => (u.area || u.carpetArea) > 0 && u.price > 0);
+      if (floor1Unit) {
+        const area = floor1Unit.area || floor1Unit.carpetArea;
+        return Math.round(floor1Unit.price / area);
+      }
+      return 0;
+    };
+
+    let baseRate = 
+      parseFloat(rootProperty.details?.baseRatePerSqft || "0") ||
+      parseFloat(anyTowerConfig?.ratePerSqft || "0") ||
+      parseFloat(anyTowerConfig?.baseRatePerSqft || "0") ||
+      parseFloat(rootProperty.details?.unitTemplate?.ratePerSqft || "0") ||
+      // Check configurations array ratePerSqft
+      parseFloat(anyTowerConfig?.configurations?.[0]?.ratePerSqft || "0") ||
+      0;
+    // Final fallback: derive from unit prices/areas
+    if (!baseRate) {
+      const embeddedUnits: any[] = rootProperty.details?.generatedUnits || [];
+      baseRate = deriveRateFromUnits(towerUnits) || deriveRateFromUnits(embeddedUnits);
+    }
+    const derivedFloors = deriveFloorCount(rootProperty.details, rootProperty.details?.towerUnitConfigs || [], towerIdStr);
+    const derivedUnitsPerFloor = Number(rootProperty.details?.unitsPerFloor) || parseInt(String(rootProperty.details?.unitsPerFloor || "")) || 0;
     towers.push({
       _id: towerIdStr,
       name: rootProperty.name || "Unnamed Tower",
       projectId: null,
-      floorCount: rootProperty.details?.floors || 0,
-      unitCount: towerUnits.length,
+      floorCount: derivedFloors,
+      unitCount: towerUnits.length || (derivedFloors * derivedUnitsPerFloor) || 0,
+      baseRate: Number(baseRate),
     });
   }
 
@@ -302,7 +529,7 @@ export async function GET(
 ) {
   try {
     const { propertyId } = await params;
-    const { context, errorResponse } = await checkRBAC(req, ["builder", "mandate"]);
+    const { context, errorResponse } = await checkRBAC(req, ["builder", "mandate", "teamLeader"]);
     if (errorResponse) return errorResponse;
 
     if (!/^[a-f\d]{24}$/i.test(propertyId)) {
@@ -313,14 +540,24 @@ export async function GET(
 
     let ownershipQuery = getOwnershipQuery(context!);
     if (context!.role === "builder") {
-      ownershipQuery = { builderId: context!.userId, role: { $ne: 'mandate' } };
+      // Use the robust ownership query from RBAC but ensure mandate properties are excluded
+      ownershipQuery = { ...ownershipQuery, role: { $ne: 'mandate' } };
+    } else if (context!.role === "teamLeader") {
+      // Verify team leader is assigned to this exact property
+      const leaderDoc = await User.findById(context!.userId).lean();
+      if (!leaderDoc || leaderDoc.profile?.propertyId !== propertyId) {
+         return NextResponse.json({ error: "Unauthorized access to this property" }, { status: 403 });
+      }
+      // Empty ownershipQuery for children lookups since we validated access to root
+      ownershipQuery = {};
+      console.log("DEBUG: teamLeader ownership query set to", ownershipQuery);
     }
 
     // 1. Verify root property ownership — no status restriction so draft previews also work
     //    (inventory API called after publishing, but being lenient here lets dev test)
     const rootProperty = await Property.findOne({
       _id: propertyId,
-      ...ownershipQuery,
+      ...(context!.role !== "teamLeader" ? ownershipQuery : {}),
       isDeleted: false,
     }).lean() as any;
 

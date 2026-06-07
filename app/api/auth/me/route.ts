@@ -30,20 +30,20 @@ export async function GET(req: NextRequest) {
     }
 
     const userData = user.toObject()
-    delete userData.passwordHash
+    delete (userData as any).passwordHash
 
     // Fetch role-specific profile data if linked
     if (user.role === 'builder' && user.builderId) {
       const builderProfile = await Builder.findById(user.builderId);
       if (builderProfile) {
         userData.profile = { ...userData.profile, ...builderProfile.toObject() };
-        delete userData.profile.password; // Security
+        delete (userData as any).profile.password; // Security
       }
     } else if (user.role === 'mandate' && user.mandateId) {
       const mandateProfile = await Mandate.findById(user.mandateId);
       if (mandateProfile) {
         userData.profile = { ...userData.profile, ...mandateProfile.toObject() };
-        delete userData.profile.password; // Security
+        delete (userData as any).profile.password; // Security
       }
     }
 
@@ -54,3 +54,5 @@ export async function GET(req: NextRequest) {
   }
 }
 
+
+// triggered hot reload

@@ -46,7 +46,8 @@ export default function BuilderRegisterForm() {
       setPhoneError("")
       return false
     }
-    const isValid = /^\+?[0-9]{10,15}$/.test(phone)
+    const cleanPhone = phone.replace(/[\s-]/g, '')
+    const isValid = /^\+?[0-9]{10,15}$/.test(cleanPhone)
     setPhoneError(isValid ? "" : "Invalid phone number (10-15 digits)")
     return isValid
   }

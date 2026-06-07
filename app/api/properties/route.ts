@@ -36,53 +36,85 @@ export async function GET(req: NextRequest) {
 
     const rawProperties = await Property.find(query).sort({ updatedAt: -1 }).lean();
 
-    // Process properties to attach accurate counts and thumbnails
-    const properties = await Promise.all(rawProperties.map(async (p: any) => {
-      // 1. Handle Active/Published/Pending properties (Split DB rows)
-      if (p.status === "published" || p.status === "archived" || p.status === "pending" || p.status === "rejected") {
+    // ---------------- BULK DATA FETCH FOR N+1 OPTIMIZATION ----------------
+    // Separate root properties by type
+    const publishedProps = rawProperties.filter((p: any) => p.status === 'published' || p.status === 'archived');
+    const rootTownships = publishedProps.filter((p: any) => p.type === 'township');
+    const rootProjects = publishedProps.filter((p: any) => p.type === 'project');
+    const rootTowers = publishedProps.filter((p: any) => p.type === 'tower');
+
+    const townshipIds = rootTownships.map((p: any) => p._id);
+    
+    // Fetch ALL projects for root townships
+    const allChildProjects = await Property.find({ parentId: { $in: townshipIds }, isDeleted: false }, '_id parentId details.heroImage details.heroImages').lean();
+    const allChildProjectIds = allChildProjects.map((p: any) => p._id);
+    
+    // Combine root project IDs and child project IDs
+    const combinedProjectIds = [...rootProjects.map((p: any) => p._id), ...allChildProjectIds];
+    
+    // Fetch ALL towers for all projects
+    const allChildTowers = await Property.find({ parentId: { $in: combinedProjectIds }, isDeleted: false }, '_id parentId details.heroImage details.id').lean();
+    const allChildTowerIds = allChildTowers.map((t: any) => t._id);
+    
+    // Combine root tower IDs and child tower IDs
+    const combinedTowerIds = [...rootTowers.map((p: any) => p._id), ...allChildTowerIds];
+    
+    // Fetch ALL unit counts grouped by tower using Aggregation
+    let unitCountsMap: Record<string, number> = {};
+    if (combinedTowerIds.length > 0) {
+      const unitCountsAgg = await Unit.aggregate([
+        { $match: { towerId: { $in: combinedTowerIds } } },
+        { $group: { _id: "$towerId", count: { $sum: 1 } } }
+      ]);
+      unitCountsAgg.forEach((item: any) => {
+        // Handle objectId / string discrepancies safely
+        unitCountsMap[item._id.toString()] = item.count;
+      });
+    }
+
+    // Process properties to attach accurate counts and thumbnails synchronously
+    const properties = rawProperties.map((p: any) => {
+      // 1. Handle Active/Published properties (Split DB rows)
+      if (p.status === "published" || p.status === "archived") {
         let projectsCount = 0, towersCount = 0, unitsCount = 0;
         let thumbnail = p.details?.heroImage || null;
 
         if (p.type === 'township') {
-          const projects = await Property.find({ parentId: p._id, isDeleted: false }, '_id details.heroImage details.heroImages').lean();
+          const projects = allChildProjects.filter((proj: any) => proj.parentId?.toString() === p._id.toString());
           projectsCount = projects.length;
 
-          const projectIds = projects.map(proj => proj._id);
-          const towers = await Property.find({ parentId: { $in: projectIds }, isDeleted: false }, '_id details.heroImage details.id').lean();
+          const projectIds = projects.map((proj: any) => proj._id.toString());
+          const towers = allChildTowers.filter((tow: any) => projectIds.includes(tow.parentId?.toString()));
           towersCount = towers.length;
 
-          const towerObjectIds = towers.map(t => t._id);
-          if (towerObjectIds.length > 0) unitsCount = await Unit.countDocuments({ towerId: { $in: towerObjectIds } });
+          unitsCount = towers.reduce((sum: number, tow: any) => sum + (unitCountsMap[tow._id.toString()] || 0), 0);
 
           // Deep thumbnail resolution for Township
           if (!thumbnail) {
-            // Try first project's hero image
-            thumbnail = projects.find(proj => (proj.details as any)?.heroImage)?.details?.heroImage ||
-              projects.find(proj => (proj.details as any)?.heroImages?.[0])?.details?.heroImages?.[0];
+            thumbnail = projects.find((proj: any) => proj.details?.heroImage)?.details?.heroImage ||
+              projects.find((proj: any) => proj.details?.heroImages?.[0])?.details?.heroImages?.[0];
 
-            // If still no thumbnail, try first tower's hero image
             if (!thumbnail) {
-              thumbnail = towers.find(tow => (tow.details as any)?.heroImage)?.details?.heroImage;
+              thumbnail = towers.find((tow: any) => tow.details?.heroImage)?.details?.heroImage;
             }
           }
 
         } else if (p.type === 'project') {
           projectsCount = 1;
-          const towers = await Property.find({ parentId: p._id, isDeleted: false }, '_id details.heroImage details.id').lean();
+          const towers = allChildTowers.filter((tow: any) => tow.parentId?.toString() === p._id.toString());
           towersCount = towers.length;
 
-          const towerObjectIds = towers.map(t => t._id);
-          if (towerObjectIds.length > 0) unitsCount = await Unit.countDocuments({ towerId: { $in: towerObjectIds } });
+          unitsCount = towers.reduce((sum: number, tow: any) => sum + (unitCountsMap[tow._id.toString()] || 0), 0);
 
           // Deep thumbnail resolution for Project
           if (!thumbnail) {
-            thumbnail = towers.find(tow => (tow.details as any)?.heroImage)?.details?.heroImage;
+            thumbnail = towers.find((tow: any) => tow.details?.heroImage)?.details?.heroImage;
           }
 
         } else if (p.type === 'tower') {
           projectsCount = 0;
           towersCount = 1;
-          unitsCount = await Unit.countDocuments({ towerId: p._id });
+          unitsCount = unitCountsMap[p._id.toString()] || 0;
         }
 
         return {
@@ -96,7 +128,7 @@ export async function GET(req: NextRequest) {
         };
       }
 
-      // 2. Handle Draft properties (Fully contained WizardState snapshot)
+      // 2. Handle Draft, Pending, and Rejected properties (Fully contained WizardState snapshot)
       else {
         const details = p.details || {};
         const township = details.township || {};
@@ -124,7 +156,7 @@ export async function GET(req: NextRequest) {
           updatedAt: p.updatedAt
         };
       }
-    }));
+    });
 
     if (process.env.NODE_ENV !== "production") {
       console.log(`[GET /api/properties] returned ${properties.length} docs.`);

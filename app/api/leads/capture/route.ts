@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
         }
 
         // --- Resolve Tenant Boundaries ---
-        let leadRole: "builder" | "mandate" = "builder";
+        let leadRole: any = "builder";
         let leadAccountId = builderId;
         let leadBuilderId = builderId;
         let leadMandateId = null;

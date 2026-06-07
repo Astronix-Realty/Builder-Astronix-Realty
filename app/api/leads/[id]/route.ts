@@ -61,7 +61,7 @@ export async function PATCH(
 
     await dbConnect();
     const body = await req.json();
-    const { status, assignee, notes, interestedUnit, actionType, actionDesc } = body;
+    const { status, assignee, notes, interestedUnit, actionType, actionDesc, nextActionTime, groupSize, mergedMembers } = body;
 
     const lead = await Lead.findOne({ 
       _id: id, 
@@ -79,12 +79,15 @@ export async function PATCH(
     let isModified = false;
 
     if (status && status !== lead.status) {
-      lead.timeline.unshift({
-        title: "Status Updated",
-        desc: `Status changed from ${lead.status} to ${status}`,
-        type: "system",
-        date: new Date()
-      });
+      // Only push a generic status timeline update if a specific actionType wasn't provided
+      if (!actionType) {
+        lead.timeline.unshift({
+          title: "Status Updated",
+          desc: `Status changed from ${lead.status} to ${status}`,
+          type: "system",
+          date: new Date()
+        });
+      }
       lead.status = status;
       isModified = true;
     }
@@ -124,6 +127,21 @@ export async function PATCH(
               actionType.toLowerCase().includes("visit") ? "visit" : "system",
         date: new Date()
       });
+      isModified = true;
+    }
+
+    if (nextActionTime) {
+      (lead as any).nextActionTime = new Date(nextActionTime);
+      isModified = true;
+    }
+
+    if (groupSize !== undefined) {
+      lead.groupSize = groupSize;
+      isModified = true;
+    }
+
+    if (mergedMembers !== undefined) {
+      lead.mergedMembers = mergedMembers;
       isModified = true;
     }
 

@@ -3,13 +3,14 @@ import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Property from "@/models/Property";
 import Unit from "@/models/Unit";
+import User from "@/models/User";
 import { checkRBAC, getOwnershipQuery } from "@/lib/rbac";
 import { aggregateTowerPricing } from "@/lib/services/pricing-sync";
 
 
 export async function POST(req: NextRequest) {
   try {
-    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate', 'teamLeader']);
     if (errorResponse) return errorResponse;
 
     const body = await req.json();
@@ -37,8 +38,8 @@ export async function POST(req: NextRequest) {
       location: u.location || {},
       status: u.status || "available",
       // Tenancy & RBAC Metadata
-      builderId: context!.userId,
-      accountId: context!.userId,
+      builderId: context!.role === "teamLeader" ? context!.builderId : context!.userId,
+      accountId: context!.role === "teamLeader" ? context!.builderId : context!.userId,
       role: context!.role,
       mandateId: context!.mandateId || null,
       createdBy: context!.userId,
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate', 'teamLeader']);
     if (errorResponse) return errorResponse;
 
     const { searchParams } = new URL(req.url);
@@ -94,6 +95,13 @@ export async function PATCH(req: NextRequest) {
     let ownershipQuery = getOwnershipQuery(context!);
     if (context!.role === "builder") {
       ownershipQuery = { builderId: context!.userId, role: { $ne: 'mandate' } };
+    } else if (context!.role === "teamLeader") {
+      const leaderDoc = await User.findById(context!.userId).lean();
+      if (!leaderDoc || leaderDoc.profile?.propertyId !== propertyId) {
+        return NextResponse.json({ error: "Unauthorized bulk edit for this property" }, { status: 403 });
+      }
+      // Allowed: skip builderId check since we validated the assigned property
+      ownershipQuery = {};
     }
 
     let standaloneModified = 0;

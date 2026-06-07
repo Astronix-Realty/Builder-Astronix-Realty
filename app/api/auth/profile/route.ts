@@ -33,7 +33,8 @@ export async function PUT(req: NextRequest) {
       "description", "reraNumber", "website", "logo",
       "city", "state", "experience", "panNumber", "aadharNumber",
       "specialization", "preferredAreas", "establishedYear", "tagline", 
-      "reraCertificate", "operatingCities", "aboutCompany", "theme", "notifications"
+      "reraCertificate", "operatingCities", "aboutCompany", "theme", "notifications",
+      "repository"
     ]
 
     const profileUpdate: Record<string, any> = {}
@@ -42,7 +43,9 @@ export async function PUT(req: NextRequest) {
     for (const key of allowedFields) {
       if (body[key] !== undefined) {
         profileUpdate[`profile.${key}`] = body[key]
-        roleSpecificUpdate[key] = body[key]
+        if (key !== "repository") {
+          roleSpecificUpdate[key] = body[key]
+        }
       }
     }
 

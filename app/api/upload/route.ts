@@ -46,11 +46,11 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Validate file size: 100MB for videos, 10MB for images/PDFs
-    const maxSize = isVideo ? 100 * 1024 * 1024 : 10 * 1024 * 1024
+    // Validate file size: 1GB for videos, 100MB for images/PDFs
+    const maxSize = isVideo ? 1024 * 1024 * 1024 : 100 * 1024 * 1024
     if (file.size > maxSize) {
       return NextResponse.json(
-        { error: `File too large. Max size: ${isVideo ? "100MB" : "10MB"}` },
+        { error: `File too large. Max size: ${isVideo ? "1GB" : "100MB"}` },
         { status: 400 }
       )
     }
@@ -66,6 +66,13 @@ export async function POST(req: NextRequest) {
       folder: "astronix_realty_uploads",
       resource_type: isPdf ? "raw" : "auto", 
     };
+
+    // Auto-compress videos during upload so they take up very little space
+    if (isVideo) {
+      uploadOptions.transformation = [
+        { width: 800, crop: "limit", quality: "auto:eco", fetch_format: "mp4", video_codec: "auto" }
+      ];
+    }
 
     // For raw files, explicitly defining public_id ensures the file extension is retained safely
     if (isPdf && file.name) {

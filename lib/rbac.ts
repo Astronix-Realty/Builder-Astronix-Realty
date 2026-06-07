@@ -6,7 +6,7 @@ import { getTokenFromRequest, verifyToken } from "@/lib/auth";
 
 export interface RBACContext {
   userId: string;
-  role: 'builder' | 'mandate' | 'admin';
+  role: 'builder' | 'mandate' | 'admin' | 'teamLeader';
   builderId?: string;
   mandateId?: string;
   email: string;
@@ -18,7 +18,7 @@ export interface RBACContext {
  */
 export async function checkRBAC(
   req: NextRequest,
-  allowedRoles: ('builder' | 'mandate' | 'admin')[]
+  allowedRoles: ('builder' | 'mandate' | 'admin' | 'teamLeader')[]
 ): Promise<{ context?: RBACContext; errorResponse?: NextResponse }> {
   try {
     const token = getTokenFromRequest(req);
@@ -101,6 +101,8 @@ export function getOwnershipQuery(context: RBACContext): Record<string, any> {
       role: { $ne: 'mandate' },
       ...(conditions.length > 0 ? { $or: conditions } : { _id: null })
     };
+  } else if (context.role === 'teamLeader') {
+    return { builderId: context.builderId };
   } else if (context.role === 'mandate') {
     const conditions: any[] = [];
     if (context.userId) {

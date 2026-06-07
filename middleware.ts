@@ -40,6 +40,33 @@ async function verifyJwtEdge(token: string) {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // Protect team panel
+  if (pathname.startsWith("/team-panel")) {
+    const token = req.cookies.get(AUTH_COOKIE)?.value;
+
+    if (!token) {
+      const loginUrl = new URL("/login", req.url);
+      loginUrl.searchParams.set("redirect", pathname);
+      loginUrl.searchParams.set("type", "teamLeader");
+      return NextResponse.redirect(loginUrl);
+    }
+
+    const payload = await verifyJwtEdge(token);
+    if (!payload) {
+      const loginUrl = new URL("/login", req.url);
+      loginUrl.searchParams.set("error", "session_expired");
+      return NextResponse.redirect(loginUrl);
+    }
+
+    const isTeamLeader = payload.userType === "teamLeader" || payload.role === "teamLeader";
+    if (!isTeamLeader) {
+      const isBuilder = payload.userType === "builder" || payload.role === "builder";
+      return NextResponse.redirect(new URL(isBuilder ? "/builder-dashboard" : "/mandate-dashboard", req.url));
+    }
+
+    return NextResponse.next();
+  }
+
   // Protect dashboard and builder flows
   if (pathname.startsWith("/builder") || pathname.startsWith("/mandate-dashboard")) {
     const token = req.cookies.get(AUTH_COOKIE)?.value;
@@ -51,7 +78,7 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    // 2. Verify JWT at the Edge (ensures token hasn't been tampered with)
+    // 2. Verify JWT at the Edge
     const payload = await verifyJwtEdge(token);
 
     // 3. Token invalid or expired -> redirect to /login
@@ -64,10 +91,15 @@ export async function middleware(req: NextRequest) {
     // 4. Determine Roles
     const isBuilder = payload.userType === "builder" || payload.role === "builder";
     const isMandate = payload.userType === "mandate" || payload.role === "mandate";
+    const isTeamLeader = payload.userType === "teamLeader" || payload.role === "teamLeader";
+
+    // Team leaders can't access builder/mandate areas
+    if (isTeamLeader) {
+      return NextResponse.redirect(new URL("/team-panel", req.url));
+    }
 
     if (!isBuilder && !isMandate) {
-      // Redirect to a safe fallback (homepage or dashboard depending on setup)
-      return NextResponse.redirect(new URL("/", req.url)); 
+      return NextResponse.redirect(new URL("/", req.url));
     }
 
     // 5. Cross-Role Isolation logic
@@ -90,6 +122,8 @@ export async function middleware(req: NextRequest) {
       const payload = await verifyJwtEdge(token);
       if (payload) {
         const isBuilder = payload.userType === "builder" || payload.role === "builder";
+        const isTeamLeader = payload.userType === "teamLeader" || payload.role === "teamLeader";
+        if (isTeamLeader) return NextResponse.redirect(new URL("/team-panel", req.url));
         return NextResponse.redirect(new URL(isBuilder ? "/builder-dashboard" : "/mandate-dashboard", req.url));
       }
     }
@@ -99,5 +133,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/builder/:path*', '/builder-dashboard/:path*', '/mandate-dashboard/:path*', '/login'],
+  matcher: ['/builder/:path*', '/builder-dashboard/:path*', '/mandate-dashboard/:path*', '/team-panel/:path*', '/login'],
 };

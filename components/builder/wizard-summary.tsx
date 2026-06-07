@@ -17,7 +17,15 @@ interface WizardSummaryProps {
 }
 
 export function WizardSummary({ state, flowType = "township" }: WizardSummaryProps) {
-  const { township, projects = [], towers = [], generatedUnits = [], unitTemplate } = state
+  const { township, generatedUnits = [], unitTemplate } = state
+  // Prefer computed generatedTowers (has correct totalFloors & totalUnits) over raw towers
+  const towers: any[] = (state as any).generatedTowers?.length > 0
+    ? (state as any).generatedTowers
+    : (state.towers || [])
+  // Prefer generatedProjects over raw projects
+  const projects: any[] = (state as any).generatedProjects?.length > 0
+    ? (state as any).generatedProjects
+    : (state.projects || [])
 
   // Calculate stats
   const totalValue = generatedUnits.reduce((sum: number, unit: any) => sum + (unit.price || 0), 0)
@@ -73,52 +81,60 @@ export function WizardSummary({ state, flowType = "township" }: WizardSummaryPro
     </div>
   )
 
-  return (
-    <div className="space-y-16 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    const expectedTotalUnits = towers.reduce((sum, t) => {
+      const floors = parseInt(String(t.totalFloorsNum || 0)) || parseInt(String(t.totalFloors || "0").replace(/\\D/g, "")) || 0
+      const upf = parseInt(String(t.unitsPerFloor || "0")) || 0
+      return sum + (floors * upf)
+    }, 0)
 
-      {/* ── 1. HERO CELEBRATION BANNER ──────────────── */}
-      <div className="relative overflow-hidden rounded-[24px] border border-emerald-100 dark:border-emerald-900/30 bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:from-emerald-900/20 dark:via-slate-900 dark:to-teal-900/20 p-6 md:p-8 shadow-md">
-        <div className="absolute top-1/2 -translate-y-1/2 right-0 pr-8 opacity-[0.08] pointer-events-none">
-          <CheckCircle2 className="w-40 h-40 text-emerald-500 animate-pulse" />
-        </div>
+    const displayTotalUnits = expectedTotalUnits > generatedUnits.length ? expectedTotalUnits : generatedUnits.length
 
-        <div className="relative z-10 flex flex-col items-center md:items-start text-center md:text-left gap-4">
-          <Badge className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-[0.15em]">
-            {flowSummary.badge}
-          </Badge>
+    return (
+      <div className="space-y-16 animate-in fade-in slide-in-from-bottom-4 duration-700">
 
-          <div className="space-y-1">
-            <h2 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
-              {flowSummary.title}
-            </h2>
-            <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base max-w-xl font-medium leading-relaxed">
-              {flowSummary.description}
-            </p>
+        {/* ── 1. HERO CELEBRATION BANNER ──────────────── */}
+        <div className="relative overflow-hidden rounded-[24px] border border-emerald-100 dark:border-emerald-900/30 bg-gradient-to-br from-emerald-50 via-white to-teal-50 dark:from-emerald-900/20 dark:via-slate-900 dark:to-teal-900/20 p-6 md:p-8 shadow-md">
+          <div className="absolute top-1/2 -translate-y-1/2 right-0 pr-8 opacity-[0.08] pointer-events-none">
+            <CheckCircle2 className="w-40 h-40 text-emerald-500 animate-pulse" />
           </div>
 
-          <div className="flex items-center gap-3 mt-1">
-            <div className="flex -space-x-2">
-              {[1, 2, 3, 4].map(i => (
-                <div key={i} className="w-8 h-8 rounded-full border-[3px] border-white dark:border-slate-900 bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
-                  <div className="w-full h-full bg-gradient-to-br from-emerald-400 to-teal-600 opacity-80" />
-                </div>
-              ))}
+          <div className="relative z-10 flex flex-col items-center md:items-start text-center md:text-left gap-4">
+            <Badge className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-[0.15em]">
+              {flowSummary.badge}
+            </Badge>
+
+            <div className="space-y-1">
+              <h2 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
+                {flowSummary.title}
+              </h2>
+              <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base max-w-xl font-medium leading-relaxed">
+                {flowSummary.description}
+              </p>
             </div>
-            <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest bg-emerald-100/50 dark:bg-emerald-900/20 px-2.5 py-1 rounded-md border border-emerald-200/50 dark:border-emerald-800/50">
-              Verified & Validated
-            </p>
+
+            <div className="flex items-center gap-3 mt-1">
+              <div className="flex -space-x-2">
+                {[1, 2, 3, 4].map(i => (
+                  <div key={i} className="w-8 h-8 rounded-full border-[3px] border-white dark:border-slate-900 bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
+                    <div className="w-full h-full bg-gradient-to-br from-emerald-400 to-teal-600 opacity-80" />
+                  </div>
+                ))}
+              </div>
+              <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest bg-emerald-100/50 dark:bg-emerald-900/20 px-2.5 py-1 rounded-md border border-emerald-200/50 dark:border-emerald-800/50">
+                Verified & Validated
+              </p>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* ── 2. QUICK STATS LINE ───────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {[
-          { icon: Building2, label: "Total Assets", value: projects.length + towers.length, color: "blue", suffix: "Entities" },
-          { icon: Layers, label: "Total Towers", value: towers.length, color: "indigo", suffix: "Buildings" },
-          { icon: Home, label: "Total Units", value: generatedUnits.length.toLocaleString(), color: "emerald", suffix: "Units" },
-          { icon: IndianRupee, label: "Inventory Value", value: `₹${(totalValue / 10000000).toFixed(1)}`, color: "amber", suffix: "Cr Value" },
-        ].map((stat, i) => (
+        {/* ── 2. QUICK STATS LINE ───────────────────── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[
+            { icon: Building2, label: "Total Assets", value: projects.length + towers.length, color: "blue", suffix: "Entities" },
+            { icon: Layers, label: "Total Towers", value: towers.length, color: "indigo", suffix: "Buildings" },
+            { icon: Home, label: "Total Units", value: displayTotalUnits.toLocaleString(), color: "emerald", suffix: "Units" },
+            { icon: IndianRupee, label: "Inventory Value", value: `₹${(totalValue / 10000000).toFixed(1)}`, color: "amber", suffix: "Cr Value" },
+          ].map((stat, i) => (
           <div key={i} className="group p-6 rounded-[24px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl hover:border-blue-100 transition-all duration-300">
             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 transition-transform group-hover:scale-110 group-hover:rotate-3
               ${stat.color === 'blue' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' :
@@ -199,7 +215,7 @@ export function WizardSummary({ state, flowType = "township" }: WizardSummaryPro
             </div>
 
             <div className="space-y-4">
-              {projects.map((proj: any, idx: number) => (
+              {projects.length > 0 ? projects.map((proj: any, idx: number) => (
                 <div key={proj.id} className="p-6 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/30 hover:bg-white dark:bg-slate-900 hover:shadow-md transition-all group">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
@@ -217,19 +233,79 @@ export function WizardSummary({ state, flowType = "township" }: WizardSummaryPro
                   </div>
 
                   <div className="ml-12 grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    {towers.filter(t => t.projectId === proj.id).map(tower => (
-                      <div key={tower.id} className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm">
-                        <p className="text-xs font-bold text-slate-900 dark:text-white truncate mb-1">{tower.name}</p>
-                        <div className="flex items-center gap-1.5 text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase">
-                          <Building className="w-3 h-3" /> {tower.totalFloors}
-                          <span className="text-slate-200">|</span>
-                          <Home className="w-3 h-3" /> {tower.totalUnits}
+                    {towers.filter(t => t.projectId === proj.id).map(tower => {
+                      const towerUnits = generatedUnits.filter((u: any) => u.towerId === tower.id);
+                      const calculatedUnits = towerUnits.length;
+                      const displayUnits = calculatedUnits > 0 ? calculatedUnits : tower.totalUnits;
+                      let displayFloors = tower.totalFloors;
+                      if (calculatedUnits > 0) {
+                        const maxFloor = Math.max(...towerUnits.map((u: any) => u.floor));
+                        if (maxFloor > 0) {
+                          displayFloors = String(tower.totalFloors).replace(/\d+$/, maxFloor.toString());
+                          if (!/\d+$/.test(String(tower.totalFloors))) displayFloors = `G+${maxFloor}`;
+                        }
+                      }
+                      const firstUnit = towerUnits[0] || {};
+                      // Match towerConfig by tower.id (frontend ID) OR tower._dbId (DB ObjectId)
+                      const towerConfig = (state.towerUnitConfigs || []).find((c: any) => c.towerId === tower.id || (tower._dbId && c.towerId === tower._dbId));
+                      const baseRate = parseFloat(towerConfig?.ratePerSqft) || parseFloat(towerConfig?.baseRatePerSqft) || parseFloat(tower.baseRatePerSqft) || parseFloat(firstUnit.ratePerSqft) || parseFloat(state.unitTemplate?.baseRatePerSqft) || parseFloat(state.unitTemplate?.ratePerSqft) || 0;
+                      return (
+                      <div key={tower.id} className="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
+                        <p className="text-sm font-black text-slate-900 dark:text-white truncate mb-1.5">{tower.name}</p>
+                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">
+                          <span className="flex items-center gap-1"><Building className="w-3 h-3 text-indigo-500" /> {displayFloors}</span>
+                          <span className="text-slate-200 dark:text-slate-700">|</span>
+                          <span className="flex items-center gap-1"><Home className="w-3 h-3 text-indigo-500" /> {displayUnits} units</span>
+                        </div>
+                        <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                          <div className="flex justify-between items-center text-[10px]">
+                            <span className="text-slate-400 uppercase font-black tracking-widest">Base Rate</span>
+                            <span className="font-bold text-slate-900 dark:text-white">{baseRate > 0 ? `₹${Number(baseRate).toLocaleString()}/sqft` : "—"}</span>
+                          </div>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
-              ))}
+              )) : (
+                /* Standalone tower flow — no projects, render towers directly */
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {towers.map(tower => {
+                    const towerUnits = generatedUnits.filter((u: any) => u.towerId === tower.id);
+                    const calculatedUnits = towerUnits.length;
+                    const displayUnits = calculatedUnits > 0 ? calculatedUnits : tower.totalUnits;
+                    let displayFloors = tower.totalFloors;
+                    if (calculatedUnits > 0) {
+                      const maxFloor = Math.max(...towerUnits.map((u: any) => u.floor));
+                      if (maxFloor > 0) {
+                        displayFloors = String(tower.totalFloors).replace(/\d+$/, maxFloor.toString());
+                        if (!/\d+$/.test(String(tower.totalFloors))) displayFloors = `G+${maxFloor}`;
+                      }
+                    }
+                    const firstUnit = towerUnits[0] || {};
+                    // Match towerConfig by tower.id (frontend ID) OR tower._dbId (DB ObjectId)
+                    const towerConfig = (state.towerUnitConfigs || []).find((c: any) => c.towerId === tower.id || (tower._dbId && c.towerId === tower._dbId));
+                    const baseRate = parseFloat(towerConfig?.ratePerSqft) || parseFloat(towerConfig?.baseRatePerSqft) || parseFloat(tower.baseRatePerSqft) || parseFloat(firstUnit.ratePerSqft) || parseFloat(state.unitTemplate?.baseRatePerSqft) || parseFloat(state.unitTemplate?.ratePerSqft) || 0;
+                    return (
+                    <div key={tower.id} className="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
+                      <p className="text-sm font-black text-slate-900 dark:text-white truncate mb-1.5">{tower.name}</p>
+                      <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">
+                        <span className="flex items-center gap-1"><Building className="w-3 h-3 text-indigo-500" /> {displayFloors}</span>
+                        <span className="text-slate-200 dark:text-slate-700">|</span>
+                        <span className="flex items-center gap-1"><Home className="w-3 h-3 text-indigo-500" /> {displayUnits} units</span>
+                      </div>
+                      <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                        <div className="flex justify-between items-center text-[10px]">
+                          <span className="text-slate-400 uppercase font-black tracking-widest">Base Rate</span>
+                          <span className="font-bold text-slate-900 dark:text-white">{baseRate > 0 ? `₹${Number(baseRate).toLocaleString()}/sqft` : "—"}</span>
+                        </div>
+                      </div>
+                    </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>

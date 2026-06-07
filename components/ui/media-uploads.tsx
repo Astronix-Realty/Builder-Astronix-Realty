@@ -4,11 +4,13 @@ import { useState, useRef, useEffect } from "react"
 import { v4 as uuidv4 } from "uuid"
 import Image from "next/image"
 import { Upload, X, Plus, Film, AlertCircle, FileText, Map as MapIcon, Eye, Download } from "lucide-react"
+import { compressImage } from "@/lib/utils/compressor"
 
 // ── Shared upload helper ─────────────────────────────────────
 async function uploadFileToServer(file: File): Promise<string> {
+  const compressedFile = await compressImage(file)
   const formData = new FormData()
-  formData.append("file", file)
+  formData.append("file", compressedFile)
   const res = await fetch("/api/upload", { method: "POST", body: formData })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
@@ -442,7 +444,7 @@ export function VideoUpload({ videos, onChange, max = 5 }: {
                 </span>
                 <span className="text-[10px] text-gray-600 dark:text-slate-400 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 px-3 py-1.5 rounded-full font-bold flex items-center gap-1.5 shadow-sm">
                   <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
-                  Max 100MB
+                  Auto-optimized
                 </span>
               </div>
               {/* Invisible click target for the whole area */}
@@ -587,12 +589,8 @@ export function DocumentUpload({
     if (!file) return
     setError("")
 
-    // Size validation
-    if (file.size > maxSizeMB * 1024 * 1024) {
-      setError(`File size exceeds ${maxSizeMB}MB limit.`)
-      if (fileRef.current) fileRef.current.value = ""
-      return
-    }
+    // Removed frontend size validation to allow unlimited size uploads 
+    // Backend API will handle large files if necessary or Cloudinary limits apply.
 
     try {
       setIsUploading(true)
@@ -670,7 +668,7 @@ export function DocumentUpload({
               </span>
               <span className="text-[10px] text-gray-600 dark:text-slate-400 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 px-3 py-1 rounded-full font-medium flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                Max {maxSizeMB} MB
+                Auto-compressed
               </span>
             </div>
           </div>

@@ -27,10 +27,12 @@ export async function registerUser(payload: IRegisterPayload): Promise<IAuthResp
 
   // Phone number validation
   if (profileFields.phone) {
+    const cleanPhone = profileFields.phone.replace(/[\s-]/g, '');
     const phoneRegex = /^\+?[0-9]{10,15}$/;
-    if (!phoneRegex.test(profileFields.phone)) {
+    if (!phoneRegex.test(cleanPhone)) {
       throw new Error("Invalid phone number format. Must be 10-15 digits.");
     }
+    profileFields.phone = cleanPhone;
   }
 
   // Check if email already exists globally
@@ -137,7 +139,7 @@ export async function authenticateUser(
     userType: user.role,
   });
 
-  const userData = user.toObject();
+  const userData: any = user.toObject();
   delete userData.passwordHash;
   delete userData.otp;
   delete userData.otpExpiry;

@@ -498,6 +498,20 @@ export interface UnitLayoutSlot {
   vastuOverride?: string        // "Vastu Compliant", "North Entrance" etc.
   carpetAreaOverride?: number   // Custom carpet area for this specific unit
   unitTypeOverride?: string     // Custom type (e.g. "Studio", "Shop")
+  vastuDetails?: {
+    mainEntrance?: string;
+    poojaRoom?: string;
+    kitchen?: string;
+    masterBedroom?: string;
+    bedroom2?: string;
+    bedroom3?: string;
+    bedroom4?: string;
+    bedroom5?: string;
+    bathrooms?: string;
+    brahmasthan?: string;
+    shapeAndCuts?: string;
+    balconyAndWindows?: string;
+  }
 }
 
 export interface FloorGroup {
@@ -507,7 +521,7 @@ export interface FloorGroup {
   floors: number[]               // [1,2,3,4,5,6,7,8,9,10,12,13,14,15,16,17,18]
   layout: UnitLayoutSlot[]
   floorOverrides?: Record<string, UnitLayoutSlot[]> // Map floor number (string) -> custom layout slots
-  groupTypes: Array<'basement' | 'ground' | 'podium' | 'typical' | 'refuge' | 'amenity' | 'other'>
+  groupTypes: Array<'basement' | 'ground' | 'podium' | 'typical' | 'refuge' | 'amenity' | 'parking' | 'other'>
   description?: string
   floorRise?: number            // Optional group-specific floor rise (₹/floor)
   floorPlanUrl?: string         // Group-specific floor plan image URL

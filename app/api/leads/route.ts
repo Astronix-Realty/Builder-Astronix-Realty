@@ -87,7 +87,11 @@ export async function POST(req: NextRequest) {
             accountId: context!.userId,
             role: context!.role,
             mandateId: context!.mandateId || null,
-            status: "Fresh",
+            status: body.status || "Fresh",
+            isGroup: body.isGroup || false,
+            groupSize: body.groupSize || 0,
+            groupDiscount: body.groupDiscount,
+            mergedMembers: body.mergedMembers || [],
             timeline: [{
                 title: "Lead Created",
                 desc: `Created manually via CRM by ${body.assignee || context!.email || "Team"}`,

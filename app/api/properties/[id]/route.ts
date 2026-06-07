@@ -36,7 +36,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     // Reconstruct the split documents back into standard WizardState for editing
     // We do this if NOT draft, OR if it's a draft that was cloned (has publishedId) but has empty details.
-    const isRecNeeded = (["published", "archived", "active", "pending", "rejected"].includes(finalProperty.status)) || (finalProperty.publishedId && (!finalProperty.details?.projects || finalProperty.details.projects.length === 0));
+    const isRecNeeded = (["published", "archived", "active"].includes(finalProperty.status)) || (finalProperty.publishedId && (!finalProperty.details?.projects || finalProperty.details.projects.length === 0));
 
     if (isRecNeeded) {
       let wizardState: any = {
@@ -162,10 +162,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             area: u.area,
             price: u.price || 0,
             status: u.status || 'available',
-            customerName: u.customerName || '',
-            customerPhone: u.customerPhone || '',
-            bookingAmount: u.bookingAmount || 0,
-            bookingDate: u.bookingDate || null,
+            customerName: (u as any).customerName || '',
+            customerPhone: (u as any).customerPhone || '',
+            bookingAmount: (u as any).bookingAmount || 0,
+            bookingDate: (u as any).bookingDate || null,
           }));
         } else if (finalProperty.details?.generatedUnits) {
           wizardState.generatedUnits = finalProperty.details.generatedUnits;

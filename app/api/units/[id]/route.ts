@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Property from "@/models/Property";
 import Unit from "@/models/Unit";
+import User from "@/models/User";
 import { checkRBAC, getOwnershipQuery } from "@/lib/rbac";
 import { aggregateTowerPricing } from "@/lib/services/pricing-sync";
 
@@ -10,7 +11,7 @@ import { aggregateTowerPricing } from "@/lib/services/pricing-sync";
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate', 'teamLeader']);
     if (errorResponse) return errorResponse;
 
     const body = await req.json();
@@ -24,6 +25,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     let ownershipQuery = getOwnershipQuery(context!);
     if (context!.role === "builder") {
       ownershipQuery = { builderId: context!.userId, role: { $ne: 'mandate' } };
+    } else if (context!.role === "teamLeader") {
+      const leaderDoc = await User.findById(context!.userId).lean();
+      if (!leaderDoc || leaderDoc.profile?.propertyId !== propertyId) {
+        return NextResponse.json({ error: "Unauthorized update for this property" }, { status: 403 });
+      }
+      ownershipQuery = {};
     }
 
     const setObj: any = {

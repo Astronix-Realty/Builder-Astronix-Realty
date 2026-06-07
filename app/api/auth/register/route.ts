@@ -14,8 +14,8 @@ export async function POST(req: NextRequest) {
     
     // Map common validation/conflict errors securely to HTTP status codes
     const message = error.message;
-    if (message.includes("Email already registered")) {
-      return NextResponse.json({ error: message }, { status: 409 });
+    if (message.includes("Email already registered") || message.includes("E11000") || message.includes("duplicate key")) {
+      return NextResponse.json({ error: "Email already registered. Please login instead." }, { status: 409 });
     }
     if (message.includes("required") || message.includes("match") || message.includes("least") || message.includes("Invalid")) {
       return NextResponse.json({ error: message }, { status: 400 });

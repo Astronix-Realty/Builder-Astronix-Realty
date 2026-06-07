@@ -9,12 +9,21 @@ import BannerEditor from "@/components/BannerEditor"
 import { ImageUpload } from "@/components/ui/image-upload"
 import { InventoryView } from "@/components/builder/inventory/inventory-view"
 import { CRMView } from "@/components/builder/crm/crm-view"
+import { CRMCloneView } from "@/components/builder/crm/crm-clone-view"
 import { ChatView } from "@/components/builder/chat/chat-view"
 import { DocumentsView } from "@/components/builder/documents/documents-view"
 import { TeamView } from "@/components/builder/team/team-view"
 import { BlogView } from "@/components/builder/blog/blog-view"
 import { OffersView } from "@/components/builder/offers/offers-view"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
+
 
 interface BuilderProfile {
   companyName: string
@@ -96,6 +105,11 @@ function DashboardContent() {
   const [isFetchingProperties, setIsFetchingProperties] = useState(false)
   const [deletingPropertyId, setDeletingPropertyId] = useState<string | null>(null)
   const [movingToDraftId, setMovingToDraftId] = useState<string | null>(null)
+
+  const [selectedPropertyForTowers, setSelectedPropertyForTowers] = useState<{ id: string; name: string } | null>(null)
+  const [towersList, setTowersList] = useState<any[]>([])
+  const [isFetchingTowers, setIsFetchingTowers] = useState(false)
+
 
   // Theme Logic
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('light')
@@ -200,7 +214,7 @@ function DashboardContent() {
     const filterParam = searchParams.get("filter")
 
     if (tabParam) {
-      if (["properties", "offers", "profile", "settings"].includes(tabParam)) {
+      if (["properties", "inventory", "crm", "crm2", "chat", "documents", "offers", "blog", "team", "profile", "settings"].includes(tabParam)) {
         setActiveTab(tabParam as any)
       }
     }
@@ -262,7 +276,7 @@ function DashboardContent() {
       const towers = details.towers || []
       if (towers.length > 0) {
         unitsCount = towers.reduce((total: number, t: any) => {
-          const floors = parseInt(t.totalFloors) || t.totalFloorsNum || 0
+          const floors = t.totalFloorsNum || parseInt((String(t.totalFloors || "").match(/\d+/g) || []).at(-1) || "0") || 0
           const perFloor = parseInt(t.unitsPerFloor) || 0
           return total + (floors * perFloor)
         }, 0)
@@ -534,13 +548,20 @@ function DashboardContent() {
   }
 
 
-  const [activeTab, setActiveTab] = useState<"properties" | "inventory" | "crm" | "chat" | "documents" | "offers" | "blog" | "settings" | "team">("properties")
+  const [activeTab, setActiveTab] = useState<"properties" | "inventory" | "crm" | "crm2" | "chat" | "documents" | "offers" | "blog" | "settings" | "team">("properties")
   const [activeSettingsTab, setActiveSettingsTab] = useState<"profile" | "preferences">("profile")
   const [showAddProperty, setShowAddProperty] = useState(false)
   const [propertyFilter, setPropertyFilter] = useState<'published' | 'pending' | 'draft' | 'rejected'>('published')
 
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  // Re-fetch properties whenever the user switches to the Properties tab
+  useEffect(() => {
+    if (currentUser && activeTab === "properties") {
+      fetchProperties()
+    }
+  }, [currentUser, activeTab])
 
   const filteredProperties = useMemo(() => {
     const query = (debouncedPropertySearch[propertyFilter] || "").toLowerCase().trim()
@@ -610,6 +631,40 @@ function DashboardContent() {
       setMovingToDraftId(null)
     }
   }
+
+  const handleViewTowers = async (propertyId: string, propertyName: string) => {
+    setSelectedPropertyForTowers({ id: propertyId, name: propertyName })
+    setIsFetchingTowers(true)
+    setTowersList([])
+    try {
+      const res = await fetch(`/api/inventory/${propertyId}`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.towers) {
+          setTowersList(data.towers)
+        }
+      } else {
+        const errorText = await res.text()
+        toast.error(`Failed to load towers (HTTP ${res.status}): ${errorText}`)
+        console.error("Tower fetch failed:", res.status, errorText)
+      }
+    } catch (error: any) {
+      console.error("Error fetching towers:", error)
+      toast.error(`Error loading towers: ${error.message}`)
+    } finally {
+      setIsFetchingTowers(false)
+    }
+  }
+
+  const formatBaseRate = (rate: number) => {
+    if (!rate) return "N/A"
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+    }).format(rate) + " / sqft"
+  }
+
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-IN", {
@@ -706,10 +761,17 @@ function DashboardContent() {
           </button>
           <button
             onClick={() => { setActiveTab("crm"); setIsMobileMenuOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "crm" ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:indigo-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
+            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "crm" ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
           >
-            <Users className="h-5 w-5" />
-            CRM & Leads
+            <Users className="h-5 w-5 shrink-0" />
+            <span className="text-left leading-tight">Astronix Leads and CRM</span>
+          </button>
+          <button
+            onClick={() => { setActiveTab("crm2"); setIsMobileMenuOpen(false); }}
+            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "crm2" ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
+          >
+            <Users className="h-5 w-5 shrink-0" />
+            <span className="text-left leading-tight">Our Leads and CRM</span>
           </button>
           <button
             onClick={() => { setActiveTab("chat"); setIsMobileMenuOpen(false); }}
@@ -751,8 +813,8 @@ function DashboardContent() {
             onClick={() => { setActiveTab("settings"); setIsMobileMenuOpen(false); }}
             className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "settings" ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
           >
-            <Settings className="h-5 w-5" />
-            Profile & Settings
+            <Settings className="h-5 w-5 shrink-0" />
+            <span className="text-left leading-tight">Profile & Settings</span>
           </button>
         </nav>
 
@@ -803,7 +865,8 @@ function DashboardContent() {
                   <h2 className="text-xl md:text-2xl font-bold text-slate-800 dark:text-white">
                     {activeTab === "properties" && "Property Details"}
                     {activeTab === "inventory" && "Inventory Management"}
-                    {activeTab === "crm" && "Lead Management"}
+                    {activeTab === "crm" && "Astronix Leads and CRM"}
+                    {activeTab === "crm2" && "Our Leads and CRM"}
                     {activeTab === "chat" && "Communications"}
                     {activeTab === "documents" && "Document Center"}
 
@@ -817,6 +880,7 @@ function DashboardContent() {
                     {activeTab === "properties" && "Manage your real estate inventory"}
                     {activeTab === "inventory" && "Track unit status, sales, and availability"}
                     {activeTab === "crm" && "Manage leads, site visits, and bookings"}
+                    {activeTab === "crm2" && "Manage leads, site visits, and bookings"}
                     {activeTab === "chat" && "Chat with potential buyers and agents"}
                     {activeTab === "documents" && "Organize brochures, legal docs, and plans"}
 
@@ -947,9 +1011,10 @@ function DashboardContent() {
 
 
         {/* Content Scroll Area */}
-        <div className={`flex-1 overflow-y-auto ${activeTab === "blog" ? "p-0" : "p-8"}`}>
+        <div className={`flex-1 ${activeTab === "documents" ? "overflow-hidden flex flex-col h-full" : "overflow-y-auto"} ${activeTab === "blog" ? "p-0" : "p-8"}`}>
           {activeTab === "inventory" && <InventoryView userRole={currentUser?.role || "builder"} />}
           {activeTab === "crm" && <CRMView userRole={currentUser?.role || "builder"} />}
+          {activeTab === "crm2" && <CRMCloneView userRole={currentUser?.role || "builder"} />}
           {activeTab === "chat" && <ChatView />}
           {activeTab === "documents" && <DocumentsView />}
           {activeTab === "team" && <TeamView />}
@@ -1256,6 +1321,14 @@ function DashboardContent() {
 
                       {/* Actions */}
                       <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 flex gap-2">
+                        <button
+                          onClick={() => handleViewTowers(property.id, property.townshipName)}
+                          className="flex-1 px-3 py-2.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800/50 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 shadow-sm"
+                        >
+                          <Eye className="h-4 w-4" />
+                          View
+                        </button>
+
                         {property.status === 'draft' ? (
                           <a
                             href={`/builder?flow=${property.flowType || "township"}&edit=${property.id}`}
@@ -1330,7 +1403,7 @@ function DashboardContent() {
                   <TabsContent value="profile" className="focus-visible:outline-none animate-in fade-in duration-300">
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                       {/* Left Col - Avatar & Basic */}
-                      <div className="lg:col-span-1 space-y-6">
+                      <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-8 h-fit">
                         <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-6 text-center">
                           <ImageUpload
                             value={profile.logo}
@@ -1378,16 +1451,7 @@ function DashboardContent() {
                                     placeholder="e.g. Acme Builders"
                                   />
                                 </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">RERA Number</label>
-                                  <input
-                                    type="text"
-                                    value={profile.reraNumber}
-                                    onChange={(e) => setProfile({ ...profile, reraNumber: e.target.value })}
-                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="RERA Registration No."
-                                  />
-                                </div>
+
                                 <div>
                                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Established Year</label>
                                   <input
@@ -1469,7 +1533,7 @@ function DashboardContent() {
                                     placeholder="e.g. 25+ Years"
                                   />
                                 </div>
-                                <div>
+                                <div className="md:col-span-2">
                                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Specializations</label>
                                   <input
                                     type="text"
@@ -1776,6 +1840,77 @@ function DashboardContent() {
           </div>
         </div>
       )}
+
+      {/* Towers View Modal */}
+      <Dialog open={!!selectedPropertyForTowers} onOpenChange={(open) => { if (!open) setSelectedPropertyForTowers(null); }}>
+        <DialogContent className="max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-6">
+          <DialogHeader className="pb-4 border-b border-slate-100 dark:border-slate-800">
+            <DialogTitle className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Building className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              Towers in {selectedPropertyForTowers?.name}
+            </DialogTitle>
+            <DialogDescription className="text-slate-500 dark:text-slate-400 text-sm">
+              List of configured towers and their pricing information.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4 max-h-[350px] overflow-y-auto pr-1">
+            {isFetchingTowers ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <Loader2 className="h-8 w-8 text-blue-600 dark:text-blue-400 animate-spin" />
+                <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Fetching tower list...</p>
+              </div>
+            ) : towersList.length === 0 ? (
+              <div className="text-center py-12">
+                <Building className="h-12 w-12 text-slate-300 dark:text-slate-700 mx-auto mb-3" />
+                <h4 className="text-base font-semibold text-slate-900 dark:text-white mb-1">No Towers Found</h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  There are no towers configured or generated for this property.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {towersList.map((tower) => (
+                  <div
+                    key={tower._id}
+                    className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-150 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500/50 transition-all duration-200 group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-200">
+                        <Building2 className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-900 dark:text-white text-sm group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200">
+                          {tower.name}
+                        </h4>
+                        <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                          <span>{tower.floorCount || 0} Floors</span>
+                          <span className="w-1 h-1 rounded-full bg-slate-350 dark:bg-slate-600"></span>
+                          <span>{tower.unitCount || 0} Units</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="inline-flex items-center px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 text-xs font-black font-mono shadow-sm">
+                        {formatBaseRate(tower.baseRate)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+            <button
+              onClick={() => setSelectedPropertyForTowers(null)}
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-semibold transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

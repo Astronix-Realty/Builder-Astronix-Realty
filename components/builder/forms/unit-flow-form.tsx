@@ -183,43 +183,6 @@ function UnitConfigCard({
 }) {
     const [open, setOpen] = useState(index === 0)
 
-    // Auto-calculate derived fields (initial defaults)
-    useEffect(() => {
-        const loading = config.loadingFactor || parseFloat(globalLoadingFactor || "40") || 40
-        const safeCarpetArea = Number(config.carpetArea) || 0
-        const calculatedBuiltUp = Math.round(safeCarpetArea * (1 + loading / 100)) || 0
-        const builtUp = config.builtUpArea || calculatedBuiltUp
-        const sbua = config.superBuiltUpArea || builtUp
-        
-        // If price is missing but area exists, use a default rate to help the user
-        if (safeCarpetArea > 0 && !config.basePrice && !config.ratePerSqft) {
-            const defaultRate = 5000
-            const flatCost = defaultRate * builtUp
-            const gstAmt = flatCost * 0.05
-            const stampAmt = flatCost * 0.07
-            const reg = 30000
-            const park = 0
-            const other = 0
-            const taxes = gstAmt + stampAmt + reg
-            const allInclusive = flatCost + taxes
-            onChange({ 
-                builtUpArea: builtUp, 
-                superBuiltUpArea: sbua, 
-                loadingFactor: loading, 
-                ratePerSqft: defaultRate,
-                basePrice: flatCost,
-                gstAmount: Math.round(gstAmt),
-                stampDutyAmount: Math.round(stampAmt),
-                totalTaxes: Math.round(taxes),
-                allInclusivePrice: Math.round(allInclusive),
-                isRateOverridden: true
-            })
-        } else if (builtUp !== config.builtUpArea && !Number.isNaN(builtUp)) {
-            onChange({ builtUpArea: builtUp, superBuiltUpArea: builtUp })
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [config.carpetArea, config.builtUpArea, config.basePrice, config.ratePerSqft, globalLoadingFactor])
-
     const addRoom = () => {
         const id = Date.now().toString()
         const r: RoomDimension = { id, roomName: "", length: "", width: "", unit: "ft" }
@@ -839,136 +802,7 @@ function UnitConfigCard({
                                 </div>
                             </Section>
 
-                            <Section id="vastu" title="Vastu Compliance & Scoring" description="Deep analysis of spatial energies and floorplan harmony" icon={Star} openIds={openIds} setOpenIds={setOpenIds}>
-                                {(() => {
-                                    // Calculate Overall Score out of 10
-                                    let totalEarned = 0;
-                                    let totalPossible = 0;
-                                    (config.vastuAnalysis || []).forEach(v => {
-                                        if (v.direction && v.direction !== "N/A") {
-                                            totalPossible += 1.0;
-                                            totalEarned += getVastuDetails(v.element, v.direction, v.facing).score;
-                                        }
-                                    });
-                                    const rawScore = totalPossible > 0 ? (totalEarned / totalPossible) * 10 : 0;
-                                    const overallScore = rawScore.toFixed(1);
 
-                                    const getScoreColor = (score: number) => {
-                                        if (score >= 8.5) return "text-emerald-500 bg-emerald-50 border-emerald-200"
-                                        if (score >= 6.0) return "text-blue-500 bg-blue-50 border-blue-200"
-                                        if (score >= 4.0) return "text-amber-500 bg-amber-50 border-amber-200"
-                                        return "text-red-500 bg-red-50 border-red-200"
-                                    }
-                                    const scoreColorClass = getScoreColor(Number(overallScore))
-                                    const scoreLabel = Number(overallScore) >= 8.5 ? "Highly Compliant" : Number(overallScore) >= 6.0 ? "Good Compliance" : Number(overallScore) >= 4.0 ? "Average / Needs Remedies" : "Major Vastu Dosha";
-
-                                    return (
-                                        <>
-                                            {/* Top Scoring Header */}
-                                            <div className="flex items-center justify-between mb-6 p-4 rounded-xl border bg-gray-50 dark:bg-slate-800/50">
-                                                <div>
-                                                    <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-1">Overall Vastu Rating</h4>
-                                                    <p className="text-[11px] text-gray-500 dark:text-slate-400 max-w-sm">Evaluated based on standard directional sciences for {(config.vastuAnalysis || []).length} plotted zones.</p>
-                                                    {totalPossible > 0 && <span className={`inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase border ${scoreColorClass}`}>{scoreLabel}</span>}
-                                                </div>
-                                                <div className="text-right">
-                                                    {totalPossible > 0 ? (
-                                                        <div className="flex items-baseline gap-1">
-                                                            <span className={`text-4xl font-extrabold tracking-tighter ${scoreColorClass.split(' ')[0]}`}>{overallScore}</span>
-                                                            <span className="text-sm font-bold text-gray-400 dark:text-slate-500">/10</span>
-                                                        </div>
-                                                    ) : (
-                                                        <span className="text-xl font-bold text-gray-300">N/A</span>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-center justify-between mb-3 border-b border-gray-100 dark:border-slate-800 pb-2">
-                                                <div className="flex items-center gap-2">
-                                                    <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600">Spatial Mappings (Auto-curated for {config.type})</p>
-                                                    {(config.vastuAnalysis || []).length > 0 && (
-                                                        <Button variant="outline" size="sm" onClick={() => { if (confirm("Are you sure you want to reset Vastu elements to default for " + config.type + "? All current Vastu data will be lost.")) autoFillVastu(config.type); }} className="h-6 px-2 text-[9px] bg-emerald-50 text-emerald-600 border-emerald-200">
-                                                            Reset / Auto-Fill ({config.type})
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {/* Column Headings */}
-                                            {(config.vastuAnalysis || []).length > 0 && (
-                                                <div className="flex gap-2 items-center px-[14px] mb-1 text-[10px] font-bold text-gray-500 dark:text-slate-400 uppercase tracking-widest">
-                                                    <div className="flex-1 pl-3">Vastu Element</div>
-                                                    <div className="w-32 pl-3">Location</div>
-                                                    <div className="w-32 pl-3">Facing (Opt.)</div>
-                                                    <div className="w-24 text-center">Status</div>
-                                                </div>
-                                            )}
-
-                                            <div className="space-y-3">
-                                                {(config.vastuAnalysis || []).map(v => {
-                                                    const details = getVastuDetails(v.element, v.direction, v.facing)
-
-                                                    return (
-                                                        <div key={v.id} className="relative flex flex-col gap-2 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 p-3 rounded-xl shadow-sm group/vastu hover:border-emerald-200 transition-colors">
-                                                            <div className="flex gap-2 items-center">
-                                                                <div className="h-8 flex-1 bg-gray-50 dark:bg-slate-800/50 flex items-center px-3 rounded-md border-0 text-[11px] font-semibold text-gray-700 dark:text-slate-300 shadow-sm truncate">
-                                                                    {v.element}
-                                                                </div>
-
-                                                                <Select value={v.direction} onValueChange={val => updateVastu(v.id, { direction: val, status: getVastuDetails(v.element, val, v.facing).status as any })}>
-                                                                    <SelectTrigger className="h-8 text-[11px] w-32 bg-gray-50 dark:bg-slate-800/50 border-0 shadow-sm"><SelectValue placeholder="Location" /></SelectTrigger>
-                                                                    <SelectContent className="bg-white dark:bg-slate-900">
-                                                                        <SelectItem value="N/A" className="text-gray-400 dark:text-slate-500 font-bold text-[11px]">Not Available (N/A)</SelectItem>
-                                                                        {["North", "South", "East", "West", "North-East", "North-West", "South-East", "South-West", "Center"].map(dir => (
-                                                                            <SelectItem key={dir} value={dir} className="text-[11px]">{dir}</SelectItem>
-                                                                        ))}
-                                                                    </SelectContent>
-                                                                </Select>
-
-                                                                <Select value={v.facing || "none"} onValueChange={val => updateVastu(v.id, { facing: val, status: getVastuDetails(v.element, v.direction, val).status as any })}>
-                                                                    <SelectTrigger className="h-8 text-[11px] w-32 bg-gray-50 dark:bg-slate-800/50 border-0 shadow-sm"><SelectValue placeholder="Facing (Opt.)" /></SelectTrigger>
-                                                                    <SelectContent className="bg-white dark:bg-slate-900">
-                                                                        <SelectItem value="none" className="text-gray-400 dark:text-slate-500 text-[11px]">N/A</SelectItem>
-                                                                        {["North", "South", "East", "West", "North-East", "North-West", "South-East", "South-West"].map(dir => (
-                                                                            <SelectItem key={dir} value={dir} className="text-[11px]">{dir}</SelectItem>
-                                                                        ))}
-                                                                    </SelectContent>
-                                                                </Select>
-
-                                                                <div className={`h-8 px-3 rounded-lg flex items-center justify-center text-[10px] font-bold uppercase tracking-widest w-24 shrink-0 shadow-sm border border-transparent
-                                                                    ${details.status === 'excellent' ? 'bg-emerald-100/50 text-emerald-700 border-emerald-200/50' :
-                                                                        details.status === 'good' ? 'bg-blue-100/50 text-blue-700' :
-                                                                            details.status === 'avoid' ? 'bg-red-100/50 text-red-700' :
-                                                                                'bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400'}`}
-                                                                >
-                                                                    {details.status}
-                                                                </div>
-                                                            </div>
-
-                                                            {/* AI Vastu Recommendation / Note */}
-                                                            {(v.element && v.direction) && (
-                                                                <div className="pl-1 pt-1.5 flex items-start gap-2">
-                                                                    <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${details.status === 'excellent' ? 'bg-emerald-400' : details.status === 'good' ? 'bg-blue-400' : details.status === 'avoid' ? 'bg-red-400' : 'bg-gray-300'}`} />
-                                                                    <p className="text-[11px] text-gray-500 dark:text-slate-400 leading-relaxed italic">{details.note}</p>
-                                                                </div>
-                                                            )}
-
-                                                            <Button variant="ghost" size="sm" onClick={() => removeVastu(v.id)} className="absolute top-2 right-2 h-7 w-7 p-0 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover/vastu:opacity-100 transition-all active:scale-90 bg-white dark:bg-slate-900/80 backdrop-blur"><Trash2 className="w-3.5 h-3.5" /></Button>
-                                                        </div>
-                                                    )
-                                                })}
-                                                {(config.vastuAnalysis || []).length === 0 && (
-                                                    <div className="border border-dashed border-emerald-200 bg-emerald-50/50 rounded-xl p-6 text-center">
-                                                        <Star className="w-6 h-6 text-emerald-300 mx-auto mb-2" />
-                                                        <p className="text-xs font-semibold text-emerald-800">No Vastu Mapping Provided</p>
-                                                        <p className="text-[11px] text-emerald-600/80 mt-1 max-w-xs mx-auto">Add key zones like Main Entrance, Kitchen, and Master Bedroom to generate the Vastu Score.</p>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </>
-                                    )
-                                })()}
-                            </Section>
                         </TabsContent>
 
                         <TabsContent value="media" className="space-y-6 focus-visible:outline-none">
@@ -1058,6 +892,7 @@ data, onChange, towerName, projectName, townshipName,
     const [isAddGroupModalOpen, setIsAddGroupModalOpen] = useState(false)
     const [collapsedGroups, setCollapsedGroups] = useState<string[]>([])
     const [collapsedConfigGroups, setCollapsedConfigGroups] = useState<string[]>([])
+    const [vastuSlotId, setVastuSlotId] = useState<{ groupId: string, slotId: string } | null>(null)
 
     const updateData = (patch: Partial<UnitTemplate>) => {
         const newData = { ...data, ...patch }
@@ -1548,7 +1383,7 @@ data, onChange, towerName, projectName, townshipName,
                                                 </Field>
 
                                                 {/* Dynamic Fields based on Group Type */}
-                                                {(group.groupTypes || []).some(t => ['basement', 'podium'].includes(t)) && (
+                                                {(group.groupTypes || []).some(t => ['basement', 'parking', 'podium'].includes(t)) && (
                                                     <>
                                                         <Grid cols={3}>
                                                             <Field label="Car Slots">
@@ -1682,10 +1517,10 @@ data, onChange, towerName, projectName, townshipName,
                                                                                 <div className="relative">
                                                                                     <Input
                                                                                         type="number"
-                                                                                        value={slot.carpetAreaOverride || config?.carpetArea || ""}
-                                                                                        onChange={e => updateSlot({ carpetAreaOverride: parseFloat(e.target.value) || 0 })}
-                                                                                        placeholder="0"
-                                                                                        className="h-10 w-full border-2 border-slate-200 bg-slate-50 text-base font-black text-slate-900 focus:ring-4 focus:ring-blue-100 px-3 rounded-xl"
+                                                                                        value={slot.carpetAreaOverride ?? ""}
+                                                                                        onChange={e => updateSlot({ carpetAreaOverride: e.target.value === "" ? undefined : parseFloat(e.target.value) })}
+                                                                                        placeholder={config?.carpetArea?.toString() || "0"}
+                                                                                        className="h-10 w-full border-2 border-slate-200 bg-slate-50 text-base font-black text-slate-900 focus:ring-4 focus:ring-blue-100 px-3 rounded-xl placeholder:text-slate-400 placeholder:font-semibold"
                                                                                     />
                                                                                     <Maximize className="absolute right-3 top-3 w-4 h-4 text-slate-300" />
                                                                                 </div>
@@ -1742,19 +1577,14 @@ data, onChange, towerName, projectName, townshipName,
                                                                             <Label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest flex items-center gap-2">
                                                                                 <ShieldCheck className="w-4 h-4" /> Vastu Status
                                                                             </Label>
-                                                                            <Select
-                                                                                value={slot.vastuOverride || ""}
-                                                                                onValueChange={v => updateSlot({ vastuOverride: v })}
+                                                                            <Button 
+                                                                                variant="outline" 
+                                                                                className="w-full h-10 border-slate-200 bg-white dark:bg-slate-900 text-[#1A3C8C] dark:text-blue-400 font-bold rounded-xl justify-between px-3"
+                                                                                onClick={() => setVastuSlotId({ groupId: group.id, slotId: slot.id })}
                                                                             >
-                                                                                <SelectTrigger className="h-10 w-full border-slate-200 bg-white dark:bg-slate-900 text-base font-black text-[#1A3C8C] dark:text-blue-400 focus:ring-4 focus:ring-emerald-100 px-3 rounded-xl">
-                                                                                    <SelectValue placeholder="Select Vastu Status" />
-                                                                                </SelectTrigger>
-                                                                                <SelectContent className="rounded-xl shadow-2xl border-slate-100">
-                                                                                    {VASTU_STATUS.map(vs => (
-                                                                                        <SelectItem key={vs} value={vs} className="text-[10px] font-black uppercase py-2">{vs}</SelectItem>
-                                                                                    ))}
-                                                                                </SelectContent>
-                                                                            </Select>
+                                                                                {slot.vastuDetails && Object.keys(slot.vastuDetails).length > 0 ? "Vastu Configured" : "Configure Vastu"}
+                                                                                <ChevronRight className="w-4 h-4 opacity-50" />
+                                                                            </Button>
                                                                         </div>
                                                                     </div>
                                                                 </div>
@@ -1776,7 +1606,7 @@ data, onChange, towerName, projectName, townshipName,
                                                         </Button>
                                                     </div>
                                                 </>
-                                            ) : (group.groupTypes || []).some(t => ['basement', 'podium'].includes(t)) ? (
+                                            ) : (group.groupTypes || []).some(t => ['basement', 'parking', 'podium'].includes(t)) ? (
                                                 <div className="p-8 bg-orange-50/20 rounded-2xl border border-orange-100 border-dashed text-center">
                                                     <Car className="w-8 h-8 text-orange-200 mx-auto mb-2" />
                                                     <p className="text-[11px] font-bold text-orange-900 uppercase tracking-widest">
@@ -1798,9 +1628,26 @@ data, onChange, towerName, projectName, townshipName,
                         {/* VISUAL TOWER MAP */}
                         <div className="xl:col-span-1 hidden xl:block relative">
                             <div className="sticky top-6 bg-white dark:bg-slate-900 rounded-[24px] border border-gray-100 dark:border-slate-800 shadow-xl overflow-hidden p-6 h-[calc(100vh-100px)] flex flex-col">
-                                <h3 className="text-[#1A3C8C] dark:text-blue-400 font-black text-lg mb-1 flex items-center gap-2">
-                                    <Building2 className="w-5 h-5 text-blue-500" /> Live Tower Map
-                                </h3>
+                                <div className="flex items-center justify-between mb-1">
+                                    <h3 className="text-[#1A3C8C] dark:text-blue-400 font-black text-lg flex items-center gap-2">
+                                        <Building2 className="w-5 h-5 text-blue-500" /> Live Tower Map
+                                    </h3>
+                                    {(() => {
+                                        let totalUnitsInTower = 0;
+                                        (data.floorGroups || []).forEach(group => {
+                                            const validFloors = (group.floors || []).filter(f => f > 0);
+                                            validFloors.forEach(floor => {
+                                                const slotsToUse = group.floorOverrides?.[floor.toString()] || group.layout || [];
+                                                totalUnitsInTower += slotsToUse.length;
+                                            });
+                                        });
+                                        return totalUnitsInTower > 0 ? (
+                                            <Badge className="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-[10px] font-bold px-2 py-0.5">
+                                                {totalUnitsInTower} Units
+                                            </Badge>
+                                        ) : null;
+                                    })()}
+                                </div>
                                 <p className="text-[10px] text-gray-400 dark:text-slate-500 font-bold uppercase tracking-widest mb-4">Floor wise architecture</p>
 
                                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-1.5 pb-10">
@@ -1818,6 +1665,7 @@ data, onChange, towerName, projectName, townshipName,
                                             if (!group) return null
 
                                             const isBasement = (group.groupTypes || []).includes('basement')
+                                            const isParking = (group.groupTypes || []).includes('parking')
                                             const isPodium = (group.groupTypes || []).includes('podium')
                                             const isAmenity = (group.groupTypes || []).includes('amenity')
                                             const isRefuge = (group.groupTypes || []).includes('refuge')
@@ -1826,6 +1674,7 @@ data, onChange, towerName, projectName, townshipName,
                                             let borderColor = "border-gray-200 dark:border-slate-700"
                                             let textColor = "text-gray-900 dark:text-white"
                                             if (isBasement) { bgColor = "bg-gray-800"; borderColor = "border-gray-900"; textColor = "text-white" }
+                                            else if (isParking) { bgColor = "bg-slate-800"; borderColor = "border-slate-900"; textColor = "text-white" }
                                             else if (isAmenity) { bgColor = "bg-teal-50"; borderColor = "border-teal-200"; textColor = "text-teal-900" }
                                             else if (isPodium) { bgColor = "bg-orange-50"; borderColor = "border-orange-200"; textColor = "text-orange-900" }
                                             else if (isRefuge) { bgColor = "bg-red-50"; borderColor = "border-red-200"; textColor = "text-red-900" }
@@ -1834,13 +1683,17 @@ data, onChange, towerName, projectName, townshipName,
 
                                             return (
                                                 <div key={floor} className={`flex items-center gap-2 w-full border ${borderColor} ${bgColor} rounded-lg p-1.5 shadow-sm overflow-hidden transition-all hover:scale-[1.02]`}>
-                                                    <div className={`w-8 shrink-0 flex items-center justify-center font-black text-xs ${isBasement ? 'text-gray-400 dark:text-slate-500' : 'text-gray-500 dark:text-slate-400'}`}>
+                                                    <div className={`w-8 shrink-0 flex items-center justify-center font-black text-xs ${isBasement || isParking ? 'text-gray-400 dark:text-slate-500' : 'text-gray-500 dark:text-slate-400'}`}>
                                                         {displayStr}
                                                     </div>
                                                     <div className="flex-1 flex gap-1 h-8">
-                                                        {(isBasement || isPodium) && group.carSlots ? (
-                                                            <div className={`flex items-center justify-center w-full gap-2 text-[10px] font-bold ${textColor} border-l border-current/20`}>
-                                                                <Car className="w-3.5 h-3.5 opacity-70" /> {group.carSlots} Parking
+                                                        {(isParking || isPodium) ? (
+                                                            <div className={`flex items-center justify-center w-full gap-2 text-[10px] font-bold uppercase tracking-widest ${textColor} border-l border-current/20`}>
+                                                                <Car className="w-3.5 h-3.5 opacity-70" /> {group.carSlots ? `${group.carSlots} Parking` : "Parking Area"}
+                                                            </div>
+                                                        ) : isBasement ? (
+                                                            <div className={`flex items-center justify-center w-full gap-2 text-[10px] uppercase font-black tracking-widest ${textColor} border-l border-current/20`}>
+                                                                <Layers className="w-3.5 h-3.5 opacity-70" /> Basement
                                                             </div>
                                                         ) : isAmenity ? (
                                                             <div className={`flex items-center justify-center w-full gap-2 text-[10px] uppercase font-black tracking-widest ${textColor} border-l border-current/20`}>
@@ -1852,11 +1705,14 @@ data, onChange, towerName, projectName, townshipName,
                                                             </div>
                                                             ) : (() => {
                                                                 const slotsToUse = group.floorOverrides?.[floor.toString()] || group.layout || []
-                                                                return slotsToUse.length > 0 ? (
-                                                                <div className="flex w-full items-center gap-1 border-l pl-2 border-gray-100 dark:border-slate-800 relative group/floor">
+                                                                return (
+                                                                <div className="flex w-full min-h-[30px] items-center gap-1 border-l pl-2 border-gray-100 dark:border-slate-800 relative group/floor">
+                                                                    {slotsToUse.length === 0 && (
+                                                                        <div className="text-[9px] text-gray-400 dark:text-slate-500 font-bold uppercase tracking-widest w-full text-center">No Units</div>
+                                                                    )}
                                                                     {slotsToUse.map((s, i) => {
                                                                         const typ = s.configId ? (data.configurations || []).find(c => c.id === s.configId)?.type : s.unitTypeOverride
-                                                                        const shortTyp = typ ? typ.replace('BHK', '').substring(0, 3) : "U"
+                                                                        const shortTyp = typ ? typ : "UNIT"
                                                                         
                                                                         const slotNum = s.slotNumber || (i + 1).toString();
                                                                         const paddedSlot = slotNum.length === 1 ? `0${slotNum}` : slotNum;
@@ -1869,67 +1725,13 @@ data, onChange, towerName, projectName, townshipName,
                                                                         return (
                                                                             <div key={i} className="flex-1 min-w-0 bg-[#F5F7FA] border border-gray-200 dark:border-slate-700 rounded flex flex-col items-center justify-center py-0.5 shadow-inner">
                                                                                 <span className="text-[9px] font-bold text-[#1A3C8C] dark:text-blue-400 leading-none">{unitDisplay}</span>
-                                                                                <span className="text-[6px] uppercase tracking-wider text-gray-400 dark:text-slate-500 font-bold">{shortTyp}</span>
+                                                                                <span className="text-[6px] uppercase tracking-wider text-gray-400 dark:text-slate-500 font-bold truncate max-w-full px-0.5">{shortTyp}</span>
                                                                             </div>
                                                                         )
                                                                     })}
-                                                                    {/* Override Controls */}
-                                                                    <div className="absolute right-0 top-0 bottom-0 bg-white/90 dark:bg-slate-900/90 hidden group-hover/floor:flex items-center gap-1 px-1 backdrop-blur-sm">
-                                                                        <button 
-                                                                            type="button"
-                                                                            onClick={() => {
-                                                                                const newLayout = [...slotsToUse];
-                                                                                const newSlotNumber = (newLayout.length + 1).toString();
-                                                                                const template = newLayout.length > 0 ? newLayout[newLayout.length - 1] : { id: `slot-${Date.now()}`, slotNumber: newSlotNumber, configId: "" };
-                                                                                newLayout.push({ ...template, id: `slot-${Date.now()}`, slotNumber: newSlotNumber });
-                                                                                
-                                                                                const updatedGroups = (data.floorGroups || []).map(g => {
-                                                                                    if (g.id !== group.id) return g;
-                                                                                    return { ...g, floorOverrides: { ...(g.floorOverrides || {}), [floor.toString()]: newLayout } };
-                                                                                });
-                                                                                updateData({ floorGroups: updatedGroups });
-                                                                            }}
-                                                                            className="w-5 h-5 rounded bg-blue-100 text-blue-600 flex items-center justify-center hover:bg-blue-200" title="Add Unit to Floor">
-                                                                            <Plus className="w-3 h-3" />
-                                                                        </button>
-                                                                        <button 
-                                                                            type="button"
-                                                                            onClick={() => {
-                                                                                if (slotsToUse.length === 0) return;
-                                                                                const newLayout = slotsToUse.slice(0, -1);
-                                                                                
-                                                                                const updatedGroups = (data.floorGroups || []).map(g => {
-                                                                                    if (g.id !== group.id) return g;
-                                                                                    return { ...g, floorOverrides: { ...(g.floorOverrides || {}), [floor.toString()]: newLayout } };
-                                                                                });
-                                                                                updateData({ floorGroups: updatedGroups });
-                                                                            }}
-                                                                            className="w-5 h-5 rounded bg-red-100 text-red-600 flex items-center justify-center hover:bg-red-200" title="Remove Unit from Floor">
-                                                                            <Minus className="w-3 h-3" />
-                                                                        </button>
-                                                                        {group.floorOverrides?.[floor.toString()] && (
-                                                                            <button 
-                                                                                type="button"
-                                                                                onClick={() => {
-                                                                                    const updatedGroups = (data.floorGroups || []).map(g => {
-                                                                                        if (g.id !== group.id) return g;
-                                                                                        const overrides = { ...(g.floorOverrides || {}) };
-                                                                                        delete overrides[floor.toString()];
-                                                                                        return { ...g, floorOverrides: overrides };
-                                                                                    });
-                                                                                    updateData({ floorGroups: updatedGroups });
-                                                                                }}
-                                                                                className="w-5 h-5 rounded bg-gray-100 text-gray-600 flex items-center justify-center hover:bg-gray-200 ml-1" title="Reset Floor to Group Default">
-                                                                                <RefreshCw className="w-3 h-3" />
-                                                                            </button>
-                                                                        )}
-                                                                    </div>
+
                                                                 </div>
-                                                            ) : (
-                                                                <div className="flex items-center justify-center w-full text-[9px] font-bold text-gray-300 uppercase tracking-widest border-l border-gray-100 dark:border-slate-800">
-                                                                    No Units
-                                                                </div>
-                                                            )
+                                                                );
                                                             })()}
                                                         </div>
                                                 </div>
@@ -2245,6 +2047,258 @@ data, onChange, towerName, projectName, townshipName,
                 defaultFloorRise={Number(data.floorRisePerFloor) || 0}
                 existingGroups={data.floorGroups || []}
             />
+            {/* VASTU DIALOG */}
+            <Dialog open={!!vastuSlotId} onOpenChange={(open) => !open && setVastuSlotId(null)}>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Vastu Configuration</DialogTitle>
+                        <DialogDescription>
+                            Provide Vastu details for this unit layout.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {vastuSlotId && (() => {
+                        const activeGroup = data.floorGroups?.find(g => g.id === vastuSlotId.groupId);
+                        const activeSlot = activeGroup?.layout?.find(s => s.id === vastuSlotId.slotId);
+                        
+                        if (!activeGroup || !activeSlot) return null;
+
+                        const activeConfig = data.configurations?.find(c => c.id === activeSlot.configId);
+                        let bedroomCount = 0;
+                        if (activeConfig) {
+                            const match = activeConfig.type.match(/^(\d+)BHK/i);
+                            if (match) {
+                                bedroomCount = parseInt(match[1], 10);
+                            } else if (['studio', 'penthouse', 'duplex'].includes(activeConfig.type)) {
+                                bedroomCount = 1;
+                            }
+                        }
+
+                        const updateVastu = (field: string, value: string) => {
+                            const newLayout = activeGroup.layout.map(s => {
+                                if (s.id === activeSlot.id) {
+                                    return {
+                                        ...s,
+                                        vastuDetails: {
+                                            ...(s.vastuDetails || {}),
+                                            [field]: value
+                                        }
+                                    };
+                                }
+                                return s;
+                            });
+                            updateGroup(activeGroup.id, { layout: newLayout });
+                        };
+
+                        const details = activeSlot.vastuDetails || {};
+
+                        return (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+                                <Field label="1. Main Entrance (Mukhya Dwar)">
+                                    <Select value={details.mainEntrance || ""} onValueChange={v => updateVastu('mainEntrance', v)}>
+                                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="North">North</SelectItem>
+                                            <SelectItem value="South">South</SelectItem>
+                                            <SelectItem value="East">East</SelectItem>
+                                            <SelectItem value="West">West</SelectItem>
+                                            <SelectItem value="North-East">North-East</SelectItem>
+                                            <SelectItem value="North-West">North-West</SelectItem>
+                                            <SelectItem value="South-East">South-East</SelectItem>
+                                            <SelectItem value="South-West">South-West</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </Field>
+
+                                <Field label="2. Pooja Room (Mandir)">
+                                    <Select value={details.poojaRoom || ""} onValueChange={v => updateVastu('poojaRoom', v)}>
+                                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="North">North</SelectItem>
+                                            <SelectItem value="South">South</SelectItem>
+                                            <SelectItem value="East">East</SelectItem>
+                                            <SelectItem value="West">West</SelectItem>
+                                            <SelectItem value="North-East">North-East</SelectItem>
+                                            <SelectItem value="North-West">North-West</SelectItem>
+                                            <SelectItem value="South-East">South-East</SelectItem>
+                                            <SelectItem value="South-West">South-West</SelectItem>
+                                            <SelectItem value="Center">Center</SelectItem>
+                                            <SelectItem value="No Pooja Room">No Pooja Room</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </Field>
+
+                                <Field label="3. Kitchen (Rasoi)">
+                                    <Select value={details.kitchen || ""} onValueChange={v => updateVastu('kitchen', v)}>
+                                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="North">North</SelectItem>
+                                            <SelectItem value="South">South</SelectItem>
+                                            <SelectItem value="East">East</SelectItem>
+                                            <SelectItem value="West">West</SelectItem>
+                                            <SelectItem value="North-East">North-East</SelectItem>
+                                            <SelectItem value="North-West">North-West</SelectItem>
+                                            <SelectItem value="South-East">South-East</SelectItem>
+                                            <SelectItem value="South-West">South-West</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </Field>
+
+                                {bedroomCount > 0 && (
+                                    <Field label="4. Master Bedroom">
+                                        <Select value={details.masterBedroom || ""} onValueChange={v => updateVastu('masterBedroom', v)}>
+                                            <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="North">North</SelectItem>
+                                                <SelectItem value="South">South</SelectItem>
+                                                <SelectItem value="East">East</SelectItem>
+                                                <SelectItem value="West">West</SelectItem>
+                                                <SelectItem value="North-East">North-East</SelectItem>
+                                                <SelectItem value="North-West">North-West</SelectItem>
+                                                <SelectItem value="South-East">South-East</SelectItem>
+                                                <SelectItem value="South-West">South-West</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </Field>
+                                )}
+                                {bedroomCount > 1 && (
+                                    <Field label="4b. Bedroom 2">
+                                        <Select value={details.bedroom2 || ""} onValueChange={v => updateVastu('bedroom2', v)}>
+                                            <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="North">North</SelectItem>
+                                                <SelectItem value="South">South</SelectItem>
+                                                <SelectItem value="East">East</SelectItem>
+                                                <SelectItem value="West">West</SelectItem>
+                                                <SelectItem value="North-East">North-East</SelectItem>
+                                                <SelectItem value="North-West">North-West</SelectItem>
+                                                <SelectItem value="South-East">South-East</SelectItem>
+                                                <SelectItem value="South-West">South-West</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </Field>
+                                )}
+                                {bedroomCount > 2 && (
+                                    <Field label="4c. Bedroom 3">
+                                        <Select value={details.bedroom3 || ""} onValueChange={v => updateVastu('bedroom3', v)}>
+                                            <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="North">North</SelectItem>
+                                                <SelectItem value="South">South</SelectItem>
+                                                <SelectItem value="East">East</SelectItem>
+                                                <SelectItem value="West">West</SelectItem>
+                                                <SelectItem value="North-East">North-East</SelectItem>
+                                                <SelectItem value="North-West">North-West</SelectItem>
+                                                <SelectItem value="South-East">South-East</SelectItem>
+                                                <SelectItem value="South-West">South-West</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </Field>
+                                )}
+                                {bedroomCount > 3 && (
+                                    <Field label="4d. Bedroom 4">
+                                        <Select value={details.bedroom4 || ""} onValueChange={v => updateVastu('bedroom4', v)}>
+                                            <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="North">North</SelectItem>
+                                                <SelectItem value="South">South</SelectItem>
+                                                <SelectItem value="East">East</SelectItem>
+                                                <SelectItem value="West">West</SelectItem>
+                                                <SelectItem value="North-East">North-East</SelectItem>
+                                                <SelectItem value="North-West">North-West</SelectItem>
+                                                <SelectItem value="South-East">South-East</SelectItem>
+                                                <SelectItem value="South-West">South-West</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </Field>
+                                )}
+                                {bedroomCount > 4 && (
+                                    <Field label="4e. Bedroom 5">
+                                        <Select value={details.bedroom5 || ""} onValueChange={v => updateVastu('bedroom5', v)}>
+                                            <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="North">North</SelectItem>
+                                                <SelectItem value="South">South</SelectItem>
+                                                <SelectItem value="East">East</SelectItem>
+                                                <SelectItem value="West">West</SelectItem>
+                                                <SelectItem value="North-East">North-East</SelectItem>
+                                                <SelectItem value="North-West">North-West</SelectItem>
+                                                <SelectItem value="South-East">South-East</SelectItem>
+                                                <SelectItem value="South-West">South-West</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </Field>
+                                )}
+
+                                <Field label="5. Bathrooms aur Toilets">
+                                    <Select value={details.bathrooms || ""} onValueChange={v => updateVastu('bathrooms', v)}>
+                                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="North">North</SelectItem>
+                                            <SelectItem value="South">South</SelectItem>
+                                            <SelectItem value="East">East</SelectItem>
+                                            <SelectItem value="West">West</SelectItem>
+                                            <SelectItem value="North-East">North-East</SelectItem>
+                                            <SelectItem value="North-West">North-West</SelectItem>
+                                            <SelectItem value="South-East">South-East</SelectItem>
+                                            <SelectItem value="South-West">South-West</SelectItem>
+                                            <SelectItem value="Center">Center</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </Field>
+
+                                <Field label="6. Brahmasthan (Ghar ka Center)">
+                                    <Select value={details.brahmasthan || ""} onValueChange={v => updateVastu('brahmasthan', v)}>
+                                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Open and Clean">Open and Clean</SelectItem>
+                                            <SelectItem value="Has Pillar">Has Pillar</SelectItem>
+                                            <SelectItem value="Has Toilet">Has Toilet</SelectItem>
+                                            <SelectItem value="Has Kitchen">Has Kitchen</SelectItem>
+                                            <SelectItem value="Other">Other</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </Field>
+
+                                <Field label="7. Flat ka Shape aur Cuts">
+                                    <Select value={details.shapeAndCuts || ""} onValueChange={v => updateVastu('shapeAndCuts', v)}>
+                                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="Square">Square</SelectItem>
+                                            <SelectItem value="Rectangular">Rectangular</SelectItem>
+                                            <SelectItem value="Cut in North-East">Cut in North-East</SelectItem>
+                                            <SelectItem value="Cut in North-West">Cut in North-West</SelectItem>
+                                            <SelectItem value="Cut in South-East">Cut in South-East</SelectItem>
+                                            <SelectItem value="Cut in South-West">Cut in South-West</SelectItem>
+                                            <SelectItem value="Irregular Shape">Irregular Shape</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </Field>
+
+                                <Field label="8. Balcony aur Windows">
+                                    <Select value={details.balconyAndWindows || ""} onValueChange={v => updateVastu('balconyAndWindows', v)}>
+                                        <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="North">North</SelectItem>
+                                            <SelectItem value="South">South</SelectItem>
+                                            <SelectItem value="East">East</SelectItem>
+                                            <SelectItem value="West">West</SelectItem>
+                                            <SelectItem value="North-East">North-East</SelectItem>
+                                            <SelectItem value="North-West">North-West</SelectItem>
+                                            <SelectItem value="South-East">South-East</SelectItem>
+                                            <SelectItem value="South-West">South-West</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </Field>
+                            </div>
+                        );
+                    })()}
+                    <DialogFooter>
+                        <Button onClick={() => setVastuSlotId(null)} className="w-full bg-[#1A3C8C] hover:bg-blue-700 text-white">
+                            Done
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div >
     )
 }
@@ -2361,16 +2415,29 @@ function AddGroupModal({ isOpen, onClose, onAdd, configurations, defaultUnits, d
         { id: 'ground', label: 'Ground Floor', icon: Building2 },
         { id: 'podium', label: 'Podium', icon: Layers },
         { id: 'refuge', label: 'Refuge Floor', icon: Shield },
-        { id: 'basement', label: 'Basement / Parking', icon: Car },
+        { id: 'basement', label: 'Basement', icon: Layers },
+        { id: 'parking', label: 'Parking Area', icon: Car },
         { id: 'other', label: 'Other Purpose', icon: Grid3X3 },
     ]
 
     const Stepper = ({ value, onChange, label, hint, min = -100 }: { value: string, onChange: (v: string) => void, label: string, hint: string, min?: number }) => {
-        // Parse internal number: "G" -> 0, "B1" -> -1, "5" -> 5
+        // Maintain local input state so users can delete and type without aggressive auto-formatting
+        const [inputValue, setInputValue] = useState(() => {
+            let num = parseInt(value.replace(/[^0-9-]/g, "")) || 0
+            if (value.toUpperCase().startsWith("B")) num = -Math.abs(num)
+            return num === 0 ? "G" : (num < 0 ? `B${Math.abs(num)}` : `${num}`)
+        })
+
+        // Sync with external value changes (e.g. from +/- buttons)
+        useEffect(() => {
+            let num = parseInt(value.replace(/[^0-9-]/g, "")) || 0
+            if (value.toUpperCase().startsWith("B")) num = -Math.abs(num)
+            setInputValue(num === 0 ? "G" : (num < 0 ? `B${Math.abs(num)}` : `${num}`))
+        }, [value])
+
+        // Parse internal number for constraints check
         let num = parseInt(value.replace(/[^0-9-]/g, "")) || 0
         if (value.toUpperCase().startsWith("B")) num = -Math.abs(num)
-
-        const displayValue = num === 0 ? "G" : (num < 0 ? `B${Math.abs(num)}` : `${num}`)
 
         const isAlreadyAssigned = (n: number) => {
             return (existingGroups || []).some(g => (g.floors || []).includes(n))
@@ -2397,11 +2464,18 @@ function AddGroupModal({ isOpen, onClose, onAdd, configurations, defaultUnits, d
                     </Button>
                     <div className="flex-1 relative">
                         <Input
-                            value={displayValue}
+                            value={inputValue ?? ""}
                             onChange={e => {
-                                const v = e.target.value.toUpperCase()
-                                if (v === 'G' || v === '0') onChange("0")
-                                else onChange(e.target.value)
+                                setInputValue(e.target.value.toUpperCase())
+                            }}
+                            onBlur={() => {
+                                let n = parseInt(inputValue.replace(/[^0-9-]/g, "")) || 0
+                                if (inputValue.toUpperCase().startsWith("B")) n = -Math.abs(n)
+                                if (inputValue.toUpperCase() === 'G' || inputValue === '0') n = 0
+                                
+                                const formatted = n === 0 ? "G" : (n < 0 ? `B${Math.abs(n)}` : `${n}`)
+                                setInputValue(formatted)
+                                onChange(formatted)
                             }}
                             className={`h-10 border-0 bg-transparent text-center font-bold text-sm focus-visible:ring-0 min-w-0 ${isError ? 'text-red-600' : ''}`}
                         />
@@ -2484,7 +2558,7 @@ function AddGroupModal({ isOpen, onClose, onAdd, configurations, defaultUnits, d
                         <Grid cols={2} className="gap-6">
                             <Field label="Group Label (Internal)">
                                 <Input
-                                    value={name}
+                                    value={name ?? ""}
                                     onChange={e => setName(e.target.value)}
                                     className="h-12 rounded-xl border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/50/50 hover:bg-white dark:bg-slate-900 transition-all font-bold text-gray-700 dark:text-slate-300 border-2 shadow-sm focus:ring-[#1A3C8C]/20"
                                     placeholder="E.g. Mixed Use L1"
@@ -2493,7 +2567,7 @@ function AddGroupModal({ isOpen, onClose, onAdd, configurations, defaultUnits, d
                             <Field label="Floor Rise (₹/floor)" hint="Applies to units in this group">
                                 <Input
                                     type="number"
-                                    value={floorRise}
+                                    value={floorRise ?? ""}
                                     onChange={e => setFloorRise(Number(e.target.value))}
                                     className="h-12 rounded-xl border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-800/50/50 hover:bg-white dark:bg-slate-900 transition-all font-bold text-gray-700 dark:text-slate-300 border-2 shadow-sm focus:ring-[#1A3C8C]/20"
                                     placeholder="50000"

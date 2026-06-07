@@ -21,6 +21,7 @@ import type {
   MasterPlanHighlight, DevelopmentPhase, FaqItem, TestimonialItem
 } from "@/lib/builder-types"
 import { BannerUpload, GalleryUpload, VideoUpload, MasterPlanMapUpload, DocumentUpload, AboutImageUpload } from "@/components/ui/media-uploads"
+import { ImageUpload } from "@/components/ui/image-upload"
 import { AmenitiesManager } from "@/components/builder/shared/AmenitiesManager"
 
 // ─────────────────────────────────────────
@@ -682,8 +683,8 @@ function ProjectFlowFormBase({ data, onChange, townshipName, townshipData, onTow
             </div>
           </div>
 
-          {/* 2. CC Certificate (Visible for both UC and RM) */}
-          {(data.constructionStatus === "under-construction" || data.constructionStatus === "ready-to-move") && (
+          {/* 2. CC Certificate (Visible for UC) */}
+          {data.constructionStatus === "under-construction" && (
             <div className="bg-blue-50/20 rounded-2xl p-5 border border-blue-100/50 hover:border-blue-200 transition-colors shadow-sm flex flex-col h-full">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -745,13 +746,18 @@ function ProjectFlowFormBase({ data, onChange, townshipName, townshipData, onTow
           {!isBuilder && (
           <Section id="builder" title="Developer / Builder Info" description="Builder name, logo, contact — Hero pe dikhta hai" icon={Building2} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
              <div className="bg-gray-50 dark:bg-slate-800/50/50 p-4 sm:p-5 rounded-2xl border border-gray-100 dark:border-slate-800 flex flex-col gap-5">
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                 <Field label="Builder / Company Name" required hint="Registered company name (auto-filled for builders)">
-                   <Input value={townshipData.builderName} onChange={e => updateCommon("builderName", e.target.value)} placeholder="Astronix Realty" className="h-11 border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm focus-visible:ring-blue-500 rounded-xl" />
-                 </Field>
-                 <Field label="Builder Logo URL" hint="A publicly accessible logo URL">
-                   <Input value={townshipData.builderLogo} onChange={e => updateCommon("builderLogo", e.target.value)} placeholder="https://..." className="h-11 border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm focus-visible:ring-blue-500 rounded-xl" />
-                 </Field>
+               <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8">
+                 <div className="shrink-0">
+                   <div className="mb-2 text-center sm:text-left">
+                     <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Builder Logo</Label>
+                   </div>
+                   <ImageUpload value={townshipData.builderLogo} onChange={v => updateCommon("builderLogo", v)} />
+                 </div>
+                 <div className="flex-1 w-full">
+                   <Field label="Builder / Company Name" required hint="Registered company name (auto-filled for builders)">
+                     <Input value={townshipData.builderName} onChange={e => updateCommon("builderName", e.target.value)} placeholder="Astronix Realty" className="h-11 border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm focus-visible:ring-blue-500 rounded-xl" />
+                   </Field>
+                 </div>
                </div>
              </div>
           </Section>

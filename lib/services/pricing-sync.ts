@@ -28,7 +28,7 @@ export async function aggregateTowerPricing(towerId: string | mongoose.Types.Obj
     let label = "N/A";
 
     if (units.length > 0) {
-      const prices = units.map(u => u.price).filter(p => p > 0);
+      const prices = units.map(u => u.price).filter((p): p is number => typeof p === "number" && p > 0);
       if (prices.length > 0) {
         min = Math.min(...prices);
         max = Math.max(...prices);

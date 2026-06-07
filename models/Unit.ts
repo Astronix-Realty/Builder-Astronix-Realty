@@ -5,8 +5,8 @@ const UnitSchema = new mongoose.Schema(
     type: { type: String, enum: ["unit"], default: "unit" },
     unitNumber: { type: String, required: true },
     parentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Property', required: true },
-    towerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Property', required: true },
-    projectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Property', required: false },
+    towerId: { type: mongoose.Schema.Types.Mixed, required: true },
+    projectId: { type: mongoose.Schema.Types.Mixed, required: false },
     floorNumber: { type: Number },
     configuration: { type: String },
     area: { type: Number },
@@ -40,4 +40,5 @@ UnitSchema.index({ accountId: 1 });
 UnitSchema.index({ mandateId: 1 });
 UnitSchema.index({ role: 1 });
 
-export default mongoose.models.Unit || mongoose.model("Unit", UnitSchema);
+delete mongoose.models.Unit;
+export default mongoose.model("Unit", UnitSchema);

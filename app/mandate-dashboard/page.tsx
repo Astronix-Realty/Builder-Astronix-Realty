@@ -9,6 +9,7 @@ import BannerEditor from "@/components/BannerEditor"
 import { ImageUpload } from "@/components/ui/image-upload"
 import { InventoryView } from "@/components/builder/inventory/inventory-view"
 import { CRMView } from "@/components/builder/crm/crm-view"
+import { CRMCloneView } from "@/components/builder/crm/crm-clone-view"
 import { ChatView } from "@/components/builder/chat/chat-view"
 import { DocumentsView } from "@/components/builder/documents/documents-view"
 import { TeamView } from "@/components/builder/team/team-view"
@@ -543,7 +544,7 @@ function DashboardContent() {
   }
 
 
-  const [activeTab, setActiveTab] = useState<"properties" | "inventory" | "crm" | "chat" | "documents" | "offers" | "blog" | "settings" | "team">("properties")
+  const [activeTab, setActiveTab] = useState<"properties" | "inventory" | "crm" | "crm2" | "chat" | "documents" | "offers" | "blog" | "settings" | "team">("properties")
   const [activeSettingsTab, setActiveSettingsTab] = useState<"profile" | "preferences">("profile")
   const [showAddProperty, setShowAddProperty] = useState(false)
   const [propertyFilter, setPropertyFilter] = useState<'published' | 'pending' | 'draft' | 'rejected'>('published')
@@ -715,10 +716,17 @@ function DashboardContent() {
           </button>
           <button
             onClick={() => { setActiveTab("crm"); setIsMobileMenuOpen(false); }}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "crm" ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:indigo-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
+            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "crm" ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
           >
-            <Users className="h-5 w-5" />
-            CRM & Leads
+            <Users className="h-5 w-5 shrink-0" />
+            <span className="text-left leading-tight">Astronix Leads and CRM</span>
+          </button>
+          <button
+            onClick={() => { setActiveTab("crm2"); setIsMobileMenuOpen(false); }}
+            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "crm2" ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
+          >
+            <Users className="h-5 w-5 shrink-0" />
+            <span className="text-left leading-tight">Our Leads and CRM</span>
           </button>
           <button
             onClick={() => { setActiveTab("chat"); setIsMobileMenuOpen(false); }}
@@ -814,7 +822,8 @@ function DashboardContent() {
                   <h2 className="text-xl md:text-2xl font-bold text-slate-800 dark:text-white">
                     {activeTab === "properties" && "Property Details"}
                     {activeTab === "inventory" && "Inventory Management"}
-                    {activeTab === "crm" && "Lead Management"}
+                    {activeTab === "crm" && "Astronix Leads and CRM"}
+                    {activeTab === "crm2" && "Our Leads and CRM"}
                     {activeTab === "chat" && "Communications"}
                     {activeTab === "documents" && "Document Center"}
                     {activeTab === "offers" && "Offers Management"}
@@ -827,6 +836,7 @@ function DashboardContent() {
                     {activeTab === "properties" && "Manage your real estate inventory"}
                     {activeTab === "inventory" && "Track unit status, sales, and availability"}
                     {activeTab === "crm" && "Manage leads, site visits, and bookings"}
+                    {activeTab === "crm2" && "Manage leads, site visits, and bookings"}
                     {activeTab === "chat" && "Chat with potential buyers and agents"}
                     {activeTab === "documents" && "Organize brochures, legal docs, and plans"}
                     {activeTab === "offers" && "Create and track special deals"}
@@ -946,9 +956,10 @@ function DashboardContent() {
         )}
 
         {/* Content Scroll Area */}
-        <div className={`flex-1 overflow-y-auto ${activeTab === "blog" ? "p-0" : "p-8"}`}>
+        <div className={`flex-1 ${activeTab === "documents" ? "overflow-hidden flex flex-col h-full" : "overflow-y-auto"} ${activeTab === "blog" ? "p-0" : "p-8"}`}>
           {activeTab === "inventory" && <InventoryView userRole={currentUser?.role || "mandate"} />}
           {activeTab === "crm" && <CRMView userRole={currentUser?.role || "mandate"} />}
+          {activeTab === "crm2" && <CRMCloneView userRole={currentUser?.role || "mandate"} />}
           {activeTab === "chat" && <ChatView />}
           {activeTab === "documents" && <DocumentsView />}
           {activeTab === "team" && <TeamView />}
@@ -1312,7 +1323,7 @@ function DashboardContent() {
 
                 <TabsContent value="profile" className="focus-visible:outline-none animate-in fade-in duration-300">
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="lg:col-span-1 space-y-6">
+                    <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-8 h-fit">
                       <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-6 text-center">
                         <ImageUpload
                           value={profile.logo}
@@ -1456,7 +1467,7 @@ function DashboardContent() {
                                   placeholder="e.g. 10+ Years"
                                 />
                               </div>
-                              <div>
+                              <div className="md:col-span-2">
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Specializations</label>
                                 <input
                                   type="text"

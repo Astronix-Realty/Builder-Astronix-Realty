@@ -3,7 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface IUser extends Document {
   email: string;
   passwordHash: string;
-  role: 'builder' | 'mandate' | 'admin';
+  role: 'builder' | 'mandate' | 'admin' | 'teamLeader';
   status: 'active' | 'suspended' | 'pending';
   profile: Record<string, any>;
   builderId?: string;
@@ -33,7 +33,7 @@ export interface IUser extends Document {
 const UserSchema = new Schema<IUser>({
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   passwordHash: { type: String, required: true },
-  role: { type: String, enum: ['builder', 'mandate', 'admin'], required: true },
+  role: { type: String, enum: ['builder', 'mandate', 'admin', 'teamLeader'], required: true },
   status: { type: String, enum: ['active', 'suspended', 'pending'], default: 'active' },
   profile: { type: Schema.Types.Mixed, default: {} }, 
   builderId: { type: Schema.Types.ObjectId, ref: 'Builder' },
@@ -65,4 +65,7 @@ UserSchema.index({ email: 1 }, { unique: true });
 UserSchema.index({ role: 1, status: 1 });
 UserSchema.index({ passwordResetToken: 1 });
 
-export default mongoose.models.User || mongoose.model<IUser>('User', UserSchema);
+// Force clear model cache in Next.js dev mode (avoids stale enum issues)
+delete (mongoose.models as any).User;
+export default mongoose.model<IUser>('User', UserSchema);
+

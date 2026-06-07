@@ -3,7 +3,7 @@ import { devtools } from 'zustand/middleware';
 import { LeadSchema, ValidatedLead } from '../schemas/crm';
 
 // --- Types ---
-type LeadStatus = "Fresh" | "Token VIP" | "Connected" | "Site Visit" | "Negotiation" | "Booked" | "Junk";
+type LeadStatus = "Fresh" | "Token VIP" | "Connected" | "Site Visit" | "Negotiation" | "Final Negotiation" | "Booked" | "Junk";
 
 interface PendingTransaction {
   id: string;

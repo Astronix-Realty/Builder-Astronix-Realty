@@ -3,6 +3,7 @@
 import { useState, useRef } from "react"
 import Image from "next/image"
 import { Upload, X, Camera } from "lucide-react"
+import { compressImage } from "@/lib/utils/compressor"
 
 interface ImageUploadProps {
     value?: string
@@ -20,15 +21,11 @@ export function ImageUpload({ value, onChange, label, className }: ImageUploadPr
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (file) {
-            if (file.size > 2 * 1024 * 1024) {
-                alert("Image size should be less than 2MB")
-                return
-            }
-
             try {
                 setIsLoading(true)
+                const compressedFile = await compressImage(file)
                 const formData = new FormData()
-                formData.append("file", file)
+                formData.append("file", compressedFile)
 
                 const response = await fetch("/api/upload", {
                     method: "POST",
@@ -119,7 +116,7 @@ export function ImageUpload({ value, onChange, label, className }: ImageUploadPr
                 className="hidden"
             />
 
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 italic">Square logo recommended (max 2MB)</p>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 italic">Square logo recommended (auto-compressed)</p>
         </div>
     )
 }

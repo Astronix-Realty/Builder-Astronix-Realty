@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -31,6 +32,9 @@ interface Conversation {
     unreadCount: number
     isPinned: boolean
     messages?: Message[]
+    isVirtual?: boolean
+    leadType?: string
+    parentGroupName?: string
 }
 
 // --- Skeleton Loader ---
@@ -63,6 +67,9 @@ export function ChatView() {
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLInputElement>(null)
 
+    const searchParams = useSearchParams()
+    const chatWith = searchParams.get("chatWith")
+
     // Auto-scroll to bottom
     const scrollToBottom = useCallback(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -76,32 +83,106 @@ export function ChatView() {
     const fetchConversations = useCallback(async () => {
         setIsLoadingConvs(true)
         try {
-            const res = await fetch("/api/conversations")
-            if (res.ok) {
-                const data = await res.json()
-                if (data.conversations) {
-                    setConversations(data.conversations)
-                    // Auto-select first conversation
-                    if (data.conversations.length > 0 && !selectedConv) {
-                        openConversation(data.conversations[0])
+            const [leadsRes, convsRes] = await Promise.all([
+                fetch("/api/leads"),
+                fetch("/api/conversations")
+            ]);
+            
+            let fetchedLeads: any[] = [];
+            let fetchedConvs: any[] = [];
+            
+            if (leadsRes.ok) {
+                const data = await leadsRes.json();
+                fetchedLeads = data.leads || [];
+            }
+            if (convsRes.ok) {
+                const data = await convsRes.json();
+                fetchedConvs = data.conversations || [];
+            }
+            
+            const finalConvs: Conversation[] = [];
+            
+            fetchedLeads.forEach((lead: any) => {
+                const addVirtualConv = (l: any, type: string, parentName?: string) => {
+                    const realConv = fetchedConvs.find((c: any) => c.leadId === (l._id || l.id));
+                    if (realConv) {
+                        finalConvs.push({ ...realConv, leadType: type, parentGroupName: parentName });
+                        fetchedConvs = fetchedConvs.filter((c: any) => c.leadId !== (l._id || l.id));
+                    } else {
+                        finalConvs.push({
+                            _id: `virtual-${l._id || l.id}`,
+                            leadId: l._id || l.id,
+                            leadName: l.name,
+                            leadPhone: l.phone,
+                            assignee: l.assignee,
+                            unreadCount: 0,
+                            isPinned: !!l.isTokenPaid,
+                            isVirtual: true,
+                            leadType: type,
+                            parentGroupName: parentName
+                        });
                     }
+                };
+
+                addVirtualConv(lead, lead.isGroup ? "Group Lead" : (lead.isTokenPaid ? "VIP Lead" : "Individual Lead"));
+                
+                if (lead.isGroup && lead.mergedMembers) {
+                    lead.mergedMembers.forEach((member: any) => {
+                        addVirtualConv(
+                            { ...member, assignee: lead.assignee, phone: member.phone || lead.phone }, 
+                            "Group Member", 
+                            lead.name
+                        );
+                    });
                 }
+            });
+            
+            fetchedConvs.forEach((c: any) => finalConvs.push({ ...c, leadType: "Unknown" }));
+            
+            finalConvs.sort((a, b) => {
+                if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+                if (a.lastMessageAt && b.lastMessageAt) return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
+                if (a.lastMessageAt) return -1;
+                if (b.lastMessageAt) return 1;
+                return (a.leadName || "").localeCompare(b.leadName || "");
+            });
+            
+            setConversations(finalConvs);
+
+            if (chatWith) {
+                const target = finalConvs.find(c => c.leadId === chatWith);
+                if (target) {
+                    openConversation(target);
+                    return;
+                }
+            }
+            if (finalConvs.length > 0 && !selectedConv) {
+                openConversation(finalConvs[0]);
             }
         } catch (err) {
             console.error("Failed to fetch conversations", err)
         } finally {
             setIsLoadingConvs(false)
         }
-    }, []) // eslint-disable-line
+    }, [chatWith]) // eslint-disable-line
 
     // Fetch messages for a specific conversation
     const openConversation = useCallback(async (conv: Conversation) => {
         setSelectedConv(conv)
         setIsLoadingMsgs(true)
+        setMessages([])
+        
         // Clear unread locally
         setConversations(prev => prev.map(c =>
             c._id === conv._id ? { ...c, unreadCount: 0 } : c
         ))
+        
+        if (conv.isVirtual) {
+            setIsLoadingMsgs(false)
+            setTimeout(() => inputRef.current?.focus(), 100)
+            return;
+        }
+        
         try {
             const res = await fetch(`/api/conversations/${conv._id}/messages`)
             if (res.ok) {
@@ -123,7 +204,6 @@ export function ChatView() {
         setNewMessage("")
         setIsSending(true)
 
-        // Optimistic update
         const optimisticMsg: Message = {
             text,
             sender: "agent",
@@ -134,27 +214,42 @@ export function ChatView() {
         setMessages(prev => [...prev, optimisticMsg])
 
         try {
-            const res = await fetch(`/api/conversations/${selectedConv._id}/messages`, {
+            let targetConvId = selectedConv._id;
+            
+            if (selectedConv.isVirtual) {
+                const res = await fetch("/api/conversations", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ leadId: selectedConv.leadId, leadName: selectedConv.leadName, leadPhone: selectedConv.leadPhone, assignee: selectedConv.assignee })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    targetConvId = data.conversation._id;
+                    setConversations(prev => prev.map(c => c._id === selectedConv._id ? { ...c, _id: targetConvId, isVirtual: false } : c));
+                    setSelectedConv(prev => prev ? { ...prev, _id: targetConvId, isVirtual: false } : prev);
+                } else {
+                    throw new Error("Failed to create conversation");
+                }
+            }
+
+            const res = await fetch(`/api/conversations/${targetConvId}/messages`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ text, sender: "agent", senderName: "Agent" })
             })
             if (res.ok) {
                 const data = await res.json()
-                // Replace optimistic with real message
                 setMessages(prev => prev.map(m =>
                     m._id === optimisticMsg._id ? { ...data.message, _id: data.message._id } : m
                 ))
-                // Update conversation preview
                 setConversations(prev => prev.map(c =>
-                    c._id === selectedConv._id
+                    c._id === targetConvId
                         ? { ...c, lastMessage: text, lastMessageAt: new Date().toISOString() }
                         : c
                 ).sort((a, b) => new Date(b.lastMessageAt || 0).getTime() - new Date(a.lastMessageAt || 0).getTime()))
             }
         } catch (err) {
             console.error("Send failed", err)
-            // Rollback optimistic
             setMessages(prev => prev.filter(m => m._id !== optimisticMsg._id))
             setNewMessage(text)
         } finally {
@@ -289,7 +384,14 @@ export function ChatView() {
                                             {formatTime(conv.lastMessageAt)}
                                         </span>
                                     </div>
-                                    <p className="text-xs text-slate-500 truncate">{conv.lastMessage || "No messages"}</p>
+                                    <div className="flex items-center gap-1.5 mb-0.5">
+                                        {conv.leadType && (
+                                            <Badge variant="outline" className={`text-[9px] h-4 px-1 py-0 font-medium ${conv.leadType.includes('Group') ? 'border-orange-200 text-orange-600 bg-orange-50 dark:bg-orange-900/20' : 'border-blue-200 text-blue-600 bg-blue-50 dark:bg-blue-900/20'}`}>
+                                                {conv.leadType}
+                                            </Badge>
+                                        )}
+                                        <p className="text-xs text-slate-500 truncate">{conv.lastMessage || (conv.isVirtual ? "Start chat" : "No messages")}</p>
+                                    </div>
                                 </div>
 
                                 {/* Unread Badge */}
@@ -319,12 +421,13 @@ export function ChatView() {
                             <div>
                                 <h3 className="font-bold text-sm flex items-center gap-2">
                                     {selectedConv.leadName}
-                                    <Badge variant="secondary" className="text-[10px] font-normal">Lead</Badge>
+                                    <Badge variant="secondary" className="text-[10px] font-medium tracking-wide bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-none">{selectedConv.leadType || 'Lead'}</Badge>
                                 </h3>
                                 <p className="text-[11px] text-slate-500 flex items-center gap-1">
                                     <Circle className="h-1.5 w-1.5 fill-green-500 text-green-500" />
                                     {selectedConv.leadPhone}
                                     {selectedConv.assignee && <span className="ml-1">· {selectedConv.assignee}</span>}
+                                    {selectedConv.parentGroupName && <span className="ml-1 font-medium text-slate-600 dark:text-slate-400">· from {selectedConv.parentGroupName}</span>}
                                 </p>
                             </div>
                         </div>

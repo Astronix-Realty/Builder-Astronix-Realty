@@ -55,6 +55,7 @@ interface InventoryTower {
     projectId: string | null
     floorCount: number
     unitCount: number
+    baseRate?: number
 }
 
 interface InventoryUnit {
@@ -374,10 +375,6 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
 
     // ─── Handlers ─────────────────────────────────────────────────────────
     const handleUnitClick = (unit: InventoryUnit) => {
-        if (currentProperty?.status === "pending") {
-            toast.info("Property is pending admin approval. Inventory is read-only.");
-            return;
-        }
         if (isSelectionMode) {
             setSelectedUnitIds(prev =>
                 prev.includes(unit._id) ? prev.filter(id => id !== unit._id) : [...prev, unit._id]
@@ -397,17 +394,17 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
     const handleUnitUpdate = async (status: InventoryUnit["status"]) => {
         if (!editingUnit || !selectedPropertyId) return
 
-        if ((status === "sold" || status === "reserved") && !customerForm.name.trim()) {
-            toast.error("Please enter the buyer's name")
+        if ((status === "sold" || status === "reserved" || status === "blocked") && !customerForm.name.trim()) {
+            toast.error("Please enter the customer's name")
             return
         }
-        if ((status === "sold" || status === "reserved") && !customerForm.phone.trim()) {
-            toast.error("Please enter the buyer's phone number")
+        if ((status === "sold" || status === "reserved" || status === "blocked") && !customerForm.phone.trim()) {
+            toast.error("Please enter the customer's phone number")
             return
         }
         const bookingAmt = parseFloat(customerForm.amount)
-        if ((status === "sold" || status === "reserved") && (isNaN(bookingAmt) || bookingAmt <= 0)) {
-            toast.error("Please enter a valid booking amount")
+        if ((status === "sold" || status === "reserved" || status === "blocked") && (isNaN(bookingAmt) || bookingAmt <= 0)) {
+            toast.error("Please enter a valid booking/hold amount")
             return
         }
 
@@ -524,7 +521,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
             return
         }
         try {
-            const res = await fetch(`/api/towers/${selectedTowerId}/pricing`, {
+            const res = await fetch(`/api/towers/${selectedTowerId}/pricing?propertyId=${selectedPropertyId}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ ratePerSqft: rate }),
@@ -533,7 +530,15 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                 toast.success(`Updated all units to ₹${rate}/sqft`)
                 setIsPricingDialogOpen(false)
                 setTowerRateForm({ rate: "", applyToAll: true })
-                loadHierarchy(selectedPropertyId, true)
+                // Optimistic update: immediately reflect new baseRate in sidebar
+                setHierarchy(prev => prev ? {
+                    ...prev,
+                    towers: prev.towers.map(t =>
+                        t._id === selectedTowerId ? { ...t, baseRate: rate } : t
+                    )
+                } : null)
+                // Full reload (non-silent) to sync all unit prices from DB
+                loadHierarchy(selectedPropertyId, false)
             } else {
                 if (res.status === 401 || res.status === 403) {
                     toast.error("Session expired or unauthorized. Redirecting to login...")
@@ -720,7 +725,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                     Inventory Management
                                     {currentProperty?.status === "pending" && (
                                         <Badge variant="secondary" className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-amber-200">
-                                            Pending (Read-Only)
+                                            Pending
                                         </Badge>
                                     )}
                                 </h2>
@@ -1069,6 +1074,12 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                         <p className="text-slate-400 font-medium">Floors</p>
                                         <p className="font-black text-slate-900 dark:text-white">{selectedTowerMeta.floorCount || 0}</p>
                                     </div>
+                                </div>
+                                <div className="bg-white dark:bg-slate-900 rounded-lg p-2 flex justify-between items-center px-3 border border-indigo-50 dark:border-indigo-900/30">
+                                    <p className="text-slate-400 font-bold text-[10px] uppercase tracking-wider">Current Rate</p>
+                                    <p className="font-black text-indigo-700 dark:text-indigo-400 text-xs">
+                                        {selectedTowerMeta.baseRate ? `₹${Number(selectedTowerMeta.baseRate).toLocaleString('en-IN')}/sq.ft` : "—"}
+                                    </p>
                                 </div>
                                 <Button
                                     size="sm"
@@ -1433,35 +1444,12 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                         </TabsList>
 
                         <TabsContent value="status" className="py-4 space-y-4">
-                            <div className="grid grid-cols-2 gap-3">
-                                {[
-                                    { s: "available" as const, label: "Mark Available", activeLabel: "Unit Available", icon: CheckCircle2, colors: "border-emerald-200 dark:border-emerald-900/60 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 dark:bg-slate-950/50", activeColors: "bg-emerald-600 dark:bg-emerald-600 hover:bg-emerald-700 dark:hover:bg-emerald-500 text-white border-emerald-600 shadow-md dark:shadow-emerald-900/20" },
-                                    { s: "blocked" as const, label: "Block Unit", activeLabel: "Unblock Unit", icon: Lock, colors: "border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/80 dark:bg-slate-950/50", activeColors: "bg-slate-600 dark:bg-slate-600 hover:bg-slate-700 dark:hover:bg-slate-500 text-white border-slate-600 shadow-md dark:shadow-slate-900/20" },
-                                    { s: "reserved" as const, label: "Reserve Unit", activeLabel: "Unreserve Unit", icon: Clock, colors: "border-amber-200 dark:border-amber-900/60 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 dark:bg-slate-950/50", activeColors: "bg-amber-500 dark:bg-amber-600 hover:bg-amber-600 dark:hover:bg-amber-500 text-white border-amber-500 dark:border-amber-600 shadow-md dark:shadow-amber-900/20" },
-                                    { s: "sold" as const, label: "Mark as Sold", activeLabel: "Mark Unsold", icon: CircleDollarSign, colors: "border-red-200 dark:border-red-900/60 text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 dark:bg-slate-950/50", activeColors: "bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white border-red-600 shadow-md dark:shadow-red-900/20" },
-                                ].map(({ s, label, activeLabel, icon: Icon, colors, activeColors }) => {
-                                    const isActive = editingUnit?.status === s
-                                    const targetStatus = isActive && s !== "available" ? "available" : s
-                                    return (
-                                        <Button
-                                            key={s}
-                                            variant="outline"
-                                            onClick={() => handleUnitUpdate(targetStatus)}
-                                            className={`h-14 font-bold border-2 transition-all duration-300 rounded-xl ${isActive ? activeColors + ' ring-2 ring-offset-2 ring-offset-white dark:ring-offset-slate-950 scale-[1.02]' : colors + ' hover:scale-[1.02]'}`}
-                                        >
-                                            <Icon className={`mr-2 ${isActive ? 'h-5 w-5' : 'h-4 w-4 opacity-80'}`} />
-                                            {isActive ? activeLabel : label}
-                                        </Button>
-                                    )
-                                })}
-                            </div>
-
                             {/* Customer form */}
                             <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
                                 <div className="flex items-center justify-between">
                                     <p className="text-xs font-black text-slate-600 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
                                         <User className="h-3.5 w-3.5 text-indigo-500" />
-                                        {editingUnit?.status === "available" ? "New Buyer Details" : "Customer Info"}
+                                        {editingUnit?.status === "available" ? "New Buyer/Hold Details" : "Customer Info"}
                                     </p>
                                     <Badge variant="outline" className="text-[10px] font-bold dark:border-slate-700 dark:bg-slate-950">
                                         ₹{editingUnit?.price?.toLocaleString("en-IN")}
@@ -1492,7 +1480,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                      </div>
                                      <hr className="border-slate-200 dark:border-slate-800 my-3" />
                                     <Input
-                                        placeholder="Buyer's full name"
+                                        placeholder="Customer full name"
                                         className="h-10 text-sm font-semibold bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500/50"
                                         value={customerForm.name}
                                         onChange={e => setCustomerForm(f => ({ ...f, name: e.target.value }))}
@@ -1505,7 +1493,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                             onChange={e => setCustomerForm(f => ({ ...f, phone: e.target.value }))}
                                         />
                                         <Input
-                                            placeholder="Booking amount"
+                                            placeholder="Booking/Hold amount"
                                             type="number"
                                             className="h-10 text-sm font-medium bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500/50"
                                             value={customerForm.amount}
@@ -1513,6 +1501,30 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                         />
                                     </div>
                                 </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="grid grid-cols-2 gap-3">
+                                {[
+                                    { s: "available" as const, label: "Mark Available", activeLabel: "Unit Available", icon: CheckCircle2, colors: "border-emerald-200 dark:border-emerald-900/60 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 dark:bg-slate-950/50", activeColors: "bg-emerald-600 dark:bg-emerald-600 hover:bg-emerald-700 dark:hover:bg-emerald-500 text-white border-emerald-600 shadow-md dark:shadow-emerald-900/20" },
+                                    { s: "blocked" as const, label: "Hold Unit", activeLabel: "Unhold Unit", icon: Lock, colors: "border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/80 dark:bg-slate-950/50", activeColors: "bg-slate-600 dark:bg-slate-600 hover:bg-slate-700 dark:hover:bg-slate-500 text-white border-slate-600 shadow-md dark:shadow-slate-900/20" },
+                                    { s: "reserved" as const, label: "Reserve Unit", activeLabel: "Unreserve Unit", icon: Clock, colors: "border-amber-200 dark:border-amber-900/60 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 dark:bg-slate-950/50", activeColors: "bg-amber-500 dark:bg-amber-600 hover:bg-amber-600 dark:hover:bg-amber-500 text-white border-amber-500 dark:border-amber-600 shadow-md dark:shadow-amber-900/20" },
+                                    { s: "sold" as const, label: "Mark as Sold", activeLabel: "Mark Unsold", icon: CircleDollarSign, colors: "border-red-200 dark:border-red-900/60 text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 dark:bg-slate-950/50", activeColors: "bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white border-red-600 shadow-md dark:shadow-red-900/20" },
+                                ].map(({ s, label, activeLabel, icon: Icon, colors, activeColors }) => {
+                                    const isActive = editingUnit?.status === s
+                                    const targetStatus = isActive && s !== "available" ? "available" : s
+                                    return (
+                                        <Button
+                                            key={s}
+                                            variant="outline"
+                                            onClick={() => handleUnitUpdate(targetStatus)}
+                                            className={`h-14 font-bold border-2 transition-all duration-300 rounded-xl ${isActive ? activeColors + ' ring-2 ring-offset-2 ring-offset-white dark:ring-offset-slate-950 scale-[1.02]' : colors + ' hover:scale-[1.02]'}`}
+                                        >
+                                            <Icon className={`mr-2 ${isActive ? 'h-5 w-5' : 'h-4 w-4 opacity-80'}`} />
+                                            {isActive ? activeLabel : label}
+                                        </Button>
+                                    )
+                                })}
                             </div>
                         </TabsContent>
 
@@ -1567,6 +1579,13 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                             <strong>{selectedTowerMeta?.name}</strong>. Unit prices will be recalculated as Area × Rate.
                         </DialogDescription>
                     </DialogHeader>
+
+                    {selectedTowerMeta?.baseRate ? (
+                        <div className="px-4 py-2 mx-1 mt-2 mb-[-8px] rounded-lg bg-slate-50 border border-slate-100 flex justify-between items-center">
+                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Current Rate</span>
+                            <span className="text-sm font-black text-indigo-700">₹{Number(selectedTowerMeta.baseRate).toLocaleString('en-IN')}/sq.ft</span>
+                        </div>
+                    ) : null}
 
                     <div className="py-4 space-y-4">
                         <div className="space-y-2">
