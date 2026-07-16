@@ -222,8 +222,9 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
     
     // Zustand Global State Integration (Role-Isolated)
     const store = useCRMStore()
-    const leadsById = store.leadsById[userRole] || {}
-    const allLeadIds = store.allLeadIds[userRole] || []
+    const crmRole = userRole + "_our"
+    const leadsById = store.leadsById[crmRole] || {}
+    const allLeadIds = store.allLeadIds[crmRole] || []
 
     const setInitialLeads = (leads: any[]) => {
         const sanitizedLeads = leads.map(lead => ({
@@ -233,7 +234,7 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
                 desc: t.desc || "No description provided"
             })) : []
         }))
-        store.setInitialLeads(userRole, sanitizedLeads)
+        store.setInitialLeads(crmRole, sanitizedLeads)
     }
 
     const upsertLead = (lead: any) => {
@@ -244,24 +245,18 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
                 desc: t.desc || "No description provided"
             })) : []
         }
-        store.upsertLead(userRole, sanitizedLead)
+        store.upsertLead(crmRole, sanitizedLead)
     }
 
-    const removeLead = (leadId: string) => store.removeLead(userRole, leadId)
-    const optimisticUpdateStatus = (leadId: string, newStatus: LeadStatus, mutationId: string) => store.optimisticUpdateStatus(userRole, leadId, newStatus, mutationId)
+    const removeLead = (leadId: string) => store.removeLead(crmRole, leadId)
+    const optimisticUpdateStatus = (leadId: string, newStatus: LeadStatus, mutationId: string) => store.optimisticUpdateStatus(crmRole, leadId, newStatus, mutationId)
     const { resolveTransaction, failTransaction } = store
 
     const router = useRouter()
 
-    // Map normalized store back to array for UI compatibility, filtering out Website, VIP and Group leads
+    // Map normalized store back to array for UI compatibility
     const leads = useMemo(() => {
-        const rawLeads = allLeadIds.map((id: string) => leadsById[id]).filter(Boolean) as Lead[]
-        return rawLeads.filter(lead => {
-            if (lead.source?.toLowerCase().includes("website")) return false
-            if (lead.status === "Token VIP" || lead.isTokenPaid) return false
-            if (lead.isGroup || (lead.groupSize && lead.groupSize > 0)) return false
-            return true
-        })
+        return allLeadIds.map((id: string) => leadsById[id]).filter(Boolean) as Lead[]
     }, [allLeadIds, leadsById])
 
     const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null)
@@ -460,6 +455,7 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
         if (isInitial) setIsLoadingLeads(true)
         try {
             const params = new URLSearchParams()
+            params.set("leadType", "our")
             if (search) params.set("search", search)
             const res = await fetch(`/api/leads?${params.toString()}`)
             if (res.ok) {
@@ -492,7 +488,7 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
                 if (res.ok) {
                     const data = await res.json();
                     if (data.snapshot) {
-                        const desyncedIds = useCRMStore.getState().reconcileState(userRole, data.snapshot);
+                        const desyncedIds = useCRMStore.getState().reconcileState(crmRole, data.snapshot);
                         if (desyncedIds.length > 0) {
                             console.warn(`[Reconciler] Detected ${desyncedIds.length} missing/stale leads. Triggering hard refetch...`);
                             fetchLeads("", false);

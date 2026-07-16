@@ -840,7 +840,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                     <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 border-t border-slate-100 dark:border-slate-800/80 pt-3 flex-wrap">
                         <MapPin className="h-3.5 w-3.5 text-slate-400" />
                         {breadcrumbs.map((crumb, idx) => (
-                            <div key={crumb.name} className="flex items-center gap-1.5">
+                            <div key={idx} className="flex items-center gap-1.5">
                                 {idx > 0 && <ChevronRight className="h-3.5 w-3.5 text-slate-300" />}
                                 {crumb.onClick ? (
                                     <button
@@ -1303,7 +1303,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                                 <AccordionContent className="pt-2 pb-4">
                                                     <div className="space-y-6">
                                                         {towers.map(({ tower, floors }: any) => (
-                                                            <Card key={tower._id} className="border border-slate-200/80 dark:border-slate-800/80 shadow-sm overflow-hidden bg-slate-50/50 dark:bg-slate-900/30">
+                                                            <Card key={`${project._id}-${tower._id}`} className="border border-slate-200/80 dark:border-slate-800/80 shadow-sm overflow-hidden bg-slate-50/50 dark:bg-slate-900/30">
                                                                 <div className="flex items-center justify-between bg-slate-100/60 dark:bg-slate-900/60 border-b border-slate-200/60 dark:border-slate-800/60 px-4 py-3">
                                                                     <div className="flex items-center gap-2">
                                                                         <Layers className="h-4 w-4 text-indigo-500" />

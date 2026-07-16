@@ -222,8 +222,9 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
     
     // Zustand Global State Integration (Role-Isolated)
     const store = useCRMStore()
-    const leadsById = store.leadsById[userRole] || {}
-    const allLeadIds = store.allLeadIds[userRole] || []
+    const crmRole = userRole + "_astronix"
+    const leadsById = store.leadsById[crmRole] || {}
+    const allLeadIds = store.allLeadIds[crmRole] || []
 
     const setInitialLeads = (leads: any[]) => {
         const sanitizedLeads = leads.map(lead => ({
@@ -233,7 +234,7 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                 desc: t.desc || "No description provided"
             })) : []
         }))
-        store.setInitialLeads(userRole, sanitizedLeads)
+        store.setInitialLeads(crmRole, sanitizedLeads)
     }
 
     const upsertLead = (lead: any) => {
@@ -244,11 +245,11 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                 desc: t.desc || "No description provided"
             })) : []
         }
-        store.upsertLead(userRole, sanitizedLead)
+        store.upsertLead(crmRole, sanitizedLead)
     }
 
-    const removeLead = (leadId: string) => store.removeLead(userRole, leadId)
-    const optimisticUpdateStatus = (leadId: string, newStatus: LeadStatus, mutationId: string) => store.optimisticUpdateStatus(userRole, leadId, newStatus, mutationId)
+    const removeLead = (leadId: string) => store.removeLead(crmRole, leadId)
+    const optimisticUpdateStatus = (leadId: string, newStatus: LeadStatus, mutationId: string) => store.optimisticUpdateStatus(crmRole, leadId, newStatus, mutationId)
     const { resolveTransaction, failTransaction } = store
 
     const router = useRouter()
@@ -261,7 +262,7 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
     const [isLoadingLeads, setIsLoadingLeads] = useState(true)
     const [isAddLeadOpen, setIsAddLeadOpen] = useState(false)
     const [newLeadForm, setNewLeadForm] = useState({
-        name: "", phone: "", email: "", requirement: "2BHK", budget: "50L - 1Cr", source: "Manual Entry", assignee: "",
+        name: "", phone: "", email: "", requirement: "2BHK", budget: "50L - 1Cr", source: "Website", assignee: "",
         isGroup: false, groupSize: 0, groupDiscount: ""
     })
     const [isAddingLead, setIsAddingLead] = useState(false)
@@ -434,7 +435,7 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
         // Close modal immediately for snappy UX
         setIsAddLeadOpen(false);
         const formSnapshot = { ...newLeadForm, assignee: newLeadForm.assignee || assigneeInput || "" };
-        setNewLeadForm({ name: "", phone: "", email: "", requirement: "2BHK", budget: "50L - 1Cr", source: "Manual Entry", assignee: "", isGroup: false, groupSize: 0, groupDiscount: "" });
+        setNewLeadForm({ name: "", phone: "", email: "", requirement: "2BHK", budget: "50L - 1Cr", source: "Website", assignee: "", isGroup: false, groupSize: 0, groupDiscount: "" });
         setAssigneeInput("");
         setIsCustomAssignee(false);
 
@@ -474,6 +475,7 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
         if (isInitial) setIsLoadingLeads(true)
         try {
             const params = new URLSearchParams()
+            params.set("leadType", "astronix")
             if (search) params.set("search", search)
             const res = await fetch(`/api/leads?${params.toString()}`)
             if (res.ok) {
@@ -529,7 +531,7 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                 if (res.ok) {
                     const data = await res.json();
                     if (data.snapshot) {
-                        const desyncedIds = useCRMStore.getState().reconcileState(userRole, data.snapshot);
+                        const desyncedIds = useCRMStore.getState().reconcileState(crmRole, data.snapshot);
                         if (desyncedIds.length > 0) {
                             console.warn(`[Reconciler] Detected ${desyncedIds.length} missing/stale leads. Triggering hard refetch...`);
                             fetchLeads("", false);

@@ -146,14 +146,19 @@ export default function BlogPreviewPage() {
           <aside className="w-full lg:w-[340px] shrink-0 sticky top-[100px] hidden lg:flex flex-col gap-8">
             
             {/* Table of Contents */}
-            <div className="bg-slate-50 dark:bg-slate-900/50 rounded-2xl p-6 border border-slate-200 dark:border-slate-800">
-              <h3 className="text-sm font-bold uppercase tracking-widest text-slate-900 dark:text-white mb-4">Table of Contents</h3>
-              <ul className="space-y-3">
+            <div className="bg-white/60 dark:bg-slate-900/40 rounded-3xl p-7 border border-white dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none backdrop-blur-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-400/5 dark:bg-blue-400/10 rounded-bl-full pointer-events-none" />
+              <h3 className="text-xs font-black uppercase tracking-widest text-slate-800 dark:text-slate-200 mb-6 flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-blue-500" />
+                Table of Contents
+              </h3>
+              <ul className="space-y-4">
                 {blog.blocks?.filter((b: any) => b.type === 'takeaways' || b.type === 'pros-cons' || b.type === 'faq').map((b: any, idx: number) => {
                   const labels: any = { 'takeaways': 'Key Takeaways', 'pros-cons': 'Pros & Cons', 'faq': 'FAQs' };
                   return (
-                    <li key={idx}>
-                      <a href="#" className="text-sm font-medium text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                    <li key={idx} className="group flex items-center gap-3">
+                      <span className="text-slate-300 dark:text-slate-600 font-mono text-xs font-bold transition-colors group-hover:text-blue-500">0{idx + 1}</span>
+                      <a href="#" className="text-sm font-semibold text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-all group-hover:translate-x-1">
                         {labels[b.type]}
                       </a>
                     </li>
@@ -164,18 +169,24 @@ export default function BlogPreviewPage() {
 
             {/* Featured Projects placeholder if IDs exist */}
             {blog.linkedProperties && blog.linkedProperties.length > 0 && (
-              <div className="bg-gradient-to-br from-blue-50 to-slate-50 dark:from-blue-950/20 dark:to-slate-900/50 rounded-2xl p-6 border border-blue-100 dark:border-blue-900/30">
-                <h3 className="text-sm font-bold uppercase tracking-widest text-blue-900 dark:text-blue-400 mb-4">Featured Projects</h3>
+              <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-7 border border-blue-500 shadow-xl shadow-blue-900/20 text-white relative overflow-hidden">
+                <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+                <h3 className="text-xs font-black uppercase tracking-widest text-blue-100 mb-6 flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                  Featured Projects
+                </h3>
                 <div className="space-y-4">
                   {blog.linkedProperties.map((pid: string | any, i: number) => {
                     const id = typeof pid === 'string' ? pid : pid._id;
                     const name = typeof pid === 'string' ? `Project ID: ${id.slice(-6)}` : pid.name;
                     return (
-                      <div key={i} className="flex gap-3 items-center bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                        <div className="w-10 h-10 rounded-lg bg-slate-200 dark:bg-slate-800 shrink-0" />
+                      <div key={i} className="flex gap-4 items-center bg-white/10 hover:bg-white/20 p-3 rounded-2xl border border-white/10 transition-all cursor-pointer group">
+                        <div className="w-12 h-12 rounded-xl bg-black/20 shrink-0 overflow-hidden relative">
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                        </div>
                         <div>
-                          <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{name}</p>
-                          <p className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wider">Explore</p>
+                          <p className="text-sm font-bold text-white truncate group-hover:text-blue-100 transition-colors">{name}</p>
+                          <p className="text-[10px] text-blue-200 font-bold uppercase tracking-wider mt-0.5 group-hover:translate-x-1 transition-transform inline-block">Explore Project →</p>
                         </div>
                       </div>
                     )

@@ -1,7 +1,7 @@
 "use client";
 import React, { useRef, useState, useCallback } from 'react';
 import { BlockProps } from './index';
-import { UploadCloud, X, Image as ImageIcon, Loader2, Maximize2, RefreshCw } from 'lucide-react';
+import { UploadCloud, X, Image as ImageIcon, Loader2, Maximize2, RefreshCw, Bold, Italic, Link2, List, Heading1, Heading2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // ─────────────────────────────────────────────────────────────
@@ -308,9 +308,30 @@ export const HeroBlock: React.FC<BlockProps> = ({ data, onChange, isEditing, glo
 // TextBlock
 // ─────────────────────────────────────────────────────────────
 export const TextBlock: React.FC<BlockProps> = ({ data, onChange, isEditing }) => {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
   const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     onChange({ ...data, content: e.target.value });
   }, [data, onChange]);
+
+  const insertMarkdown = (prefix: string, suffix: string = '') => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const text = el.value;
+    const before = text.substring(0, start);
+    const selected = text.substring(start, end);
+    const after = text.substring(end, text.length);
+
+    const newText = before + prefix + selected + suffix + after;
+    onChange({ ...data, content: newText });
+
+    setTimeout(() => {
+      el.focus();
+      el.setSelectionRange(start + prefix.length, end + prefix.length);
+    }, 0);
+  };
 
   if (!isEditing) {
     return (
@@ -323,12 +344,35 @@ export const TextBlock: React.FC<BlockProps> = ({ data, onChange, isEditing }) =
   }
 
   return (
-    <div className="p-1">
+    <div className="flex flex-col border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-900 focus-within:ring-2 focus-within:ring-blue-500 transition-all">
+      <div className="flex items-center gap-1 p-2 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
+        <button type="button" onClick={() => insertMarkdown('**', '**')} className="p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 rounded" title="Bold">
+          <Bold className="w-4 h-4" />
+        </button>
+        <button type="button" onClick={() => insertMarkdown('*', '*')} className="p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 rounded" title="Italic">
+          <Italic className="w-4 h-4" />
+        </button>
+        <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1"></div>
+        <button type="button" onClick={() => insertMarkdown('# ', '')} className="p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 rounded" title="Heading 1">
+          <Heading1 className="w-4 h-4" />
+        </button>
+        <button type="button" onClick={() => insertMarkdown('## ', '')} className="p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 rounded" title="Heading 2">
+          <Heading2 className="w-4 h-4" />
+        </button>
+        <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1"></div>
+        <button type="button" onClick={() => insertMarkdown('- ', '')} className="p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 rounded" title="Bullet List">
+          <List className="w-4 h-4" />
+        </button>
+        <button type="button" onClick={() => insertMarkdown('[', '](url)')} className="p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 rounded" title="Link">
+          <Link2 className="w-4 h-4" />
+        </button>
+      </div>
       <textarea
+        ref={textareaRef}
         value={data.content || ''}
         onChange={handleChange}
-        className="w-full min-h-[160px] px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm leading-relaxed resize-y transition-all"
-        placeholder="Write your article content here..."
+        className="w-full min-h-[160px] px-4 py-3 bg-transparent border-none focus:outline-none focus:ring-0 font-mono text-sm leading-relaxed resize-y placeholder:text-slate-400"
+        placeholder="Write your article content here... (Markdown supported)"
       />
     </div>
   );

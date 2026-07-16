@@ -16,14 +16,8 @@ interface PendingTransaction {
 
 interface CRMState {
   // Normalized Entity Storage partitioned by role
-  leadsById: {
-    builder: Record<string, ValidatedLead>;
-    mandate: Record<string, ValidatedLead>;
-  };
-  allLeadIds: {
-    builder: string[];
-    mandate: string[];
-  };
+  leadsById: Record<string, Record<string, ValidatedLead>>;
+  allLeadIds: Record<string, string[]>;
   
   // Hydration & Connection
   _hasHydrated: boolean;
@@ -39,24 +33,24 @@ interface CRMState {
   updateHeartbeat: () => void;
   
   // Lead Actions (strictly tenant-isolated)
-  setInitialLeads: (role: 'builder' | 'mandate', leads: ValidatedLead[]) => void;
-  upsertLead: (role: 'builder' | 'mandate', lead: ValidatedLead) => void;
-  removeLead: (role: 'builder' | 'mandate', leadId: string) => void;
+  setInitialLeads: (role: string, leads: ValidatedLead[]) => void;
+  upsertLead: (role: string, lead: ValidatedLead) => void;
+  removeLead: (role: string, leadId: string) => void;
   
   // Optimistic Mutations
-  optimisticUpdateStatus: (role: 'builder' | 'mandate', leadId: string, newStatus: LeadStatus, mutationId: string) => void;
+  optimisticUpdateStatus: (role: string, leadId: string, newStatus: LeadStatus, mutationId: string) => void;
   resolveTransaction: (mutationId: string) => void;
   failTransaction: (mutationId: string) => void;
   
   // Background Reconciler
-  reconcileState: (role: 'builder' | 'mandate', truthSnapshot: { id: string, updatedAt: string }[]) => string[]; // returns out-of-sync IDs
+  reconcileState: (role: string, truthSnapshot: { id: string, updatedAt: string }[]) => string[]; // returns out-of-sync IDs
 }
 
 export const useCRMStore = create<CRMState>()(
   devtools(
     (set, get) => ({
-      leadsById: { builder: {}, mandate: {} },
-      allLeadIds: { builder: [], mandate: [] },
+      leadsById: {},
+      allLeadIds: {},
       
       _hasHydrated: false,
       sseStatus: 'disconnected',
@@ -70,7 +64,8 @@ export const useCRMStore = create<CRMState>()(
       
       setInitialLeads: (role, leads) => {
         set((state) => {
-            const byId = { ...state.leadsById[role] };
+            const currentById = state.leadsById[role] || {};
+            const byId = { ...currentById };
             const fetchedIds = new Set(leads.map(l => l.id));
             
             leads.forEach(l => {
@@ -78,7 +73,8 @@ export const useCRMStore = create<CRMState>()(
             });
             
             // Keep realtime leads not present in fetch
-            const realTimeIds = state.allLeadIds[role].filter(id => !fetchedIds.has(id));
+            const currentAllIds = state.allLeadIds[role] || [];
+            const realTimeIds = currentAllIds.filter(id => !fetchedIds.has(id));
             
             return { 
               leadsById: {
@@ -109,23 +105,26 @@ export const useCRMStore = create<CRMState>()(
             set({ pendingTransactions: restTx });
         }
 
-        const isNew = !state.leadsById[role][lead.id];
+        const currentRoleById = state.leadsById[role] || {};
+        const currentAllIds = state.allLeadIds[role] || [];
+        const isNew = !currentRoleById[lead.id];
         
         set((prev) => ({
           leadsById: {
             ...prev.leadsById,
-            [role]: { ...prev.leadsById[role], [lead.id]: lead }
+            [role]: { ...(prev.leadsById[role] || {}), [lead.id]: lead }
           },
           allLeadIds: {
             ...prev.allLeadIds,
-            [role]: isNew ? [lead.id, ...prev.allLeadIds[role]] : prev.allLeadIds[role]
+            [role]: isNew ? [lead.id, ...(prev.allLeadIds[role] || [])] : (prev.allLeadIds[role] || [])
           }
         }), false, 'upsertLead');
       },
       
       removeLead: (role, leadId) => {
         set((state) => {
-            const { [leadId]: _, ...rest } = state.leadsById[role];
+            const currentRoleById = state.leadsById[role] || {};
+            const { [leadId]: _, ...rest } = currentRoleById;
             return {
                 leadsById: {
                   ...state.leadsById,
@@ -133,14 +132,15 @@ export const useCRMStore = create<CRMState>()(
                 },
                 allLeadIds: {
                   ...state.allLeadIds,
-                  [role]: state.allLeadIds[role].filter(id => id !== leadId)
+                  [role]: (state.allLeadIds[role] || []).filter(id => id !== leadId)
                 }
             };
         }, false, 'removeLead');
       },
       
       optimisticUpdateStatus: (role, leadId, newStatus, mutationId) => {
-        const lead = get().leadsById[role][leadId];
+        const currentRoleById = get().leadsById[role] || {};
+        const lead = currentRoleById[leadId];
         if (!lead) return;
         
         set((state) => ({
@@ -148,7 +148,7 @@ export const useCRMStore = create<CRMState>()(
           leadsById: {
             ...state.leadsById,
             [role]: {
-              ...state.leadsById[role],
+              ...(state.leadsById[role] || {}),
               [leadId]: { ...lead, status: newStatus }
             }
           },
@@ -190,10 +190,11 @@ export const useCRMStore = create<CRMState>()(
       reconcileState: (role, truthSnapshot) => {
         const state = get();
         const desyncedIds: string[] = [];
+        const currentRoleById = state.leadsById[role] || {};
         
         // Basic checksum validation for silent network drops
         truthSnapshot.forEach(truth => {
-           const local = state.leadsById[role][truth.id];
+           const local = currentRoleById[truth.id];
            if (!local) {
                desyncedIds.push(truth.id);
            }

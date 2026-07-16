@@ -99,6 +99,30 @@ export function BlogSettingsDrawer({ isOpen, onClose }: { isOpen: boolean; onClo
                 </div>
 
                 <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">URL Slug</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={blog.slug || ''}
+                      onChange={(e) => updateField('slug', e.target.value)}
+                      className="flex-1 px-3 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      placeholder="e.g. market-analysis-2026"
+                    />
+                    <button
+                      onClick={() => {
+                        if (!blog.title) return;
+                        const slug = blog.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+                        updateField('slug', slug);
+                      }}
+                      className="px-3 py-2.5 bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 dark:text-blue-400 text-xs font-bold rounded-xl transition-colors"
+                    >
+                      Auto
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-500">Leave blank to auto-generate on publish.</p>
+                </div>
+
+                <div className="space-y-1.5">
                   <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Read Time</label>
                   <div className="flex gap-2">
                     <input

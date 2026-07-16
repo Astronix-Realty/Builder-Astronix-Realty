@@ -104,11 +104,26 @@ const HeroRenderer = ({ data, title, blog }: { data: any; title?: string; blog?:
 // ─── Text ──────────────────────────────────────────────────────────────────
 const TextRenderer = ({ data }: { data: any }) => {
   if (!data.content) return null;
+
+  // Very basic markdown parser for the formatting toolbar
+  let htmlContent = data.content
+    .replace(/</g, '&lt;') // Sanitize somewhat
+    .replace(/>/g, '&gt;')
+    .replace(/^### (.*$)/gim, '<h3 className="text-2xl font-bold mt-8 mb-4 text-slate-800 dark:text-white">$1</h3>')
+    .replace(/^## (.*$)/gim, '<h2 className="text-3xl font-black mt-10 mb-5 text-slate-900 dark:text-white">$1</h2>')
+    .replace(/^# (.*$)/gim, '<h1 className="text-4xl font-black mt-12 mb-6 text-slate-900 dark:text-white">$1</h1>')
+    .replace(/\*\*(.*?)\*\*/gim, '<strong className="font-bold text-slate-900 dark:text-white">$1</strong>')
+    .replace(/\*(.*?)\*/gim, '<em className="italic text-slate-700 dark:text-slate-300">$1</em>')
+    .replace(/\[([^\[]+)\]\(([^\)]+)\)/gim, '<a href="$2" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 underline decoration-blue-300 underline-offset-4">$1</a>')
+    .replace(/^- (.*$)/gim, '<li className="ml-6 list-disc mb-2">$1</li>')
+    .replace(/\n$/gim, '<br />');
+
   return (
-    <div className="w-full max-w-3xl mx-auto px-5 sm:px-6 md:px-8 mb-8">
-      <p className="whitespace-pre-wrap font-serif text-[clamp(1.0625rem,4vw,1.1875rem)] leading-[clamp(1.8rem,6vw,1.95rem)] text-slate-800 dark:text-slate-200 tracking-tight">
-        {data.content}
-      </p>
+    <div className="w-full max-w-3xl mx-auto px-5 sm:px-6 md:px-8 mb-12">
+      <div 
+        className="prose prose-lg dark:prose-invert prose-slate max-w-none font-sans text-[clamp(1.0625rem,4vw,1.1875rem)] leading-[clamp(1.8rem,6vw,1.95rem)] text-slate-700 dark:text-slate-300 tracking-tight"
+        dangerouslySetInnerHTML={{ __html: htmlContent }}
+      />
     </div>
   );
 };
@@ -147,8 +162,9 @@ const GalleryRenderer = ({ data }: { data: any }) => {
     <div className="px-4 md:px-8 mb-16">
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
         {data.images.map((url: string, i: number) => (
-          <motion.div key={i} whileHover={{ scale: 1.03 }} className="relative aspect-square rounded-2xl overflow-hidden shadow-md cursor-pointer">
-            <img src={optimizeCloudinaryUrl(url, 800)} alt={`Gallery ${i + 1}`} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+          <motion.div key={i} whileHover={{ scale: 1.02, y: -4 }} className="relative aspect-[4/3] rounded-3xl overflow-hidden shadow-lg border border-slate-200/50 dark:border-slate-800/50 cursor-pointer group">
+            <img src={optimizeCloudinaryUrl(url, 800)} alt={`Gallery ${i + 1}`} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" loading="lazy" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           </motion.div>
         ))}
       </div>
@@ -161,37 +177,39 @@ const ProsConsRenderer = ({ data }: { data: any }) => {
   const pros = normalizeListItems(data.pros).filter(p => p.value.trim());
   const cons = normalizeListItems(data.cons).filter(c => c.value.trim());
   return (
-    <div className="px-4 md:px-8 grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
-      <div className="rounded-2xl border border-green-200 bg-green-50 dark:bg-green-900/10 dark:border-green-800 overflow-hidden">
-        <div className="px-5 py-3 bg-green-100 dark:bg-green-900/30 flex items-center gap-2 border-b border-green-200 dark:border-green-800">
-          <CheckCircle2 className="w-4 h-4 text-green-600" />
-          <span className="font-bold text-green-800 dark:text-green-300 text-sm">Advantages</span>
-          <span className="ml-auto text-xs text-green-600 font-semibold">{pros.length} points</span>
+    <div className="px-4 md:px-8 grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 mb-12">
+      <motion.div whileHover={{ y: -2 }} className="rounded-[2rem] border border-emerald-200/60 bg-gradient-to-br from-emerald-50/80 to-emerald-100/30 dark:from-emerald-950/30 dark:to-emerald-900/10 dark:border-emerald-800/40 overflow-hidden shadow-lg shadow-emerald-500/5 backdrop-blur-xl">
+        <div className="px-6 py-5 border-b border-emerald-200/50 dark:border-emerald-800/50 flex items-center gap-3">
+          <div className="p-2.5 bg-emerald-100 dark:bg-emerald-900/50 rounded-xl shadow-sm">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <span className="font-black text-emerald-900 dark:text-emerald-100 text-lg tracking-tight">Advantages</span>
         </div>
-        <ul className="p-4 space-y-3">
+        <ul className="p-6 space-y-4">
           {pros.length ? pros.map(pro => (
-            <li key={pro.id} className="flex items-start gap-2.5 text-sm text-green-900 dark:text-green-200">
-              <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+            <li key={pro.id} className="flex items-start gap-3.5 text-base text-emerald-900 dark:text-emerald-100 font-medium">
+              <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
               <span className="leading-relaxed">{pro.value}</span>
             </li>
-          )) : <li className="text-sm text-green-500/60 italic">No advantages added.</li>}
+          )) : <li className="text-sm text-emerald-500/60 italic">No advantages added.</li>}
         </ul>
-      </div>
-      <div className="rounded-2xl border border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-800 overflow-hidden">
-        <div className="px-5 py-3 bg-red-100 dark:bg-red-900/30 flex items-center gap-2 border-b border-red-200 dark:border-red-800">
-          <XCircle className="w-4 h-4 text-red-500" />
-          <span className="font-bold text-red-800 dark:text-red-300 text-sm">Disadvantages</span>
-          <span className="ml-auto text-xs text-red-500 font-semibold">{cons.length} points</span>
+      </motion.div>
+      <motion.div whileHover={{ y: -2 }} className="rounded-[2rem] border border-rose-200/60 bg-gradient-to-br from-rose-50/80 to-rose-100/30 dark:from-rose-950/30 dark:to-rose-900/10 dark:border-rose-800/40 overflow-hidden shadow-lg shadow-rose-500/5 backdrop-blur-xl">
+        <div className="px-6 py-5 border-b border-rose-200/50 dark:border-rose-800/50 flex items-center gap-3">
+          <div className="p-2.5 bg-rose-100 dark:bg-rose-900/50 rounded-xl shadow-sm">
+            <XCircle className="w-5 h-5 text-rose-500 dark:text-rose-400" />
+          </div>
+          <span className="font-black text-rose-900 dark:text-rose-100 text-lg tracking-tight">Disadvantages</span>
         </div>
-        <ul className="p-4 space-y-3">
+        <ul className="p-6 space-y-4">
           {cons.length ? cons.map(con => (
-            <li key={con.id} className="flex items-start gap-2.5 text-sm text-red-900 dark:text-red-200">
-              <XCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+            <li key={con.id} className="flex items-start gap-3.5 text-base text-rose-900 dark:text-rose-100 font-medium">
+              <XCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
               <span className="leading-relaxed">{con.value}</span>
             </li>
-          )) : <li className="text-sm text-red-500/60 italic">No disadvantages added.</li>}
+          )) : <li className="text-sm text-rose-500/60 italic">No disadvantages added.</li>}
         </ul>
-      </div>
+      </motion.div>
     </div>
   );
 };
@@ -201,21 +219,22 @@ const TakeawaysRenderer = ({ data }: { data: any }) => {
   const items = normalizeListItems(data.items).filter(i => i.value.trim());
   if (!items.length) return null;
   return (
-    <div className="px-4 md:px-8 mb-8">
-      <div className="rounded-2xl border border-amber-200 bg-amber-50/50 dark:bg-amber-950/10 dark:border-amber-900/40 p-6 shadow-sm">
-        <div className="flex items-center gap-3 mb-6 border-b border-amber-200/50 dark:border-amber-900/30 pb-4">
-          <div className="p-2 bg-amber-100 dark:bg-amber-900/40 rounded-xl shrink-0">
-            <Star className="w-5 h-5 text-amber-600 dark:text-amber-400 fill-amber-600 dark:fill-amber-400" />
+    <div className="px-4 md:px-8 mb-12">
+      <div className="rounded-[2rem] border border-amber-200/50 bg-gradient-to-br from-amber-50/80 to-amber-100/20 dark:from-amber-950/40 dark:to-amber-900/10 dark:border-amber-800/30 p-8 md:p-10 shadow-xl shadow-amber-500/5 backdrop-blur-xl relative overflow-hidden">
+        <div className="absolute -right-10 -top-10 w-40 h-40 bg-amber-400/10 dark:bg-amber-400/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="flex items-center gap-4 mb-8 border-b border-amber-200/50 dark:border-amber-800/50 pb-5">
+          <div className="p-3 bg-gradient-to-br from-amber-200 to-amber-300 dark:from-amber-800 dark:to-amber-700 rounded-2xl shrink-0 shadow-sm">
+            <Star className="w-6 h-6 text-amber-900 dark:text-amber-100 fill-amber-900/20 dark:fill-amber-100/20" />
           </div>
-          <h3 className="text-xl md:text-2xl font-black text-amber-900 dark:text-amber-100 tracking-tight">KEY TAKEAWAYS</h3>
+          <h3 className="text-2xl md:text-3xl font-black text-amber-900 dark:text-amber-100 tracking-tight">KEY TAKEAWAYS</h3>
         </div>
-        <ul className="space-y-4">
-          {items.map(item => (
-            <li key={item.id} className="flex items-start gap-3 text-amber-900 dark:text-amber-200 font-medium">
-              <div className="mt-1 w-5 h-5 rounded-full bg-amber-200 dark:bg-amber-900/60 flex items-center justify-center shrink-0">
-                <CheckCircle2 className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
+        <ul className="space-y-5">
+          {items.map((item, idx) => (
+            <li key={item.id} className="flex items-start gap-4 text-amber-950 dark:text-amber-100/90 font-medium">
+              <div className="mt-1 flex items-center justify-center w-6 h-6 rounded-full bg-amber-200/60 dark:bg-amber-800/50 shrink-0 text-amber-700 dark:text-amber-400 text-xs font-bold">
+                {idx + 1}
               </div>
-              <span className="leading-relaxed text-[15px] md:text-base">{item.value}</span>
+              <span className="leading-relaxed text-[1.05rem] md:text-lg">{item.value}</span>
             </li>
           ))}
         </ul>

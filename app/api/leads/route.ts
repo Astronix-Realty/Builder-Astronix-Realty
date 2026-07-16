@@ -17,24 +17,51 @@ export async function GET(req: NextRequest) {
         const status = searchParams.get("status");
         const search = searchParams.get("search");
         const assignee = searchParams.get("assignee");
+        const leadType = searchParams.get("leadType");
         const page = parseInt(searchParams.get("page") || "1");
         const limit = parseInt(searchParams.get("limit") || "200");
 
         // Dynamic isolation query
-        let query: any = { 
-            ...getOwnershipQuery(context!),
-            isArchived: { $ne: true } 
-        };
+        let andConditions: any[] = [
+            { ...getOwnershipQuery(context!) },
+            { isArchived: { $ne: true } }
+        ];
 
-        if (status) query.status = status;
-        if (assignee && assignee !== "all") query.assignee = { $regex: assignee, $options: "i" };
+        if (status) andConditions.push({ status });
+        if (assignee && assignee !== "all") andConditions.push({ assignee: { $regex: assignee, $options: "i" } });
         if (search) {
-            query.$or = [
-                { name: { $regex: search, $options: "i" } },
-                { phone: { $regex: search, $options: "i" } },
-                { email: { $regex: search, $options: "i" } }
-            ];
+            andConditions.push({
+                $or: [
+                    { name: { $regex: search, $options: "i" } },
+                    { phone: { $regex: search, $options: "i" } },
+                    { email: { $regex: search, $options: "i" } }
+                ]
+            });
         }
+
+        if (leadType === "our") {
+            andConditions.push({
+                $and: [
+                    { source: { $not: /website|astronix/i } },
+                    { status: { $ne: "Token VIP" } },
+                    { isTokenPaid: { $ne: true } },
+                    { isGroup: { $ne: true } },
+                    { $or: [{ groupSize: 0 }, { groupSize: null }, { groupSize: { $exists: false } }] }
+                ]
+            });
+        } else if (leadType === "astronix") {
+            andConditions.push({
+                $or: [
+                    { source: { $regex: /website|astronix/i } },
+                    { status: "Token VIP" },
+                    { isTokenPaid: true },
+                    { isGroup: true },
+                    { groupSize: { $gt: 0 } }
+                ]
+            });
+        }
+
+        const query = { $and: andConditions };
 
         const skip = (page - 1) * limit;
         const [leads, total] = await Promise.all([

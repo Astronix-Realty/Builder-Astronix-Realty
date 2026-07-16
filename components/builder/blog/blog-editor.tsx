@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   ArrowLeft, Save, Play, CheckCircle2, AlertCircle, LayoutTemplate,
   HelpCircle, Image as ImageIcon, Scale, MousePointerClick, AlignLeft,
-  Trash2, Undo2, Redo2, Wifi, WifiOff, Lock, Settings
+  Trash2, Undo2, Redo2, Wifi, WifiOff, Lock, Settings, ArrowUp, ArrowDown, Eye, EyeOff
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
@@ -18,11 +18,14 @@ import { BlockRenderer } from './renderers/BlockRenderer';
 import { BlogSettingsDrawer } from './BlogSettingsDrawer';
 
 // ─── Memoized per-block card — never remounts on sibling updates ───────────
-const BlockCard = React.memo(({ block, index, onUpdate, onRemove }: {
+const BlockCard = React.memo(({ block, index, totalBlocks, onUpdate, onRemove, onMoveUp, onMoveDown }: {
   block: any;
   index: number;
+  totalBlocks: number;
   onUpdate: (index: number, data: any) => void;
   onRemove: (index: number) => void;
+  onMoveUp: (index: number) => void;
+  onMoveDown: (index: number) => void;
 }) => {
   const def = BlockRegistry[block.type as BlockType];
   const BlockComponent = def?.component;
@@ -33,6 +36,22 @@ const BlockCard = React.memo(({ block, index, onUpdate, onRemove }: {
   return (
     <div className="relative group">
       <div className="absolute -top-3 right-4 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm rounded-md flex overflow-hidden z-10">
+        <button
+          onClick={() => onMoveUp(index)}
+          disabled={index === 0}
+          className="p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed border-r border-slate-200 dark:border-slate-700"
+          title="Move Up"
+        >
+          <ArrowUp className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => onMoveDown(index)}
+          disabled={index === totalBlocks - 1}
+          className="p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed border-r border-slate-200 dark:border-slate-700"
+          title="Move Down"
+        >
+          <ArrowDown className="w-4 h-4" />
+        </button>
         <button
           onClick={() => onRemove(index)}
           className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
@@ -59,8 +78,8 @@ const BlockCard = React.memo(({ block, index, onUpdate, onRemove }: {
   );
 }, (prev, next) =>
   prev.block.id === next.block.id &&
-  prev.block.data === next.block.data &&
-  prev.index === next.index
+  prev.index === next.index &&
+  prev.totalBlocks === next.totalBlocks
 );
 BlockCard.displayName = 'BlockCard';
 
@@ -75,6 +94,7 @@ export function BlogEditor({ blogId, initialData, onBack }: {
   const draftChecked = useRef(false);
   const broadcastChannel = useRef<BroadcastChannel | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
 
   // ── Derived state from store ─────────────────────────────
   const blog      = useBlogEditorStore(s => s.blog);
@@ -271,6 +291,14 @@ export function BlogEditor({ blogId, initialData, onBack }: {
     store.removeBlock(index);
   }, []);
 
+  const handleMoveUp = useCallback((index: number) => {
+    if (index > 0) store.reorderBlocks(index, index - 1);
+  }, []);
+
+  const handleMoveDown = useCallback((index: number) => {
+    if (index < blocks.length - 1) store.reorderBlocks(index, index + 1);
+  }, [blocks.length]);
+
   // ── Loading state ────────────────────────────────────────
   if (isLoading) {
     return (
@@ -353,6 +381,18 @@ export function BlogEditor({ blogId, initialData, onBack }: {
           <SeoScoreWidget health={health} />
 
           <button
+            onClick={() => setIsPreviewMode(!isPreviewMode)}
+            className={`px-4 py-2 text-sm font-medium border rounded-lg transition-colors flex items-center gap-2 shadow-sm ${
+              isPreviewMode 
+                ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800' 
+                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-700'
+            }`}
+          >
+            {isPreviewMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            {isPreviewMode ? 'Exit Preview' : 'Preview'}
+          </button>
+
+          <button
             onClick={handleSaveDraft}
             disabled={isSaving}
             className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 dark:text-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg transition-colors flex items-center gap-2"
@@ -405,7 +445,15 @@ export function BlogEditor({ blogId, initialData, onBack }: {
       <div className="flex-1 flex overflow-hidden">
 
         {/* Editor Pane */}
-        <div className="w-full flex flex-col bg-slate-50 dark:bg-slate-900/50 overflow-hidden">
+        <div className="w-full flex flex-col bg-slate-50 dark:bg-slate-900/50 overflow-hidden relative">
+
+          {isPreviewMode ? (
+            <div className="absolute inset-0 bg-white dark:bg-slate-950 overflow-y-auto z-10">
+              <div className="max-w-[1200px] mx-auto py-10 px-4 md:px-8">
+                <BlockRenderer blocks={blocks} title={blog.title} blog={blog} />
+              </div>
+            </div>
+          ) : null}
 
           {/* Block Adder Toolbar */}
           <div className="shrink-0 px-4 py-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-center">
@@ -443,8 +491,11 @@ export function BlogEditor({ blogId, initialData, onBack }: {
                   key={block.id}
                   block={block}
                   index={index}
+                  totalBlocks={blocks.length}
                   onUpdate={handleUpdateBlock}
                   onRemove={handleRemoveBlock}
+                  onMoveUp={handleMoveUp}
+                  onMoveDown={handleMoveDown}
                 />
               ))}
               {blocks.length === 0 && (
