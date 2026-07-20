@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { AUTH_COOKIE } from "@/lib/auth";
+const AUTH_COOKIE = "auth_token";
 
 // Edge-compatible JWT verifier using Web Crypto API
 async function verifyJwtEdge(token: string) {
