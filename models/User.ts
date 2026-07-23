@@ -9,6 +9,9 @@ export interface IUser extends Document {
   builderId?: string;
   mandateId?: string;
   isDeleted: boolean;
+  // Admin approval workflow
+  approvalStatus: 'pending' | 'approved' | 'rejected';
+  approvalMessage: string;
   createdAt: Date;
   updatedAt: Date;
   // OTP for logged-in password change
@@ -39,6 +42,9 @@ const UserSchema = new Schema<IUser>({
   builderId: { type: Schema.Types.ObjectId, ref: 'Builder' },
   mandateId: { type: Schema.Types.ObjectId, ref: 'Mandate' },
   isDeleted: { type: Boolean, default: false },
+  // Admin approval workflow
+  approvalStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+  approvalMessage: { type: String, default: '' },
   // OTP fields (logged-in password change)
   otp: { type: String },
   otpExpiry: { type: Date },

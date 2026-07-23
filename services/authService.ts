@@ -64,7 +64,7 @@ export async function registerUser(payload: IRegisterPayload): Promise<IAuthResp
     mandateId = mandate._id;
   }
 
-  await User.create({
+  const user = await User.create({
     email: email.toLowerCase(),
     passwordHash,
     role: userType,
@@ -72,7 +72,28 @@ export async function registerUser(payload: IRegisterPayload): Promise<IAuthResp
     builderId,
     mandateId,
     loginAttempts: 0,
+    approvalStatus: 'pending',
   });
+
+  // Fire-and-forget: Sync new builder/mandate to Admin panel for approval
+  if (process.env.ADMIN_PANEL_URL && process.env.INTERNAL_API_SECRET) {
+    fetch(`${process.env.ADMIN_PANEL_URL}/api/internal/builders`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-internal-secret': process.env.INTERNAL_API_SECRET,
+      },
+      body: JSON.stringify({
+        externalId: user._id.toString(),
+        email: email.toLowerCase(),
+        name: profileFields.companyName || profileFields.fullName || email,
+        company: profileFields.companyName || '',
+        phone: profileFields.phone || '',
+        logo: profileFields.logo || '',
+        type: userType, // 'builder' | 'mandate'
+      }),
+    }).catch((err: any) => console.error('[Sync] Admin builder sync failed:', err.message));
+  }
 
   return { message: "Account created successfully. Please login to continue." };
 }
@@ -137,6 +158,8 @@ export async function authenticateUser(
     userId: user._id.toString(),
     email: user.email,
     userType: user.role,
+    approvalStatus: user.approvalStatus || 'pending',
+    approvalMessage: user.approvalMessage || '',
   });
 
   const userData: any = user.toObject();

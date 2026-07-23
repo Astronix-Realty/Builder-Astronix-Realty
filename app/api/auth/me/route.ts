@@ -3,11 +3,11 @@ import dbConnect from "@/lib/db"
 import User from "@/models/User"
 import Builder from "@/models/Builder"
 import Mandate from "@/models/Mandate"
-import { getTokenFromRequest, verifyToken } from "@/lib/auth"
+import { getTokenFromRequest, verifyToken, signToken, AUTH_COOKIE, TOKEN_MAX_AGE } from "@/lib/auth"
 
 export const dynamic = "force-dynamic";
 
-// GET /api/auth/me — Return current logged-in user
+// GET /api/auth/me — Return current logged-in user and refresh JWT cookie if approval status changed
 export async function GET(req: NextRequest) {
   try {
     const token = getTokenFromRequest(req)
@@ -47,12 +47,31 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ user: userData }, { status: 200 })
+    const currentApprovalStatus = user.approvalStatus || 'pending';
+    const response = NextResponse.json({ user: userData }, { status: 200 });
+
+    // Critical Fix: If approvalStatus in DB changed vs token, re-sign token & update cookie
+    if (currentApprovalStatus !== decoded.approvalStatus || user.approvalMessage !== decoded.approvalMessage) {
+      const newToken = signToken({
+        userId: user._id.toString(),
+        email: user.email,
+        userType: user.role,
+        approvalStatus: currentApprovalStatus,
+        approvalMessage: user.approvalMessage || '',
+      });
+
+      response.cookies.set(AUTH_COOKIE, newToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: TOKEN_MAX_AGE,
+        path: "/",
+      });
+    }
+
+    return response;
   } catch (error: any) {
     console.error("Auth me error:", error)
     return NextResponse.json({ error: "Failed to get user data" }, { status: 500 })
   }
 }
-
-
-// triggered hot reload

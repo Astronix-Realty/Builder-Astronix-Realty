@@ -102,7 +102,28 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(new URL("/", req.url));
     }
 
-    // 5. Cross-Role Isolation logic
+    // 5. Approval Status Check — Lock unapproved users to profile-settings only
+    const approvalStatus = payload.approvalStatus || 'pending';
+    const allowedPendingPaths = [
+      '/builder-dashboard/profile-settings',
+      '/mandate-dashboard/profile-settings',
+      '/builder-dashboard/approval-status',
+      '/mandate-dashboard/approval-status',
+    ];
+    const isAllowedPendingPath = allowedPendingPaths.some(p => pathname.startsWith(p));
+
+    if (approvalStatus !== 'approved' && !isAllowedPendingPath) {
+      // Redirect to profile-settings with approval status info
+      const dashPrefix = isBuilder ? '/builder-dashboard' : '/mandate-dashboard';
+      const redirectUrl = new URL(`${dashPrefix}/profile-settings`, req.url);
+      redirectUrl.searchParams.set('approval', approvalStatus);
+      if (approvalStatus === 'rejected' && payload.approvalMessage) {
+        redirectUrl.searchParams.set('message', payload.approvalMessage);
+      }
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    // 6. Cross-Role Isolation logic
     if (pathname.startsWith("/builder-dashboard") && !isBuilder) {
       return NextResponse.redirect(new URL("/mandate-dashboard", req.url));
     }

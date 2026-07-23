@@ -5,13 +5,25 @@ const JWT_SECRET = process.env.JWT_SECRET || "astronix-realty-secret-key-change-
 export const AUTH_COOKIE = "auth_token"
 export const TOKEN_MAX_AGE = 60 * 60 * 24 * 7 // 7 days
 
-export function signToken(payload: { userId: string; email: string; userType: string }) {
+export function signToken(payload: { 
+  userId: string; 
+  email: string; 
+  userType: string;
+  approvalStatus?: string;
+  approvalMessage?: string;
+}) {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" })
 }
 
 export function verifyToken(token: string) {
   try {
-    return jwt.verify(token, JWT_SECRET) as { userId: string; email: string; userType: string }
+    return jwt.verify(token, JWT_SECRET) as { 
+      userId: string; 
+      email: string; 
+      userType: string;
+      approvalStatus?: string;
+      approvalMessage?: string;
+    }
   } catch {
     return null
   }

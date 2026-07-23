@@ -241,6 +241,43 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: "Property not found or unauthorized" }, { status: 404 });
     }
 
+    // If status changed to 'pending', sync property to Admin panel for approval
+    if (body.status === 'pending' && process.env.ADMIN_PANEL_URL && process.env.INTERNAL_API_SECRET) {
+      // Get builder name for Admin display
+      let builderName = 'Unknown Builder';
+      try {
+        const Builder = (await import('@/models/Builder')).default;
+        const builderDoc = await Builder.findById(property.builderId);
+        if (builderDoc) {
+          builderName = builderDoc.companyName || builderDoc.fullName || builderDoc.email || 'Unknown Builder';
+        }
+      } catch (e) {
+        // Silently continue if builder lookup fails
+      }
+
+      fetch(`${process.env.ADMIN_PANEL_URL}/api/internal/properties`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-secret': process.env.INTERNAL_API_SECRET,
+        },
+        body: JSON.stringify({
+          externalId: property._id.toString(),
+          title: property.name,
+          builder: builderName,
+          builderId: property.builderId.toString(),
+          builderExternalId: property.builderId.toString(),
+          location: `${property.location?.city || ''}, ${property.location?.state || ''}`.replace(/^, |, $/g, ''),
+          price: property.details?.totalValue || '',
+          type: property.type,
+          units: property.details?.generatedUnits?.length || 0,
+          area: property.details?.totalArea || '',
+          status: 'pending',
+          snapshot: property.details,
+        }),
+      }).catch((err: any) => console.error('[Sync] Admin property sync failed:', err.message));
+    }
+
     return NextResponse.json({ property }, { status: 200 });
   } catch (error: any) {
     return NextResponse.json({ error: "Failed to update property" }, { status: 500 });
