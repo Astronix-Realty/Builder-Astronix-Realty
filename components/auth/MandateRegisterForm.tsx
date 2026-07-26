@@ -132,6 +132,10 @@ export default function MandateRegisterForm() {
 
   const handleMandateSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (step < 3) {
+      handleNext()
+      return
+    }
     if (!mandateForm.city || !mandateForm.state || !mandateForm.experience) {
       return setError("City, State, and Experience are required fields.")
     }

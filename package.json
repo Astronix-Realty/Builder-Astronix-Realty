@@ -57,6 +57,7 @@
     "fabric": "^7.2.0",
     "framer-motion": "^11.18.2",
     "input-otp": "^1.4.2",
+    "jose": "^6.2.4",
     "jsonwebtoken": "^9.0.3",
     "jspdf": "^4.0.0",
     "lucide-react": "^1.14.0",

@@ -88,33 +88,38 @@ export async function checkRBAC(
 }
 
 export function getOwnershipQuery(context: RBACContext): Record<string, any> {
+  const idStrings = [context.builderId, context.userId, context.mandateId].filter(Boolean) as string[];
+  const objectIds = idStrings
+    .filter(id => mongoose.Types.ObjectId.isValid(id))
+    .map(id => new mongoose.Types.ObjectId(id));
+  const allIds = [...idStrings, ...objectIds];
+
+  if (allIds.length === 0) return { _id: null };
+
   if (context.role === 'builder') {
-    const conditions: any[] = [];
-    if (context.builderId) {
-      conditions.push({ builderId: context.builderId });
-    }
-    if (context.userId) {
-      conditions.push({ accountId: context.userId });
-      conditions.push({ builderId: context.userId });
-    }
     return {
       role: { $ne: 'mandate' },
-      ...(conditions.length > 0 ? { $or: conditions } : { _id: null })
+      $or: [
+        { builderId: { $in: allIds } },
+        { accountId: { $in: allIds } },
+        { createdBy: { $in: allIds } }
+      ]
     };
   } else if (context.role === 'teamLeader') {
-    return { builderId: context.builderId };
-  } else if (context.role === 'mandate') {
-    const conditions: any[] = [];
-    if (context.userId) {
-      conditions.push({ accountId: context.userId });
-    }
-    if (context.mandateId) {
-      conditions.push({ mandateId: context.mandateId });
-      conditions.push({ mandateId: context.userId });
-    }
     return {
-      role: { $in: ['builder', 'mandate'] },
-      ...(conditions.length > 0 ? { $or: conditions } : { _id: null })
+      $or: [
+        { builderId: { $in: allIds } },
+        { accountId: { $in: allIds } }
+      ]
+    };
+  } else if (context.role === 'mandate') {
+    return {
+      $or: [
+        { mandateId: { $in: allIds } },
+        { accountId: { $in: allIds } },
+        { builderId: { $in: allIds } },
+        { createdBy: { $in: allIds } }
+      ]
     };
   }
   return {};

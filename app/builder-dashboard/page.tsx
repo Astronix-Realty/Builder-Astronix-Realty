@@ -385,10 +385,26 @@ function DashboardContent() {
   }
 
   useEffect(() => {
-    if (currentUser) {
-      fetchProperties()
-    }
-  }, [currentUser])
+    if (!currentUser) return;
+    fetchProperties();
+
+    // Real-Time Lifecycle Sync: 6s Background Polling & Window Focus Revalidation
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchProperties();
+      }
+    }, 6000);
+
+    const onFocus = () => {
+      fetchProperties();
+    };
+    window.addEventListener('focus', onFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [currentUser]);
 
   const handleRefreshProperties = () => {
     if (isFetchingProperties) return

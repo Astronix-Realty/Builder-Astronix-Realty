@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs"
 const MandateSchema = new mongoose.Schema(
   {
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    password: { type: String, required: true, select: false },
+    password: { type: String, required: false, select: false },
     userType: { type: String, default: "mandate" },
 
     // Mandate specific fields
@@ -31,7 +31,7 @@ const MandateSchema = new mongoose.Schema(
 
 // Hash password before saving
 MandateSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next()
+  if (!this.password || !this.isModified("password")) return next()
   const salt = await bcrypt.genSalt(12)
   this.password = await bcrypt.hash(this.password, salt)
   next()
@@ -42,4 +42,6 @@ MandateSchema.methods.comparePassword = async function (candidatePassword: strin
   return bcrypt.compare(candidatePassword, this.password)
 }
 
+delete (mongoose.models as any).Mandate
 export default mongoose.models.Mandate || mongoose.model("Mandate", MandateSchema)
+

@@ -51,14 +51,12 @@ export async function registerUser(payload: IRegisterPayload): Promise<IAuthResp
   if (userType === 'builder') {
     const builder = await Builder.create({
       email: email.toLowerCase(),
-      password: password,
       ...profileFields
     });
     builderId = builder._id;
   } else if (userType === 'mandate') {
     const mandate = await Mandate.create({
       email: email.toLowerCase(),
-      password: password,
       ...profileFields
     });
     mandateId = mandate._id;
@@ -86,7 +84,7 @@ export async function registerUser(payload: IRegisterPayload): Promise<IAuthResp
       body: JSON.stringify({
         externalId: user._id.toString(),
         email: email.toLowerCase(),
-        name: profileFields.companyName || profileFields.fullName || email,
+        name: profileFields.companyName || (profileFields as any).fullName || email,
         company: profileFields.companyName || '',
         phone: profileFields.phone || '',
         logo: profileFields.logo || '',

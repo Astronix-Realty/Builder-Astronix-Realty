@@ -63,8 +63,8 @@ const PropertySchema = new Schema<IProperty>({
   draftSourceId: { type: Schema.Types.ObjectId, ref: 'Property', default: null },
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   updatedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true }
-}, { 
-  timestamps: true 
+}, {
+  timestamps: true
 });
 
 // Indexing Strategy
@@ -94,7 +94,7 @@ PropertySchema.pre('save', async function (next) {
   // Standalone flows (project or tower started without a parent in the hierarchy)
   // Allow null parentId only when flowType matches a standalone entry point
   const isStandaloneProject = property.type === 'project' && property.flowType === 'project';
-  const isStandaloneTower   = property.type === 'tower'   && (property.flowType === 'tower' || property.flowType === 'project');
+  const isStandaloneTower = property.type === 'tower' && (property.flowType === 'tower' || property.flowType === 'project');
 
   if (!property.parentId) {
     if (isStandaloneProject || isStandaloneTower) {

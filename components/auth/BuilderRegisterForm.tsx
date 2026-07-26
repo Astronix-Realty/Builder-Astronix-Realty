@@ -132,6 +132,10 @@ export default function BuilderRegisterForm() {
 
   const handleBuilderSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (step < 3) {
+      handleNext()
+      return
+    }
     if (!builderForm.city || !builderForm.state || !builderForm.experience) {
       return setError("City, State, and Experience are required fields.")
     }
