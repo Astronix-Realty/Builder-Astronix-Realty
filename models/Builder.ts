@@ -10,9 +10,16 @@ const BuilderSchema = new mongoose.Schema(
     // Builder specific fields
     companyName: { type: String },
     developerName: { type: String },
+    description: { type: String },
+    developerDescription: { type: String },
     reraNumber: { type: String },
     website: { type: String },
     projectsCompleted: { type: String },
+    establishedYear: { type: String },
+    tagline: { type: String },
+    aboutCompany: { type: String },
+    specialization: { type: String },
+    operatingCities: { type: String },
 
     // Common fields
     phone: { type: String },

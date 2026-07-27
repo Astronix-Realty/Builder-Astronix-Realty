@@ -839,7 +839,7 @@ function DashboardContent() {
           <div className="flex items-center gap-3 mb-3 px-2">
             <div className={`relative w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center border-2 border-white dark:border-slate-600 shadow-sm overflow-hidden`}>
               {(currentUser?.profile?.logo || profile.logo) ? (
-                <Image src={currentUser?.profile?.logo || profile.logo} alt="Builder Logo" fill className="object-cover" unoptimized />
+                <Image src={currentUser?.profile?.logo || profile.logo} alt="Company Logo" fill className="object-cover" unoptimized />
               ) : (
                 <User className="h-5 w-5 text-slate-500 dark:text-slate-300" />
               )}
@@ -1424,7 +1424,7 @@ function DashboardContent() {
                           <ImageUpload
                             value={profile.logo}
                             onChange={(val) => setProfile({ ...profile, logo: val })}
-                            label="Builder Logo"
+                            label="Company Logo"
                             className="w-full"
                           />
                         </div>
@@ -1557,6 +1557,16 @@ function DashboardContent() {
                                     onChange={(e) => setProfile({ ...profile, specialization: e.target.value })}
                                     className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     placeholder="e.g. Luxury, Commercial"
+                                  />
+                                </div>
+                                <div className="md:col-span-2">
+                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Developer Description</label>
+                                  <textarea
+                                    value={profile.description}
+                                    onChange={(e) => setProfile({ ...profile, description: e.target.value })}
+                                    rows={3}
+                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Brief overview or bio of the developer..."
                                   />
                                 </div>
                               </div>

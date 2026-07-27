@@ -66,6 +66,13 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
+    // If user requested resubmit or was previously rejected, update status back to pending for admin review
+    if (body.resubmit || updatedUser.approvalStatus === 'rejected') {
+      updatedUser.approvalStatus = 'pending';
+      updatedUser.approvalMessage = '';
+      await updatedUser.save();
+    }
+
     // Update Role-Specific model
     if (updatedUser.role === 'builder' && updatedUser.builderId) {
       await Builder.findByIdAndUpdate(updatedUser.builderId, { $set: roleSpecificUpdate });

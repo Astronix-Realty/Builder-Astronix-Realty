@@ -12,11 +12,16 @@ const MandateSchema = new mongoose.Schema(
     companyName: { type: String },
     reraNumber: { type: String },
     description: { type: String },
+    mandateDescription: { type: String },
     website: { type: String },
     panNumber: { type: String },
     aadharNumber: { type: String },
     specialization: { type: String },
     preferredAreas: { type: String },
+    establishedYear: { type: String },
+    tagline: { type: String },
+    aboutCompany: { type: String },
+    operatingCities: { type: String },
 
     // Common fields
     phone: { type: String },

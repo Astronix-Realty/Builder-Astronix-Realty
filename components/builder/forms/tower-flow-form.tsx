@@ -821,7 +821,7 @@ function TowerFlowFormBase({ data, unitConfig, unitTemplate, onChange, projectNa
                <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8">
                  <div className="shrink-0">
                    <div className="mb-2 text-center sm:text-left">
-                     <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Builder Logo</Label>
+                     <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Company Logo</Label>
                    </div>
                    <ImageUpload value={townshipData.builderLogo} onChange={v => updateCommon("builderLogo", v)} />
                  </div>

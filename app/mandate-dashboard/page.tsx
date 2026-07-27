@@ -1344,7 +1344,7 @@ function DashboardContent() {
                         <ImageUpload
                           value={profile.logo}
                           onChange={(val) => setProfile({ ...profile, logo: val })}
-                          label={currentUser?.role === 'mandate' ? "Mandate Logo" : "Builder Logo"}
+                          label="Company Logo"
                           className="w-full"
                         />
                       </div>
@@ -1491,6 +1491,18 @@ function DashboardContent() {
                                   onChange={(e) => setProfile({ ...profile, specialization: e.target.value })}
                                   className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                   placeholder="e.g. Residential, Retail, Land"
+                                />
+                              </div>
+                              <div className="md:col-span-2">
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                                  {currentUser?.role === 'mandate' ? "Mandate Description" : "Developer Description"}
+                                </label>
+                                <textarea
+                                  value={profile.description}
+                                  onChange={(e) => setProfile({ ...profile, description: e.target.value })}
+                                  rows={3}
+                                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder={currentUser?.role === 'mandate' ? "Brief description or overview of the mandate partner..." : "Brief overview or bio of the developer..."}
                                 />
                               </div>
 
