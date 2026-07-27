@@ -798,17 +798,25 @@ export function AboutImageUpload({
   title = "Upload About Image",
   description = "Landscape or aerial view for the about section"
 }: { 
-  value: string; 
+  value?: string; 
   onChange: (url: string) => void;
   title?: string;
   description?: string;
 }) {
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState("")
+  const [localPreview, setLocalPreview] = useState<string>("")
   const fileRef = useRef<HTMLInputElement>(null)
 
   const onChangeRef = useRef(onChange)
   useEffect(() => { onChangeRef.current = onChange }, [onChange])
+
+  // Sync local preview with value prop
+  useEffect(() => {
+    if (value) setLocalPreview(value)
+  }, [value])
+
+  const displayUrl = localPreview || value || ""
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -821,13 +829,19 @@ export function AboutImageUpload({
       return
     }
 
+    // Show local object URL preview immediately
+    const objectUrl = URL.createObjectURL(file)
+    setLocalPreview(objectUrl)
+
     try {
       setIsUploading(true)
       const oldUrl = value
       const url = await uploadFileToServer(file)
+      setLocalPreview(url)
       onChangeRef.current(url)
       deleteCloudinaryFile(oldUrl) // Delete old file after new upload succeeds
     } catch (err: any) {
+      setLocalPreview(value || "")
       setError(err.message || "Upload failed")
     } finally {
       setIsUploading(false)
@@ -838,7 +852,7 @@ export function AboutImageUpload({
   return (
     <div className="space-y-2">
       <div
-        className={`relative w-full h-[200px] border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group ${value ? "border-transparent bg-gray-50 dark:bg-slate-800" : "border-gray-200 dark:border-slate-800 bg-gray-50/30 dark:bg-slate-800/30 hover:bg-gray-50/80 dark:hover:bg-slate-800 hover:border-gray-400 dark:hover:border-slate-600"}`}
+        className={`relative w-full h-[200px] border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group ${displayUrl ? "border-transparent bg-gray-50 dark:bg-slate-800" : "border-gray-200 dark:border-slate-800 bg-gray-50/30 dark:bg-slate-800/30 hover:bg-gray-50/80 dark:hover:bg-slate-800 hover:border-gray-400 dark:hover:border-slate-600"}`}
         onClick={() => !isUploading && fileRef.current?.click()}
       >
         {isUploading ? (
@@ -846,9 +860,9 @@ export function AboutImageUpload({
             <div className="w-8 h-8 border-[3px] border-[#1A3C8C] dark:border-blue-500 border-t-transparent rounded-full animate-spin" />
             <span className="text-xs font-semibold text-[#1A3C8C] dark:text-blue-400">Uploading...</span>
           </div>
-        ) : value ? (
+        ) : displayUrl ? (
           <>
-            <Image src={value} alt="Uploaded" fill className="object-cover" unoptimized />
+            <Image src={displayUrl} alt="Uploaded" fill className="object-cover" unoptimized />
             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-2 transition-opacity backdrop-blur-[2px]">
               <button
                 type="button"
@@ -860,7 +874,7 @@ export function AboutImageUpload({
             </div>
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); deleteCloudinaryFile(value); onChangeRef.current("") }}
+              onClick={(e) => { e.stopPropagation(); if (value) deleteCloudinaryFile(value); setLocalPreview(""); onChangeRef.current("") }}
               className="absolute top-2 right-2 bg-white/90 text-red-500 p-1.5 rounded-lg shadow-lg hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity z-10"
               title="Remove Image"
             >

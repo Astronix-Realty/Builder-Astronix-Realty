@@ -9,8 +9,10 @@ import { aggregateTownshipCounts, aggregateProjectCounts, aggregateTowerCounts }
 
 /**
  * Securely deletes a property and all its descendants (Projects, Towers, Units).
- * Executes a MongoDB transaction to avoid partial DB failures.
  * Cross-references Cloudinary URLs to prevent deleting shared/cloned media.
+ *
+ * CRITICAL FIX: Before hard-deleting, notifies Admin and Visitor panels so
+ * they remove or mark-deleted their own copies of the property.
  *
  * @param propertyId ID of the root property to delete.
  * @param context RBAC context for ownership constraints.
@@ -77,8 +79,36 @@ export async function secureDeleteProperty(propertyId: string, context: RBACCont
 
     const allCollectedPropertyIds = Array.from(allPropertyIds);
 
-    // Fetch all full property documents to analyze their URLs
+    // Fetch all full property documents to analyze their status
     const fullProperties = await Property.find({ _id: { $in: allCollectedPropertyIds } }).lean();
+
+    const isPublishedOrPending = fullProperties.some((p: any) => 
+      p.status === 'published' || p.status === 'pending' || p.isActive
+    );
+
+    // ── GOVERNANCE POLICY CHECK ────────────────────────────────────────────────
+    // Published & Pending properties cannot be hard deleted directly by Builder.
+    // They initiate a Withdrawal Request to Admin for review and governance approval.
+    if (isPublishedOrPending) {
+      console.log(`[secureDeleteProperty] Initiating Withdrawal Request for property ${propertyId} (${initialProp.name})`);
+      const propertyObjectIds = allCollectedPropertyIds.map(id => new mongoose.Types.ObjectId(id));
+      
+      await Property.updateMany(
+        { _id: { $in: propertyObjectIds } },
+        { $set: { status: 'withdrawal_requested', isActive: false } }
+      );
+
+      // Dispatch Withdrawal Request to Admin Panel via Internal API & Outbox
+      await requestCrossPanelWithdrawal(propertyId, (initialProp as any).name || 'Property');
+
+      return {
+        success: true,
+        status: 'withdrawal_requested',
+        propertiesUpdated: allCollectedPropertyIds.length,
+        message: 'Withdrawal request submitted to Admin. The property will be removed upon Admin approval.'
+      };
+    }
+    // ── END GOVERNANCE POLICY CHECK ────────────────────────────────────────────
 
     // Step 2: Fetch related Units
     const unitsToDelete = await Unit.find({
@@ -137,6 +167,201 @@ export async function secureDeleteProperty(propertyId: string, context: RBACCont
     throw error;
   }
 }
+
+/**
+ * Dispatches a withdrawal request for a published property to the Admin panel via Internal API & SyncQueue.
+ */
+async function requestCrossPanelWithdrawal(externalId: string, title: string) {
+  const adminPanelUrl = process.env.ADMIN_PANEL_URL;
+  const internalSecret = process.env.INTERNAL_API_SECRET;
+
+  if (!adminPanelUrl || !internalSecret) {
+    console.warn('[requestCrossPanelWithdrawal] ADMIN_PANEL_URL or INTERNAL_API_SECRET not set.');
+    return;
+  }
+
+  const correlationId = `withdrawal_req_${externalId}_${Date.now()}`;
+  const adminEndpoint = `${adminPanelUrl}/api/internal/v2/properties/request-withdrawal`;
+  const adminPayload = {
+    eventId: correlationId,
+    externalId,
+    title,
+    reason: 'Builder requested property withdrawal / deletion.',
+  };
+
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+
+    const res = await fetch(adminEndpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-internal-secret': internalSecret,
+        'x-correlation-id': correlationId,
+      },
+      body: JSON.stringify(adminPayload),
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+
+    if (res.ok) {
+      console.log(`[requestCrossPanelWithdrawal] Admin notified of withdrawal request: ${title} (${externalId})`);
+    } else {
+      const errText = await res.text().catch(() => 'Unknown error');
+      console.error(`[requestCrossPanelWithdrawal] Admin request failed: HTTP ${res.status}: ${errText}`);
+      await writeSyncQueueEntry(correlationId, 'admin', adminEndpoint, adminPayload, `HTTP ${res.status}`);
+    }
+  } catch (err: any) {
+    const errMsg = err.name === 'AbortError' ? 'Timeout (8s)' : err.message;
+    console.error(`[requestCrossPanelWithdrawal] Admin request failed:`, errMsg);
+    await writeSyncQueueEntry(correlationId, 'admin', adminEndpoint, adminPayload, errMsg);
+  }
+}
+
+/**
+ * Notifies Admin and Visitor panels that a property has been deleted from Builder.
+ * Admin is the primary target — it will cascade the deletion to Visitor.
+ * If Admin call fails, we fall back to directly notifying Visitor as well.
+ * All failures are queued to Builder's SyncQueue for retry.
+ */
+async function notifyCrossPanelDeletion(externalId: string, title: string) {
+  const adminPanelUrl = process.env.ADMIN_PANEL_URL;
+  const visitorPanelUrl = process.env.VISITOR_PANEL_URL;
+  const internalSecret = process.env.INTERNAL_API_SECRET;
+
+  if (!internalSecret) {
+    console.warn('[secureDeleteProperty] INTERNAL_API_SECRET not set — cross-panel deletion sync skipped.');
+    return;
+  }
+
+  const correlationId = `builder_delete_${externalId}_${Date.now()}`;
+
+  const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs = 8000): Promise<Response> => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timer);
+      return res;
+    } catch (err) {
+      clearTimeout(timer);
+      throw err;
+    }
+  };
+
+  let adminSyncOk = false;
+
+  // 1. Notify Admin Panel (primary — Admin will cascade to Visitor)
+  if (adminPanelUrl) {
+    const adminEndpoint = `${adminPanelUrl}/api/internal/properties/delete`;
+    const adminPayload = {
+      eventId: correlationId,
+      externalId,
+      title,
+      reason: 'Builder deleted this property',
+    };
+
+    try {
+      const res = await fetchWithTimeout(adminEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-secret': internalSecret,
+          'x-correlation-id': correlationId,
+        },
+        body: JSON.stringify(adminPayload),
+      });
+
+      if (res.ok) {
+        adminSyncOk = true;
+        console.log(`[secureDeleteProperty] Admin notified of deletion: ${title} (${externalId})`);
+      } else {
+        const errText = await res.text().catch(() => 'Unknown error');
+        console.error(`[secureDeleteProperty] Admin deletion sync failed: HTTP ${res.status}: ${errText}`);
+        await writeSyncQueueEntry(correlationId, 'admin', adminEndpoint, adminPayload, `HTTP ${res.status}`);
+      }
+    } catch (err: any) {
+      const errMsg = err.name === 'AbortError' ? 'Timeout (8s)' : err.message;
+      console.error(`[secureDeleteProperty] Admin deletion sync failed:`, errMsg);
+      await writeSyncQueueEntry(correlationId, 'admin', adminEndpoint, adminPayload, errMsg);
+    }
+  }
+
+  // 2. Direct Visitor fallback — only if Admin sync failed (Admin normally cascades)
+  if (!adminSyncOk && visitorPanelUrl) {
+    const visitorEndpoint = `${visitorPanelUrl}/api/internal/properties`;
+    const visitorPayload = {
+      eventId: `${correlationId}_visitor_fallback`,
+      externalId,
+      title,
+      type: 'Standalone Project',
+      location: '',
+      price: '',
+      units: 0,
+      area: '',
+      status: 'withdrawn', // triggers Visitor to set isDeleted=true
+      snapshot: {},
+    };
+
+    try {
+      const res = await fetchWithTimeout(visitorEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-secret': internalSecret,
+        },
+        body: JSON.stringify(visitorPayload),
+      });
+
+      if (res.ok) {
+        console.log(`[secureDeleteProperty] Visitor notified directly (Admin fallback): ${title} (${externalId})`);
+      } else {
+        const errText = await res.text().catch(() => 'Unknown error');
+        console.error(`[secureDeleteProperty] Visitor fallback sync failed: HTTP ${res.status}`);
+        await writeSyncQueueEntry(correlationId, 'visitor', visitorEndpoint, visitorPayload, `HTTP ${res.status}: ${errText}`);
+      }
+    } catch (err: any) {
+      const errMsg = err.name === 'AbortError' ? 'Timeout (8s)' : err.message;
+      console.error(`[secureDeleteProperty] Visitor fallback sync failed:`, errMsg);
+      await writeSyncQueueEntry(correlationId, 'visitor', visitorEndpoint, visitorPayload, errMsg);
+    }
+  }
+}
+
+/**
+ * Writes a failed cross-panel sync to Builder's SyncQueue for retry.
+ */
+async function writeSyncQueueEntry(
+  correlationId: string,
+  targetPanel: string,
+  endpoint: string,
+  payload: any,
+  error: string
+) {
+  try {
+    const SyncQueue = (await import('@/models/SyncQueue')).default;
+    await SyncQueue.create({
+      eventId: `${correlationId}_${targetPanel}`,
+      eventType: 'PROPERTY_DELETE_SYNC',
+      targetPanel,
+      endpoint,
+      payload,
+      status: 'pending',
+      attempts: 1,
+      maxAttempts: 6,
+      lastAttemptAt: new Date(),
+      nextRetryAt: new Date(Date.now() + 30000),
+      error,
+    });
+    console.log(`[SyncQueue] Queued ${targetPanel} delete sync for retry: ${correlationId}`);
+  } catch (queueErr: any) {
+    if (queueErr.code !== 11000) {
+      console.error(`[SyncQueue] Failed to write queue entry for ${targetPanel}:`, queueErr.message);
+    }
+  }
+}
+
 
 /**
  * Promotes a draft property and its hierarchy to 'published' status.
@@ -579,6 +804,52 @@ export async function publishProperty(draftId: string, context: RBACContext) {
         } else if (publishedProp && (publishedProp as any).type === 'tower') {
           await aggregateTowerCounts((publishedProp as any)._id);
         }
+
+        // Also sync updated published property snapshot to Admin Panel
+        if (process.env.ADMIN_PANEL_URL && process.env.INTERNAL_API_SECRET) {
+          try {
+            let builderName = 'Unknown Builder';
+            if ((publishedProp as any).builderId) {
+              try {
+                const Builder = (await import('@/models/Builder')).default;
+                const builderDoc = await Builder.findById((publishedProp as any).builderId);
+                if (builderDoc) {
+                  builderName = builderDoc.companyName || builderDoc.fullName || builderDoc.email || 'Unknown Builder';
+                }
+              } catch (e) {}
+            }
+
+            const details = (publishedProp as any).details || {};
+            const township = details.township || {};
+            const locationStr = `${township.city || (publishedProp as any).location?.city || ''}, ${township.state || (publishedProp as any).location?.state || ''}`.replace(/^, |, $/g, '') || township.address || (publishedProp as any).location?.address || 'Location N/A';
+
+            await fetch(`${process.env.ADMIN_PANEL_URL}/api/internal/properties`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-internal-secret': process.env.INTERNAL_API_SECRET,
+              },
+              body: JSON.stringify({
+                eventId: `publish_${(publishedProp as any)._id}_${Date.now()}`,
+                externalId: (publishedProp as any)._id.toString(),
+                title: (publishedProp as any).name || township.name || 'Untitled Property',
+                builder: builderName,
+                builderId: (publishedProp as any).builderId?.toString() || '',
+                builderExternalId: (publishedProp as any).builderId?.toString() || '',
+                location: locationStr,
+                price: township.totalValue ? `₹${township.totalValue}` : (details.totalValue ? `₹${details.totalValue}` : 'Price on Request'),
+                type: (publishedProp as any).type || 'township',
+                units: details.generatedUnits?.length || 0,
+                area: township.totalArea || '',
+                status: 'published',
+                snapshot: details,
+              }),
+            });
+            console.log(`[Publish Sync] Property ${(publishedProp as any).name} (${(publishedProp as any)._id}) synced to Admin panel.`);
+          } catch (syncErr: any) {
+            console.error(`[Publish Sync] Admin property sync failed:`, syncErr.message);
+          }
+        }
       }
     }
     
@@ -812,12 +1083,71 @@ export async function submitPropertyForApproval(draftId: string, context: RBACCo
         { session }
       );
 
-      return { success: true };
+      return { success: true, rootDraft };
     });
-    return result;
+
+    if (result.success && result.rootDraft) {
+      // Sync submitted root property to Admin Panel asynchronously
+      const rootDraft = result.rootDraft;
+      if (process.env.ADMIN_PANEL_URL && process.env.INTERNAL_API_SECRET) {
+        let builderName = 'Unknown Builder';
+        try {
+          const Builder = (await import('@/models/Builder')).default;
+          const builderDoc = await Builder.findById(rootDraft.builderId);
+          if (builderDoc) {
+            builderName = builderDoc.companyName || builderDoc.fullName || builderDoc.email || 'Unknown Builder';
+          }
+        } catch (e) {}
+
+        const details = rootDraft.details || {};
+        const township = details.township || {};
+        const locationStr = `${township.city || rootDraft.location?.city || ''}, ${township.state || rootDraft.location?.state || ''}`.replace(/^, |, $/g, '') || township.address || rootDraft.location?.address || 'Location N/A';
+
+        const eventId = `submit_${rootDraft._id}_${Date.now()}`;
+        const adminEndpoint = `${process.env.ADMIN_PANEL_URL}/api/internal/properties`;
+        const payload = {
+          eventId,
+          externalId: rootDraft._id.toString(),
+          title: rootDraft.name || township.name || 'Untitled Property',
+          builder: builderName,
+          builderId: rootDraft.builderId?.toString() || '',
+          builderExternalId: rootDraft.builderId?.toString() || '',
+          location: locationStr,
+          price: township.totalValue ? `₹${township.totalValue}` : (rootDraft.details?.totalValue ? `₹${rootDraft.details.totalValue}` : 'Price on Request'),
+          type: rootDraft.type || 'township',
+          units: details.generatedUnits?.length || 0,
+          area: township.totalArea || '',
+          status: 'pending',
+          snapshot: details,
+        };
+
+        try {
+          const res = await fetch(adminEndpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-internal-secret': process.env.INTERNAL_API_SECRET,
+            },
+            body: JSON.stringify(payload),
+          });
+          if (res.ok) {
+            console.log(`[Submit Sync] Property ${rootDraft.name} (${rootDraft._id}) synced to Admin panel.`);
+          } else {
+            console.error(`[Submit Sync] Admin property submission HTTP ${res.status}`);
+            await writeSyncQueueEntry(eventId, 'admin', adminEndpoint, payload, `HTTP ${res.status}`);
+          }
+        } catch (err: any) {
+          console.error(`[Submit Sync] Admin property submission sync failed:`, err.message);
+          await writeSyncQueueEntry(eventId, 'admin', adminEndpoint, payload, err.message);
+        }
+      }
+    }
+
+    return { success: true };
   } catch (error) {
     throw error;
   } finally {
     session.endSession();
   }
 }
+

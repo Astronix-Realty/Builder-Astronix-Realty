@@ -33,10 +33,17 @@ export async function POST(req: NextRequest) {
       updateData.status = 'rejected';
       updateData.isActive = false;
       updateData.rejectionReason = message || 'Property rejected by admin.';
-    } else if (['delisted', 'draft', 'withdrawn'].includes(targetStatus)) {
+    } else if (['withdrawn', 'deleted'].includes(targetStatus)) {
+      updateData.status = 'withdrawn';
+      updateData.isActive = false;
+      updateData.rejectionReason = message || 'Property withdrawn / deleted.';
+    } else if (['delisted'].includes(targetStatus)) {
       updateData.status = 'draft';
       updateData.isActive = false;
       updateData.rejectionReason = message || 'Property delisted by admin.';
+    } else if (['withdrawal_requested'].includes(targetStatus)) {
+      updateData.status = 'withdrawal_requested';
+      updateData.isActive = false;
     }
 
     const title = body.title || body.name || body.townshipName;

@@ -11,7 +11,7 @@ export interface IProperty extends Document {
   name: string;
   slug: string;
   location: { city?: string; state?: string; address?: string };
-  status: 'draft' | 'pending' | 'published' | 'rejected' | 'archived';
+  status: 'draft' | 'pending' | 'published' | 'rejected' | 'archived' | 'withdrawal_requested' | 'withdrawn';
   isActive: boolean;
   rejectionReason: string | null;
   submittedAt: Date | null;
@@ -48,7 +48,7 @@ const PropertySchema = new Schema<IProperty>({
   name: { type: String, required: true, trim: true },
   slug: { type: String, unique: true, required: true },
   location: { city: String, state: String, address: String },
-  status: { type: String, enum: ['draft', 'pending', 'published', 'rejected', 'archived'], default: 'draft' },
+  status: { type: String, enum: ['draft', 'pending', 'published', 'rejected', 'archived', 'withdrawal_requested', 'withdrawn'], default: 'draft' },
   isActive: { type: Boolean, default: false },
   rejectionReason: { type: String, default: null },
   submittedAt: { type: Date, default: null },

@@ -23,6 +23,7 @@ import type {
 } from "@/lib/builder-types"
 import { BannerUpload, GalleryUpload, VideoUpload, MasterPlanMapUpload, DocumentUpload, AboutImageUpload } from "@/components/ui/media-uploads"
 import { ImageUpload } from "@/components/ui/image-upload"
+import { MiniImageUpload } from "@/components/builder/shared/MiniImageUpload"
 import { AmenitiesManager } from "@/components/builder/shared/AmenitiesManager"
 
 // ─────────────────────────────────────────
@@ -853,37 +854,51 @@ function TownshipFlowFormBase({ data, onChange, user }: TownshipFlowFormProps) {
       {/* ── 6. ECO / SUSTAINABILITY ─────────────── */}
       <Section id="eco" title="Sustainability & Eco Features" description="Solar, Rainwater, Green Cover — Sustainability section" icon={Leaf} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
         <SectionTitle title="Specific Eco Features" />
-        {(data.ecoFeatures || []).map(item => (
-          <Card key={item.id} className="mb-3 border-gray-100 dark:border-slate-800">
-            <CardContent className="p-3">
-              <Grid cols={3}>
-                <Field label="Feature Title">
-                  <Input value={item.title} onChange={e => updateEco(item.id, { title: e.target.value })} placeholder="Solar Power" />
-                </Field>
-                <Field label="Icon">
-                  <Select value={item.icon || "leaf"} onValueChange={v => updateEco(item.id, { icon: v as EcoFeature["icon"] })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {["leaf", "zap", "droplet", "sun", "wind", "recycle"].map(ic => (
-                        <SelectItem key={ic} value={ic}>{ic}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <button type="button" onClick={() => removeEco(item.id)} className="mt-5 text-red-400 hover:text-red-600 self-start">
-                  <X className="w-4 h-4" />
-                </button>
-              </Grid>
-              <div className="mt-2">
-                <Field label="Description">
-                  <Input value={item.description ?? ""} onChange={e => updateEco(item.id, { description: e.target.value })} placeholder="100% renewable energy for common areas" />
-                </Field>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-        <Button type="button" variant="outline" size="sm" onClick={addEco} className="w-full border-dashed mt-1">
-          <Plus className="w-4 h-4 mr-1" /> Add Eco Feature
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {(data.ecoFeatures || []).map(item => (
+            <Card key={item.id} className="group relative border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 transition-all hover:border-green-300 dark:hover:border-green-700 hover:shadow-sm overflow-hidden">
+              <button 
+                type="button"
+                onClick={() => removeEco(item.id)} 
+                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1.5 bg-red-50 hover:bg-red-100 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-500 rounded-md transition-all z-10"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+              <CardContent className="p-0 flex items-stretch">
+                <div className="p-4 bg-slate-50/50 dark:bg-slate-900/50 border-r border-gray-100 dark:border-slate-700 flex flex-col items-center justify-center shrink-0 w-[100px]">
+                  <MiniImageUpload 
+                    value={item.image || (item.icon?.startsWith("http") ? item.icon : "")} 
+                    onChange={(url) => updateEco(item.id, { image: url, icon: url })}
+                    size={48}
+                  />
+                </div>
+                
+                <div className="flex-1 p-3 space-y-3 justify-center flex flex-col">
+                  <div className="pr-6 relative">
+                    <label className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider ml-1 block mb-1">Title</label>
+                    <Input 
+                      value={item.title ?? ""} 
+                      onChange={e => updateEco(item.id, { title: e.target.value })} 
+                      placeholder="E.g. Solar Power" 
+                      className="h-8 border-transparent bg-slate-50 hover:bg-gray-100 focus:bg-white focus-visible:ring-green-500/30 focus-visible:border-green-500 dark:bg-slate-900/50 dark:hover:bg-slate-900 transition-all text-sm font-medium" 
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider ml-1 block mb-1">Description</label>
+                    <Input 
+                      value={item.description ?? ""} 
+                      onChange={e => updateEco(item.id, { description: e.target.value })} 
+                      placeholder="E.g. 100% renewable energy for common areas" 
+                      className="h-8 border-transparent bg-slate-50 hover:bg-gray-100 focus:bg-white focus-visible:ring-green-500/30 focus-visible:border-green-500 dark:bg-slate-900/50 dark:hover:bg-slate-900 transition-all text-xs" 
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <Button type="button" variant="outline" size="sm" onClick={addEco} className="w-full border-dashed mt-4 text-sm h-11 bg-green-50/50 hover:bg-green-50 dark:bg-green-900/10 dark:hover:bg-green-900/20 text-green-700 dark:text-green-500 border-green-200 dark:border-green-900/50">
+          <Plus className="w-4 h-4 mr-2" /> Add Sustainability Feature
         </Button>
       </Section>
 

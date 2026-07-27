@@ -55,7 +55,8 @@ export interface EcoFeature {
   id: string
   title: string
   description: string
-  icon?: "leaf" | "zap" | "droplet" | "sun" | "wind" | "recycle"
+  icon?: string
+  image?: string
 }
 
 export interface VideoGalleryItem {

@@ -68,6 +68,11 @@ interface Property {
 function DashboardContent() {
   const router = useRouter()
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [activeTab, setActiveTab] = useState<"properties" | "inventory" | "crm" | "crm2" | "chat" | "documents" | "offers" | "blog" | "settings" | "team">("properties")
+  const [activeSettingsTab, setActiveSettingsTab] = useState<"profile" | "preferences">("profile")
+  const [showAddProperty, setShowAddProperty] = useState(false)
+  const [propertyFilter, setPropertyFilter] = useState<'published' | 'pending' | 'draft' | 'rejected'>('published')
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
   const [isChangingPassword, setIsChangingPassword] = useState(false)
@@ -384,27 +389,13 @@ function DashboardContent() {
     }
   }
 
+  // Re-fetch properties when user is available and properties tab is active
   useEffect(() => {
-    if (!currentUser) return;
-    fetchProperties();
-
-    // Real-Time Lifecycle Sync: 6s Background Polling & Window Focus Revalidation
-    const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        fetchProperties();
-      }
-    }, 6000);
-
-    const onFocus = () => {
+    const userId = currentUser?._id || currentUser?.id;
+    if (userId && activeTab === "properties") {
       fetchProperties();
-    };
-    window.addEventListener('focus', onFocus);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('focus', onFocus);
-    };
-  }, [currentUser]);
+    }
+  }, [currentUser?._id, currentUser?.id, activeTab]);
 
   const handleRefreshProperties = () => {
     if (isFetchingProperties) return
@@ -564,20 +555,9 @@ function DashboardContent() {
   }
 
 
-  const [activeTab, setActiveTab] = useState<"properties" | "inventory" | "crm" | "crm2" | "chat" | "documents" | "offers" | "blog" | "settings" | "team">("properties")
-  const [activeSettingsTab, setActiveSettingsTab] = useState<"profile" | "preferences">("profile")
-  const [showAddProperty, setShowAddProperty] = useState(false)
-  const [propertyFilter, setPropertyFilter] = useState<'published' | 'pending' | 'draft' | 'rejected'>('published')
 
 
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
-  // Re-fetch properties whenever the user switches to the Properties tab
-  useEffect(() => {
-    if (currentUser && activeTab === "properties") {
-      fetchProperties()
-    }
-  }, [currentUser, activeTab])
 
   const filteredProperties = useMemo(() => {
     const query = (debouncedPropertySearch[propertyFilter] || "").toLowerCase().trim()
@@ -835,9 +815,12 @@ function DashboardContent() {
         </nav>
 
         {/* User Profile - Bottom Sidebar */}
-        <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
-          <div className="flex items-center gap-3 mb-3 px-2">
-            <div className={`relative w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center border-2 border-white dark:border-slate-600 shadow-sm overflow-hidden`}>
+        <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex flex-col gap-2">
+          <button 
+            onClick={() => { setActiveTab("settings"); setIsMobileMenuOpen(false); }}
+            className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-white dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 hover:shadow-sm transition-all text-left group cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          >
+            <div className={`relative w-10 h-10 shrink-0 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center border-2 border-white dark:border-slate-600 shadow-sm overflow-hidden group-hover:border-slate-100 dark:group-hover:border-slate-700 transition-colors`}>
               {(currentUser?.profile?.logo || profile.logo) ? (
                 <Image src={currentUser?.profile?.logo || profile.logo} alt="Company Logo" fill className="object-cover" unoptimized />
               ) : (
@@ -845,10 +828,15 @@ function DashboardContent() {
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{currentUser?.profile?.companyName || profile.companyName || currentUser?.name || ""}</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{currentUser?.email || ""}</p>
+              <p className="text-sm font-bold text-slate-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{currentUser?.profile?.companyName || profile.companyName || currentUser?.name || ""}</p>
+              <p className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider mt-0.5 mb-0.5">
+                {currentUser?.profile?.developerName || profile.developerName || "Developer"}
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 truncate group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">{currentUser?.email || ""}</p>
             </div>
-          </div>
+            <Settings className="w-4 h-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+          </button>
+
           <button
             onClick={handleLogout}
             className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 hover:border-red-200 dark:hover:border-red-900 text-slate-600 dark:text-slate-300 rounded-lg text-sm font-medium transition-all shadow-sm"

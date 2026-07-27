@@ -1450,6 +1450,17 @@ data, onChange, towerName, projectName, townshipName,
                                                 ))}
                                             </div>
 
+                                            {/* ── GROUP FLOOR PLAN IMAGE ── */}
+                                            <div className="bg-blue-50/50 p-4 rounded-2xl border-2 border-dashed border-blue-100">
+                                                <label className="text-xs font-bold text-blue-900 dark:text-blue-400 uppercase tracking-wider mb-2 block">Group Floor Plan Image</label>
+                                                <AboutImageUpload
+                                                    value={group.floorPlanUrl}
+                                                    onChange={url => updateGroup(group.id, { floorPlanUrl: url })}
+                                                    title="Upload Group Floor Plan"
+                                                    description="Common layout for this floor group"
+                                                />
+                                            </div>
+
                                             {/* ── CONDITIONAL INVENTORY LOGIC ── */}
                                             {(group.groupTypes || []).some(t => ['typical', 'ground', 'other'].includes(t)) ? (
                                                 <>
