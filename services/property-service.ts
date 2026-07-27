@@ -90,7 +90,7 @@ export async function secureDeleteProperty(propertyId: string, context: RBACCont
     // Published & Pending properties cannot be hard deleted directly by Builder.
     // They initiate a Withdrawal Request to Admin for review and governance approval.
     if (isPublishedOrPending) {
-      console.log(`[secureDeleteProperty] Initiating Withdrawal Request for property ${propertyId} (${initialProp.name})`);
+      console.log(`[secureDeleteProperty] Initiating Withdrawal Request for property ${propertyId} (${(initialProp as any).name})`);
       const propertyObjectIds = allCollectedPropertyIds.map(id => new mongoose.Types.ObjectId(id));
       
       await Property.updateMany(

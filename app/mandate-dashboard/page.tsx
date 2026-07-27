@@ -63,6 +63,10 @@ interface Property {
 function DashboardContent() {
   const router = useRouter()
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [activeTab, setActiveTab] = useState<"properties" | "inventory" | "crm" | "crm2" | "chat" | "documents" | "offers" | "blog" | "settings" | "team">("properties")
+  const [activeSettingsTab, setActiveSettingsTab] = useState<"profile" | "preferences">("profile")
+  const [showAddProperty, setShowAddProperty] = useState(false)
+  const [propertyFilter, setPropertyFilter] = useState<'published' | 'pending' | 'draft' | 'rejected'>('published')
   const [isLoading, setIsLoading] = useState(true)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
   const [isChangingPassword, setIsChangingPassword] = useState(false)
@@ -545,11 +549,6 @@ function DashboardContent() {
     }
   }
 
-
-  const [activeTab, setActiveTab] = useState<"properties" | "inventory" | "crm" | "crm2" | "chat" | "documents" | "offers" | "blog" | "settings" | "team">("properties")
-  const [activeSettingsTab, setActiveSettingsTab] = useState<"profile" | "preferences">("profile")
-  const [showAddProperty, setShowAddProperty] = useState(false)
-  const [propertyFilter, setPropertyFilter] = useState<'published' | 'pending' | 'draft' | 'rejected'>('published')
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
