@@ -29,6 +29,12 @@ export async function GET(req: NextRequest) {
             const builderDoc = await Builder.findById(prop.builderId).lean();
             if (builderDoc) {
               builderName = (builderDoc as any).companyName || (builderDoc as any).fullName || (builderDoc as any).email || 'Unknown Builder';
+            } else {
+              const User = (await import('@/models/User')).default;
+              const userDoc = await User.findById(prop.builderId).lean();
+              if (userDoc) {
+                builderName = (userDoc as any).profile?.companyName || (userDoc as any).profile?.fullName || (userDoc as any).profile?.developerName || (userDoc as any).email || 'Unknown Builder';
+              }
             }
           } catch (e) {
             // Silently continue

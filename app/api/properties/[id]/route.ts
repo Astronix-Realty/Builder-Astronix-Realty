@@ -250,6 +250,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         const builderDoc = await Builder.findById(property.builderId);
         if (builderDoc) {
           builderName = builderDoc.companyName || builderDoc.fullName || builderDoc.email || 'Unknown Builder';
+        } else {
+          const User = (await import('@/models/User')).default;
+          const userDoc = await User.findById(property.builderId);
+          if (userDoc) {
+            builderName = (userDoc as any).profile?.companyName || (userDoc as any).profile?.fullName || (userDoc as any).profile?.developerName || (userDoc as any).email || 'Unknown Builder';
+          }
         }
       } catch (e) {
         // Silently continue if builder lookup fails
