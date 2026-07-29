@@ -19,65 +19,52 @@ import { aggregateTownshipCounts, aggregateProjectCounts, aggregateTowerCounts }
  */
 export async function secureDeleteProperty(propertyId: string, context: RBACContext) {
   try {
-    // Step 1: Identify all root variants (draft and published versions)
+    // 1. Strict Input ID Validation
+    if (!propertyId || !mongoose.Types.ObjectId.isValid(propertyId)) {
+      throw new Error("Invalid Property ID: Must be a valid 24-character hex string.");
+    }
+
+    const targetObjId = new mongoose.Types.ObjectId(propertyId);
+    const ownershipQuery = getOwnershipQuery(context);
+
+    // 2. Identify the TARGET entity directly
     const initialProp = await Property.findOne({ 
-      _id: propertyId, 
-      ...getOwnershipQuery(context) 
+      _id: targetObjId, 
+      ...ownershipQuery 
     }).lean();
 
     if (!initialProp) {
       throw new Error("Property not found or unauthorized");
     }
 
-    // Collect the ID itself, plus any linked draft or published IDs
-    const rootIdsToSearch = [propertyId];
-    if ((initialProp as any).publishedId) rootIdsToSearch.push((initialProp as any).publishedId.toString());
-    if ((initialProp as any).draftId) rootIdsToSearch.push((initialProp as any).draftId.toString());
-    if ((initialProp as any).draftSourceId) rootIdsToSearch.push((initialProp as any).draftSourceId.toString());
-
-    // Find any properties that claim this as their publishedId or draftSourceId (reverse lookup)
-    const linkedProps = await Property.find({
-      $or: [
-        { publishedId: propertyId },
-        { draftSourceId: propertyId },
-        { draftId: propertyId }
-      ],
-      ...getOwnershipQuery(context)
-    }).lean();
-
-    linkedProps.forEach(p => rootIdsToSearch.push((p as any)._id.toString()));
-
-    // Deduplicate the root IDs
-    const uniqueRootIds = Array.from(new Set(rootIdsToSearch));
-
-    // Deep Fetch Descendant IDs across the hierarchy for ALL root IDs
-    const propertiesToDelete = await Property.find({
-      $or: [
-        { _id: { $in: uniqueRootIds } }, 
-        { parentId: { $in: uniqueRootIds } }
-      ],
-      ...getOwnershipQuery(context)
-    }).lean();
-
-    if (propertiesToDelete.length === 0) {
-      throw new Error("Property not found or unauthorized");
+    // Collect the ID itself, plus any explicit linked draft/published IDs (strictly validated)
+    const rootIdsToSearch = [targetObjId.toString()];
+    if ((initialProp as any).publishedId && mongoose.Types.ObjectId.isValid((initialProp as any).publishedId)) {
+      rootIdsToSearch.push((initialProp as any).publishedId.toString());
+    }
+    if ((initialProp as any).draftId && mongoose.Types.ObjectId.isValid((initialProp as any).draftId)) {
+      rootIdsToSearch.push((initialProp as any).draftId.toString());
+    }
+    if ((initialProp as any).draftSourceId && mongoose.Types.ObjectId.isValid((initialProp as any).draftSourceId)) {
+      rootIdsToSearch.push((initialProp as any).draftSourceId.toString());
     }
 
-    let allPropertyIds = new Set<string>(uniqueRootIds);
-    let idsToSearch = [...uniqueRootIds];
+    const uniqueRootIds = Array.from(new Set(rootIdsToSearch)).map(id => new mongoose.Types.ObjectId(id));
 
-    // While loop to traverse n-levels dynamically
-    while (idsToSearch.length > 0) {
-      const children = await Property.find({ parentId: { $in: idsToSearch } }, { _id: 1 }).lean();
-      const childrenIds = children.map((c: any) => c._id.toString());
+    // 3. Strict Parent-Child Resolution (Only collect direct children of the target property)
+    const childProperties = await Property.find({
+      parentId: { $in: uniqueRootIds },
+      ...ownershipQuery
+    }, { _id: 1 }).lean();
 
-      if (childrenIds.length === 0) break;
+    const childObjIds = childProperties.map((c: any) => c._id);
+    const allCollectedPropertyIds = [...uniqueRootIds, ...childObjIds];
+    const allCollectedStringIds = allCollectedPropertyIds.map(id => id.toString());
 
-      childrenIds.forEach(id => allPropertyIds.add(id));
-      idsToSearch = childrenIds;
+    // Safety Ceiling Guard: Prevent accidental mass deletions
+    if (allCollectedPropertyIds.length > 200) {
+      throw new Error(`SAFETY_CEILING_EXCEEDED: Target branch contains ${allCollectedPropertyIds.length} entities. Mass operation aborted.`);
     }
-
-    const allCollectedPropertyIds = Array.from(allPropertyIds);
 
     // Fetch all full property documents to analyze their status
     const fullProperties = await Property.find({ _id: { $in: allCollectedPropertyIds } }).lean();
@@ -87,18 +74,15 @@ export async function secureDeleteProperty(propertyId: string, context: RBACCont
     );
 
     // ── GOVERNANCE POLICY CHECK ────────────────────────────────────────────────
-    // Published & Pending properties cannot be hard deleted directly by Builder.
-    // They initiate a Withdrawal Request to Admin for review and governance approval.
     if (isPublishedOrPending) {
       console.log(`[secureDeleteProperty] Initiating Withdrawal Request for property ${propertyId} (${(initialProp as any).name})`);
-      const propertyObjectIds = allCollectedPropertyIds.map(id => new mongoose.Types.ObjectId(id));
       
       await Property.updateMany(
-        { _id: { $in: propertyObjectIds } },
+        { _id: { $in: allCollectedPropertyIds } },
         { $set: { status: 'withdrawal_requested', isActive: false } }
       );
 
-      // Dispatch Withdrawal Request to Admin Panel via Internal API & Outbox
+      // Dispatch Withdrawal Request to Admin Panel via Internal API
       await requestCrossPanelWithdrawal(propertyId, (initialProp as any).name || 'Property');
 
       return {
@@ -110,7 +94,7 @@ export async function secureDeleteProperty(propertyId: string, context: RBACCont
     }
     // ── END GOVERNANCE POLICY CHECK ────────────────────────────────────────────
 
-    // Step 2: Fetch related Units
+    // Step 4: Fetch related Units strictly for collected property IDs
     const unitsToDelete = await Unit.find({
       $or: [
         { projectId: { $in: allCollectedPropertyIds } },
@@ -120,7 +104,7 @@ export async function secureDeleteProperty(propertyId: string, context: RBACCont
 
     const unitIds = unitsToDelete.map(u => u._id);
 
-    // Step 3: Extract Media URLs from everything we are deleting
+    // Step 5: Extract Media URLs from deleted entities
     const cloudinaryUrls = new Set<string>();
     fullProperties.forEach((prop: any) => {
       extractCloudinaryUrls(prop).forEach(u => cloudinaryUrls.add(u));
@@ -129,29 +113,23 @@ export async function secureDeleteProperty(propertyId: string, context: RBACCont
       extractCloudinaryUrls(unit).forEach(u => cloudinaryUrls.add(u));
     });
 
-    // Step 4: Execute Database Deletions
-    const propertyObjectIds = allCollectedPropertyIds.map(id => new mongoose.Types.ObjectId(id));
-    await Property.deleteMany({ _id: { $in: propertyObjectIds } });
-    
-    // 2. Delete all descendant Units
+    // Step 6: Execute Database Deletions for SCOPED IDs ONLY
+    await Property.deleteMany({ _id: { $in: allCollectedPropertyIds } });
     await Unit.deleteMany({ _id: { $in: unitIds } });
 
-    // Step 5: After DB success, trigger Cloudinary deletions
-    let safeToDeleteUrls = [];
+    // Step 7: Async Cloudinary cleanup
+    let safeToDeleteUrls: string[] = [];
     if (cloudinaryUrls.size > 0) {
-      // Find what IS NOT deleted yet to ensure we don't delete shared media
-      const remainingProperties = await Property.find({}).lean();
-      const remainingUnits = await Unit.find({}).lean();
+      const remainingProperties = await Property.find({}, { details: 1 }).lean();
+      const remainingUnits = await Unit.find({}, { details: 1 }).lean();
 
       const remainingMedia = new Set<string>();
       remainingProperties.forEach((prop: any) => extractCloudinaryUrls(prop).forEach(u => remainingMedia.add(u)));
       remainingUnits.forEach((unit: any) => extractCloudinaryUrls(unit).forEach(u => remainingMedia.add(u)));
 
-      const urlsToDelete = Array.from(cloudinaryUrls).filter(url => !remainingMedia.has(url));
-      safeToDeleteUrls = urlsToDelete;
+      safeToDeleteUrls = Array.from(cloudinaryUrls).filter(url => !remainingMedia.has(url));
       
-      // Note: We don't block the execution on cloudinary failures. 
-      Promise.all(urlsToDelete.map(url => deleteCloudinaryFile(url))).catch(e => {
+      Promise.all(safeToDeleteUrls.map(url => deleteCloudinaryFile(url))).catch(e => {
         console.error("Failed to delete some files from Cloudinary:", e);
       });
     }
@@ -163,7 +141,7 @@ export async function secureDeleteProperty(propertyId: string, context: RBACCont
       mediaOrphanedAndDeleted: safeToDeleteUrls.length
     };
   } catch (error) {
-    console.error(`[secureDeleteProperty] Deletion failed.`, error);
+    console.error(`[secureDeleteProperty] Deletion failed for target propertyId '${propertyId}':`, error);
     throw error;
   }
 }
