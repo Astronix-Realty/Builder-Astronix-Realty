@@ -221,26 +221,41 @@ export function useAutoDraft({
     const safeLocation = payload.location ?? {}
 
     if (existingId) {
-      // PATCH — lightweight auto-save, never creates a new document
-      const res = await fetch(`/api/properties/${existingId}/draft`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: safeName,
-          location: safeLocation,
-          details: payload.details ?? {},
-          lastSavedStep: currentStep,
-          ...(payload.parentId ? { parentId: payload.parentId } : {}),
-        }),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        // If the PATCH fails because the doc is published/not-draft, throw a
-        // specific error so the caller can handle it gracefully (clear stale IDs)
-        // without accidentally creating a new duplicate document.
-        throw new Error(err.error || "Auto-save patch failed")
+      // PATCH — lightweight auto-save, never creates a new document (with 2 retries for transient 503/network issues)
+      let attempt = 0;
+      let lastErr: Error | null = null;
+      while (attempt < 3) {
+        try {
+          const res = await fetch(`/api/properties/${existingId}/draft`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: safeName,
+              location: safeLocation,
+              details: payload.details ?? {},
+              lastSavedStep: currentStep,
+              ...(payload.parentId ? { parentId: payload.parentId } : {}),
+            }),
+          })
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}))
+            if (res.status === 503 && attempt < 2) {
+              attempt++;
+              await new Promise(r => setTimeout(r, 1000 * attempt));
+              continue;
+            }
+            throw new Error(err.error || "Auto-save patch failed")
+          }
+          return existingId
+        } catch (e: any) {
+          lastErr = e;
+          attempt++;
+          if (attempt < 3) {
+            await new Promise(r => setTimeout(r, 1000 * attempt));
+          }
+        }
       }
-      return existingId
+      throw lastErr || new Error("Auto-save patch failed after retries");
     } else {
       // POST — create new draft only when truly no existingId is known
       if (process.env.NODE_ENV !== "production" && !flowType) {

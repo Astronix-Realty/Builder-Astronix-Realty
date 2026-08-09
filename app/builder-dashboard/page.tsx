@@ -676,19 +676,27 @@ function DashboardContent() {
       console.error("[deleteProperty] Called with undefined/empty id — check property card data")
       return
     }
-    if (confirm("Are you sure you want to delete this property?")) {
+    const targetProp = properties.find(p => p.id === id)
+    const isDraft = targetProp?.status === 'draft' || propertyFilter === 'draft'
+
+    const confirmMsg = isDraft 
+      ? "Are you sure you want to delete this draft? This will only remove your draft copy."
+      : "Are you sure you want to delete this property?"
+
+    if (confirm(confirmMsg)) {
       setDeletingPropertyId(id)
       try {
-        const res = await fetch(`/api/properties/${id}`, { method: "DELETE" })
+        const endpoint = isDraft ? `/api/properties/${id}/draft` : `/api/properties/${id}`
+        const res = await fetch(endpoint, { method: "DELETE" })
         if (res.ok) {
           // Remove from local state immediately for snappy UX
           setProperties(prev => prev.filter(p => p.id !== id))
-          toast.success("Property deleted successfully")
+          toast.success(isDraft ? "Draft deleted successfully" : "Property deleted successfully")
         } else {
           const errData = await res.json().catch(() => ({}))
           const msg = errData?.error || `HTTP ${res.status}`
           console.error(`[deleteProperty] API returned error for id='${id}':`, msg)
-          toast.error(`Failed to delete property: ${msg}`)
+          toast.error(`Failed to delete: ${msg}`)
         }
       } catch (error) {
         console.error("[deleteProperty] Network/fetch error:", error)

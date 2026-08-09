@@ -65,6 +65,8 @@ interface InventoryUnit {
     floorNumber: number
     configuration: string
     area: number
+    carpetArea?: number
+    builtUpArea?: number
     price: number
     ratePerSqft: number
     status: "available" | "sold" | "blocked" | "reserved" | "booked" | "published" | "archived"
@@ -117,7 +119,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
 
     // ── Unit Edit Dialog ───────────────────────────────────────────────────
     const [editingUnit, setEditingUnit] = useState<InventoryUnit | null>(null)
-    const [customerForm, setCustomerForm] = useState({ name: "", phone: "", amount: "", price: "", ratePerSqft: "" })
+    const [customerForm, setCustomerForm] = useState({ name: "", phone: "", amount: "", price: "", ratePerSqft: "", allInclusivePrice: "", carpetArea: "", builtUpArea: "" })
 
     // ── Tower Pricing Dialog ───────────────────────────────────────────────
     const [isPricingDialogOpen, setIsPricingDialogOpen] = useState(false)
@@ -380,13 +382,22 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                 prev.includes(unit._id) ? prev.filter(id => id !== unit._id) : [...prev, unit._id]
             )
         } else {
+            const initialCarpet = unit.carpetArea || unit.area || 0
+            const initialBuiltUp = unit.builtUpArea || (initialCarpet > 0 ? Math.round(initialCarpet * 1.2) : 0)
+            const rate = unit.ratePerSqft || 0
+            const initialPrice = (initialBuiltUp > 0 && rate > 0) ? Math.round(initialBuiltUp * rate) : (unit.price || 0)
+            const initialAllInclusive = initialPrice > 0 ? Math.round(initialPrice * 1.13) : 0
+
             setEditingUnit(unit)
             setCustomerForm({
                 name: unit.customerName || "",
                 phone: unit.customerPhone || "",
                 amount: unit.bookingAmount?.toString() || "",
-                price: unit.price?.toString() || "",
+                price: initialPrice > 0 ? initialPrice.toString() : (unit.price?.toString() || ""),
                 ratePerSqft: unit.ratePerSqft?.toString() || "",
+                allInclusivePrice: initialAllInclusive > 0 ? initialAllInclusive.toString() : "",
+                carpetArea: initialCarpet > 0 ? initialCarpet.toString() : "",
+                builtUpArea: initialBuiltUp > 0 ? initialBuiltUp.toString() : "",
             })
         }
     }
@@ -410,6 +421,8 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
 
         const parsedPrice = parseFloat(customerForm.price)
         const parsedRate = parseFloat(customerForm.ratePerSqft)
+        const parsedCarpet = parseFloat(customerForm.carpetArea)
+        const parsedBuiltUp = parseFloat(customerForm.builtUpArea)
 
         // Optimistic update
         const updatedUnit: InventoryUnit = {
@@ -421,6 +434,9 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
             bookingDate: status === "available" ? null : (editingUnit.bookingDate || new Date().toISOString()),
             price: !isNaN(parsedPrice) ? parsedPrice : editingUnit.price,
             ratePerSqft: !isNaN(parsedRate) ? parsedRate : editingUnit.ratePerSqft,
+            carpetArea: !isNaN(parsedCarpet) ? parsedCarpet : (editingUnit.carpetArea || editingUnit.area),
+            builtUpArea: !isNaN(parsedBuiltUp) ? parsedBuiltUp : editingUnit.builtUpArea,
+            area: !isNaN(parsedCarpet) ? parsedCarpet : editingUnit.area,
         }
         setHierarchy(prev => prev ? {
             ...prev,
@@ -440,6 +456,9 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                     bookingDate: updatedUnit.bookingDate,
                     price: updatedUnit.price,
                     ratePerSqft: updatedUnit.ratePerSqft,
+                    area: updatedUnit.area,
+                    carpetArea: updatedUnit.carpetArea,
+                    builtUpArea: updatedUnit.builtUpArea,
                 }),
             })
             if (res.ok) {
@@ -1451,20 +1470,85 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                         <User className="h-3.5 w-3.5 text-indigo-500" />
                                         {editingUnit?.status === "available" ? "New Buyer/Hold Details" : "Customer Info"}
                                     </p>
-                                    <Badge variant="outline" className="text-[10px] font-bold dark:border-slate-700 dark:bg-slate-950">
-                                        ₹{editingUnit?.price?.toLocaleString("en-IN")}
-                                    </Badge>
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                        <Badge variant="outline" className="text-[10px] font-bold dark:border-slate-700 dark:bg-slate-950">
+                                            Flat: ₹{editingUnit?.price?.toLocaleString("en-IN")}
+                                        </Badge>
+                                        {editingUnit?.price ? (
+                                            <Badge className="text-[10px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white">
+                                                All-Incl: ₹{Math.round(editingUnit.price * 1.13).toLocaleString("en-IN")}
+                                            </Badge>
+                                        ) : null}
+                                    </div>
                                 </div>
-                                <div className="space-y-2">
-                                     <div className="grid grid-cols-2 gap-2 mb-2">
+                                <div className="space-y-2.5">
+                                     <div className="grid grid-cols-2 gap-2">
                                          <div>
-                                            <Label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block tracking-wider">Price</Label>
+                                            <Label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block tracking-wider">Carpet Area (sq.ft)</Label>
+                                            <Input
+                                                placeholder="Carpet Area"
+                                                type="number"
+                                                className="h-10 text-sm font-medium bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500/50"
+                                                value={customerForm.carpetArea}
+                                                onChange={e => {
+                                                    const val = e.target.value
+                                                    const carpet = parseFloat(val) || 0
+                                                    const builtUp = carpet > 0 ? Math.round(carpet * 1.2) : 0
+                                                    const rate = parseFloat(customerForm.ratePerSqft) || 0
+                                                    const newPrice = builtUp > 0 && rate > 0 ? Math.round(builtUp * rate) : (parseFloat(customerForm.price) || 0)
+                                                    setCustomerForm(f => ({
+                                                        ...f,
+                                                        carpetArea: val,
+                                                        builtUpArea: builtUp > 0 ? builtUp.toString() : f.builtUpArea,
+                                                        price: newPrice > 0 ? newPrice.toString() : f.price,
+                                                        allInclusivePrice: newPrice > 0 ? Math.round(newPrice * 1.13).toString() : f.allInclusivePrice
+                                                    }))
+                                                }}
+                                            />
+                                         </div>
+                                         <div>
+                                            <Label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block tracking-wider">Built-Up Area (sq.ft)</Label>
+                                            <Input
+                                                placeholder="Built-Up Area"
+                                                type="number"
+                                                className="h-10 text-sm font-medium bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500/50"
+                                                value={customerForm.builtUpArea}
+                                                onChange={e => {
+                                                    const val = e.target.value
+                                                    const builtUp = parseFloat(val) || 0
+                                                    const rate = parseFloat(customerForm.ratePerSqft) || 0
+                                                    const newPrice = builtUp > 0 && rate > 0 ? Math.round(builtUp * rate) : (parseFloat(customerForm.price) || 0)
+                                                    setCustomerForm(f => ({
+                                                        ...f,
+                                                        builtUpArea: val,
+                                                        price: newPrice > 0 ? newPrice.toString() : f.price,
+                                                        allInclusivePrice: newPrice > 0 ? Math.round(newPrice * 1.13).toString() : f.allInclusivePrice
+                                                    }))
+                                                }}
+                                            />
+                                         </div>
+                                     </div>
+
+                                     <div className="grid grid-cols-2 gap-2">
+                                         <div>
+                                            <Label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block tracking-wider">Flat Price</Label>
                                             <Input
                                                 placeholder="Total Price"
                                                 type="number"
                                                 className="h-10 text-sm font-medium bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500/50"
                                                 value={customerForm.price}
-                                                onChange={e => setCustomerForm(f => ({ ...f, price: e.target.value }))}
+                                                onChange={e => {
+                                                    const val = e.target.value
+                                                    const num = parseFloat(val) || 0
+                                                    const builtUp = parseFloat(customerForm.builtUpArea) || (editingUnit?.builtUpArea || (editingUnit?.area ? Math.round(editingUnit.area * 1.2) : 0)) || 0
+                                                    const rate = num > 0 && builtUp > 0 ? Math.round(num / builtUp) : (parseFloat(customerForm.ratePerSqft) || 0)
+                                                    setCustomerForm(f => ({
+                                                        ...f,
+                                                        price: val,
+                                                        ratePerSqft: rate > 0 ? rate.toString() : f.ratePerSqft,
+                                                        allInclusivePrice: num > 0 ? Math.round(num * 1.13).toString() : ""
+                                                    }))
+                                                }}
                                             />
                                          </div>
                                          <div>
@@ -1474,10 +1558,77 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                                 type="number"
                                                 className="h-10 text-sm font-medium bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500/50"
                                                 value={customerForm.ratePerSqft}
-                                                onChange={e => setCustomerForm(f => ({ ...f, ratePerSqft: e.target.value }))}
+                                                onChange={e => {
+                                                    const val = e.target.value
+                                                    const rate = parseFloat(val) || 0
+                                                    const builtUp = parseFloat(customerForm.builtUpArea) || (editingUnit?.builtUpArea || (editingUnit?.area ? Math.round(editingUnit.area * 1.2) : 0)) || 0
+                                                    const newPrice = builtUp > 0 && rate > 0 ? Math.round(rate * builtUp) : (parseFloat(customerForm.price) || 0)
+                                                    setCustomerForm(f => ({
+                                                        ...f,
+                                                        ratePerSqft: val,
+                                                        price: newPrice > 0 ? newPrice.toString() : f.price,
+                                                        allInclusivePrice: newPrice > 0 ? Math.round(newPrice * 1.13).toString() : f.allInclusivePrice
+                                                    }))
+                                                }}
                                             />
                                          </div>
                                      </div>
+
+                                     {(() => {
+                                         const baseP = parseFloat(customerForm.price) || 0
+                                         const gstP = Math.round(baseP * 0.05)
+                                         const stampP = Math.round(baseP * 0.07)
+                                         const regP = Math.round(baseP * 0.01)
+                                         return (
+                                             <div className="grid grid-cols-2 gap-2 items-stretch">
+                                                 <div className="flex flex-col justify-between">
+                                                     <Label className="text-[10px] font-bold uppercase text-indigo-600 dark:text-indigo-400 mb-1 block tracking-wider flex items-center gap-1">
+                                                         <CircleDollarSign className="h-3 w-3" />
+                                                         All-Inclusive Price
+                                                     </Label>
+                                                     <Input
+                                                         placeholder="All-Inclusive Price"
+                                                         type="number"
+                                                         className="h-10 text-sm font-bold bg-indigo-50/50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800/60 focus-visible:ring-indigo-500/50 text-indigo-950 dark:text-indigo-200"
+                                                         value={customerForm.allInclusivePrice}
+                                                         onChange={e => {
+                                                             const val = e.target.value
+                                                             const num = parseFloat(val) || 0
+                                                             const flatPrice = num > 0 ? Math.round(num / 1.13) : 0
+                                                             setCustomerForm(f => ({
+                                                                 ...f,
+                                                                 allInclusivePrice: val,
+                                                                 price: flatPrice > 0 ? flatPrice.toString() : f.price
+                                                             }))
+                                                         }}
+                                                     />
+                                                     <span className="text-[9px] text-slate-400 font-medium mt-1">Excl. Legal & Parking</span>
+                                                 </div>
+
+                                                 <div className="bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/60 rounded-xl p-2 flex flex-col justify-between text-xs">
+                                                     <div className="flex justify-between items-center text-[9px] font-black text-indigo-900 dark:text-indigo-300 pb-1 border-b border-indigo-200/60 dark:border-indigo-800/60 uppercase tracking-wider">
+                                                         <span>Govt Taxes (+13%)</span>
+                                                         <span className="text-indigo-600 font-extrabold">₹{(gstP + stampP + regP).toLocaleString("en-IN")}</span>
+                                                     </div>
+                                                     <div className="space-y-0.5 text-[9px] text-slate-600 dark:text-slate-400 pt-1 font-medium">
+                                                         <div className="flex justify-between">
+                                                             <span>GST (5%):</span>
+                                                             <span className="font-bold text-slate-900 dark:text-slate-200">₹{gstP.toLocaleString("en-IN")}</span>
+                                                         </div>
+                                                         <div className="flex justify-between">
+                                                             <span>Stamp Duty (7%):</span>
+                                                             <span className="font-bold text-slate-900 dark:text-slate-200">₹{stampP.toLocaleString("en-IN")}</span>
+                                                         </div>
+                                                         <div className="flex justify-between">
+                                                             <span>Reg. Fees (1%):</span>
+                                                             <span className="font-bold text-slate-900 dark:text-slate-200">₹{regP.toLocaleString("en-IN")}</span>
+                                                         </div>
+                                                     </div>
+                                                 </div>
+                                             </div>
+                                         )
+                                     })()}
+
                                      <hr className="border-slate-200 dark:border-slate-800 my-3" />
                                     <Input
                                         placeholder="Customer full name"
@@ -1533,9 +1684,14 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                 { label: "Unit Number", value: editingUnit?.unitNumber },
                                 { label: "Floor", value: editingUnit?.floorNumber },
                                 { label: "Configuration", value: editingUnit?.configuration },
-                                { label: "Carpet Area", value: editingUnit?.area ? `${editingUnit.area} sq.ft` : "—" },
+                                { label: "Carpet Area", value: (editingUnit?.carpetArea || editingUnit?.area) ? `${editingUnit?.carpetArea || editingUnit?.area} sq.ft` : "—" },
+                                { label: "Built-Up Area", value: (editingUnit?.builtUpArea || (editingUnit?.area ? Math.round(editingUnit.area * 1.2) : 0)) ? `${editingUnit?.builtUpArea || Math.round((editingUnit?.area || 0) * 1.2)} sq.ft` : "—" },
                                 { label: "Rate/sqft", value: editingUnit?.ratePerSqft ? `₹${editingUnit.ratePerSqft.toLocaleString("en-IN")}` : "—" },
-                                { label: "Total Price", value: editingUnit?.price ? new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(editingUnit.price) : "—" },
+                                { label: "Flat Price (Base)", value: editingUnit?.price ? new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(editingUnit.price) : "—" },
+                                { label: "GST (5%)", value: editingUnit?.price ? `+₹${Math.round(editingUnit.price * 0.05).toLocaleString("en-IN")}` : "—" },
+                                { label: "Stamp Duty (7%)", value: editingUnit?.price ? `+₹${Math.round(editingUnit.price * 0.07).toLocaleString("en-IN")}` : "—" },
+                                { label: "Registration Fees (1%)", value: editingUnit?.price ? `+₹${Math.round(editingUnit.price * 0.01).toLocaleString("en-IN")}` : "—" },
+                                { label: "All-Inclusive Price (Excl. Legal & Parking)", value: editingUnit?.price ? new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(Math.round(editingUnit.price * 1.13)) : "—" },
                                 ...(editingUnit?.facing ? [{ label: "Facing", value: editingUnit.facing }] : []),
                             ].map(({ label, value }) => (
                                 <div key={label} className="flex justify-between py-2 border-b border-slate-100 dark:border-slate-800">

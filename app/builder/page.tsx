@@ -377,7 +377,8 @@ function BuilderContent() {
             unitNumber++
             const facing = slot.facingOverride || facings[(unitNumber - 1) % facings.length]
             const carpetArea = slot.carpetAreaOverride || config.carpetArea || 0
-            let finalPrice = slot.priceOverride || (carpetArea * ratePerSqft || basePrice)
+            const builtUpArea = config?.builtUpArea || Math.round(carpetArea * 1.2)
+            let finalPrice = slot.priceOverride || (builtUpArea * ratePerSqft || basePrice)
 
             const floorRiseStart = 5
             if (floor >= floorRiseStart) {
@@ -417,7 +418,8 @@ function BuilderContent() {
               const facing = facings[(unitNumber - 1) % facings.length]
 
               const carpetArea = config?.carpetArea || 0
-              let finalPrice = carpetArea * ratePerSqft || basePrice
+              const builtUpArea = config?.builtUpArea || Math.round(carpetArea * 1.2)
+              let finalPrice = builtUpArea * ratePerSqft || basePrice
 
               const floorRiseStart = 5
               if (floor >= floorRiseStart) {

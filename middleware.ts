@@ -99,7 +99,7 @@ export async function middleware(req: NextRequest) {
     }
 
     if (!isBuilder && !isMandate) {
-      return NextResponse.redirect(new URL("/", req.url));
+      return NextResponse.redirect(new URL("/login", req.url));
     }
 
     // 5. Approval Status Check — Lock unapproved users to profile-settings only

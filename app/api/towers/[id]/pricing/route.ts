@@ -145,34 +145,34 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
         if (property.details.towerUnitConfigs && Array.isArray(property.details.towerUnitConfigs)) {
            let matchedConfigs = 0;
            property.details.towerUnitConfigs = property.details.towerUnitConfigs.map((config: any) => {
-             // Match by frontendTowerIds OR by tower name (fallback when IDs don't align)
-             const configMatchesByName = towerName && (() => {
-               // Try to find the tower in details.towers that owns this config.towerId
-               const allEmbeddedTowers = [
-                 ...(property.details.towers || []),
-                 ...(property.details.projects || []).flatMap((p: any) => p.towers || [])
-               ];
-               const owningTower = allEmbeddedTowers.find((t: any) => t.id === config.towerId || t._dbId === config.towerId);
-               return owningTower?.name === towerName;
-             })();
+              // Match by frontendTowerIds OR by tower name (fallback when IDs don't align)
+              const configTowerId = config.towerId?.toString() || "";
+              let configMatchesByName = false;
+              if (towerName) {
+                const allEmbeddedTowers = [...(property.details.towers || []), ...(property.details.projects?.flatMap((p: any) => p.towers || []) || [])];
+                const owningTower = allEmbeddedTowers.find((t: any) => t.id === configTowerId || t._id?.toString() === configTowerId);
+                if (owningTower && (owningTower.name === towerName || owningTower.title === towerName)) {
+                    configMatchesByName = true;
+                }
+              }
 
-             if (frontendTowerIds.includes(config.towerId) || (splitTower && config.towerId === splitTower._id?.toString()) || configMatchesByName) {
-               matchedConfigs++;
-               config.ratePerSqft = ratePerSqft.toString();
-               config.baseRatePerSqft = ratePerSqft.toString();
-               if (config.configurations && Array.isArray(config.configurations)) {
-                  config.configurations = config.configurations.map((c: any) => {
-                     const area = c.carpetArea || c.area;
-                     if (area) {
-                        c.basePrice = area * ratePerSqft;
-                        c.ratePerSqft = ratePerSqft;
-                     }
-                     return c;
-                  });
-               }
-               changed = true;
-             }
-             return config;
+              if (isStandaloneTower || frontendTowerIds.includes(configTowerId) || configMatchesByName) {
+                matchedConfigs++;
+                config.ratePerSqft = ratePerSqft.toString();
+                config.baseRatePerSqft = ratePerSqft.toString();
+                if (config.configurations && Array.isArray(config.configurations)) {
+                   config.configurations = config.configurations.map((c: any) => {
+                      const builtUp = c.builtUpArea || Math.round((c.carpetArea || c.area || 0) * 1.2);
+                      if (builtUp > 0) {
+                         c.basePrice = Math.round(builtUp * ratePerSqft);
+                         c.ratePerSqft = ratePerSqft;
+                      }
+                      return c;
+                   });
+                }
+                changed = true;
+              }
+              return config;
            });
            console.log(`[Pricing API Debug] Matched ${matchedConfigs} towerUnitConfigs`);
         }
@@ -184,10 +184,10 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
             // Match if unit's towerId is in frontendTowerIds, OR this is a standalone tower (all units belong here)
             const unitBelongsToTower = isStandaloneTower || frontendTowerIds.includes(uTowerId);
             if (unitBelongsToTower && (!u.status || u.status === "available")) {
-              const area = u.area || u.carpetArea;
-              if (area) {
+              const builtUp = u.builtUpArea || Math.round((u.carpetArea || u.area || 0) * 1.2);
+              if (builtUp > 0) {
                 u.ratePerSqft = ratePerSqft;
-                u.price = Math.round(area * ratePerSqft);
+                u.price = Math.round(builtUp * ratePerSqft);
                 changed = true;
                 embeddedModified++;
                 matchedUnits++;

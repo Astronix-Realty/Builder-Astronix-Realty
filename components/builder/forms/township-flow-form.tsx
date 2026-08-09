@@ -25,6 +25,9 @@ import { BannerUpload, GalleryUpload, VideoUpload, MasterPlanMapUpload, Document
 import { ImageUpload } from "@/components/ui/image-upload"
 import { MiniImageUpload } from "@/components/builder/shared/MiniImageUpload"
 import { AmenitiesManager } from "@/components/builder/shared/AmenitiesManager"
+import GooglePlacesSearch from "@/components/builder/forms/GooglePlacesSearch"
+import { GmbReviewsSelector } from "@/components/builder/shared/GmbReviewsSelector"
+import { GmbMapPreview } from "@/components/builder/shared/GmbMapPreview"
 
 // ─────────────────────────────────────────
 // PROPS
@@ -749,19 +752,35 @@ function TownshipFlowFormBase({ data, onChange, user }: TownshipFlowFormProps) {
       </Section>
       )}
 
-      {/* ── 2. LOCATION ────────────────────────── */}
-      <Section id="location" title="Location Details" description="City, district, pincode — Map pe dikhta hai" icon={MapPin} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
+      {/* ── 2. LOCATION & MAPS ────────────────────────── */}
+      <Section id="location" title="Location & Google Maps Details" description="City, district, pincode & Google Maps Integration — Auto-filled from Google Places" icon={MapPin} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
+        <div className="mb-5">
+          <GooglePlacesSearch
+            onLocationSelected={(loc) => {
+              if (loc.nearbyLandmark) update("nearbyLandmark", loc.nearbyLandmark);
+              if (loc.googleMapLink) update("googleMapLink", loc.googleMapLink);
+              if (loc.googlePlusCode) update("googlePlusCode", loc.googlePlusCode);
+              if (loc.coordinates) update("coordinates", loc.coordinates);
+              if (loc.gmbReviews && loc.gmbReviews.length > 0) {
+                update("allGmbReviews", loc.gmbReviews);
+                if (!data.gmbReviews || data.gmbReviews.length === 0) {
+                  update("gmbReviews", loc.gmbReviews.slice(0, 3));
+                }
+              }
+            }}
+          />
+        </div>
         <Grid cols={2}>
           <Field label="City" required>
-            <Input value={data.city ?? ""} onChange={e => update("city", e.target.value)} placeholder="Mumbai" />
+            <Input value={data.city ?? ""} onChange={e => update("city", e.target.value)} placeholder="Thane" />
           </Field>
           <Field label="District" required>
             <Input value={data.district ?? ""} onChange={e => update("district", e.target.value)} placeholder="Thane" />
           </Field>
           <Field label="Sub City" required>
-            <Input value={data.subCity ?? ""} onChange={e => update("subCity", e.target.value)} placeholder="Dombivali" />
+            <Input value={data.subCity ?? ""} onChange={e => update("subCity", e.target.value)} placeholder="Dombivali East" />
           </Field>
-          <Field label="Village / Area" required>
+          <Field label="Area" required>
             <Input value={data.village ?? ""} onChange={e => update("village", e.target.value)} placeholder="Sonarpada" />
           </Field>
 
@@ -772,37 +791,47 @@ function TownshipFlowFormBase({ data, onChange, user }: TownshipFlowFormProps) {
             <Input value={data.country ?? ""} onChange={e => update("country", e.target.value)} placeholder="India" />
           </Field>
           <Field label="Pincode" required>
-            <Input value={data.pincode ?? ""} onChange={e => update("pincode", e.target.value)} placeholder="400601" />
+            <Input value={data.pincode ?? ""} onChange={e => update("pincode", e.target.value)} placeholder="421204" />
           </Field>
         </Grid>
-        <SectionTitle title="Nearby Landmark" />
-        <Field label="Nearest Landmark" required hint="Eg: Near Viviana Mall, Off Ghodbunder Road">
-          <Input value={data.nearbyLandmark ?? ""} onChange={e => update("nearbyLandmark", e.target.value)} placeholder="Near Viviana Mall" />
-        </Field>
-      </Section>
 
-      {/* ── 3. GOOGLE MAPS ─────────────────────── */}
-      <Section id="maps" title="Google Maps Integration" description="Map embed + directions — Connectivity section" icon={MapIcon} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-        <Grid cols={1}>
-          <Field label="Google Maps Full URL" required hint="Copy the full Google Maps share link">
+        <SectionTitle title="Nearby Landmark" />
+        <Field label="Nearest Landmark" required hint="Eg: Near KATTAMAI Mandir, Manpada-Kattamai Road, Dombivali East">
+          <Input value={data.nearbyLandmark ?? ""} onChange={e => update("nearbyLandmark", e.target.value)} placeholder="Near KATTAMAI Mandir, Manpada-Kattamai Road, Dombivali East" />
+        </Field>
+        <SectionTitle title="Google Maps Integration" />
+        <Grid cols={2}>
+          <Field label="Google Maps Full URL" required hint="Auto-filled from search or paste share link">
             <Input value={data.googleMapLink ?? ""} onChange={e => update("googleMapLink", e.target.value)} placeholder="https://goo.gl/maps/..." />
           </Field>
           <Field label="Google Plus Code" hint='Eg: "+QR5, Thane, Maharashtra"'>
             <Input value={data.googlePlusCode ?? ""} onChange={e => update("googlePlusCode", e.target.value)} placeholder="+QR5, Thane, Maharashtra" />
           </Field>
-          <Field label="Google Business Profile Code" hint="Embed code from Google My Business (optional)">
-            <Textarea value={data.gmbProfileCode ?? ""} onChange={e => update("gmbProfileCode", e.target.value)} rows={2} placeholder="<iframe ...></iframe>" />
-          </Field>
         </Grid>
-        <SectionTitle title="Coordinates (Optional)" />
-        <Grid cols={2}>
-          <Field label="Latitude">
-            <Input value={data.coordinates?.lat || ""} onChange={e => update("coordinates", { ...data.coordinates, lat: e.target.value, lng: data.coordinates?.lng || "" })} placeholder="19.2183" />
-          </Field>
-          <Field label="Longitude">
-            <Input value={data.coordinates?.lng || ""} onChange={e => update("coordinates", { lat: data.coordinates?.lat || "", lng: e.target.value })} placeholder="72.9781" />
-          </Field>
-        </Grid>
+
+        {/* GMB Pin Map Preview */}
+        <div className="mt-4">
+          <GmbMapPreview
+            googleMapLink={data.googleMapLink}
+            coordinates={data.coordinates}
+            locationName={data.village || data.subCity}
+            city={data.city}
+            district={data.district}
+            nearbyLandmark={data.nearbyLandmark}
+          />
+        </div>
+
+        {/* GMB Reviews Selection */}
+        <div className="mt-6">
+          <GmbReviewsSelector
+            allReviews={data.allGmbReviews || data.gmbReviews || []}
+            selectedReviews={data.gmbReviews || []}
+            onChange={(selected, all) => {
+              update("gmbReviews", selected);
+              if (all) update("allGmbReviews", all);
+            }}
+          />
+        </div>
       </Section>
 
       {/* ── 4. CONNECTIVITY ─────────────────────── */}
@@ -832,6 +861,19 @@ function TownshipFlowFormBase({ data, onChange, user }: TownshipFlowFormProps) {
                   <Input value={item.duration ?? ""} onChange={e => updateConnectivity(item.id, { duration: e.target.value })} placeholder="25 Mins" />
                 </Field>
               </Grid>
+              {item.type === "custom" && (
+                <div className="mt-3 pt-3 border-t border-gray-100 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field label="Custom Type / Category Name">
+                    <Input value={item.customType ?? ""} onChange={e => updateConnectivity(item.id, { customType: e.target.value })} placeholder="e.g. Expressway, Port, Temple" className="h-8 text-xs" />
+                  </Field>
+                  <Field label="Custom Icon / Image">
+                    <div className="flex items-center gap-2">
+                      <MiniImageUpload value={item.icon} onChange={url => updateConnectivity(item.id, { icon: url })} size={36} />
+                      <Input value={item.icon ?? ""} onChange={e => updateConnectivity(item.id, { icon: e.target.value })} placeholder="Icon URL or upload image" className="h-8 text-xs flex-1" />
+                    </div>
+                  </Field>
+                </div>
+              )}
               <button type="button" onClick={() => removeConnectivity(item.id)} className="mt-2 text-xs text-red-400 hover:text-red-600 flex items-center gap-1">
                 <X className="w-3 h-3" /> Remove
               </button>

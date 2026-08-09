@@ -1,93 +1,98 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import Property from '@/models/Property';
-import Builder from '@/models/Builder';
 import User from '@/models/User';
+import Builder from '@/models/Builder';
+import Mandate from '@/models/Mandate';
 
-// GET /api/internal/v2/properties — Secure Internal S2S API returning live property data for Admin
+// Register models for populate
+const _models = [User, Builder, Mandate];
+
+// GET /api/internal/v2/properties — Serve live properties queue from Builder DB to Admin Panel
 export async function GET(req: NextRequest) {
   try {
     const secret = req.headers.get('x-internal-secret');
-    if (!secret || secret !== (process.env.INTERNAL_API_SECRET || 'astronix_realty_secure_internal_api_secret_2026')) {
-      return NextResponse.json({ error: 'Unauthorized internal request' }, { status: 401 });
+    const expectedSecret = process.env.INTERNAL_API_SECRET || 'astronix-internal-2026-xK9mN3pQ';
+
+    if (!secret || secret !== expectedSecret) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     await dbConnect();
 
-    // Fetch all root properties (parentId: null) that are not deleted and not in draft status
-    const rootProperties = await Property.find({
-      parentId: null,
-      isDeleted: false,
-    }).lean();
-
-    const formattedProperties = await Promise.all(
-      rootProperties.map(async (prop: any) => {
-        let builderName = 'Unknown Builder';
-        if (prop.builderId) {
-          try {
-            const builderDoc = await Builder.findById(prop.builderId).lean();
-            if (builderDoc) {
-              builderName = (builderDoc as any).companyName || (builderDoc as any).fullName || (builderDoc as any).email || 'Unknown Builder';
-            } else {
-              const userDoc = await User.findById(prop.builderId).lean();
-              if (userDoc) {
-                builderName = (userDoc as any).profile?.companyName || (userDoc as any).profile?.fullName || (userDoc as any).profile?.developerName || (userDoc as any).email || 'Unknown Builder';
-              }
-            }
-          } catch (e) {
-            // Silently continue
-          }
-        }
-
-        const details = prop.details || {};
-        const township = details.township || {};
-        const locationStr = `${township.city || prop.location?.city || ''}, ${township.state || prop.location?.state || ''}`.replace(/^, |, $/g, '') || township.address || prop.location?.address || 'Location N/A';
-
-        const typeMap: Record<string, string> = {
-          'township': 'Township',
-          'project': 'Standalone Project',
-          'tower': 'Tower',
-          'Township': 'Township',
-          'Standalone Project': 'Standalone Project',
-          'Tower': 'Tower',
-        };
-
-        return {
-          id: prop._id.toString(),
-          externalId: prop._id.toString(),
-          title: prop.name || township.name || 'Untitled Property',
-          builder: builderName,
-          builderId: prop.builderId?.toString() || '',
-          builderExternalId: prop.builderId?.toString() || '',
-          builderName: builderName,
-          location: locationStr,
-          price: township.totalValue ? `₹${township.totalValue}` : (prop.details?.totalValue ? `₹${prop.details.totalValue}` : 'Price on Request'),
-          type: typeMap[prop.type] || 'Township',
-          units: details.generatedUnits?.length || prop.calculatedCounts?.unitsCount || 0,
-          area: township.totalArea || '0',
-          currentStage: prop.status === 'published' ? 'Published' : (prop.status === 'approved' ? 'Approved' : 'Initial Review'),
-          status: prop.status || 'draft',
-          snapshot: details,
-          approvalChain: [{
-            stage: 'Initial Review',
-            status: prop.status || 'pending',
-            reviewer: null,
-            date: prop.updatedAt || null,
-            notes: 'Fetched dynamically from Builder service API',
-          }],
-          createdAt: prop.createdAt,
-          updatedAt: prop.updatedAt,
-        };
+    const properties = await Property.find({
+      isDeleted: { $ne: true },
+      $or: [{ parentId: null }, { parentId: { $exists: false } }],
+    })
+      .populate({
+        path: 'builderId',
+        populate: [{ path: 'builderId' }, { path: 'mandateId' }],
       })
-    );
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const formattedProperties = properties.map((p: any) => {
+      const builderUser = p.builderId || {};
+      const bProfile = builderUser.builderId || {};
+      const mProfile = builderUser.mandateId || {};
+      const companyName = bProfile.companyName || mProfile.companyName || builderUser.profile?.companyName || '';
+      
+      const docDetails = p.details || {};
+      const formBuilderName = p.builderName || docDetails.builderName || docDetails.township?.builderName || docDetails.township?.developerName || docDetails.project?.builderName || '';
+
+      const fallbackBuilderName = bProfile.developerName || companyName || (builderUser.userType === 'mandate' || builderUser.role === 'mandate' ? (mProfile.companyName || builderUser.profile?.companyName || mProfile.fullName) : mProfile.fullName) || builderUser.email || 'Unknown Builder';
+      const builderName = formBuilderName || fallbackBuilderName;
+
+      const typeLabel = p.type ? p.type.charAt(0).toUpperCase() + p.type.slice(1) : 'Standalone Project';
+      const locStr = p.location ? [p.location.address, p.location.city, p.location.state].filter(Boolean).join(', ') : '';
+      
+      let statusStr = (p.status || 'pending').toLowerCase();
+      if (statusStr === 'published') {
+        statusStr = 'approved';
+      }
+
+      let stageStr = 'Initial Review';
+      if (statusStr === 'approved') {
+        stageStr = 'final-approval';
+      } else if (statusStr === 'rejected') {
+        stageStr = 'admin-review';
+      }
+
+      return {
+        id: p._id.toString(),
+        externalId: p._id.toString(),
+        _id: p._id.toString(),
+        title: p.name,
+        name: p.name,
+        slug: p.slug,
+        type: typeLabel,
+        flowType: p.flowType || p.type,
+        status: statusStr, // 'pending' | 'approved' | 'rejected' | 'delisted' | 'draft' | 'withdrawal_requested' | 'withdrawn'
+        currentStage: stageStr,
+        builderId: builderUser._id ? builderUser._id.toString() : (p.builderId ? p.builderId.toString() : ''),
+        builderName: builderName,
+        builder: builderName,
+        location: locStr || p.location?.city || '',
+        city: p.location?.city || '',
+        state: p.location?.state || '',
+        price: p.details?.priceRange || p.details?.startingPrice || 'Price on Request',
+        units: p.details?.generatedUnits?.length || p.details?.inventoryCount || 0,
+        area: p.details?.totalArea || p.details?.plotArea || '0',
+        snapshot: p.details || {},
+        details: p.details || {},
+        rejectionMessage: p.rejectionReason || '',
+        submittedAt: p.submittedAt || p.createdAt,
+        createdAt: p.createdAt,
+        updatedAt: p.updatedAt,
+      };
+    });
 
     return NextResponse.json({
-      success: true,
       count: formattedProperties.length,
       properties: formattedProperties,
     });
   } catch (error: any) {
-    console.error('[Internal V2 Properties] Error fetching properties:', error);
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+    console.error('[Internal v2 Properties GET Error]:', error.message);
+    return NextResponse.json({ error: 'Internal Server Error', message: error.message }, { status: 500 });
   }
 }

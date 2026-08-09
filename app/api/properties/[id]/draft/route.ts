@@ -19,9 +19,26 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const body = await req.json();
 
-    await dbConnect();
+    // Check existing property status first
+    const existingProp = await Property.findOne({
+      _id: id,
+      ...getOwnershipQuery(context!),
+      isDeleted: false,
+    }).select("status").lean();
 
-    // Only allow updating these safe fields — never status, type, builderId, parentId
+    if (!existingProp) {
+      return NextResponse.json({ error: "Draft not found or unauthorized" }, { status: 404 });
+    }
+
+    // If property is currently pending review, auto-save must NOT revert it to draft
+    if ((existingProp as any).status === "pending" && body.status !== "draft") {
+      return NextResponse.json({
+        _id: id,
+        message: "Property is pending approval. Auto-save skipped.",
+      }, { status: 200 });
+    }
+
+    // Only allow updating content fields
     const $set: Record<string, any> = {
       updatedBy: context!.userId,
     };
@@ -32,23 +49,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (body.lastSavedStep !== undefined) $set.lastSavedStep = body.lastSavedStep;
     if (body.parentId !== undefined)      $set.parentId = body.parentId;
 
-    // If a property was "pending", editing it reverts it to "draft" so they must resubmit
-    $set.status = "draft";
-    $set.rejectionReason = null;
-    $set.submittedAt = null;
+    if (body.status === "draft" || (existingProp as any).status === "draft") {
+      $set.status = "draft";
+      $set.rejectionReason = null;
+    }
 
     const property = await Property.findOneAndUpdate(
       { 
         _id: id, 
         ...getOwnershipQuery(context!), 
         isDeleted: false,
-        status: { $in: ["draft", "pending"] } // allow editing pending properties
       },
       { 
         $set,
-        $inc: { autoSaveVersion: 1 }, // Atomic increment — never miss a version bump
+        $inc: { autoSaveVersion: 1 },
       },
-      { new: true, runValidators: false } // Skip validators for speed — trust the schema shape
+      { new: true, runValidators: false }
     );
 
     if (!property) {
@@ -91,20 +107,26 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     await dbConnect();
     
-    // Ensure the property is actually a draft before letting the service delete it
+    // Ensure the property is actually a draft before deleting
     const draftProp = await Property.findOne({ _id: id, ...getOwnershipQuery(context!) });
     if (!draftProp) {
         return NextResponse.json({ success: true, message: "Draft already removed or published" }, { status: 200 });
     }
 
     if (draftProp.status !== "draft") {
-        return NextResponse.json({ success: true, message: "Property is already active, cleaning up draft reference" }, { status: 200 });
+        return NextResponse.json({ success: true, message: "Property is active, draft reference cleared" }, { status: 200 });
     }
 
-    const deleteResult = await secureDeleteProperty(id, context!);
+    // Safely delete ONLY the draft property and its direct draft children
+    // Never delete published properties when discarding a draft!
+    await Property.deleteMany({
+      $or: [{ _id: id }, { parentId: id }],
+      ...getOwnershipQuery(context!),
+      status: "draft"
+    });
 
     return NextResponse.json(
-      { success: true, message: "Draft deleted securely", details: deleteResult },
+      { success: true, message: "Draft deleted safely" },
       { status: 200 }
     );
   } catch (error: any) {

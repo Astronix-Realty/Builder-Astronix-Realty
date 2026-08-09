@@ -24,6 +24,9 @@ import { BannerUpload, GalleryUpload, VideoUpload, MasterPlanMapUpload, Document
 import { ImageUpload } from "@/components/ui/image-upload"
 import { MiniImageUpload } from "@/components/builder/shared/MiniImageUpload"
 import { AmenitiesManager } from "@/components/builder/shared/AmenitiesManager"
+import GooglePlacesSearch from "@/components/builder/forms/GooglePlacesSearch"
+import { GmbReviewsSelector } from "@/components/builder/shared/GmbReviewsSelector"
+import { GmbMapPreview } from "@/components/builder/shared/GmbMapPreview"
 
 // ─────────────────────────────────────────
 // PROPS
@@ -764,18 +767,35 @@ function ProjectFlowFormBase({ data, onChange, townshipName, townshipData, onTow
           </Section>
           )}
 
-          <Section id="location" title="Location Details" description="City, district, pincode — Map pe dikhta hai" icon={MapPin} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
+          <Section id="location" title="Location & Google Maps Details" description="City, district, pincode & Google Maps Integration — Auto-filled from Google Places" icon={MapPin} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
+            <div className="mb-5">
+              <GooglePlacesSearch
+                onLocationSelected={(loc) => {
+                  if (loc.nearbyLandmark) updateCommon("nearbyLandmark", loc.nearbyLandmark);
+                  if (loc.googleMapLink) updateCommon("googleMapLink", loc.googleMapLink);
+                  if (loc.googlePlusCode) updateCommon("googlePlusCode", loc.googlePlusCode);
+                  if (loc.coordinates) updateCommon("coordinates", loc.coordinates);
+                  if (loc.gmbReviews && loc.gmbReviews.length > 0) {
+                    updateCommon("allGmbReviews", loc.gmbReviews);
+                    if (!townshipData.gmbReviews || townshipData.gmbReviews.length === 0) {
+                      updateCommon("gmbReviews", loc.gmbReviews.slice(0, 3));
+                    }
+                  }
+                }}
+              />
+            </div>
+
             <Grid cols={3}>
               <Field label="City" required>
-                <Input value={townshipData.city ?? ""} onChange={e => updateCommon("city", e.target.value)} placeholder="Mumbai" />
+                <Input value={townshipData.city ?? ""} onChange={e => updateCommon("city", e.target.value)} placeholder="Thane" />
               </Field>
               <Field label="District" required>
                 <Input value={townshipData.district ?? ""} onChange={e => updateCommon("district", e.target.value)} placeholder="Thane" />
               </Field>
               <Field label="Sub City" required>
-                <Input value={townshipData.subCity ?? ""} onChange={e => updateCommon("subCity", e.target.value)} placeholder="Dombivali" />
+                <Input value={townshipData.subCity ?? ""} onChange={e => updateCommon("subCity", e.target.value)} placeholder="Dombivali East" />
               </Field>
-              <Field label="Village / Area" required>
+              <Field label="Area" required>
                 <Input value={townshipData.village ?? ""} onChange={e => updateCommon("village", e.target.value)} placeholder="Sonarpada" />
               </Field>
               <Field label="State" required>
@@ -785,24 +805,48 @@ function ProjectFlowFormBase({ data, onChange, townshipName, townshipData, onTow
                 <Input value={townshipData.country ?? ""} onChange={e => updateCommon("country", e.target.value)} placeholder="India" />
               </Field>
               <Field label="Pincode" required>
-                <Input value={townshipData.pincode ?? ""} onChange={e => updateCommon("pincode", e.target.value)} placeholder="400601" />
+                <Input value={townshipData.pincode ?? ""} onChange={e => updateCommon("pincode", e.target.value)} placeholder="421204" />
               </Field>
             </Grid>
-            <SectionTitle title="Nearby Landmark" />
-            <Field label="Nearest Landmark" required hint="Eg: Near Viviana Mall, Off Ghodbunder Road">
-              <Input value={townshipData.nearbyLandmark ?? ""} onChange={e => updateCommon("nearbyLandmark", e.target.value)} placeholder="Near Viviana Mall" />
-            </Field>
-          </Section>
 
-          <Section id="maps" title="Google Maps Integration" description="Map embed + directions — Connectivity section" icon={MapIcon} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-            <Grid cols={1}>
-              <Field label="Google Maps Full URL" required hint="Copy the full Google Maps share link">
+            <SectionTitle title="Nearby Landmark" />
+            <Field label="Nearest Landmark" required hint="Eg: Near KATTAMAI Mandir, Manpada-Kattamai Road, Dombivali East">
+              <Input value={townshipData.nearbyLandmark ?? ""} onChange={e => updateCommon("nearbyLandmark", e.target.value)} placeholder="Near KATTAMAI Mandir, Manpada-Kattamai Road, Dombivali East" />
+            </Field>
+
+            <SectionTitle title="Google Maps Integration" />
+            <Grid cols={2}>
+              <Field label="Google Maps Full URL" required hint="Auto-filled from search or paste share link">
                 <Input value={townshipData.googleMapLink ?? ""} onChange={e => updateCommon("googleMapLink", e.target.value)} placeholder="https://goo.gl/maps/..." />
               </Field>
               <Field label="Google Plus Code" hint='Eg: "+QR5, Thane, Maharashtra"'>
                 <Input value={townshipData.googlePlusCode ?? ""} onChange={e => updateCommon("googlePlusCode", e.target.value)} placeholder="+QR5, Thane, Maharashtra" />
               </Field>
             </Grid>
+
+            {/* GMB Pin Map Preview */}
+            <div className="mt-4">
+              <GmbMapPreview
+                googleMapLink={townshipData.googleMapLink}
+                coordinates={townshipData.coordinates}
+                locationName={townshipData.village || townshipData.subCity}
+                city={townshipData.city}
+                district={townshipData.district}
+                nearbyLandmark={townshipData.nearbyLandmark}
+              />
+            </div>
+
+            {/* GMB Reviews Selection */}
+            <div className="mt-6">
+              <GmbReviewsSelector
+                allReviews={townshipData.allGmbReviews || townshipData.gmbReviews || []}
+                selectedReviews={townshipData.gmbReviews || []}
+                onChange={(selected, all) => {
+                  updateCommon("gmbReviews", selected);
+                  if (all) updateCommon("allGmbReviews", all);
+                }}
+              />
+            </div>
           </Section>
 
           <Section id="connectivity" title="Connectivity" description="Airport, Railway, Metro, Hospital, Schools distance" icon={Wifi} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
@@ -830,6 +874,19 @@ function ProjectFlowFormBase({ data, onChange, townshipName, townshipData, onTow
                       <Input value={item.duration ?? ""} onChange={e => updateConnectivity(item.id, { duration: e.target.value })} placeholder="25 Mins" className="h-8 text-xs" />
                     </Field>
                   </Grid>
+                  {item.type === "custom" && (
+                    <div className="mt-3 pt-3 border-t border-gray-100 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <Field label="Custom Type / Category Name">
+                        <Input value={item.customType ?? ""} onChange={e => updateConnectivity(item.id, { customType: e.target.value })} placeholder="e.g. Expressway, Port, Temple" className="h-8 text-xs" />
+                      </Field>
+                      <Field label="Custom Icon / Image">
+                        <div className="flex items-center gap-2">
+                          <MiniImageUpload value={item.icon} onChange={url => updateConnectivity(item.id, { icon: url })} size={36} />
+                          <Input value={item.icon ?? ""} onChange={e => updateConnectivity(item.id, { icon: e.target.value })} placeholder="Icon URL or upload image" className="h-8 text-xs flex-1" />
+                        </div>
+                      </Field>
+                    </div>
+                  )}
                   <button type="button" onClick={() => removeConnectivity(item.id)} className="mt-2 text-[10px] text-red-400 hover:text-red-600 flex items-center gap-1 font-bold uppercase tracking-wider">
                     <X className="w-3 h-3" /> Remove Item
                   </button>

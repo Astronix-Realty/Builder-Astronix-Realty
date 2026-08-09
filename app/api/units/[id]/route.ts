@@ -15,7 +15,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (errorResponse) return errorResponse;
 
     const body = await req.json();
-    const { status, customerName, customerPhone, bookingAmount, bookingDate, price, ratePerSqft } = body;
+    const { status, customerName, customerPhone, bookingAmount, bookingDate, price, ratePerSqft, area, carpetArea, builtUpArea } = body;
 
     const { searchParams } = new URL(req.url);
     const propertyId = searchParams.get("propertyId");
@@ -43,6 +43,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     };
     if (price !== undefined) setObj.price = price;
     if (ratePerSqft !== undefined) setObj.ratePerSqft = ratePerSqft;
+    if (area !== undefined) setObj.area = area;
+    if (carpetArea !== undefined) setObj.carpetArea = carpetArea;
+    if (builtUpArea !== undefined) setObj.builtUpArea = builtUpArea;
 
     // 1. Try to find and update the standalone unit document
     let unit = await Unit.findOneAndUpdate(
@@ -91,6 +94,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           };
           if (price !== undefined) units[unitIndex].price = price;
           if (ratePerSqft !== undefined) units[unitIndex].ratePerSqft = ratePerSqft;
+          if (area !== undefined) units[unitIndex].area = area;
+          if (carpetArea !== undefined) units[unitIndex].carpetArea = carpetArea;
+          if (builtUpArea !== undefined) units[unitIndex].builtUpArea = builtUpArea;
 
           // Mark details as modified for Mongoose to save correctly
           property.markModified('details');

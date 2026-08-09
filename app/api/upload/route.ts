@@ -20,9 +20,14 @@ export async function POST(req: NextRequest) {
       if (errorResponse) return errorResponse;
     }
     // Check if Cloud Name is configured
-    if (!process.env.CLOUDINARY_CLOUD_NAME) {
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+      console.error("[Upload] Missing Cloudinary env vars:", {
+        cloud_name: !!process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: !!process.env.CLOUDINARY_API_KEY,
+        api_secret: !!process.env.CLOUDINARY_API_SECRET,
+      })
       return NextResponse.json(
-        { error: "Cloudinary configuration is incomplete. Missing CLOUDINARY_CLOUD_NAME." },
+        { error: "Cloudinary configuration is incomplete. Check server env." },
         { status: 500 }
       )
     }
@@ -55,16 +60,17 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Convert File to ArrayBuffer to Base64
+    // Convert File to Buffer
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
-    const base64String = buffer.toString("base64")
-    const dataURI = `data:${file.type};base64,${base64String}`
+
+    console.log(`[Upload] Starting upload: ${file.name} (${(file.size / 1024).toFixed(1)}KB, type: ${file.type})`)
 
     // Configure specific options based on file type
     const uploadOptions: any = {
       folder: "astronix_realty_uploads",
-      resource_type: isPdf ? "raw" : "auto", 
+      resource_type: isPdf ? "raw" : "auto",
+      timeout: 120000, // 120 second timeout
     };
 
     // Auto-compress videos during upload so they take up very little space
@@ -76,16 +82,29 @@ export async function POST(req: NextRequest) {
 
     // For raw files, explicitly defining public_id ensures the file extension is retained safely
     if (isPdf && file.name) {
-      // Remove any folder paths if present and separate the name from extension
       const cleanFileName = file.name.split('/').pop() || file.name;
       const nameWithoutExt = cleanFileName.replace(/\.[^/.]+$/, "");
       const ext = cleanFileName.split('.').pop() || 'pdf';
-      // Append a small timestamp to prevent overriding while retaining safe extension
       uploadOptions.public_id = `${nameWithoutExt}_${Date.now()}.${ext}`;
     }
 
-    // Upload to Cloudinary using Base64 URI
-    const uploadResponse = await cloudinary.uploader.upload(dataURI, uploadOptions)
+    // Upload to Cloudinary using upload_stream (avoids base64 doubling)
+    const uploadResponse = await new Promise<any>((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        uploadOptions,
+        (error, result) => {
+          if (error) {
+            console.error("[Upload] Cloudinary stream error:", error.message)
+            reject(error)
+          } else {
+            resolve(result)
+          }
+        }
+      )
+      uploadStream.end(buffer)
+    })
+
+    console.log(`[Upload] Success: ${uploadResponse.secure_url}`)
 
     return NextResponse.json({ 
       url: uploadResponse.secure_url, 
@@ -94,9 +113,12 @@ export async function POST(req: NextRequest) {
     }, { status: 200 })
 
   } catch (error: any) {
-    console.error("Cloudinary upload error:", error)
+    console.error("[Upload] Cloudinary upload error:", error?.message || error)
+    const userMessage = error?.http_code === 499 || error?.name === 'TimeoutError'
+      ? "Upload timed out. Please try a smaller image or check your internet connection."
+      : `Upload failed: ${error?.message || "Unknown error"}`
     return NextResponse.json(
-      { error: `Upload failed: ${error.message || "Unknown error"}` },
+      { error: userMessage },
       { status: 500 }
     )
   }

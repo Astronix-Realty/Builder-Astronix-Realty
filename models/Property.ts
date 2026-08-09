@@ -21,6 +21,7 @@ export interface IProperty extends Document {
   isDeleted: boolean;
   lastSavedStep: number;        // Last wizard step user was on
   autoSaveVersion: number;      // Increments on each auto-save
+  editCount: number;            // Number of times edited and re-submitted
   publishedId: mongoose.Types.ObjectId | null;  // For drafts: linked published record
   draftId: mongoose.Types.ObjectId | null;      // For published: linked draft record
   draftSourceId: mongoose.Types.ObjectId | null; // For published: the draft _id that first created this published doc (immutable back-reference for idempotency)
@@ -58,6 +59,7 @@ const PropertySchema = new Schema<IProperty>({
   isDeleted: { type: Boolean, default: false },
   lastSavedStep: { type: Number, default: 1 },
   autoSaveVersion: { type: Number, default: 0 },
+  editCount: { type: Number, default: 0 },
   publishedId: { type: Schema.Types.ObjectId, ref: 'Property', default: null },
   draftId: { type: Schema.Types.ObjectId, ref: 'Property', default: null },
   draftSourceId: { type: Schema.Types.ObjectId, ref: 'Property', default: null },

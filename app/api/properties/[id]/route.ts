@@ -231,9 +231,15 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     delete updateData.mandateId;
     delete updateData.type;
 
+    const updatePayload: any = { $set: updateData };
+    if (body.status === 'pending') {
+      updatePayload.$inc = { editCount: 1 };
+      updatePayload.$set.submittedAt = new Date();
+    }
+
     const property = await Property.findOneAndUpdate(
       { _id: id, ...getOwnershipQuery(context!), isDeleted: false },
-      { $set: updateData },
+      updatePayload,
       { new: true, runValidators: true }
     );
 
@@ -316,7 +322,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       { $set: updateData },
       { new: true, runValidators: true }
     );
-
     if (!property) {
       return NextResponse.json({ error: "Property not found or unauthorized" }, { status: 404 });
     }
@@ -327,34 +332,45 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 }
 
-// DELETE /api/properties/[id] - Delete a property
-// Hard deletes properties and any associated units + orphaned Cloudinary media securely.
+// DELETE /api/properties/[id] - Hard delete property and all associated units permanently from DB
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
     if (errorResponse) return errorResponse;
 
-    // Guard: invalid ObjectId format → clean 404 instead of Mongoose CastError
     if (!/^[a-f\d]{24}$/i.test(id)) {
       return NextResponse.json({ error: "Property not found" }, { status: 404 });
     }
 
     await dbConnect();
 
-    const deleteResult = await secureDeleteProperty(id, context!);
+    // Find target property and all direct children (projects/towers)
+    const childProps = await Property.find({ parentId: id }, { _id: 1 }).lean();
+    const childIds = childProps.map((c: any) => c._id.toString());
+    const allPropIds = [id, ...childIds];
+
+    // 1. Hard delete all units associated with this property hierarchy
+    await Unit.deleteMany({
+      $or: [
+        { propertyId: { $in: allPropIds } },
+        { towerId: { $in: allPropIds } },
+        { projectId: { $in: allPropIds } }
+      ]
+    });
+
+    // 2. Hard delete the property document and child property documents permanently from MongoDB
+    const deleteResult = await Property.deleteMany({
+      _id: { $in: allPropIds },
+      ...getOwnershipQuery(context!)
+    });
 
     return NextResponse.json(
-      { success: true, message: "Property and associated media securely deleted", details: deleteResult },
+      { success: true, message: "Property permanently deleted from DB", deletedCount: deleteResult.deletedCount },
       { status: 200 }
     );
   } catch (error: any) {
     console.error("[DELETE /api/properties/[id]] error:", error.message);
-
-    if (error.message === "Property not found or unauthorized") {
-      return NextResponse.json({ error: error.message }, { status: 404 });
-    }
-
     return NextResponse.json({ error: "Failed to delete property" }, { status: 500 });
   }
 }

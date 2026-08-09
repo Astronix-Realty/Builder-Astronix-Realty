@@ -27,14 +27,41 @@ export async function GET(req: NextRequest) {
     };
 
     if (statusFilter) {
-      query.status = statusFilter; // narrow to draft / active / archived
+      if (statusFilter === "published") {
+        // Auto-heal any published properties that got set to withdrawal_requested by mistake
+        await Property.updateMany(
+          { ...getOwnershipQuery(context!), status: "withdrawal_requested", parentId: null },
+          { $set: { status: "published", isActive: true } }
+        );
+        query.status = { $in: ["published", "active"] };
+      } else {
+        query.status = statusFilter;
+      }
     }
 
     if (process.env.NODE_ENV !== "production") {
       console.log("[GET /api/properties] query:", JSON.stringify(query));
     }
 
-    const rawProperties = await Property.find(query).sort({ updatedAt: -1 }).lean();
+    const allRawProperties = await Property.find(query).sort({ updatedAt: -1 }).lean();
+
+    // Deduplicate: If a property has a pending, published, or active version, exclude any duplicate draft version of the same property
+    const activeOrPendingNameSet = new Set(
+      allRawProperties
+        .filter((p: any) => p.status === 'published' || p.status === 'active' || p.status === 'pending')
+        .map((p: any) => (p.name || p.townshipName || '').trim().toLowerCase())
+        .filter(Boolean)
+    );
+
+    const rawProperties = allRawProperties.filter((p: any) => {
+      if (p.status === 'draft') {
+        const cleanName = (p.name || p.townshipName || '').trim().toLowerCase();
+        if (cleanName && activeOrPendingNameSet.has(cleanName)) {
+          return false;
+        }
+      }
+      return true;
+    });
 
     // ---------------- BULK DATA FETCH FOR N+1 OPTIMIZATION ----------------
     // Separate root properties by type

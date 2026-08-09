@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
       updateData.isActive = false;
       updateData.rejectionReason = message || 'Property withdrawn / deleted.';
     } else if (['delisted'].includes(targetStatus)) {
-      updateData.status = 'draft';
+      updateData.status = 'delisted';
       updateData.isActive = false;
       updateData.rejectionReason = message || 'Property delisted by admin.';
     } else if (['withdrawal_requested'].includes(targetStatus)) {
@@ -50,37 +50,29 @@ export async function POST(req: NextRequest) {
     const targetIdStr = String(externalId);
     const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(targetIdStr);
 
-    // Stage 1: Search by ID
-    let property = await Property.findOneAndUpdate(
-      {
-        $or: [
-          { externalId: targetIdStr },
-          { id: targetIdStr },
-          ...(isValidObjectId ? [{ _id: targetIdStr }] : []),
-        ],
-      },
-      { $set: updateData },
-      { new: true }
-    );
+    const matchConditions: any[] = [
+      { externalId: targetIdStr },
+      { id: targetIdStr },
+      ...(isValidObjectId ? [{ _id: targetIdStr }] : []),
+    ];
 
-    // Stage 2: Fallback search by title / name if ID lookup fails (Admin ID vs Builder ID mismatch)
-    if (!property && title) {
+    if (title) {
       const cleanTitle = String(title).trim();
       const escapedTitle = cleanTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      property = await Property.findOneAndUpdate(
-        {
-          $or: [
-            { name: { $regex: new RegExp(`^${escapedTitle}$`, 'i') } },
-            { townshipName: { $regex: new RegExp(`^${escapedTitle}$`, 'i') } },
-          ],
-          isDeleted: false,
-        },
-        { $set: { ...updateData, externalId: targetIdStr } },
-        { new: true }
+      matchConditions.push(
+        { name: { $regex: new RegExp(`^${escapedTitle}$`, 'i') } },
+        { townshipName: { $regex: new RegExp(`^${escapedTitle}$`, 'i') } }
       );
     }
 
-    if (!property) {
+    const updateResult = await Property.updateMany(
+      { $or: matchConditions, isDeleted: false },
+      { $set: updateData }
+    );
+
+    const property = await Property.findOne({ $or: matchConditions, isDeleted: false });
+
+    if (!property && updateResult.matchedCount === 0) {
       console.error(`[Internal Correlation:${correlationId}] Property not found for externalId: ${externalId}`);
       return NextResponse.json({ error: 'Property not found' }, { status: 404 });
     }
