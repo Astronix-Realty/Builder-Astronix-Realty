@@ -10,6 +10,8 @@ const UnitSchema = new mongoose.Schema(
     floorNumber: { type: Number },
     configuration: { type: String },
     area: { type: Number },
+    carpetArea: { type: Number },
+    builtUpArea: { type: Number },
     price: { type: Number },
     ratePerSqft: { type: Number },
     facing: { type: String },

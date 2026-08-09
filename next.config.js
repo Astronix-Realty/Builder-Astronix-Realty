@@ -1,7 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     typescript: { ignoreBuildErrors: true },
-    eslint: { ignoreDuringBuilds: true },
+    serverExternalPackages: ['cloudinary'],
+    experimental: {
+        serverActions: {
+            bodySizeLimit: '50mb',
+        },
+    },
     images: {
         remotePatterns: [
             { protocol: 'https', hostname: 'res.cloudinary.com' },

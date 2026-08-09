@@ -35,8 +35,13 @@ export async function GET(req: NextRequest) {
       const builderUser = p.builderId || {};
       const bProfile = builderUser.builderId || {};
       const mProfile = builderUser.mandateId || {};
-      const companyName = bProfile.companyName || mProfile.companyName || builderUser.profile?.companyName || builderUser.profile?.fullName || '';
-      const builderName = bProfile.developerName || mProfile.fullName || companyName || builderUser.email || 'Unknown Builder';
+      const companyName = bProfile.companyName || mProfile.companyName || builderUser.profile?.companyName || '';
+      
+      const docDetails = p.details || {};
+      const formBuilderName = p.builderName || docDetails.builderName || docDetails.township?.builderName || docDetails.township?.developerName || docDetails.project?.builderName || '';
+
+      const fallbackBuilderName = bProfile.developerName || companyName || (builderUser.userType === 'mandate' || builderUser.role === 'mandate' ? (mProfile.companyName || builderUser.profile?.companyName || mProfile.fullName) : mProfile.fullName) || builderUser.email || 'Unknown Builder';
+      const builderName = formBuilderName || fallbackBuilderName;
 
       const typeLabel = p.type ? p.type.charAt(0).toUpperCase() + p.type.slice(1) : 'Standalone Project';
       const locStr = p.location ? [p.location.address, p.location.city, p.location.state].filter(Boolean).join(', ') : '';

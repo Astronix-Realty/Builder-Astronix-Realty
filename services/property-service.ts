@@ -790,8 +790,11 @@ export async function publishProperty(draftId: string, context: RBACContext) {
         // Also sync updated published property snapshot to Admin Panel
         if (process.env.ADMIN_PANEL_URL && process.env.INTERNAL_API_SECRET) {
           try {
-            let builderName = 'Unknown Builder';
-            if ((publishedProp as any).builderId) {
+            const details = (publishedProp as any).details || {};
+            const township = details.township || {};
+            let builderName = (publishedProp as any).builderName || details.builderName || township.builderName || township.developerName || '';
+
+            if (!builderName && (publishedProp as any).builderId) {
               try {
                 const Builder = (await import('@/models/Builder')).default;
                 const builderDoc = await Builder.findById((publishedProp as any).builderId);
@@ -800,9 +803,7 @@ export async function publishProperty(draftId: string, context: RBACContext) {
                 }
               } catch (e) {}
             }
-
-            const details = (publishedProp as any).details || {};
-            const township = details.township || {};
+            if (!builderName) builderName = 'Unknown Builder';
             const locationStr = `${township.city || (publishedProp as any).location?.city || ''}, ${township.state || (publishedProp as any).location?.state || ''}`.replace(/^, |, $/g, '') || township.address || (publishedProp as any).location?.address || 'Location N/A';
 
             await fetch(`${process.env.ADMIN_PANEL_URL}/api/internal/properties`, {
@@ -1072,23 +1073,26 @@ export async function submitPropertyForApproval(draftId: string, context: RBACCo
       // Sync submitted root property to Admin Panel asynchronously
       const rootDraft = result.rootDraft;
       if (process.env.ADMIN_PANEL_URL && process.env.INTERNAL_API_SECRET) {
-        let builderName = 'Unknown Builder';
-        try {
-          const Builder = (await import('@/models/Builder')).default;
-          const builderDoc = await Builder.findById(rootDraft.builderId);
-          if (builderDoc) {
-            builderName = builderDoc.companyName || builderDoc.fullName || builderDoc.email || 'Unknown Builder';
-          } else {
-            const User = (await import('@/models/User')).default;
-            const userDoc = await User.findById(rootDraft.builderId);
-            if (userDoc) {
-              builderName = (userDoc as any).profile?.companyName || (userDoc as any).profile?.fullName || (userDoc as any).profile?.developerName || (userDoc as any).email || 'Unknown Builder';
-            }
-          }
-        } catch (e) {}
-
         const details = rootDraft.details || {};
         const township = details.township || {};
+        let builderName = rootDraft.builderName || details.builderName || township.builderName || township.developerName || '';
+
+        if (!builderName) {
+          try {
+            const Builder = (await import('@/models/Builder')).default;
+            const builderDoc = await Builder.findById(rootDraft.builderId);
+            if (builderDoc) {
+              builderName = builderDoc.companyName || builderDoc.fullName || builderDoc.email || 'Unknown Builder';
+            } else {
+              const User = (await import('@/models/User')).default;
+              const userDoc = await User.findById(rootDraft.builderId);
+              if (userDoc) {
+                builderName = (userDoc as any).profile?.companyName || (userDoc as any).profile?.fullName || (userDoc as any).profile?.developerName || (userDoc as any).email || 'Unknown Builder';
+              }
+            }
+          } catch (e) {}
+        }
+        if (!builderName) builderName = 'Unknown Builder';
         const locationStr = `${township.city || rootDraft.location?.city || ''}, ${township.state || rootDraft.location?.state || ''}`.replace(/^, |, $/g, '') || township.address || rootDraft.location?.address || 'Location N/A';
 
         const eventId = `submit_${rootDraft._id}_${Date.now()}`;

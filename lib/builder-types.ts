@@ -937,6 +937,118 @@ export const createInitialTower = (index: number, projectId: string): TowerData 
   priceRangeMax: 0,
 })
 
+export const getDefaultRoomDimensionsForType = (type: string): RoomDimension[] => {
+  let rooms: { name: string; length: string; width: string }[] = [];
+
+  switch (type) {
+    case "1BHK":
+      rooms = [
+        { name: "Living + Dining", length: "14", width: "10" },
+        { name: "Master Bedroom", length: "12", width: "10" },
+        { name: "Kitchen", length: "8", width: "7" },
+        { name: "Master Washroom", length: "7", width: "5" },
+        { name: "Balcony 1", length: "10", width: "4" },
+      ];
+      break;
+    case "2BHK":
+      rooms = [
+        { name: "Living Room", length: "16", width: "12" },
+        { name: "Dining Area", length: "10", width: "9" },
+        { name: "Master Bedroom", length: "13", width: "11" },
+        { name: "Bedroom 2", length: "11", width: "10" },
+        { name: "Kitchen", length: "10", width: "8" },
+        { name: "Master Washroom", length: "7", width: "5" },
+        { name: "Common Washroom", length: "6", width: "5" },
+        { name: "Balcony 1", length: "10", width: "4" },
+        { name: "Balcony 2", length: "8", width: "4" },
+      ];
+      break;
+    case "3BHK":
+      rooms = [
+        { name: "Living Room", length: "18", width: "13" },
+        { name: "Dining Area", length: "11", width: "10" },
+        { name: "Master Bedroom", length: "14", width: "12" },
+        { name: "Bedroom 2", length: "12", width: "11" },
+        { name: "Bedroom 3", length: "11", width: "10" },
+        { name: "Kitchen", length: "11", width: "9" },
+        { name: "Master Washroom", length: "8", width: "5" },
+        { name: "Washroom 2", length: "7", width: "5" },
+        { name: "Common Washroom", length: "7", width: "5" },
+        { name: "Balcony 1", length: "12", width: "5" },
+        { name: "Balcony 2", length: "10", width: "4" },
+      ];
+      break;
+    case "4BHK":
+      rooms = [
+        { name: "Living Room", length: "22", width: "15" },
+        { name: "Dining Area", length: "13", width: "11" },
+        { name: "Master Suite", length: "16", width: "14" },
+        { name: "Bedroom 2", length: "13", width: "12" },
+        { name: "Bedroom 3", length: "12", width: "11" },
+        { name: "Bedroom 4", length: "12", width: "10" },
+        { name: "Kitchen + Utility", length: "13", width: "10" },
+        { name: "Master Washroom", length: "9", width: "6" },
+        { name: "Washroom 2", length: "8", width: "5" },
+        { name: "Washroom 3", length: "7", width: "5" },
+        { name: "Balcony 1", length: "14", width: "6" },
+        { name: "Balcony 2", length: "12", width: "5" },
+      ];
+      break;
+    case "5BHK":
+    case "penthouse":
+    case "duplex":
+      rooms = [
+        { name: "Grand Living Room", length: "24", width: "16" },
+        { name: "Dining Room", length: "14", width: "12" },
+        { name: "Master Suite", length: "18", width: "14" },
+        { name: "Bedroom 2", length: "14", width: "12" },
+        { name: "Bedroom 3", length: "13", width: "12" },
+        { name: "Bedroom 4", length: "12", width: "11" },
+        { name: "Bedroom 5", length: "12", width: "10" },
+        { name: "Chef's Kitchen", length: "14", width: "10" },
+        { name: "Master Washroom", length: "10", width: "7" },
+        { name: "Washroom 2", length: "8", width: "6" },
+        { name: "Servant Room", length: "9", width: "7" },
+        { name: "Private Terrace / Balcony", length: "16", width: "8" },
+      ];
+      break;
+    case "studio":
+      rooms = [
+        { name: "Living + Bed Area", length: "16", width: "12" },
+        { name: "Kitchenette", length: "7", width: "6" },
+        { name: "Washroom", length: "7", width: "5" },
+        { name: "Balcony", length: "8", width: "4" },
+      ];
+      break;
+    case "shop":
+    case "office":
+    case "showroom":
+      rooms = [
+        { name: "Main Hall / Working Area", length: "20", width: "15" },
+        { name: "Reception", length: "10", width: "8" },
+        { name: "Pantry", length: "8", width: "6" },
+        { name: "Washroom", length: "6", width: "5" },
+      ];
+      break;
+    default:
+      rooms = [
+        { name: "Living + Dining", length: "18", width: "12" },
+        { name: "Master Bedroom", length: "13", width: "11" },
+        { name: "Bedroom 2", length: "11", width: "10" },
+        { name: "Kitchen", length: "10", width: "8" },
+        { name: "Balcony 1", length: "10", width: "4" },
+      ];
+  }
+
+  return rooms.map((r, index) => ({
+    id: `room-${Date.now()}-${index}-${Math.random().toString(36).substring(7)}`,
+    roomName: r.name,
+    length: r.length,
+    width: r.width,
+    unit: "ft",
+  }));
+}
+
 export const defaultRoomDimensions: RoomDimension[] = [
   { id: "1", roomName: "Living + Dining", length: "18", width: "12", unit: "ft" },
   { id: "2", roomName: "Master Bedroom", length: "13", width: "11", unit: "ft" },
@@ -1006,7 +1118,7 @@ export const createDefaultUnitConfig = (type: UnitConfiguration["type"], carpetA
   ceilingHeight: "10",
   furnishingStatus: "unfurnished",
   viewType: "Garden View",
-  roomDimensions: defaultRoomDimensions.map(r => ({ ...r, id: Math.random().toString(36).substring(7) })),
+  roomDimensions: getDefaultRoomDimensionsForType(type),
   vastuAnalysis: defaultVastu.map(v => ({ ...v, id: Math.random().toString(36).substring(7) })),
   moveInChecklist: defaultMoveIn.map(m => ({ ...m, id: Math.random().toString(36).substring(7) })),
   floorPlanImage2D: "",
