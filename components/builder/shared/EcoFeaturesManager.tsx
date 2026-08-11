@@ -152,7 +152,7 @@ export function EcoFeaturesManager({
   onRemove,
   videoUrl,
   onVideoUrlChange,
-  subtitle = "Select sustainability & eco categories. Titles and descriptions populate automatically for visitor panel.",
+  subtitle = "Select sustainability & eco categories, configure video tour and log text for visitor panel.",
 }: EcoFeaturesManagerProps) {
 
   // Auto-sync empty titles/descriptions with their resolved category preset
@@ -164,8 +164,8 @@ export function EcoFeaturesManager({
         if (preset) {
           onUpdate(item.id, {
             icon: preset.iconKey,
-            title: preset.title,
-            description: preset.description,
+            title: item.title || preset.title,
+            description: item.description || preset.description,
           })
         }
       }
@@ -250,7 +250,6 @@ export function EcoFeaturesManager({
               const preset = PRESET_ECO_CATEGORIES[currentCatKey] || PRESET_ECO_CATEGORIES.water
               const IconComponent = preset.icon
               const displayTitle = item.title || preset.title
-              const displayDesc = item.description || preset.description
 
               return (
                 <Card
@@ -314,22 +313,17 @@ export function EcoFeaturesManager({
                       </Select>
                     </div>
 
-                    {/* Automatic System Predefined Display Preview Box */}
-                    <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-950/40 border border-slate-100 dark:border-slate-800/80 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                          Auto Category Title
-                        </span>
-                        <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                          Visitor Ready
-                        </Badge>
-                      </div>
-                      <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                        {displayTitle}
-                      </p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
-                        {displayDesc}
-                      </p>
+                    {/* Log Text / Detail Description Input Field */}
+                    <div>
+                      <Label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 block">
+                        Log Text / Detail Description
+                      </Label>
+                      <Input
+                        value={item.description ?? ""}
+                        onChange={(e) => onUpdate(item.id, { description: e.target.value })}
+                        placeholder="e.g. Advanced groundwater recharge system"
+                        className="h-9 text-xs bg-slate-50/80 dark:bg-slate-950/50 font-medium border-slate-300 dark:border-slate-700"
+                      />
                     </div>
                   </CardContent>
                 </Card>
