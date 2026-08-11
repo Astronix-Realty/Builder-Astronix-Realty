@@ -843,15 +843,28 @@ function TowerFlowFormBase({ data, unitConfig, unitTemplate, onChange, projectNa
             <div className="mb-5">
               <GooglePlacesSearch
                 onLocationSelected={(loc) => {
-                  if (loc.nearbyLandmark) updateCommon("nearbyLandmark", loc.nearbyLandmark);
-                  if (loc.googleMapLink) updateCommon("googleMapLink", loc.googleMapLink);
-                  if (loc.googlePlusCode) updateCommon("googlePlusCode", loc.googlePlusCode);
-                  if (loc.coordinates) updateCommon("coordinates", loc.coordinates);
-                  if (loc.gmbReviews && loc.gmbReviews.length > 0) {
-                    updateCommon("allGmbReviews", loc.gmbReviews);
-                    if (!townshipData.gmbReviews || townshipData.gmbReviews.length === 0) {
-                      updateCommon("gmbReviews", loc.gmbReviews.slice(0, 3));
-                    }
+                  if (onTownshipChange) {
+                    onTownshipChange((prev) => {
+                      const next = { ...prev };
+                      if (loc.city) next.city = loc.city;
+                      if (loc.district) next.district = loc.district;
+                      if (loc.subCity) next.subCity = loc.subCity;
+                      if (loc.village) next.village = loc.village;
+                      if (loc.state) next.state = loc.state;
+                      if (loc.country) next.country = loc.country;
+                      if (loc.pincode) next.pincode = loc.pincode;
+                      if (loc.nearbyLandmark) next.nearbyLandmark = loc.nearbyLandmark;
+                      if (loc.googleMapLink) next.googleMapLink = loc.googleMapLink;
+                      if (loc.googlePlusCode) next.googlePlusCode = loc.googlePlusCode;
+                      if (loc.coordinates) next.coordinates = loc.coordinates;
+                      if (loc.gmbReviews && loc.gmbReviews.length > 0) {
+                        next.allGmbReviews = loc.gmbReviews;
+                        if (!prev.gmbReviews || prev.gmbReviews.length === 0) {
+                          next.gmbReviews = loc.gmbReviews.slice(0, 3);
+                        }
+                      }
+                      return next;
+                    });
                   }
                 }}
               />

@@ -275,7 +275,7 @@ export default function GooglePlacesSearch({
               designation: r.relative_time_description || "GMB Verified Reviewer",
               rating: r.rating || 5,
               quote: r.text || "Great experience and location.",
-              avatar: r.profile_photo_url || `https://randomuser.me/api/portraits/men/${Math.floor(Math.random() * 50)}.jpg`,
+              avatar: r.profile_photo_url || "",
             }))
           : [];
 
@@ -301,7 +301,7 @@ export default function GooglePlacesSearch({
         toast.success(
           `📍 Google Maps details linked for: ${place.name || "Selected Location"}`,
           {
-            description: `Map URL, Plus Code & Landmark linked. Fill City, District & Area fields manually below.`,
+            description: `City, District, Sub City, Area, State, Country, Pincode & Map details auto-filled!`,
           }
         );
       });
