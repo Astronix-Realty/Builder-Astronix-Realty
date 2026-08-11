@@ -9,9 +9,10 @@ interface MiniImageUploadProps {
     onChange: (value: string) => void
     size?: number
     className?: string
+    fallbackIcon?: React.ReactNode
 }
 
-export function MiniImageUpload({ value, onChange, size = 48, className }: MiniImageUploadProps) {
+export function MiniImageUpload({ value, onChange, size = 48, className, fallbackIcon }: MiniImageUploadProps) {
     const [isHovered, setIsHovered] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const [isLoading, setIsLoading] = useState(false)
@@ -74,6 +75,15 @@ export function MiniImageUpload({ value, onChange, size = 48, className }: MiniI
                         <Image src={value} alt="Amenity" fill className="object-cover" unoptimized />
                         {isHovered && (
                             <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white">
+                                <Camera className="w-4 h-4" />
+                            </div>
+                        )}
+                    </div>
+                ) : fallbackIcon ? (
+                    <div className="relative w-full h-full flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:text-blue-500 transition-colors">
+                        {fallbackIcon}
+                        {isHovered && (
+                            <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center text-white">
                                 <Camera className="w-4 h-4" />
                             </div>
                         )}

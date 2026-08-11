@@ -23,6 +23,8 @@ import type {
 import { BannerUpload, GalleryUpload, VideoUpload, MasterPlanMapUpload, DocumentUpload, AboutImageUpload } from "@/components/ui/media-uploads"
 import { ImageUpload } from "@/components/ui/image-upload"
 import { MiniImageUpload } from "@/components/builder/shared/MiniImageUpload"
+import { ConnectivityManager } from "@/components/builder/shared/ConnectivityManager"
+import { EcoFeaturesManager } from "@/components/builder/shared/EcoFeaturesManager"
 import { AmenitiesManager } from "@/components/builder/shared/AmenitiesManager"
 import GooglePlacesSearch from "@/components/builder/forms/GooglePlacesSearch"
 import { GmbReviewsSelector } from "@/components/builder/shared/GmbReviewsSelector"
@@ -863,102 +865,23 @@ function ProjectFlowFormBase({ data, onChange, townshipName, townshipData, onTow
           </Section>
 
           <Section id="connectivity" title="Connectivity" description="Airport, Railway, Metro, Hospital, Schools distance" icon={Wifi} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-            {(townshipData?.connectivity || []).map(item => (
-              <Card key={item.id} className="mb-3 border-gray-100 dark:border-slate-800 shadow-none">
-                <CardContent className="p-3">
-                  <Grid cols={2}>
-                    <Field label="Location Name">
-                      <Input value={item.title ?? ""} onChange={e => updateConnectivity(item.id, { title: e.target.value })} placeholder="International Airport" className="h-8 text-xs" />
-                    </Field>
-                    <Field label="Type">
-                      <Select value={item.type} onValueChange={v => updateConnectivity(item.id, { type: v as ConnectivityItem["type"] })}>
-                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {["airport", "railway", "metro", "highway", "hospital", "school", "mall", "it-park", "bus", "custom"].map(t => (
-                            <SelectItem key={t} value={t} className="text-xs">{t.charAt(0).toUpperCase() + t.slice(1)}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    <Field label="Distance">
-                      <Input value={item.distanceKm ?? ""} onChange={e => updateConnectivity(item.id, { distanceKm: e.target.value })} placeholder="18 KM" className="h-8 text-xs" />
-                    </Field>
-                    <Field label="Travel Time">
-                      <Input value={item.duration ?? ""} onChange={e => updateConnectivity(item.id, { duration: e.target.value })} placeholder="25 Mins" className="h-8 text-xs" />
-                    </Field>
-                  </Grid>
-                  {item.type === "custom" && (
-                    <div className="mt-3 pt-3 border-t border-gray-100 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <Field label="Custom Type / Category Name">
-                        <Input value={item.customType ?? ""} onChange={e => updateConnectivity(item.id, { customType: e.target.value })} placeholder="e.g. Expressway, Port, Temple" className="h-8 text-xs" />
-                      </Field>
-                      <Field label="Custom Icon / Image">
-                        <div className="flex items-center gap-2">
-                          <MiniImageUpload value={item.icon} onChange={url => updateConnectivity(item.id, { icon: url })} size={36} />
-                          <Input value={item.icon ?? ""} onChange={e => updateConnectivity(item.id, { icon: e.target.value })} placeholder="Icon URL or upload image" className="h-8 text-xs flex-1" />
-                        </div>
-                      </Field>
-                    </div>
-                  )}
-                  <button type="button" onClick={() => removeConnectivity(item.id)} className="mt-2 text-[10px] text-red-400 hover:text-red-600 flex items-center gap-1 font-bold uppercase tracking-wider">
-                    <X className="w-3 h-3" /> Remove Item
-                  </button>
-                </CardContent>
-              </Card>
-            ))}
-            <Button type="button" variant="outline" size="sm" onClick={addConnectivity} className="w-full border-dashed text-xs h-9 bg-gray-50 dark:bg-slate-800/50/50 hover:bg-gray-50 dark:bg-slate-800/50">
-              <Plus className="w-4 h-4 mr-1 text-blue-600" /> Add Connectivity Point
-            </Button>
+            <ConnectivityManager
+              items={townshipData?.connectivity || []}
+              onAdd={addConnectivity}
+              onUpdate={updateConnectivity}
+              onRemove={removeConnectivity}
+            />
           </Section>
 
           <Section id="eco-common" title="Sustainability & Eco Features" description="Solar, Rainwater, Green Cover — Sustainability section" icon={Leaf} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-            <SectionTitle title="Specific Eco Features" />
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {(townshipData?.ecoFeatures || []).map(item => (
-                <Card key={item.id} className="group relative border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 transition-all hover:border-green-300 dark:hover:border-green-700 hover:shadow-sm overflow-hidden">
-                  <button 
-                    type="button"
-                    onClick={() => removeEcoCommon(item.id)} 
-                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1.5 bg-red-50 hover:bg-red-100 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-500 rounded-md transition-all z-10"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                  <CardContent className="p-0 flex items-stretch">
-                    <div className="p-4 bg-slate-50/50 dark:bg-slate-900/50 border-r border-gray-100 dark:border-slate-700 flex flex-col items-center justify-center shrink-0 w-[100px]">
-                      <MiniImageUpload 
-                        value={item.image || (item.icon?.startsWith("http") ? item.icon : "")} 
-                        onChange={(url) => updateEcoCommon(item.id, { image: url, icon: url })}
-                        size={48}
-                      />
-                    </div>
-                    
-                    <div className="flex-1 p-3 space-y-3 justify-center flex flex-col">
-                      <div className="pr-6 relative">
-                        <label className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider ml-1 block mb-1">Title</label>
-                        <Input 
-                          value={item.title ?? ""} 
-                          onChange={e => updateEcoCommon(item.id, { title: e.target.value })} 
-                          placeholder="E.g. Solar Power" 
-                          className="h-8 border-transparent bg-slate-50 hover:bg-gray-100 focus:bg-white focus-visible:ring-green-500/30 focus-visible:border-green-500 dark:bg-slate-900/50 dark:hover:bg-slate-900 transition-all text-sm font-medium" 
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase tracking-wider ml-1 block mb-1">Description</label>
-                        <Input 
-                          value={item.description ?? ""} 
-                          onChange={e => updateEcoCommon(item.id, { description: e.target.value })} 
-                          placeholder="E.g. 100% renewable energy for common areas" 
-                          className="h-8 border-transparent bg-slate-50 hover:bg-gray-100 focus:bg-white focus-visible:ring-green-500/30 focus-visible:border-green-500 dark:bg-slate-900/50 dark:hover:bg-slate-900 transition-all text-xs" 
-                        />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-            <Button type="button" variant="outline" size="sm" onClick={addEcoCommon} className="w-full border-dashed mt-4 text-sm h-11 bg-green-50/50 hover:bg-green-50 dark:bg-green-900/10 dark:hover:bg-green-900/20 text-green-700 dark:text-green-500 border-green-200 dark:border-green-900/50">
-              <Plus className="w-4 h-4 mr-2" /> Add Sustainability Feature
-            </Button>
+            <EcoFeaturesManager
+              items={townshipData?.ecoFeatures || []}
+              onAdd={addEcoCommon}
+              onUpdate={updateEcoCommon}
+              onRemove={removeEcoCommon}
+              videoUrl={townshipData?.landscapeVideoUrl}
+              onVideoUrlChange={(url) => updateCommon("landscapeVideoUrl", url)}
+            />
           </Section>
 
 
