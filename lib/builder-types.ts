@@ -639,9 +639,9 @@ export const defaultAmenities: AmenityItem[] = [
 ]
 
 export const defaultEcoFeatures: EcoFeature[] = [
-  { id: "eco-1", title: "Rainwater Harvesting", description: "Advanced groundwater recharge system", icon: "droplet" },
-  { id: "eco-2", title: "Solar Power", description: "Solar panels for common area lighting", icon: "sun" },
-  { id: "eco-3", title: "Waste Management", description: "In-house organic waste composting", icon: "recycle" },
+  { id: "eco-1", title: "Rainwater Harvesting", description: "Advanced groundwater recharge system", icon: "droplet", image: "https://images.unsplash.com/photo-1541888946425-d0fbb186a5b7?w=800" },
+  { id: "eco-2", title: "Solar Power", description: "Solar panels for common area lighting", icon: "sun", image: "https://images.unsplash.com/photo-1509391365360-2e959784a276?w=800" },
+  { id: "eco-3", title: "Waste Management", description: "In-house organic waste composting", icon: "recycle", image: "https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?w=800" },
 ]
 
 export const defaultFaqs: FaqItem[] = [

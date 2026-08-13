@@ -318,7 +318,7 @@ function ProjectFlowFormBase({ data, onChange, townshipName, townshipData, onTow
 
   const addEcoCommon = () => {
     if (!townshipData) return
-    const item: EcoFeature = { id: uuidv4(), title: "", description: "", icon: "leaf" }
+    const item: EcoFeature = { id: uuidv4(), title: "", description: "", icon: "rainwater_harvesting" }
     updateCommon("ecoFeatures", [...(townshipData.ecoFeatures || []), item])
   }
   const updateEcoCommon = (id: string, patch: Partial<EcoFeature>) => {
@@ -368,7 +368,7 @@ function ProjectFlowFormBase({ data, onChange, townshipName, townshipData, onTow
 
   // Eco features
   const addEco = () => {
-    const item: EcoFeature = { id: uuidv4(), title: "", description: "", icon: "leaf" }
+    const item: EcoFeature = { id: uuidv4(), title: "", description: "", icon: "rainwater_harvesting" }
     update("ecoFeatures", [...(data.ecoFeatures || []), item])
   }
   const updateEco = (id: string, patch: Partial<EcoFeature>) =>

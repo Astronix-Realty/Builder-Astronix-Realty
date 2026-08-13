@@ -375,7 +375,7 @@ function TowerFlowFormBase({ data, unitConfig, unitTemplate, onChange, projectNa
 
   const addEcoCommon = () => {
     if (!townshipData) return
-    const item: EcoFeature = { id: uuidv4(), title: "", description: "", icon: "leaf" }
+    const item: EcoFeature = { id: uuidv4(), title: "", description: "", icon: "rainwater_harvesting" }
     updateCommon("ecoFeatures", [...(townshipData.ecoFeatures || []), item])
   }
   const updateEcoCommon = (id: string, patch: Partial<EcoFeature>) => {
