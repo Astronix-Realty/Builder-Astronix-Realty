@@ -35,13 +35,16 @@ export async function GET(req: NextRequest) {
       const builderUser = p.builderId || {};
       const bProfile = builderUser.builderId || {};
       const mProfile = builderUser.mandateId || {};
-      const companyName = bProfile.companyName || mProfile.companyName || builderUser.profile?.companyName || '';
       
+      const companyName = bProfile.companyName || mProfile.companyName || builderUser.profile?.companyName || p.details?.companyName || 'Astronix Realty Group';
+      const companyLogo = bProfile.logo || mProfile.logo || builderUser.profile?.logo || p.details?.logo || p.details?.companyLogo || '';
+
       const docDetails = p.details || {};
+      const developerPersonName = bProfile.developerName || mProfile.fullName || builderUser.profile?.fullName || builderUser.profile?.developerName || '';
       const formBuilderName = p.builderName || docDetails.builderName || docDetails.township?.builderName || docDetails.township?.developerName || docDetails.project?.builderName || '';
 
-      const fallbackBuilderName = bProfile.developerName || companyName || (builderUser.userType === 'mandate' || builderUser.role === 'mandate' ? (mProfile.companyName || builderUser.profile?.companyName || mProfile.fullName) : mProfile.fullName) || builderUser.email || 'Unknown Builder';
-      const builderName = formBuilderName || fallbackBuilderName;
+      // builderName is the Developer/Promoter person name (or form builder name if distinct from companyName)
+      const builderName = developerPersonName || (formBuilderName && formBuilderName !== companyName ? formBuilderName : '') || (builderUser.email ? builderUser.email.split('@')[0] : 'Promoter / Developer');
 
       const typeLabel = p.type ? p.type.charAt(0).toUpperCase() + p.type.slice(1) : 'Standalone Project';
       const locStr = p.location ? [p.location.address, p.location.city, p.location.state].filter(Boolean).join(', ') : '';
@@ -72,6 +75,8 @@ export async function GET(req: NextRequest) {
         builderId: builderUser._id ? builderUser._id.toString() : (p.builderId ? p.builderId.toString() : ''),
         builderName: builderName,
         builder: builderName,
+        companyName: companyName,
+        companyLogo: companyLogo,
         location: locStr || p.location?.city || '',
         city: p.location?.city || '',
         state: p.location?.state || '',

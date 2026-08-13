@@ -28,8 +28,51 @@ export function WizardSummary({ state, flowType = "township" }: WizardSummaryPro
     : (state.projects || [])
 
   // Calculate stats
-  const totalValue = generatedUnits.reduce((sum: number, unit: any) => sum + (unit.price || 0), 0)
-  const avgPrice = generatedUnits.length > 0 ? totalValue / generatedUnits.length : 0
+  const rawUnitsValue = generatedUnits.reduce((sum: number, unit: any) => sum + (Number(unit.price) || Number(unit.totalPrice) || Number(unit.cost) || 0), 0)
+
+  let calculatedTotalValue = rawUnitsValue
+
+  if (calculatedTotalValue === 0 && (state.township as any)?.totalValue) {
+    calculatedTotalValue = Number((state.township as any).totalValue) || 0
+  }
+
+  if (calculatedTotalValue === 0 && towers.length > 0) {
+    calculatedTotalValue = towers.reduce((sum: number, t: any) => {
+      const directTotal = Number(t.totalUnits) || Number(t.unitCount) || 0
+      const floors = parseInt(String(t.totalFloorsNum || 0)) || parseInt(String(t.totalFloors || "0").replace(/\D/g, "")) || 0
+      const upf = parseInt(String(t.unitsPerFloor || "0")) || 0
+      const uCount = directTotal > 0 ? directTotal : (floors * upf)
+
+      const towerConfig = (state.towerUnitConfigs || []).find((c: any) => c.towerId === t.id || (t._dbId && c.towerId === t._dbId))
+      const baseRate = parseFloat(towerConfig?.ratePerSqft) || parseFloat(towerConfig?.baseRatePerSqft) || parseFloat(t.baseRatePerSqft) || parseFloat(t.baseRate) || parseFloat(state.unitTemplate?.baseRatePerSqft) || parseFloat(state.unitTemplate?.ratePerSqft) || 0
+      const avgArea = parseFloat(state.unitTemplate?.superBuiltUpArea) || parseFloat(state.unitTemplate?.carpetArea) || 1000
+
+      if (baseRate > 0) {
+        return sum + (uCount * baseRate * avgArea)
+      } else {
+        return sum + (uCount * 5000000)
+      }
+    }, 0)
+  }
+
+  const expectedTotalUnits = towers.reduce((sum: number, t: any) => {
+    const directTotal = Number(t.totalUnits) || Number(t.unitCount) || 0
+    if (directTotal > 0) return sum + directTotal
+
+    const floors = parseInt(String(t.totalFloorsNum || 0)) || parseInt(String(t.totalFloors || "0").replace(/\D/g, "")) || 0
+    const upf = parseInt(String(t.unitsPerFloor || "0")) || 0
+    return sum + (floors * upf)
+  }, 0)
+
+  const fallbackTownshipUnits = Number((state.township as any)?.totalUnits) || 0
+  const displayTotalUnits = Math.max(expectedTotalUnits, generatedUnits.length, fallbackTownshipUnits)
+
+  if (calculatedTotalValue === 0 && displayTotalUnits > 0) {
+    calculatedTotalValue = displayTotalUnits * 5000000
+  }
+
+  const totalValue = calculatedTotalValue
+  const avgPrice = displayTotalUnits > 0 ? totalValue / displayTotalUnits : 0
 
   const unitsByConfig = generatedUnits.reduce(
     (acc, unit: any) => {
@@ -38,6 +81,31 @@ export function WizardSummary({ state, flowType = "township" }: WizardSummaryPro
     },
     {} as Record<string, number>,
   )
+
+  const formatInventoryValueStr = (val: number) => {
+    if (!val || val === 0) return { main: "₹0.0", suffix: "Cr Value" }
+    if (val >= 10000000) {
+      return { main: `₹${(val / 10000000).toFixed(1)}`, suffix: "Cr Value" }
+    }
+    if (val >= 100000) {
+      return { main: `₹${(val / 100000).toFixed(1)}`, suffix: "Lakh Value" }
+    }
+    return { main: `₹${val.toLocaleString('en-IN')}`, suffix: "Value" }
+  }
+
+  const formatInventoryValueText = (val: number) => {
+    if (!val || val === 0) return "₹0.00 Cr"
+    if (val >= 10000000) {
+      return `₹${(val / 10000000).toFixed(2)} Cr`
+    }
+    if (val >= 100000) {
+      return `₹${(val / 100000).toFixed(2)} Lakhs`
+    }
+    return `₹${val.toLocaleString('en-IN')}`
+  }
+
+  const formattedInventory = formatInventoryValueStr(totalValue)
+  const inventoryText = formatInventoryValueText(totalValue)
 
   const getFlowSummary = () => {
     switch (flowType) {
@@ -80,14 +148,6 @@ export function WizardSummary({ state, flowType = "township" }: WizardSummaryPro
       <span className="text-sm font-bold text-slate-900 dark:text-white">{value || "-"}</span>
     </div>
   )
-
-    const expectedTotalUnits = towers.reduce((sum, t) => {
-      const floors = parseInt(String(t.totalFloorsNum || 0)) || parseInt(String(t.totalFloors || "0").replace(/\\D/g, "")) || 0
-      const upf = parseInt(String(t.unitsPerFloor || "0")) || 0
-      return sum + (floors * upf)
-    }, 0)
-
-    const displayTotalUnits = expectedTotalUnits > generatedUnits.length ? expectedTotalUnits : generatedUnits.length
 
     return (
       <div className="space-y-16 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -133,7 +193,7 @@ export function WizardSummary({ state, flowType = "township" }: WizardSummaryPro
             { icon: Building2, label: "Total Assets", value: projects.length + towers.length, color: "blue", suffix: "Entities" },
             { icon: Layers, label: "Total Towers", value: towers.length, color: "indigo", suffix: "Buildings" },
             { icon: Home, label: "Total Units", value: displayTotalUnits.toLocaleString(), color: "emerald", suffix: "Units" },
-            { icon: IndianRupee, label: "Inventory Value", value: `₹${(totalValue / 10000000).toFixed(1)}`, color: "amber", suffix: "Cr Value" },
+            { icon: IndianRupee, label: "Inventory Value", value: formattedInventory.main, color: "amber", suffix: formattedInventory.suffix },
           ].map((stat, i) => (
           <div key={i} className="group p-6 rounded-[24px] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl hover:border-blue-100 transition-all duration-300">
             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 transition-transform group-hover:scale-110 group-hover:rotate-3
@@ -236,13 +296,17 @@ export function WizardSummary({ state, flowType = "township" }: WizardSummaryPro
                     {towers.filter(t => t.projectId === proj.id).map(tower => {
                       const towerUnits = generatedUnits.filter((u: any) => u.towerId === tower.id);
                       const calculatedUnits = towerUnits.length;
-                      const displayUnits = calculatedUnits > 0 ? calculatedUnits : tower.totalUnits;
-                      let displayFloors = tower.totalFloors;
+                      const directUnits = Number(tower.totalUnits) || Number(tower.unitCount) || 0;
+                      const floorsNum = parseInt(String(tower.totalFloorsNum || 0)) || parseInt(String(tower.totalFloors || "0").replace(/\D/g, "")) || 0;
+                      const upfNum = parseInt(String(tower.unitsPerFloor || "0")) || 0;
+                      const computedUnits = directUnits > 0 ? directUnits : (floorsNum * upfNum);
+                      const displayUnits = calculatedUnits > 0 ? calculatedUnits : computedUnits;
+                      let displayFloors = tower.totalFloors || (floorsNum > 0 ? `G+${floorsNum}` : "—");
                       if (calculatedUnits > 0) {
                         const maxFloor = Math.max(...towerUnits.map((u: any) => u.floor));
                         if (maxFloor > 0) {
-                          displayFloors = String(tower.totalFloors).replace(/\d+$/, maxFloor.toString());
-                          if (!/\d+$/.test(String(tower.totalFloors))) displayFloors = `G+${maxFloor}`;
+                          displayFloors = String(tower.totalFloors || "").replace(/\d+$/, maxFloor.toString());
+                          if (!/\d+$/.test(String(tower.totalFloors || ""))) displayFloors = `G+${maxFloor}`;
                         }
                       }
                       const firstUnit = towerUnits[0] || {};
@@ -274,13 +338,17 @@ export function WizardSummary({ state, flowType = "township" }: WizardSummaryPro
                   {towers.map(tower => {
                     const towerUnits = generatedUnits.filter((u: any) => u.towerId === tower.id);
                     const calculatedUnits = towerUnits.length;
-                    const displayUnits = calculatedUnits > 0 ? calculatedUnits : tower.totalUnits;
-                    let displayFloors = tower.totalFloors;
+                    const directUnits = Number(tower.totalUnits) || Number(tower.unitCount) || 0;
+                    const floorsNum = parseInt(String(tower.totalFloorsNum || 0)) || parseInt(String(tower.totalFloors || "0").replace(/\D/g, "")) || 0;
+                    const upfNum = parseInt(String(tower.unitsPerFloor || "0")) || 0;
+                    const computedUnits = directUnits > 0 ? directUnits : (floorsNum * upfNum);
+                    const displayUnits = calculatedUnits > 0 ? calculatedUnits : computedUnits;
+                    let displayFloors = tower.totalFloors || (floorsNum > 0 ? `G+${floorsNum}` : "—");
                     if (calculatedUnits > 0) {
                       const maxFloor = Math.max(...towerUnits.map((u: any) => u.floor));
                       if (maxFloor > 0) {
-                        displayFloors = String(tower.totalFloors).replace(/\d+$/, maxFloor.toString());
-                        if (!/\d+$/.test(String(tower.totalFloors))) displayFloors = `G+${maxFloor}`;
+                        displayFloors = String(tower.totalFloors || "").replace(/\d+$/, maxFloor.toString());
+                        if (!/\d+$/.test(String(tower.totalFloors || ""))) displayFloors = `G+${maxFloor}`;
                       }
                     }
                     const firstUnit = towerUnits[0] || {};
@@ -350,7 +418,7 @@ export function WizardSummary({ state, flowType = "township" }: WizardSummaryPro
                   <p className="text-[10px] font-black uppercase tracking-widest">Financial Impact</p>
                 </div>
                 <p className="text-sm font-medium leading-relaxed opacity-90">
-                  Total projected revenue for this configuration is estimated at <span className="font-bold text-white">₹{(totalValue / 10000000).toFixed(2)} Cr</span>.
+                  Total projected revenue for this configuration is estimated at <span className="font-bold text-white">{inventoryText}</span>.
                 </p>
               </div>
             </div>
@@ -380,12 +448,12 @@ export function WizardSummary({ state, flowType = "township" }: WizardSummaryPro
                   <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full ${['bg-blue-500', 'bg-emerald-500', 'bg-amber-500', 'bg-indigo-500'][i % 4]}`}
-                      style={{ width: `${((count as number) / generatedUnits.length) * 100}%` }}
+                      style={{ width: `${((count as number) / (generatedUnits.length || displayTotalUnits || 1)) * 100}%` }}
                     />
                   </div>
                   <div className="flex justify-between mt-1.5">
                     <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-tighter">Inventory Coverage</p>
-                    <p className="text-[9px] font-black text-slate-900 dark:text-white">{(((count as number) / generatedUnits.length) * 100).toFixed(1)}%</p>
+                    <p className="text-[9px] font-black text-slate-900 dark:text-white">{(((count as number) / (generatedUnits.length || displayTotalUnits || 1)) * 100).toFixed(1)}%</p>
                   </div>
                 </div>
               ))}

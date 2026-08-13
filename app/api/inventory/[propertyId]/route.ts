@@ -158,15 +158,24 @@ async function fetchUnitsForTowers(
 // ─── Helper: Derive floor count from tower details ───────────────────────────
 // Priority: totalFloorsNum → parse totalFloors string → max floor in floorGroups → units ÷ unitsPerFloor
 
-function deriveFloorCount(towerDetails: any, towerUnitConfigs: any[], towerId: string): number {
-  // 1. Direct numeric field (most reliable)
-  if (towerDetails?.totalFloorsNum && Number(towerDetails.totalFloorsNum) > 0) {
-    return Number(towerDetails.totalFloorsNum);
-  }
+function deriveFloorCount(towerObj: any, towerUnitConfigs: any[], towerId: string, towerUnitsList: any[] = []): number {
+  if (!towerObj) return 0;
+  const d = towerObj.details || towerObj;
 
-  // 2. Parse totalFloors string — handles "G + 25", "G+30", "25", "B2 + 25" etc.
-  if (towerDetails?.totalFloors) {
-    const numMatches = String(towerDetails.totalFloors).match(/\d+/g);
+  // 1. Direct numeric fields (most reliable)
+  if (towerObj.totalFloorsNum && Number(towerObj.totalFloorsNum) > 0) return Number(towerObj.totalFloorsNum);
+  if (d.totalFloorsNum && Number(d.totalFloorsNum) > 0) return Number(d.totalFloorsNum);
+  if (typeof towerObj.totalFloors === "number" && towerObj.totalFloors > 0) return towerObj.totalFloors;
+  if (typeof d.totalFloors === "number" && d.totalFloors > 0) return d.totalFloors;
+  if (typeof towerObj.floors === "number" && towerObj.floors > 0) return towerObj.floors;
+  if (typeof d.floors === "number" && d.floors > 0) return d.floors;
+  if (typeof towerObj.floorCount === "number" && towerObj.floorCount > 0) return towerObj.floorCount;
+  if (typeof d.floorCount === "number" && d.floorCount > 0) return d.floorCount;
+
+  // 2. Parse totalFloors / floors string — handles "G + 25", "G+30", "25", "B2 + 25" etc.
+  const rawFloorsStr = String(towerObj.totalFloors || d.totalFloors || towerObj.floors || d.floors || "");
+  if (rawFloorsStr) {
+    const numMatches = rawFloorsStr.match(/\d+/g);
     if (numMatches && numMatches.length > 0) {
       const parsed = parseInt(numMatches[numMatches.length - 1]);
       if (parsed > 0) return parsed;
@@ -176,9 +185,10 @@ function deriveFloorCount(towerDetails: any, towerUnitConfigs: any[], towerId: s
   // 3. Derive from floorGroups (most accurate for wizard-configured towers)
   const config = (towerUnitConfigs || []).find((c: any) =>
     c.towerId === towerId ||
-    c.towerId === towerDetails?.id
+    c.towerId === towerObj?.id ||
+    c.towerId === d?.id
   );
-  const floorGroups = config?.floorGroups || towerDetails?.floorGroups || [];
+  const floorGroups = config?.floorGroups || d?.floorGroups || towerObj?.floorGroups || [];
   if (Array.isArray(floorGroups) && floorGroups.length > 0) {
     const allFloors = floorGroups.flatMap((g: any) => g.floors || []).filter((f: number) => f > 0);
     if (allFloors.length > 0) {
@@ -186,9 +196,15 @@ function deriveFloorCount(towerDetails: any, towerUnitConfigs: any[], towerId: s
     }
   }
 
-  // 4. Fallback: totalUnits ÷ unitsPerFloor
-  const totalUnits = Number(towerDetails?.totalUnits) || 0;
-  const unitsPerFloor = Number(towerDetails?.unitsPerFloor) || parseInt(String(towerDetails?.unitsPerFloor || "")) || 0;
+  // 4. Derive from max floor number in unit list
+  if (Array.isArray(towerUnitsList) && towerUnitsList.length > 0) {
+    const maxF = Math.max(...towerUnitsList.map((u: any) => Number(u.floorNumber || u.floor || 0)));
+    if (maxF > 0) return maxF;
+  }
+
+  // 5. Fallback: totalUnits ÷ unitsPerFloor
+  const totalUnits = Number(towerObj?.totalUnits) || Number(d?.totalUnits) || Number(towerObj?.unitCount) || Number(d?.unitCount) || 0;
+  const unitsPerFloor = Number(towerObj?.unitsPerFloor) || Number(d?.unitsPerFloor) || parseInt(String(towerObj?.unitsPerFloor || d?.unitsPerFloor || "")) || 0;
   if (totalUnits > 0 && unitsPerFloor > 0) {
     return Math.round(totalUnits / unitsPerFloor);
   }
@@ -325,7 +341,8 @@ async function buildHierarchy(
             if (floor1) baseRate = Math.round(floor1.price / floor1.area);
           }
         }
-        const derivedFloors = deriveFloorCount(tower.details, rootProperty.details?.towerUnitConfigs || [], towerIdStr);
+        const towerUnitsList = projectUnits.filter(u => u.towerId === towerIdStr);
+        const derivedFloors = deriveFloorCount(tower, rootProperty.details?.towerUnitConfigs || [], towerIdStr, towerUnitsList);
         const derivedUnitsPerFloor = Number(tower.details?.unitsPerFloor) || parseInt(String(tower.details?.unitsPerFloor || "")) || 0;
         towers.push({
           _id: towerIdStr,
@@ -382,7 +399,8 @@ async function buildHierarchy(
             if (f1) baseRate = Math.round(f1.price / f1.area);
           }
         }
-        const derivedFloors = deriveFloorCount(tower.details, rootProperty.details?.towerUnitConfigs || [], towerIdStr);
+        const towerUnitsList = directProjectUnits.filter(u => u.towerId === towerIdStr);
+        const derivedFloors = deriveFloorCount(tower, rootProperty.details?.towerUnitConfigs || [], towerIdStr, towerUnitsList);
         const derivedUnitsPerFloor = Number(tower.details?.unitsPerFloor) || parseInt(String(tower.details?.unitsPerFloor || "")) || 0;
         towers.push({
           _id: towerIdStr,
@@ -447,7 +465,8 @@ async function buildHierarchy(
           if (f1) baseRate = Math.round(f1.price / f1.area);
         }
       }
-      const derivedFloors = deriveFloorCount(tower.details, rootProperty.details?.towerUnitConfigs || [], towerIdStr);
+        const towerUnitsList = projectUnits.filter(u => u.towerId === towerIdStr);
+        const derivedFloors = deriveFloorCount(tower, rootProperty.details?.towerUnitConfigs || [], towerIdStr, towerUnitsList);
       const derivedUnitsPerFloor = Number(tower.details?.unitsPerFloor) || parseInt(String(tower.details?.unitsPerFloor || "")) || 0;
       towers.push({
         _id: towerIdStr,
@@ -506,7 +525,7 @@ async function buildHierarchy(
       const embeddedUnits: any[] = rootProperty.details?.generatedUnits || [];
       baseRate = deriveRateFromUnits(towerUnits) || deriveRateFromUnits(embeddedUnits);
     }
-    const derivedFloors = deriveFloorCount(rootProperty.details, rootProperty.details?.towerUnitConfigs || [], towerIdStr);
+    const derivedFloors = deriveFloorCount(rootProperty, rootProperty.details?.towerUnitConfigs || [], towerIdStr, towerUnits);
     const derivedUnitsPerFloor = Number(rootProperty.details?.unitsPerFloor) || parseInt(String(rootProperty.details?.unitsPerFloor || "")) || 0;
     towers.push({
       _id: towerIdStr,
