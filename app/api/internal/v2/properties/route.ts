@@ -61,6 +61,8 @@ export async function GET(req: NextRequest) {
         stageStr = 'admin-review';
       }
 
+      const userRole = (p.role || builderUser.role || (builderUser.mandateId ? 'mandate' : (p.mandateId ? 'mandate' : 'builder'))).toLowerCase();
+
       return {
         id: p._id.toString(),
         externalId: p._id.toString(),
@@ -70,6 +72,11 @@ export async function GET(req: NextRequest) {
         slug: p.slug,
         type: typeLabel,
         flowType: p.flowType || p.type,
+        role: userRole,
+        userRole: userRole,
+        source: userRole,
+        builderType: userRole,
+        isMandate: userRole === 'mandate',
         status: statusStr, // 'pending' | 'approved' | 'rejected' | 'delisted' | 'draft' | 'withdrawal_requested' | 'withdrawn'
         currentStage: stageStr,
         builderId: builderUser._id ? builderUser._id.toString() : (p.builderId ? p.builderId.toString() : ''),

@@ -1196,14 +1196,18 @@ function DashboardContent() {
 
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
 
-                        <div className="absolute top-4 left-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-1.5 z-20">
-                          <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 uppercase tracking-widest">{property.flowType}</span>
-                          {property.flowType === "township" && (
-                            <>
-                              <ChevronRight className="h-3 w-3 text-slate-400" />
+                        {/* Mandate Seller & Hierarchy Badges */}
+                        <div className="absolute top-3 left-3 flex flex-wrap items-center gap-1.5 z-20">
+                          <span className="bg-gradient-to-r from-amber-500 via-purple-600 to-indigo-600 text-white backdrop-blur-md px-2.5 py-1 rounded-lg border border-amber-400/40 text-[10px] font-extrabold uppercase tracking-widest shadow-md flex items-center gap-1">
+                            <Shield className="h-3 w-3 text-amber-200" />
+                            MANDATE SELLER
+                          </span>
+                          <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-1">
+                            <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 uppercase tracking-widest">{property.flowType}</span>
+                            {property.flowType === "township" && (
                               <Layers className="h-3 w-3 text-blue-500" />
-                            </>
-                          )}
+                            )}
+                          </div>
                         </div>
 
                         <div className="absolute top-4 right-4 z-20">
