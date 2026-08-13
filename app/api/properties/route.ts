@@ -159,8 +159,8 @@ export async function GET(req: NextRequest) {
       else {
         const details = p.details || {};
         const township = details.township || {};
-        const projects = details.projects || [];
-        const towers = details.towers || [];
+        const projects = Array.isArray(details.projects) ? details.projects : [];
+        const towers = Array.isArray(details.towers) ? details.towers : [];
 
         // Resolve thumbnail from draft snapshot
         const thumbnail = township.heroImage ||
@@ -168,9 +168,40 @@ export async function GET(req: NextRequest) {
           towers.find((tw: any) => tw?.heroImage)?.heroImage ||
           null;
 
-        const projectsCount = projects.length;
-        const towersCount = towers.length;
-        const unitsCount = details.generatedUnits?.length || 0;
+        const projectsCount = p.type === 'township' ? Math.max(projects.length, 1) : (p.type === 'project' ? 1 : 0);
+        
+        const projectEmbeddedTowers = projects.reduce((acc: number, proj: any) => acc + (Array.isArray(proj?.towers) ? proj.towers.length : 0), 0);
+        const towersCount = Math.max(towers.length + projectEmbeddedTowers, p.type === 'tower' ? 1 : 0);
+
+        const allTowersList = [...towers];
+        projects.forEach((proj: any) => {
+          if (Array.isArray(proj?.towers)) {
+            proj.towers.forEach((tow: any) => {
+              if (!allTowersList.some((t: any) => t.id === tow.id || t.name === tow.name)) {
+                allTowersList.push(tow);
+              }
+            });
+          }
+        });
+
+        let calculatedTowerUnits = 0;
+        if (allTowersList.length > 0) {
+          calculatedTowerUnits = allTowersList.reduce((sum: number, t: any) => {
+            if (Array.isArray(t.units) && t.units.length > 0) return sum + t.units.length;
+            if (typeof t.totalUnits === 'number' && t.totalUnits > 0) return sum + t.totalUnits;
+            if (typeof t.totalUnits === 'string' && parseInt(t.totalUnits) > 0) return sum + parseInt(t.totalUnits);
+            const floors = t.totalFloorsNum || parseInt((String(t.totalFloors || '').match(/\d+/g) || []).at(-1) || '0') || 0;
+            const perFloor = parseInt(t.unitsPerFloor) || 0;
+            return sum + (floors * perFloor);
+          }, 0);
+        }
+
+        const snapshotUnits = Array.isArray(details.generatedUnits) ? details.generatedUnits : [];
+        const unitsCount = Math.max(
+          snapshotUnits.length,
+          calculatedTowerUnits,
+          Number(p.units) || Number(p.totalUnits) || Number(township.totalUnits) || Number(details.totalUnits) || 0
+        );
 
         return {
           ...p,

@@ -253,46 +253,55 @@ function DashboardContent() {
     let name = p.name || p.townshipName || "Untitled Property"
     let location = p.location || "Location not set"
 
-    // Prioritize server-calculated counts
-    let projectsCount = p.calculatedCounts?.projectsCount || 0
-    let towersCount = p.calculatedCounts?.towersCount || 0
-    let unitsCount = p.calculatedCounts?.unitsCount || 0
-    let thumbnail = p.thumbnail || undefined
+    // ── Accurate Hierarchy & Counts Resolution (Projects, Towers, Units) ──
+    const snapshotProjects = Array.isArray(details?.projects) ? details.projects : (Array.isArray(p.projects) ? p.projects : []);
+    let projectsCount = Math.max(
+      p.calculatedCounts?.projectsCount || 0,
+      snapshotProjects.length,
+      flowType === 'township' ? 1 : 0
+    );
+    if (flowType === 'project') projectsCount = 1;
+    if (flowType === 'tower') projectsCount = 0;
 
-    // Fallback for draft/pending if counts are missing in calculatedCounts
-    if (projectsCount === 0) {
-      if (flowType === "township") {
-        projectsCount = details.projects?.length || 0
-      } else if (flowType === "project") {
-        projectsCount = 1
+    const directTowers = Array.isArray(details?.towers) ? details.towers : (Array.isArray(p.towers) ? p.towers : []);
+    const projectEmbeddedTowers = snapshotProjects.reduce((acc: number, proj: any) => acc + (Array.isArray(proj?.towers) ? proj.towers.length : 0), 0);
+    let towersCount = Math.max(
+      p.calculatedCounts?.towersCount || 0,
+      directTowers.length + projectEmbeddedTowers,
+      flowType === 'tower' ? 1 : 0
+    );
+
+    const snapshotUnits = Array.isArray(details?.generatedUnits) ? details.generatedUnits : (Array.isArray(p.generatedUnits) ? p.generatedUnits : []);
+    const allTowersList = [...directTowers];
+    snapshotProjects.forEach((proj: any) => {
+      if (Array.isArray(proj?.towers)) {
+        proj.towers.forEach((tow: any) => {
+          if (!allTowersList.some((t: any) => t.id === tow.id || t.name === tow.name)) {
+            allTowersList.push(tow);
+          }
+        });
       }
+    });
+
+    let calculatedTowerUnits = 0;
+    if (allTowersList.length > 0) {
+      calculatedTowerUnits = allTowersList.reduce((sum: number, t: any) => {
+        if (Array.isArray(t.units) && t.units.length > 0) return sum + t.units.length;
+        if (typeof t.totalUnits === 'number' && t.totalUnits > 0) return sum + t.totalUnits;
+        if (typeof t.totalUnits === 'string' && parseInt(t.totalUnits) > 0) return sum + parseInt(t.totalUnits);
+        const floors = t.totalFloorsNum || parseInt((String(t.totalFloors || '').match(/\d+/g) || []).at(-1) || '0') || 0;
+        const perFloor = parseInt(t.unitsPerFloor) || 0;
+        return sum + (floors * perFloor);
+      }, 0);
     }
 
-    if (towersCount === 0) {
-      if (flowType === "township" || flowType === "project") {
-        towersCount = details.towers?.length || 0
-      } else if (flowType === "tower") {
-        towersCount = 1
-      }
-    }
-
-    if (unitsCount === 0) {
-      // Calculate units dynamically from tower structure data
-      // generatedUnits is a transient computed array, never persisted to DB
-      const towers = details.towers || []
-      if (towers.length > 0) {
-        unitsCount = towers.reduce((total: number, t: any) => {
-          const floors = t.totalFloorsNum || parseInt((String(t.totalFloors || "").match(/\d+/g) || []).at(-1) || "0") || 0
-          const perFloor = parseInt(t.unitsPerFloor) || 0
-          return total + (floors * perFloor)
-        }, 0)
-      }
-
-      // Fallback: use township.totalUnits if available
-      if (unitsCount === 0) {
-        unitsCount = details.township?.totalUnits || details.generatedUnits?.length || 0
-      }
-    }
+    let unitsCount = Math.max(
+      p.calculatedCounts?.unitsCount || 0,
+      snapshotUnits.length,
+      calculatedTowerUnits,
+      Number(p.units) || Number(p.totalUnits) || Number(details?.township?.totalUnits) || Number(details?.totalUnits) || 0
+    );
+    let thumbnail = p.thumbnail || undefined;
 
     // Hero Image Discovery (Search hierarchy if thumbnail is missing)
     if (!thumbnail) {
