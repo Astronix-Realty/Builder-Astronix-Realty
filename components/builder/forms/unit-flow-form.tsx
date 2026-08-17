@@ -2146,7 +2146,7 @@ data, onChange, towerName, projectName, townshipName,
                         const activeConfig = (data.configurations || []).find(c => c.id === activeSlot.configId) ||
                                              (data.configurations || []).find(c => c.type.toUpperCase().replace(/\s/g, "") === (activeSlot.unitTypeOverride || "").toUpperCase().replace(/\s/g, ""));
 
-                        const typeStr = (activeConfig?.type || activeSlot.unitTypeOverride || activeSlot.type || "").trim();
+                        const typeStr = (activeConfig?.type || activeSlot.unitTypeOverride || (activeSlot as any).type || "").trim();
                         let bedroomCount = 1; // Default to 1 BHK so bedroom Vastu fields are always accessible
                         const match = typeStr.match(/(\d+)\s*BHK/i);
                         if (match) {

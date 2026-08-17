@@ -771,7 +771,7 @@ function TownshipFlowFormBase({ data, onChange, user }: TownshipFlowFormProps) {
                 if (loc.nearbyLandmark) next.nearbyLandmark = loc.nearbyLandmark;
                 if (loc.googleMapLink) next.googleMapLink = loc.googleMapLink;
                 if (loc.googlePlusCode) next.googlePlusCode = loc.googlePlusCode;
-                if (loc.coordinates) next.coordinates = loc.coordinates;
+                if (loc.coordinates) next.coordinates = { lat: String(loc.coordinates.lat || ''), lng: String(loc.coordinates.lng || '') };
                 if (loc.gmbReviews && loc.gmbReviews.length > 0) {
                   next.allGmbReviews = loc.gmbReviews;
                   if (!prev.gmbReviews || prev.gmbReviews.length === 0) {
