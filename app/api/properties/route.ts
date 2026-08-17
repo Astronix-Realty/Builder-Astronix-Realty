@@ -89,13 +89,28 @@ export async function GET(req: NextRequest) {
     // Fetch ALL unit counts grouped by tower using Aggregation
     let unitCountsMap: Record<string, number> = {};
     if (combinedTowerIds.length > 0) {
+      const towerIdStrings = combinedTowerIds.map((id: any) => id.toString());
+      const allTowerMatches = [...combinedTowerIds, ...towerIdStrings];
       const unitCountsAgg = await Unit.aggregate([
-        { $match: { towerId: { $in: combinedTowerIds } } },
-        { $group: { _id: "$towerId", count: { $sum: 1 } } }
+        {
+          $match: {
+            $or: [
+              { towerId: { $in: allTowerMatches } },
+              { parentId: { $in: combinedTowerIds } }
+            ]
+          }
+        },
+        {
+          $group: {
+            _id: { $ifNull: ["$towerId", "$parentId"] },
+            count: { $sum: 1 }
+          }
+        }
       ]);
       unitCountsAgg.forEach((item: any) => {
-        // Handle objectId / string discrepancies safely
-        unitCountsMap[item._id.toString()] = item.count;
+        if (item._id) {
+          unitCountsMap[item._id.toString()] = item.count;
+        }
       });
     }
 
@@ -104,7 +119,7 @@ export async function GET(req: NextRequest) {
       // 1. Handle Active/Published properties (Split DB rows)
       if (p.status === "published" || p.status === "archived") {
         let projectsCount = 0, towersCount = 0, unitsCount = 0;
-        let thumbnail = p.details?.heroImage || null;
+        let thumbnail = p.details?.heroImage || p.details?.township?.heroImage || p.details?.project?.heroImage || p.details?.tower?.heroImage || p.heroImage || null;
 
         if (p.type === 'township') {
           const projects = allChildProjects.filter((proj: any) => proj.parentId?.toString() === p._id.toString());
