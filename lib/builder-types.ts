@@ -30,7 +30,7 @@ export interface FaqItem {
 
 export interface TestimonialItem {
   id: string
-  name: string             // "Ramesh Gupta"
+  name: string             // "Rupesh Prasad"
   role: string             // "Tower A Resident"
   message: string          // "Quality of construction is truly impressive."
   rating: number           // 5  (1–5 stars)
