@@ -671,9 +671,7 @@ export const defaultTestimonials: TestimonialItem[] = [
   { id: "test-1", name: "Ramesh Kumar", role: "Resident", message: "Amazing construction quality and timely delivery.", rating: 5 },
 ]
 
-export const defaultReraPhases: ReraPhase[] = [
-  { id: "rera-1", phaseName: "Phase 1 - Towers A & B", reraNumber: "P521000XXXXX", validUntil: "2027-12-31" },
-]
+export const defaultReraPhases: ReraPhase[] = []
 
 export const defaultTowerAmenities: AmenityItem[] = [
   { id: "ta-0", title: "Sky Lounge", category: "social" },

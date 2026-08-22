@@ -527,7 +527,7 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
 
         const syncWorker = async () => {
             try {
-                const res = await fetch("/api/leads/sync");
+                const res = await fetch("/api/leads/sync?leadType=astronix");
                 if (res.ok) {
                     const data = await res.json();
                     if (data.snapshot) {
@@ -582,6 +582,19 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
         fetchProperties()
         fetchTeam()
 
+        // Helper to check if a lead belongs to Astronix Leads domain
+        const isAstronixLeadData = (leadData: any) => {
+            if (!leadData) return false;
+            const src = (leadData.source || '').toString();
+            return (
+                /website|astronix|doubt|visitor/i.test(src) ||
+                leadData.status === "Token VIP" ||
+                Boolean(leadData.isTokenPaid) ||
+                Boolean(leadData.isGroup) ||
+                (typeof leadData.groupSize === 'number' && leadData.groupSize > 0)
+            );
+        };
+
         // Establish SSE Connection
         const eventSource = new EventSource("/api/leads/stream");
         
@@ -591,7 +604,11 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                 if (payload.type === "CONNECTED" || payload.type === "HEARTBEAT") {
                     // keep-alive, do nothing
                 } else if (payload.type === "LEAD_CREATED") {
-                    console.log("[SSE] New Lead Created:", payload.leadId);
+                    // Strict domain boundary: only process if lead belongs to Astronix Leads
+                    if (!isAstronixLeadData(payload.data)) {
+                        return;
+                    }
+                    console.log("[SSE] New Astronix Lead Created:", payload.leadId);
                     const sid = toId(payload.data?._id || payload.leadId);
                     const realLead = { ...payload.data, id: sid, _id: sid, timeline: payload.data?.timeline || [] };
                     
@@ -604,8 +621,13 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                     upsertLead(realLead);
                     setTotalLeads(c => c + 1);
                 } else if (payload.type === "LEAD_UPDATED") {
-                    console.log("[SSE] Lead Updated:", payload.leadId);
                     if (payload.data) {
+                        if (!isAstronixLeadData(payload.data)) {
+                            // If a lead was updated such that it no longer belongs to Astronix, remove it from view
+                            removeLead(payload.leadId);
+                            return;
+                        }
+                        console.log("[SSE] Astronix Lead Updated:", payload.leadId);
                         const sid = toId(payload.data._id || payload.leadId);
                         upsertLead({ ...payload.data, id: sid, _id: sid, timeline: payload.data.timeline || [] });
                     }
