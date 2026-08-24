@@ -58,8 +58,49 @@ const LeadSchema = new mongoose.Schema({
     requirement: { type: String },
     budget: { type: String },
     assignee: { type: String },
+    leadType: {
+        type: String,
+        enum: ["normal", "token-hold", "group-buying", "specific-doubt"],
+        default: "normal",
+        index: true
+    },
+    loginStatus: {
+        type: String,
+        enum: ["authenticated", "guest"],
+        default: "guest",
+        index: true
+    },
+    visitorId: {
+        type: String,
+        index: true
+    },
     isTokenPaid: { type: Boolean, default: false },
+    tokenAmount: { type: Number, default: 0 },
+    paymentId: { type: String, index: true },
+    orderId: { type: String, index: true },
+    paymentStatus: {
+        type: String,
+        enum: ["pending", "paid", "failed", "refunded"],
+        default: "pending"
+    },
+    unitId: { type: String, index: true },
+    unitNumber: { type: String },
+    holdId: { type: String, index: true },
+    holdExpiresAt: { type: Date },
     interestedUnit: { type: String },
+    hierarchyContext: {
+        level: { type: String },
+        propertyId: { type: String },
+        propertyTitle: { type: String },
+        townshipId: { type: String },
+        townshipTitle: { type: String },
+        projectId: { type: String },
+        projectTitle: { type: String },
+        towerId: { type: String },
+        towerTitle: { type: String },
+        unitId: { type: String },
+        unitNumber: { type: String }
+    },
     isGroup: { type: Boolean, default: false },
     groupSize: { type: Number, default: 0 },
     groupDiscount: { type: String },

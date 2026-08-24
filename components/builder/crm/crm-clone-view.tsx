@@ -50,7 +50,16 @@ interface Lead {
     phone: string
     email?: string | null
     status: LeadStatus
+    leadType?: string
+    loginStatus?: 'authenticated' | 'guest'
+    visitorId?: string
     isTokenPaid: boolean
+    tokenAmount?: number
+    paymentId?: string
+    orderId?: string
+    paymentStatus?: string
+    holdId?: string
+    holdExpiresAt?: string
     requirement?: string
     budget?: string
     source: string
@@ -804,7 +813,7 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
 
     // --- PIPELINE VIEW ---
     const PipelineBoard = () => {
-        const allColumns: LeadStatus[] = ["Fresh", "Connected", "Site Visit", "Negotiation", "Final Negotiation", "Booked", "Junk"]
+        const allColumns: LeadStatus[] = ["Fresh", "Token VIP", "Connected", "Site Visit", "Negotiation", "Final Negotiation", "Booked", "Junk"]
 
         return (
             <div className="h-full overflow-x-auto pb-4">
@@ -831,61 +840,91 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
 
                             {/* Cards Area */}
                             <div className="p-2 flex-1 overflow-y-auto space-y-2 min-h-[100px]">
-                                {filteredLeads.filter(l => l.status === col).map((lead, idx) => (
-                                    <div
-                                        key={lead.id || `lead-${idx}`}
-                                        draggable={lead.status !== "Booked"}
-                                        onDragStart={(e) => {
-                                            if (lead.status === "Booked") {
-                                                e.preventDefault();
-                                                return;
-                                            }
-                                            handleDragStart(e, toId(lead.id || lead._id));
-                                        }}
-                                        onClick={() => openProfile(toId(lead.id || lead._id))}
-                                        className={`
-                                            p-3 rounded-lg shadow-sm border cursor-pointer hover:shadow-md transition-all relative group
-                                            ${lead.isGroup 
-                                                ? "bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800" 
-                                                : lead.isTokenPaid
-                                                ? "bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-300 dark:from-amber-900/20 dark:to-yellow-900/20 dark:border-amber-700"
-                                                : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"}
-                                        `}
-                                    >
-                                        <div className="flex justify-between items-start mb-2">
-                                            <h4 className="font-bold text-sm text-slate-900 dark:text-gray-100">{lead.name}</h4>
-                                            <div className="flex gap-1">
-                                                {lead.isTokenPaid && <Crown className="h-4 w-4 text-amber-600" />}
-                                                {lead.isGroup && (
-                                                    <span className="bg-purple-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1">
-                                                        <Users className="h-2.5 w-2.5"/> GROUP ({lead.groupSize || 0})
-                                                    </span>
+                                {filteredLeads.filter(l => l.status === col).map((lead, idx) => {
+                                    const isSpecificDoubt = lead.source?.includes('doubt') || lead.leadType === 'specific-doubt' || lead.requirement?.includes('Specific Doubt');
+                                    const isTokenHold = lead.status === 'Token VIP' || lead.isTokenPaid || lead.leadType === 'token-hold';
+
+                                    return (
+                                        <div
+                                            key={lead.id || `lead-${idx}`}
+                                            draggable={lead.status !== "Booked"}
+                                            onDragStart={(e) => {
+                                                if (lead.status === "Booked") {
+                                                    e.preventDefault();
+                                                    return;
+                                                }
+                                                handleDragStart(e, toId(lead.id || lead._id));
+                                            }}
+                                            onClick={() => openProfile(toId(lead.id || lead._id))}
+                                            className={`
+                                                p-3 rounded-lg shadow-sm border cursor-pointer hover:shadow-md transition-all relative group
+                                                ${lead.isGroup 
+                                                    ? "bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800" 
+                                                    : isTokenHold
+                                                    ? "bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-300 dark:from-amber-900/20 dark:to-yellow-900/20 dark:border-amber-700"
+                                                    : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"}
+                                            `}
+                                        >
+                                            <div className="flex justify-between items-start mb-2">
+                                                <h4 className="font-bold text-sm text-slate-900 dark:text-gray-100">{lead.name}</h4>
+                                                <div className="flex items-center gap-1 flex-wrap justify-end">
+                                                    {isTokenHold && (
+                                                        <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[9px] font-black px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                                                            <Crown className="h-3 w-3 text-amber-600" /> ₹111
+                                                        </span>
+                                                    )}
+                                                    {lead.isGroup && (
+                                                        <span className="bg-purple-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                                                            <Users className="h-2.5 w-2.5"/> GROUP ({lead.groupSize || 1})
+                                                        </span>
+                                                    )}
+                                                    {isSpecificDoubt && (
+                                                        <span className="bg-blue-100 text-blue-800 text-[9px] font-bold px-1.5 py-0.5 rounded">
+                                                            Specific Doubt
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div className="text-xs text-muted-foreground space-y-1 mb-2">
+                                                {lead.phone && <p className="flex items-center gap-1 font-medium text-slate-600 dark:text-slate-300">{lead.phone}</p>}
+                                                {lead.requirement && <p className="flex items-center gap-1 text-[11px]"><User className="h-3 w-3 shrink-0" /> <span className="line-clamp-1">{lead.requirement}</span></p>}
+                                                {lead.isGroup && lead.groupDiscount && (
+                                                    <p className="text-purple-600 dark:text-purple-400 font-semibold text-[10px] flex items-center gap-1">
+                                                        🔥 {lead.groupDiscount}
+                                                    </p>
                                                 )}
+                                                <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                                                    {lead.source && (
+                                                        <span className="inline-block text-[9px] px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-100">
+                                                            {lead.source}
+                                                        </span>
+                                                    )}
+                                                    {lead.loginStatus === 'authenticated' ? (
+                                                        <span className="inline-block text-[9px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                            ✓ Logged In
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-block text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                                                            Guest
+                                                        </span>
+                                                    )}
+                                                    {lead.holdId && (
+                                                        <span className="inline-block text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                                                            {lead.holdId}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {lead.assignee && <p className="text-slate-400 text-[10px] pt-0.5">👤 {lead.assignee}</p>}
+                                            </div>
+
+                                            {/* Hover Actions */}
+                                            <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 flex flex-col items-center gap-1 z-10">
+                                                <GripVertical className="h-4 w-4 text-slate-400" />
                                             </div>
                                         </div>
-
-                                        <div className="text-xs text-muted-foreground space-y-1 mb-2">
-                                            {lead.phone && <p className="flex items-center gap-1 font-medium text-slate-600 dark:text-slate-300">{lead.phone}</p>}
-                                            {lead.requirement && <p className="flex items-center gap-1"><User className="h-3 w-3" /> {lead.requirement}</p>}
-                                            {lead.isGroup && lead.groupDiscount && (
-                                                <p className="text-purple-600 dark:text-purple-400 font-semibold text-[10px] flex items-center gap-1">
-                                                    🔥 {lead.groupDiscount}
-                                                </p>
-                                            )}
-                                            {lead.source && (
-                                                <span className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-100">
-                                                    {lead.source}
-                                                </span>
-                                            )}
-                                            {lead.assignee && <p className="text-slate-400 text-[10px]">👤 {lead.assignee}</p>}
-                                        </div>
-
-                                        {/* Hover Actions */}
-                                        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 flex flex-col items-center gap-1 z-10">
-                                            <GripVertical className="h-4 w-4 text-slate-400" />
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                                 {/* Empty State */}
                                 {filteredLeads.filter(l => l.status === col).length === 0 && (
                                     <div className="flex flex-col items-center justify-center py-8 px-3 text-center">
