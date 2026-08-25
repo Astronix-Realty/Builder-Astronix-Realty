@@ -107,6 +107,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
     // ── Hierarchy Filter State ─────────────────────────────────────────────
     const [selectedProjectId, setSelectedProjectId] = useState<string>("all")
     const [selectedTowerId, setSelectedTowerId] = useState<string>("all")
+    const [openProjects, setOpenProjects] = useState<string[]>([])
 
     // ── Unit Filter State ──────────────────────────────────────────────────
     const [statusFilter, setStatusFilter] = useState<string>("all")
@@ -227,6 +228,13 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
     // Reset tower when project changes
     useEffect(() => { setSelectedTowerId("all") }, [selectedProjectId])
 
+    // Auto-open all projects whenever hierarchy loads
+    useEffect(() => {
+        if (hierarchy?.projects) {
+            setOpenProjects(hierarchy.projects.map(p => p._id))
+        }
+    }, [hierarchy])
+
     // Auto-sync every 60 seconds (silent)
     useEffect(() => {
         const interval = setInterval(() => {
@@ -310,12 +318,12 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
     // Stats calculated on scopeUnits (i.e. respecting hierarchy selection but ignoring search/status/config filters)
     const stats = useMemo(() => {
         const total = scopeUnits.length
-        const available = scopeUnits.filter(u => (u.status || "available") === "available").length
-        const sold = scopeUnits.filter(u => u.status === "sold").length
+        const available = scopeUnits.filter(u => !u.status || u.status === "available" || u.status === "published").length
+        const sold = scopeUnits.filter(u => u.status === "sold" || u.status === "booked").length
         const reserved = scopeUnits.filter(u => u.status === "reserved").length
         const blocked = scopeUnits.filter(u => u.status === "blocked").length
         const revenue = scopeUnits
-            .filter(u => u.status === "sold")
+            .filter(u => u.status === "sold" || u.status === "booked")
             .reduce((sum, u) => sum + (u.price || 0), 0)
         return { total, available, sold, reserved, blocked, revenue }
     }, [scopeUnits])
@@ -1303,7 +1311,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                             ) : (
                                 /* Accordion based Township/Project/Tower View */
                                 <div className="space-y-4">
-                                    <Accordion type="multiple" defaultValue={groupedHierarchy.map(p => p.project._id)} className="space-y-4">
+                                    <Accordion type="multiple" value={openProjects} onValueChange={setOpenProjects} className="space-y-4">
                                         {groupedHierarchy.map(({ project, towers }) => (
                                             <AccordionItem key={project._id} value={project._id} className="border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-950 shadow-sm overflow-hidden px-4">
                                                 <AccordionTrigger className="hover:no-underline py-4">

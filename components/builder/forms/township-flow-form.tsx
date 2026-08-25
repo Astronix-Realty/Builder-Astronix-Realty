@@ -909,27 +909,112 @@ function TownshipFlowFormBase({ data, onChange, user }: TownshipFlowFormProps) {
 
 
       {/* ── 9. GROUP BUYING ─────────────────────── */}
-      <Section id="groupbuying" title="Group Buying" description="Interest count + discount — GroupBuyingSection component" icon={Users} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
+      <Section id="groupbuying" title="Group Buying" description="Enable buyers to form teams and unlock tiered group booking discounts based on team size." icon={Users} badge="Active Deal" openIds={openIds} setOpenIds={setOpenIds}>
         <Grid cols={2}>
           <Field label="Enable Group Buying">
             <div className="flex items-center gap-3 mt-1">
               <button
                 type="button"
-                onClick={() => update("groupBuying", { ...data.groupBuying, enabled: !data.groupBuying?.enabled })}
-                className={`w-10 h-6 rounded-full transition-colors relative ${data.groupBuying?.enabled ? "bg-[#2BB673]" : "bg-gray-200"}`}
+                onClick={() => {
+                  const newEnabled = !data.groupBuying?.enabled;
+                  const now = new Date();
+                  const formatDT = (d: Date) => {
+                    const pad = (n: number) => String(n).padStart(2, '0');
+                    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                  };
+                  update("groupBuying", { 
+                    ...data.groupBuying, 
+                    enabled: newEnabled,
+                    startDate: data.groupBuying?.startDate || formatDT(now),
+                    endDate: data.groupBuying?.endDate || formatDT(new Date(now.getTime() + 48 * 60 * 60 * 1000)),
+                    discountLabel: data.groupBuying?.discountLabel ?? "Extra 2% off on group booking",
+                    targetCount: Number(data.groupBuying?.targetCount) > 0 ? Number(data.groupBuying?.targetCount) : 500
+                  });
+                }}
+                className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer ${data.groupBuying?.enabled ? "bg-[#10B981]" : "bg-gray-200"}`}
               >
                 <span className={`absolute top-1 w-4 h-4 bg-white dark:bg-slate-900 rounded-full shadow transition-all ${data.groupBuying?.enabled ? "left-5" : "left-1"}`} />
               </button>
-              <span className="text-sm font-medium text-gray-600 dark:text-slate-400">{data.groupBuying?.enabled ? "Active" : "Inactive"}</span>
+              <span className={`text-xs font-black uppercase tracking-wider px-2 py-0.5 rounded ${data.groupBuying?.enabled ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : "bg-gray-100 text-gray-500"}`}>
+                {data.groupBuying?.enabled ? "Active" : "Inactive"}
+              </span>
             </div>
           </Field>
-          <Field label="Discount Label (in % or amount)" hint="Text shown on group buying card">
-            <Input value={data.groupBuying?.discountLabel || ""} onChange={e => update("groupBuying", { ...data.groupBuying, discountLabel: e.target.value })} placeholder="Extra 2% off on group booking" />
+          <Field label="Discount Label / Headline on Card" hint="Short headline on unit card & modal">
+            <Input 
+              value={data.groupBuying?.discountLabel ?? ""} 
+              onChange={e => update("groupBuying", { ...data.groupBuying, discountLabel: e.target.value })} 
+              placeholder="Extra 2% off on group booking" 
+            />
           </Field>
-          <Field label="Minimum people required for unlock discount" hint="Goal milestone for group buying">
-            <Input type="number" value={data.groupBuying?.targetCount || 500} onChange={e => update("groupBuying", { ...data.groupBuying, targetCount: Number(e.target.value) })} placeholder="500" />
+          <Field label="Minimum Participation to Trigger Discount" hint="Count of buyers to unlock base discount">
+            <Input 
+              type="number" 
+              value={data.groupBuying?.targetCount ?? 500} 
+              onChange={e => update("groupBuying", { ...data.groupBuying, targetCount: Number(e.target.value) })} 
+              placeholder="500" 
+            />
+          </Field>
+          <Field label="Deal Expiration / Live Until" hint="Countdown timer shown to buyers on unit card">
+            <Input 
+              type="datetime-local" 
+              value={(() => {
+                const val = data.groupBuying?.endDate;
+                if (!val) return "";
+                try {
+                  const d = new Date(val);
+                  if (isNaN(d.getTime())) return typeof val === "string" && val.includes("T") ? val.slice(0, 16) : "";
+                  const pad = (n: number) => String(n).padStart(2, "0");
+                  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                } catch { return ""; }
+              })()} 
+              onChange={e => {
+                const now = new Date();
+                const pad = (n: number) => String(n).padStart(2, '0');
+                const nowStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+                update("groupBuying", { 
+                  ...data.groupBuying, 
+                  startDate: data.groupBuying?.startDate || nowStr,
+                  endDate: e.target.value 
+                });
+              }} 
+            />
           </Field>
         </Grid>
+
+        {/* Quick Expiry Presets */}
+        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-slate-800 flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-bold text-gray-500">Quick Duration Presets:</span>
+          {[
+            { label: '24 Hours', hours: 24 },
+            { label: '48 Hours', hours: 48 },
+            { label: '7 Days', hours: 24 * 7 },
+            { label: '14 Days', hours: 24 * 14 },
+            { label: '30 Days', hours: 24 * 30 }
+          ].map(preset => (
+            <button
+              key={preset.label}
+              type="button"
+              onClick={() => {
+                const now = new Date();
+                const end = new Date(now.getTime() + preset.hours * 60 * 60 * 1000);
+                const formatDT = (d: Date) => {
+                  const pad = (n: number) => String(n).padStart(2, '0');
+                  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                };
+                update("groupBuying", {
+                  ...data.groupBuying,
+                  enabled: true,
+                  startDate: data.groupBuying?.startDate || formatDT(now),
+                  endDate: formatDT(end)
+                });
+              }}
+              className="px-2.5 py-1 text-[10px] font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg transition-colors cursor-pointer"
+            >
+              +{preset.label}
+            </button>
+          ))}
+        </div>
       </Section>
 
       </PartCollapse>

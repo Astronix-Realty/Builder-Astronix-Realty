@@ -1555,7 +1555,7 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
             "Karan Malhotra", "Kavita Iyer", "Deepak Verma", "Swati Rao", "Nitin Agarwal"
         ];
         
-        // Mock members for the group, but retain merged ones
+        // Render members for the group with primary registrant at index 0
         const members = Array.from({length: groupSize}).map((_, i) => {
             const standardCount = groupSize - (selectedLead.mergedMembers?.length || 0);
             
@@ -1564,11 +1564,12 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                 if (mergedMember) return mergedMember;
             }
 
+            const isPrimary = i === 0;
             return {
                 id: `member-${i}`,
-                name: indianNames[i % indianNames.length],
-                phone: `+91 98989 ${String(10000 + i).slice(1)}`,
-                status: memberStatuses[i] || (i === 0 ? selectedLead.status : (i % 3 === 0 ? "Negotiation" : "Site Visit")),
+                name: isPrimary ? (selectedLead.name || "Primary Registrant") : indianNames[i % indianNames.length],
+                phone: isPrimary ? (selectedLead.phone || "+91 98989 10000") : `+91 98989 ${String(10000 + i).slice(1)}`,
+                status: memberStatuses[i] || (isPrimary ? selectedLead.status : (i % 3 === 0 ? "Negotiation" : "Site Visit")),
             };
         });
 

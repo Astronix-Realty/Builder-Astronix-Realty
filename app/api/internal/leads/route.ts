@@ -51,14 +51,30 @@ export async function POST(req: NextRequest) {
       builderId: builderId || undefined,
     });
 
+    const isGroupLead = leadType === 'group-buying' || leadType === 'group' || Boolean(body.isGroup);
+
     if (existingLead) {
       // Update existing lead with new interaction
+      if (isGroupLead) {
+        existingLead.isGroup = true;
+        existingLead.leadType = 'group-buying';
+        existingLead.source = source || 'visitor-group-buying';
+        existingLead.status = 'Fresh';
+        existingLead.groupSize = Number(groupSize) || (existingLead.groupSize && existingLead.groupSize > 0 ? existingLead.groupSize : 1);
+        existingLead.groupDiscount = groupDiscount || existingLead.groupDiscount || '3% Group Discount Unlocked';
+        existingLead.loginStatus = body.loginStatus || 'authenticated';
+      }
       existingLead.timeline.push({
-        title: `Repeat inquiry from ${source || 'Astronix Website'}`,
-        desc: `Property: ${propertyTitle || 'Unknown'}. Type: ${leadType || 'normal'}`,
+        title: isGroupLead ? 'Group Buying Interest Registered' : `Repeat inquiry from ${source || 'Astronix Website'}`,
+        desc: `Property: ${propertyTitle || 'Unknown'}. Type: ${isGroupLead ? 'group-buying' : (leadType || 'normal')}`,
         type: 'system',
         date: new Date(),
       });
+      if (body.hierarchyContext) {
+        existingLead.hierarchyContext = body.hierarchyContext;
+        if (body.hierarchyContext.unitId) existingLead.unitId = body.hierarchyContext.unitId;
+        if (body.hierarchyContext.unitNumber) existingLead.unitNumber = body.hierarchyContext.unitNumber;
+      }
       await existingLead.save();
 
       console.log(`[Internal] Duplicate lead updated for ${phone} (builder: ${builderId})`);
@@ -71,17 +87,23 @@ export async function POST(req: NextRequest) {
       phone,
       email: email || '',
       builderId: builderId || undefined,
-      source: source || 'Astronix Website',
+      source: source || (isGroupLead ? 'Group Buying' : 'Astronix Website'),
       status: 'Fresh',
       requirement: requirement || '',
       budget: budget || '',
       isTokenPaid: isTokenPaid || false,
-      isGroup: leadType === 'group',
-      groupSize: groupSize || 0,
-      groupDiscount: groupDiscount || '',
+      isGroup: isGroupLead,
+      leadType: isGroupLead ? 'group-buying' : (leadType || 'normal'),
+      loginStatus: body.loginStatus || (isGroupLead ? 'authenticated' : 'guest'),
+      visitorId: body.visitorId || undefined,
+      groupSize: Number(groupSize) || (isGroupLead ? 1 : 0),
+      groupDiscount: groupDiscount || (isGroupLead ? 'Extra Discount Unlocked' : ''),
+      hierarchyContext: body.hierarchyContext || undefined,
+      unitId: body.hierarchyContext?.unitId || undefined,
+      unitNumber: body.hierarchyContext?.unitNumber || undefined,
       timeline: [{
-        title: `Lead received from ${source || 'Astronix Website'}`,
-        desc: `Property: ${propertyTitle || 'Unknown'}. Type: ${leadType || 'normal'}`,
+        title: isGroupLead ? 'Group Buying Interest Registered' : `Lead received from ${source || 'Astronix Website'}`,
+        desc: `Property: ${propertyTitle || 'Unknown'}. Type: ${isGroupLead ? 'group-buying' : (leadType || 'normal')}`,
         type: 'system',
         date: new Date(),
       }],

@@ -37,11 +37,22 @@ export interface TestimonialItem {
   avatarUrl?: string       // Photo URL
 }
 
+export interface GroupBuyingTier {
+  id?: string
+  name: string
+  targetCount: number
+  discountPercent?: number
+  discountLabel?: string
+}
+
 export interface GroupBuyingConfig {
   enabled: boolean
-  currentCount: number     // "248 buyers interested"
-  targetCount: number      // "500 target"
-  discountLabel: string    // "Extra 2% off on group booking"
+  currentCount?: number    // "248 buyers interested"
+  targetCount: number     // "500 target"
+  discountLabel: string   // "Extra 52% off on group booking"
+  startDate?: string      // "2026-08-25T00:00" - Deal start date & time
+  endDate?: string        // "2026-08-30T23:59" - Deal expiration date & time
+  tiers?: GroupBuyingTier[]
 }
 
 export interface AmenityItem {

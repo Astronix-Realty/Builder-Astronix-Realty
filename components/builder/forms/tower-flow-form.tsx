@@ -1012,27 +1012,115 @@ function TowerFlowFormBase({ data, unitConfig, unitTemplate, onChange, projectNa
             </div>
           </Section>
 
-          <Section id="group-buying-common" title="Group Buying" description="Interest count + discount — GroupBuyingSection component" icon={Users} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
+          <Section id="group-buying-common" title="Group Buying" description="Enable buyers to form teams and unlock tiered group booking discounts based on team size." icon={Users} badge="Active Deal" openIds={openIds} setOpenIds={setOpenIds}>
             <Grid cols={2}>
               <Field label="Enable Group Buying">
                 <div className="flex items-center gap-3 mt-1">
                   <button
                     type="button"
-                    onClick={() => updateCommon("groupBuying", { ...townshipData.groupBuying, enabled: !townshipData.groupBuying?.enabled })}
-                    className={`w-10 h-6 rounded-full transition-colors relative ${townshipData.groupBuying?.enabled ? "bg-[#2BB673]" : "bg-gray-200"}`}
+                    onClick={() => {
+                      const newEnabled = !townshipData.groupBuying?.enabled;
+                      const now = new Date();
+                      const formatDT = (d: Date) => {
+                        const pad = (n: number) => String(n).padStart(2, '0');
+                        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                      };
+                      updateCommon("groupBuying", { 
+                        ...townshipData.groupBuying, 
+                        enabled: newEnabled,
+                        startDate: townshipData.groupBuying?.startDate || formatDT(now),
+                        endDate: townshipData.groupBuying?.endDate || formatDT(new Date(now.getTime() + 48 * 60 * 60 * 1000)),
+                        discountLabel: townshipData.groupBuying?.discountLabel ?? "Extra 2% off on group booking",
+                        targetCount: Number(townshipData.groupBuying?.targetCount) > 0 ? Number(townshipData.groupBuying?.targetCount) : 500
+                      });
+                    }}
+                    className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer ${townshipData.groupBuying?.enabled ? "bg-[#10B981]" : "bg-gray-200"}`}
                   >
                     <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${townshipData.groupBuying?.enabled ? "left-5" : "left-1"}`} />
                   </button>
-                  <span className="text-[11px] font-bold text-gray-500">{townshipData.groupBuying?.enabled ? "ACTIVE" : "INACTIVE"}</span>
+                  <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded ${townshipData.groupBuying?.enabled ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : "bg-gray-100 text-gray-500"}`}>
+                    {townshipData.groupBuying?.enabled ? "ACTIVE" : "INACTIVE"}
+                  </span>
                 </div>
               </Field>
-              <Field label="Discount Label" hint="Shown on card">
-                <Input value={townshipData.groupBuying?.discountLabel ?? ""} onChange={e => updateCommon("groupBuying", { ...townshipData.groupBuying, discountLabel: e.target.value })} placeholder="Extra 2% off" className="h-8 text-xs" />
+              <Field label="Discount Label / Headline on Card" hint="Short headline on unit card & modal">
+                <Input 
+                  value={townshipData.groupBuying?.discountLabel ?? ""} 
+                  onChange={e => updateCommon("groupBuying", { ...townshipData.groupBuying, discountLabel: e.target.value })} 
+                  placeholder="Extra 2% off on group booking" 
+                  className="h-8 text-xs" 
+                />
               </Field>
-              <Field label="Target Milestone">
-                <Input type="number" value={townshipData.groupBuying?.targetCount ?? 500} onChange={e => updateCommon("groupBuying", { ...townshipData.groupBuying, targetCount: Number(e.target.value) })} className="h-8 text-xs" />
+              <Field label="Minimum Participation to Trigger Discount" hint="Count of buyers to unlock base discount">
+                <Input 
+                  type="number" 
+                  value={townshipData.groupBuying?.targetCount ?? 500} 
+                  onChange={e => updateCommon("groupBuying", { ...townshipData.groupBuying, targetCount: Number(e.target.value) })} 
+                  className="h-8 text-xs" 
+                  placeholder="500"
+                />
+              </Field>
+              <Field label="Deal Expiration / Live Until" hint="Countdown timer shown to buyers on unit card">
+                <Input 
+                  type="datetime-local" 
+                  value={(() => {
+                    const val = townshipData.groupBuying?.endDate;
+                    if (!val) return "";
+                    try {
+                      const d = new Date(val);
+                      if (isNaN(d.getTime())) return typeof val === "string" && val.includes("T") ? val.slice(0, 16) : "";
+                      const pad = (n: number) => String(n).padStart(2, "0");
+                      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                    } catch { return ""; }
+                  })()} 
+                  onChange={e => {
+                    const now = new Date();
+                    const pad = (n: number) => String(n).padStart(2, '0');
+                    const nowStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+                    updateCommon("groupBuying", { 
+                      ...townshipData.groupBuying, 
+                      startDate: townshipData.groupBuying?.startDate || nowStr,
+                      endDate: e.target.value 
+                    });
+                  }} 
+                  className="h-8 text-xs"
+                />
               </Field>
             </Grid>
+
+            {/* Quick Expiry Presets */}
+            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-slate-800 flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-bold text-gray-500">Quick Duration Presets:</span>
+              {[
+                { label: '24 Hours', hours: 24 },
+                { label: '48 Hours', hours: 48 },
+                { label: '7 Days', hours: 24 * 7 },
+                { label: '14 Days', hours: 24 * 14 },
+                { label: '30 Days', hours: 24 * 30 }
+              ].map(preset => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => {
+                    const now = new Date();
+                    const end = new Date(now.getTime() + preset.hours * 60 * 60 * 1000);
+                    const formatDT = (d: Date) => {
+                      const pad = (n: number) => String(n).padStart(2, '0');
+                      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                    };
+                    updateCommon("groupBuying", {
+                      ...townshipData.groupBuying,
+                      enabled: true,
+                      startDate: townshipData.groupBuying?.startDate || formatDT(now),
+                      endDate: formatDT(end)
+                    });
+                  }}
+                  className="px-2.5 py-1 text-[10px] font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg transition-colors cursor-pointer"
+                >
+                  +{preset.label}
+                </button>
+              ))}
+            </div>
           </Section>
 
           </PartCollapse>

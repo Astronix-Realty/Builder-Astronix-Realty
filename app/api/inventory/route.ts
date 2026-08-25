@@ -62,16 +62,16 @@ export async function GET(req: NextRequest) {
         let unitCount = 0;
 
         if (prop.type === "township") {
-          projectCount = prop.details?.projectCount || 0;
-          towerCount = prop.details?.totalTowers || 0;
-          unitCount = prop.details?.totalUnits || 0;
+          projectCount = prop.details?.projectCount || prop.details?.projects?.length || 0;
+          towerCount = prop.details?.totalTowers || prop.details?.towers?.length || 0;
+          unitCount = prop.details?.totalUnits || prop.details?.generatedUnits?.length || 0;
         } else if (prop.type === "project") {
           projectCount = 1;
-          towerCount = prop.details?.totalTowers || 0;
-          unitCount = prop.details?.totalUnits || 0;
+          towerCount = prop.details?.totalTowers || prop.details?.towers?.length || 1;
+          unitCount = prop.details?.totalUnits || prop.details?.generatedUnits?.length || 0;
         } else if (prop.type === "tower") {
           towerCount = 1;
-          unitCount = prop.details?.totalUnits || 0;
+          unitCount = prop.details?.totalUnits || prop.details?.generatedUnits?.length || 0;
         }
 
         if (process.env.NODE_ENV !== "production") {

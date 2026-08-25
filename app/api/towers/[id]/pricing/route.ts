@@ -39,7 +39,10 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
     let standaloneModified = 0;
     
     // Step 1: Update split DB documents
-    const units = await Unit.find({ towerId, status: { $in: ["available", "draft", "pending", "published"] }, ...ownershipQuery });
+    const towerIdFilter = mongoose.isValidObjectId(towerId)
+      ? { $in: [new mongoose.Types.ObjectId(towerId), towerId.toString()] }
+      : towerId;
+    const units = await Unit.find({ towerId: towerIdFilter, status: { $in: ["available", "draft", "pending", "published"] }, ...ownershipQuery });
     
     for (const unit of units) {
       if ((unit as any).area || (unit as any).carpetArea) {
