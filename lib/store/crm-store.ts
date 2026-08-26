@@ -64,17 +64,13 @@ export const useCRMStore = create<CRMState>()(
       
       setInitialLeads: (role, leads) => {
         set((state) => {
-            const currentById = state.leadsById[role] || {};
-            const byId = { ...currentById };
-            const fetchedIds = new Set(leads.map(l => l.id));
+            const byId: Record<string, ValidatedLead> = {};
+            const allIds: string[] = [];
             
             leads.forEach(l => {
               byId[l.id] = l;
+              allIds.push(l.id);
             });
-            
-            // Keep realtime leads not present in fetch
-            const currentAllIds = state.allLeadIds[role] || [];
-            const realTimeIds = currentAllIds.filter(id => !fetchedIds.has(id));
             
             return { 
               leadsById: {
@@ -83,7 +79,7 @@ export const useCRMStore = create<CRMState>()(
               }, 
               allLeadIds: {
                 ...state.allLeadIds,
-                [role]: [...realTimeIds, ...Array.from(fetchedIds)]
+                [role]: allIds
               } 
             };
         }, false, 'setInitialLeads');

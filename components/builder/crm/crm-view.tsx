@@ -77,6 +77,14 @@ interface Lead {
     groupSize?: number
     groupDiscount?: string
     mergedMembers?: any[]
+    groupPoolKey?: string
+    poolRootLevel?: string
+    poolRootPropertyId?: string
+    poolRootPropertyName?: string
+    topPropertyName?: string
+    clickedLevel?: string
+    clickedPropertyName?: string
+    sourceUrl?: string
 }
 
 // --- Mock Sentry Logger ---
@@ -316,30 +324,6 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
     const [reviseOfferForm, setReviseOfferForm] = useState({ currentDiscount: "12", nextDiscount: "15", nextThreshold: "10" })
     const [selectedMergeLeads, setSelectedMergeLeads] = useState<string[]>([])
 
-    // Inject mock group lead into the actual store for consistent testing
-    useEffect(() => {
-        if (allLeadIds.length > 0 && !leads.some(l => l.name === "Godrej Woodside Investors Group")) {
-            upsertLead({
-                id: "mock-godrej-group",
-                _id: "mock-godrej-group",
-                name: "Godrej Woodside Investors Group",
-                phone: "+91 99999 11111",
-                email: "woodside@group.com",
-                status: "Fresh",
-                isGroup: true,
-                groupSize: 8,
-                groupDiscount: "12% Off",
-                requirement: "3BHK",
-                budget: "2Cr - 2.5Cr",
-                source: "Website",
-                assignee: "Self",
-                lastActivity: "Just now",
-                notes: [],
-                timeline: []
-            } as any);
-        }
-    }, [leads.length]);
-
     // Derived Logic — useMemo prevents unnecessary recalculation on unrelated re-renders
     const selectedLead = useMemo(
         () => leads.find(l => l.id === selectedLeadId || toId(l._id) === selectedLeadId),
@@ -496,29 +480,6 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                         _id: toId(l._id || l.id),
                         timeline: l.timeline || []
                     }))
-                    // Mock Group Lead for Demo
-                    const hasGroupLead = mappedLeads.some((l: any) => l.isGroup);
-                    if (!hasGroupLead) {
-                        mappedLeads.push({
-                            id: "mock-group-1",
-                            _id: "mock-group-1",
-                            name: "Lodha Bellissimo Investors",
-                            phone: "+91 98989 12345",
-                            email: "group@invest.com",
-                            status: "Fresh",
-                            isTokenPaid: false,
-                            isGroup: true,
-                            groupSize: 14,
-                            groupDiscount: "3% Group Discount Unlocked",
-                            requirement: "Multiple Units",
-                            budget: "₹6.5 Cr - ₹9.0 Cr",
-                            source: "Group Referral",
-                            assignee: "System",
-                            lastActivity: new Date().toISOString(),
-                            notes: [],
-                            timeline: [{ date: new Date().toISOString(), title: "Group Formed", desc: "14 members joined the group", type: "system" }]
-                        });
-                    }
                     setInitialLeads(mappedLeads)
                     setTotalLeads(data.total || mappedLeads.length)
                 }
@@ -930,7 +891,14 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                             </div>
 
                                             <div className="text-xs text-muted-foreground space-y-1 mb-2">
-                                                {lead.phone && <p className="flex items-center gap-1 font-medium text-slate-600 dark:text-slate-300">{lead.phone}</p>}
+                                                {lead.isGroup ? (
+                                                    <p className="flex items-center gap-1 font-medium text-purple-700 dark:text-purple-300 text-[11px]">
+                                                        <Users className="h-3 w-3 shrink-0" />
+                                                        <span>{lead.groupSize || lead.mergedMembers?.length || 1} Registered Buyers in Pool</span>
+                                                    </p>
+                                                ) : (
+                                                    lead.phone && <p className="flex items-center gap-1 font-medium text-slate-600 dark:text-slate-300">{lead.phone}</p>
+                                                )}
                                                 {lead.requirement && <p className="flex items-center gap-1 text-[11px]"><User className="h-3 w-3 shrink-0" /> <span className="line-clamp-1">{lead.requirement}</span></p>}
                                                 {lead.isGroup && lead.groupDiscount && (
                                                     <p className="text-purple-600 dark:text-purple-400 font-semibold text-[10px] flex items-center gap-1">
@@ -1209,35 +1177,81 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                         {/* DYNAMIC GROUP SECTION */}
                         {selectedLead.isGroup && (
                             <div className="mt-4 space-y-3">
-                                <div className="p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
-                                    <h5 className="font-bold text-purple-800 dark:text-purple-400 text-xs mb-2 flex items-center gap-1">
-                                        <Users className="w-3.5 h-3.5"/> Group Campaign
-                                    </h5>
-                                    <div className="flex justify-between items-center text-xs">
-                                        <span className="text-muted-foreground">Members:</span>
-                                        <span className="font-bold">{selectedLead.groupSize} Users</span>
+                                <div className="p-3.5 bg-gradient-to-br from-purple-50 to-indigo-50/50 dark:from-purple-900/20 dark:to-indigo-900/10 border border-purple-200 dark:border-purple-800/60 rounded-xl shadow-sm">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h5 className="font-black text-purple-900 dark:text-purple-300 text-xs flex items-center gap-1.5 uppercase tracking-wide">
+                                            <Users className="w-4 h-4 text-purple-600"/> Group Buying Campaign
+                                        </h5>
+                                        <Badge className="bg-purple-600 text-white font-bold text-[10px] px-2 py-0.5 border-none">
+                                            {selectedLead.groupSize || selectedLead.mergedMembers?.length || 1} Buyers Pool
+                                        </Badge>
                                     </div>
-                                    <div className="flex justify-between items-center text-xs mt-1">
-                                        <span className="text-muted-foreground">Discount:</span>
-                                        <span className="font-bold text-purple-600">{selectedLead.groupDiscount}</span>
+                                    <div className="space-y-1.5 text-xs">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-muted-foreground text-[11px]">Active Discount:</span>
+                                            <span className="font-bold text-purple-700 dark:text-purple-300">{selectedLead.groupDiscount || 'Dynamic Group Discount'}</span>
+                                        </div>
+                                        {selectedLead.topPropertyName && (
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-muted-foreground text-[11px]">Property Deal:</span>
+                                                <span className="font-semibold text-slate-700 dark:text-slate-200 line-clamp-1">{selectedLead.topPropertyName}</span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
+
                                 <div className="space-y-2">
-                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Group Roster</p>
-                                    {Array.from({length: Math.min(3, selectedLead.groupSize || 1)}).map((_, i) => (
-                                        <div key={i} className="flex justify-between items-center p-2 bg-slate-50 dark:bg-slate-900 border rounded-md text-xs">
-                                            <div className="flex items-center gap-1.5">
-                                                <div className="w-5 h-5 rounded bg-purple-100 text-purple-600 flex items-center justify-center font-bold text-[10px]">U{i+1}</div>
-                                                <span className="font-medium">User {i+1}</span>
-                                            </div>
-                                            <Badge variant="outline" className="text-[9px] h-4 px-1 py-0 bg-white">Interested</Badge>
-                                        </div>
-                                    ))}
-                                    {(selectedLead.groupSize || 0) > 3 && (
-                                        <p className="text-center text-[10px] text-purple-600 font-semibold mt-1 cursor-pointer hover:underline">
-                                            + {(selectedLead.groupSize || 0) - 3} more members
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                                            <span>Joined Buyers Roster</span>
+                                            <span className="bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 px-1.5 py-0.2 rounded-full text-[9px]">
+                                                {selectedLead.mergedMembers?.length || selectedLead.groupSize || 1}
+                                            </span>
                                         </p>
-                                    )}
+                                    </div>
+
+                                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
+                                        {(Array.isArray(selectedLead.mergedMembers) && selectedLead.mergedMembers.length > 0) ? (
+                                            selectedLead.mergedMembers.map((member: any, i: number) => (
+                                                <div key={i} className="p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm space-y-1.5">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 flex items-center justify-center font-bold text-[10px]">
+                                                                {(member.name || `U${i+1}`).charAt(0).toUpperCase()}
+                                                            </div>
+                                                            <div>
+                                                                <p className="font-bold text-xs text-slate-800 dark:text-slate-100">{member.name || `Buyer ${i+1}`}</p>
+                                                                <p className="text-[10px] text-muted-foreground font-mono">{member.phone}</p>
+                                                            </div>
+                                                        </div>
+                                                        {member.clickedLevel && (
+                                                            <Badge variant="outline" className="text-[9px] px-1.5 py-0.5 font-semibold bg-purple-50 text-purple-700 border-purple-200">
+                                                                {member.clickedLevel}
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1 border-t border-slate-100 dark:border-slate-800">
+                                                        <span className="line-clamp-1">{member.clickedPropertyName || member.email || 'Group Buyer'}</span>
+                                                        <div className="flex items-center gap-1">
+                                                            {member.phone && (
+                                                                <a 
+                                                                    href={`tel:${member.phone}`} 
+                                                                    className="text-blue-600 hover:text-blue-700 font-bold px-1.5 py-0.5 rounded bg-blue-50 text-[9px]"
+                                                                >
+                                                                    Call
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="p-3 bg-slate-50 dark:bg-slate-900 border rounded-xl text-center text-xs text-slate-500">
+                                                <p className="font-medium">{selectedLead.name}</p>
+                                                <p className="text-[10px] text-muted-foreground mt-0.5">{selectedLead.phone}</p>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -1405,21 +1419,7 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                         {/* 4. Contact Actions */}
                         <div className="space-y-2.5 pt-2">
                             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Quick Actions</label>
-                            <div className="grid grid-cols-2 gap-2">
-                                <Button 
-                                    variant="outline" 
-                                    className="w-full gap-1.5 h-10 text-xs font-bold rounded-xl shadow-sm text-[#075E54] bg-[#25D366]/10 hover:bg-[#25D366]/20 border-[#25D366]/30 transition-transform active:scale-95"
-                                    onClick={async () => {
-                                        window.open(`https://wa.me/${selectedLead.phone.replace(/\s+/g, '')}`, '_blank')
-                                        await offlineSafeFetch(`/api/leads/${selectedLead.id || selectedLead._id}`, {
-                                            method: "PATCH",
-                                            headers: { "Content-Type": "application/json" },
-                                            body: JSON.stringify({ actionType: "WhatsApp Sent", actionDesc: "Initiated WhatsApp conversation" })
-                                        })
-                                    }}
-                                >
-                                    <MessageSquare className="h-4 w-4" /> WhatsApp
-                                </Button>
+                            <div className="flex flex-col gap-2">
                                 <Button 
                                     variant="outline" 
                                     disabled={selectedLead.status === "Booked"}
@@ -1430,7 +1430,7 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                         setPendingFollowUp(selectedLead.nextActionTime ? new Date(selectedLead.nextActionTime).toISOString().slice(0,16) : "");
                                     }}
                                 >
-                                    {selectedLead.status === "Junk" ? <><CheckCircle2 className="h-4 w-4" /> Restore</> : <><XCircle className="h-4 w-4" /> Not Interested</>}
+                                    {selectedLead.status === "Junk" ? <><CheckCircle2 className="h-4 w-4" /> Restore Lead</> : <><XCircle className="h-4 w-4" /> Mark Not Interested</>}
                                 </Button>
                             </div>
                         </div>
@@ -1548,30 +1548,38 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
     const GroupLeadProfile = () => {
         if (!selectedLead) return null;
 
-        const groupSize = selectedLead.groupSize || 10;
-        const indianNames = [
-            "Rahul Sharma", "Priya Patel", "Amit Singh", "Neha Gupta", "Vikram Reddy",
-            "Anjali Desai", "Suresh Kumar", "Pooja Mishra", "Rohan Mehta", "Sneha Joshi",
-            "Karan Malhotra", "Kavita Iyer", "Deepak Verma", "Swati Rao", "Nitin Agarwal"
-        ];
-        
-        // Render members for the group with primary registrant at index 0
-        const members = Array.from({length: groupSize}).map((_, i) => {
-            const standardCount = groupSize - (selectedLead.mergedMembers?.length || 0);
-            
-            if (i >= standardCount && selectedLead.mergedMembers) {
-                const mergedMember = selectedLead.mergedMembers[i - standardCount];
-                if (mergedMember) return mergedMember;
-            }
+        // Extract real members from mergedMembers array or fallback to primary lead info
+        const realMembers = (Array.isArray(selectedLead.mergedMembers) && selectedLead.mergedMembers.length > 0)
+            ? selectedLead.mergedMembers
+            : [{
+                id: selectedLead.id || selectedLead._id,
+                _id: selectedLead.id || selectedLead._id,
+                name: selectedLead.name?.replace(/\s*—\s*Group Buying Pool/i, '') || selectedLead.name,
+                phone: selectedLead.phone,
+                email: selectedLead.email || '',
+                status: selectedLead.status || 'Fresh',
+                clickedLevel: selectedLead.clickedLevel || 'Township',
+                clickedPropertyName: selectedLead.clickedPropertyName || selectedLead.topPropertyName || selectedLead.name,
+                sourceUrl: selectedLead.sourceUrl || '',
+                joinedAt: selectedLead.createdAt || new Date().toISOString()
+            }];
 
-            const isPrimary = i === 0;
-            return {
-                id: `member-${i}`,
-                name: isPrimary ? (selectedLead.name || "Primary Registrant") : indianNames[i % indianNames.length],
-                phone: isPrimary ? (selectedLead.phone || "+91 98989 10000") : `+91 98989 ${String(10000 + i).slice(1)}`,
-                status: memberStatuses[i] || (isPrimary ? selectedLead.status : (i % 3 === 0 ? "Negotiation" : "Site Visit")),
-            };
-        });
+        const groupSize = selectedLead.groupSize || realMembers.length;
+
+        const members = realMembers.map((m: any, i: number) => ({
+            id: m.id || m._id || m.visitorId || `member-${i}`,
+            _id: m.id || m._id || m.visitorId || `member-${i}`,
+            userId: m.userId || m.visitorId || m.id || m._id || '',
+            visitorId: m.visitorId || m.userId || '',
+            name: m.name || `Buyer ${i + 1}`,
+            phone: m.phone || selectedLead.phone || '',
+            email: m.email || '',
+            status: memberStatuses[i] || m.status || selectedLead.status || 'Fresh',
+            clickedLevel: m.clickedLevel || selectedLead.clickedLevel || 'Property',
+            clickedPropertyName: m.clickedPropertyName || selectedLead.clickedPropertyName || selectedLead.topPropertyName || '',
+            sourceUrl: m.sourceUrl || selectedLead.sourceUrl || '',
+            joinedAt: m.joinedAt ? new Date(m.joinedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Recently'
+        }));
 
         const hasNegotiationMember = members.some(m => m.status === "Negotiation" || m.status === "Final Negotiation");
         const membersKeeping = members.filter(m => m.status === 'Booked' || m.status === 'Negotiation' || m.status === 'Final Negotiation');
@@ -1584,7 +1592,7 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
             const newIndividualPayload = {
                 name: memberToRemove.name,
                 phone: memberToRemove.phone,
-                email: "",
+                email: memberToRemove.email || "",
                 status: memberToRemove.status,
                 isGroup: false,
                 source: "Group Deal (Extracted)",
@@ -1604,7 +1612,12 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                 id: m.id,
                 name: m.name,
                 phone: m.phone,
-                status: m.status
+                email: m.email,
+                status: m.status,
+                clickedLevel: m.clickedLevel,
+                clickedPropertyName: m.clickedPropertyName,
+                sourceUrl: m.sourceUrl,
+                joinedAt: m.joinedAt
             }));
             
             const newGroupSize = remainingMembers.length > 0 ? remainingMembers.length : 1;
@@ -1709,20 +1722,40 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                             <th className="p-4 pl-6 w-12 text-center">#</th>
                                             <th className="p-4">Member Name</th>
                                             <th className="p-4">Phone Number</th>
+                                            <th className="p-4">Clicked Level & Property</th>
+                                            <th className="p-4">Joined Time</th>
                                             <th className="p-4">Current Stage</th>
                                             <th className="p-4 text-right pr-6">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {members.map((m, idx) => (
-                                            <tr key={m.id} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors group">
+                                            <tr key={m.id || idx} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors group">
                                                 <td className="p-4 pl-6 text-xs text-slate-400 font-bold text-center">{idx + 1}</td>
                                                 <td className="p-4 font-bold text-sm text-slate-800 dark:text-slate-200 flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 flex items-center justify-center font-bold text-xs">{m.name.charAt(0)}</div>
-                                                    {m.name}
+                                                    <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 flex items-center justify-center font-bold text-xs">
+                                                        {m.name.charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <div>
+                                                        <p className="leading-tight">{m.name}</p>
+                                                        {m.email && <p className="text-[11px] font-normal text-slate-400">{m.email}</p>}
+                                                    </div>
                                                 </td>
                                                 <td className="p-4 text-sm font-medium text-slate-600 dark:text-slate-400">
                                                     {m.phone}
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex flex-col gap-1">
+                                                        <Badge variant="outline" className="w-fit font-bold text-[10px] px-2 py-0.5 bg-purple-50 text-purple-700 border-purple-200">
+                                                            {m.clickedLevel}
+                                                        </Badge>
+                                                        {m.clickedPropertyName && (
+                                                            <span className="text-[11px] text-slate-500 line-clamp-1">{m.clickedPropertyName}</span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="p-4 text-xs text-slate-500 font-medium">
+                                                    {m.joinedAt}
                                                 </td>
                                                 <td className="p-4">
                                                     <Badge variant="outline" className={`font-bold px-2.5 py-1 ${m.status === 'Booked' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : m.status === 'Junk' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-slate-50 dark:bg-slate-800 text-slate-600'}`}>
@@ -1733,7 +1766,7 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                                     <Button onClick={() => setSelectedMemberIdx(idx)} variant="outline" size="sm" className="h-8 text-xs font-bold text-purple-600 border-purple-200 hover:bg-purple-50 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                                         Manage <ArrowRight className="w-3 h-3 ml-1.5"/>
                                                     </Button>
-                                                    <Button onClick={(e) => { e.stopPropagation(); router.push(`/builder-dashboard?tab=chat&chatWith=${m.id || m._id}`); }} variant="outline" size="icon" className="h-8 w-8 text-blue-500 border-blue-200 hover:bg-blue-50 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity" title="Chat with Member">
+                                                    <Button onClick={(e) => { e.stopPropagation(); router.push(`/builder-dashboard?tab=chat&chatWith=${selectedLead.id || selectedLead._id}&memberId=${m.userId || m.visitorId || m.phone}&type=direct`); }} variant="outline" size="icon" className="h-8 w-8 text-blue-500 border-blue-200 hover:bg-blue-50 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity" title="Chat with Member">
                                                         <MessageSquare className="w-3.5 h-3.5" />
                                                     </Button>
                                                     <Button onClick={(e) => { e.stopPropagation(); handleRemoveMember(m, idx); }} variant="outline" size="icon" className="h-8 w-8 text-red-500 border-red-200 hover:bg-red-50 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity" title="Remove from Group">
@@ -1780,7 +1813,7 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                                 variant="outline" 
                                                 size="sm" 
                                                 className="h-[22px] px-2 rounded-full border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
-                                                onClick={() => router.push(`/builder-dashboard?tab=chat&chatWith=${members[selectedMemberIdx].id || members[selectedMemberIdx]._id}`)}
+                                                onClick={() => router.push(`/builder-dashboard?tab=chat&chatWith=${selectedLead.id || selectedLead._id}&memberId=${members[selectedMemberIdx].userId || members[selectedMemberIdx].visitorId || members[selectedMemberIdx].phone}&type=direct`)}
                                             >
                                                 <MessageSquare className="w-3 h-3 mr-1" />
                                                 <span className="text-[10px]">Chat</span>

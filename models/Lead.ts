@@ -102,6 +102,10 @@ const LeadSchema = new mongoose.Schema({
         unitNumber: { type: String }
     },
     isGroup: { type: Boolean, default: false },
+    groupPoolKey: { type: String, index: true },
+    poolRootLevel: { type: String, enum: ["Township", "Project", "Tower"] },
+    poolRootPropertyId: { type: String, index: true },
+    poolRootPropertyName: { type: String },
     groupSize: { type: Number, default: 0 },
     groupDiscount: { type: String },
     mergedMembers: [mongoose.Schema.Types.Mixed],
@@ -122,6 +126,7 @@ const LeadSchema = new mongoose.Schema({
 });
 
 // Indexes for faster lookups
+LeadSchema.index({ groupPoolKey: 1 });
 LeadSchema.index({ phone: 1, builderId: 1 });
 LeadSchema.index({ email: 1, builderId: 1 });
 LeadSchema.index({ phone: 1, accountId: 1 });
