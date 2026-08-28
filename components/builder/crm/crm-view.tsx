@@ -1110,10 +1110,10 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                 variant="outline" 
                                 size="sm" 
                                 className="h-[28px] rounded-full border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800 shadow-sm"
-                                onClick={() => router.push(`/builder-dashboard?tab=chat&chatWith=${selectedLead.id || selectedLead._id}`)}
+                                onClick={() => router.push(`${userRole === 'mandate' ? '/mandate-dashboard' : '/builder-dashboard'}?tab=chat&chatWith=${selectedLead.id || selectedLead._id}${selectedLead.isGroup ? '&type=group' : ''}`)}
                             >
                                 <MessageSquare className="w-3.5 h-3.5 mr-1" />
-                                Chat
+                                {selectedLead.isGroup ? 'Group Chat' : 'Chat'}
                             </Button>
                         </div>
                     </CardHeader>
@@ -1212,7 +1212,7 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
 
                                     <div className="space-y-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
                                         {(Array.isArray(selectedLead.mergedMembers) && selectedLead.mergedMembers.length > 0) ? (
-                                            selectedLead.mergedMembers.map((member: any, i: number) => (
+                                             selectedLead.mergedMembers.map((member: any, i: number) => (
                                                 <div key={i} className="p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm space-y-1.5">
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-2">
@@ -1232,15 +1232,24 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                                     </div>
                                                     <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1 border-t border-slate-100 dark:border-slate-800">
                                                         <span className="line-clamp-1">{member.clickedPropertyName || member.email || 'Group Buyer'}</span>
-                                                        <div className="flex items-center gap-1">
+                                                        <div className="flex items-center gap-1.5">
                                                             {member.phone && (
                                                                 <a 
                                                                     href={`tel:${member.phone}`} 
-                                                                    className="text-blue-600 hover:text-blue-700 font-bold px-1.5 py-0.5 rounded bg-blue-50 text-[9px]"
+                                                                    className="text-blue-600 hover:text-blue-700 font-bold px-2 py-0.5 rounded bg-blue-50 hover:bg-blue-100 text-[9px] transition-colors"
                                                                 >
                                                                     Call
                                                                 </a>
                                                             )}
+                                                            <button 
+                                                                type="button"
+                                                                onClick={() => router.push(`${userRole === 'mandate' ? '/mandate-dashboard' : '/builder-dashboard'}?tab=chat&chatWith=${selectedLead.id || selectedLead._id}&memberId=${member.userId || member.visitorId || member.phone || ''}&type=direct`)}
+                                                                className="text-purple-600 hover:text-purple-700 font-bold px-2 py-0.5 rounded bg-purple-50 hover:bg-purple-100 text-[9px] flex items-center gap-1 transition-colors cursor-pointer"
+                                                                title="Chat directly with this member"
+                                                            >
+                                                                <MessageSquare className="w-2.5 h-2.5" />
+                                                                Chat
+                                                            </button>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1593,19 +1602,28 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                 name: memberToRemove.name,
                 phone: memberToRemove.phone,
                 email: memberToRemove.email || "",
-                status: memberToRemove.status,
+                status: memberToRemove.status || "Fresh",
                 isGroup: false,
                 source: "Group Deal (Extracted)",
                 requirement: selectedLead.requirement,
                 budget: selectedLead.budget
             };
 
-            // Fire POST to create the lead
+            // Fire POST to create the lead and update local store
             offlineSafeFetch(`/api/leads`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(newIndividualPayload)
-            }).catch(console.error);
+            })
+            .then(async (res) => {
+                if (res && typeof res.json === 'function') {
+                    const data = await res.json();
+                    if (data?.lead) {
+                        upsertLead(data.lead);
+                    }
+                }
+            })
+            .catch(console.error);
 
             // 2. Shrink the current group
             const remainingMembers = members.filter((m, i) => i !== idx).map(m => ({
@@ -1668,7 +1686,8 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                 <div 
                                     className="bg-white/10 hover:bg-white/15 cursor-pointer transition-colors backdrop-blur-md rounded-xl px-3 py-1.5 border border-white/20 shadow-sm flex flex-col justify-center min-w-[140px]"
                                     onClick={() => {
-                                        const parts = (selectedLead.groupDiscount || "12% Off|15% Off|10").split("|");
+                                        const rawDiscount = selectedLead.groupDiscount || "12% Off|15% Off|10";
+                                        const parts = rawDiscount.includes("|") ? rawDiscount.split("|") : [rawDiscount, "15% Off", (groupSize + 2).toString()];
                                         setReviseOfferForm({
                                             currentDiscount: (parts[0] || "12% Off").replace(/[^0-9.]/g, ""),
                                             nextDiscount: (parts[1] || "15% Off").replace(/[^0-9.]/g, ""),
@@ -1682,11 +1701,26 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                         <Percent className="w-3 h-3 text-emerald-300" />
                                     </div>
                                     <div className="flex items-baseline gap-1">
-                                        <p className="text-lg font-black text-emerald-400 leading-tight">{(selectedLead.groupDiscount || "12%").split("|")[0].replace("Off", "").trim()}</p>
-                                        <span className="text-[10px] font-medium text-emerald-200/80">Off</span>
+                                        <p className="text-base font-black text-emerald-400 leading-tight line-clamp-1">
+                                            {(() => {
+                                                const raw = selectedLead.groupDiscount || "12% Off";
+                                                return raw.includes("|") ? raw.split("|")[0].trim() : raw;
+                                            })()}
+                                        </p>
                                     </div>
                                     <div className="mt-1 pt-1 border-t border-white/10">
-                                        <p className="text-[8.5px] text-purple-100 leading-tight opacity-90">Next: <strong className="text-white">{(selectedLead.groupDiscount || "12% Off|15% Off|10").split("|")[1] || "15% Off"}</strong> at <strong className="text-white">{(selectedLead.groupDiscount || "12% Off|15% Off|10").split("|")[2] || "10"} members</strong></p>
+                                        <p className="text-[8.5px] text-purple-100 leading-tight opacity-90">
+                                            {(() => {
+                                                const raw = selectedLead.groupDiscount || "12% Off|15% Off|10";
+                                                if (raw.includes("|")) {
+                                                    const parts = raw.split("|");
+                                                    return (
+                                                        <>Next: <strong className="text-white">{parts[1] || "15% Off"}</strong> at <strong className="text-white">{parts[2] || (groupSize + 2)} members</strong></>
+                                                    );
+                                                }
+                                                return <span>Tier goal active</span>;
+                                            })()}
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -1710,8 +1744,8 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                 <Button variant="outline" size="sm" onClick={() => setIsReviseOfferOpen(true)} className="h-8 text-[11px] font-bold gap-1.5 border-emerald-200 text-emerald-700 hover:bg-emerald-50">
                                     <Percent className="w-3.5 h-3.5"/> Revise Offer
                                 </Button>
-                                <Button variant="outline" size="sm" onClick={() => router.push(`/builder-dashboard?tab=chat&chatWith=${selectedLead.id || selectedLead._id}`)} className="h-8 text-[11px] font-bold gap-1.5 border-blue-200 text-blue-700 hover:bg-blue-50">
-                                    <MessageSquare className="w-3.5 h-3.5"/> Chat
+                                <Button variant="outline" size="sm" onClick={() => router.push(`${userRole === 'mandate' ? '/mandate-dashboard' : '/builder-dashboard'}?tab=chat&chatWith=${selectedLead.id || selectedLead._id}&type=group`)} className="h-8 text-[11px] font-bold gap-1.5 border-blue-200 text-blue-700 hover:bg-blue-50">
+                                    <MessageSquare className="w-3.5 h-3.5"/> Group Chat
                                 </Button>
                             </div>
                         </div>
@@ -1766,7 +1800,7 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                                     <Button onClick={() => setSelectedMemberIdx(idx)} variant="outline" size="sm" className="h-8 text-xs font-bold text-purple-600 border-purple-200 hover:bg-purple-50 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                                                         Manage <ArrowRight className="w-3 h-3 ml-1.5"/>
                                                     </Button>
-                                                    <Button onClick={(e) => { e.stopPropagation(); router.push(`/builder-dashboard?tab=chat&chatWith=${selectedLead.id || selectedLead._id}&memberId=${m.userId || m.visitorId || m.phone}&type=direct`); }} variant="outline" size="icon" className="h-8 w-8 text-blue-500 border-blue-200 hover:bg-blue-50 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity" title="Chat with Member">
+                                                    <Button onClick={(e) => { e.stopPropagation(); router.push(`${userRole === 'mandate' ? '/mandate-dashboard' : '/builder-dashboard'}?tab=chat&chatWith=${selectedLead.id || selectedLead._id}&memberId=${m.userId || m.visitorId || m.phone}&type=direct`); }} variant="outline" size="icon" className="h-8 w-8 text-blue-500 border-blue-200 hover:bg-blue-50 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity" title="Chat with Member">
                                                         <MessageSquare className="w-3.5 h-3.5" />
                                                     </Button>
                                                     <Button onClick={(e) => { e.stopPropagation(); handleRemoveMember(m, idx); }} variant="outline" size="icon" className="h-8 w-8 text-red-500 border-red-200 hover:bg-red-50 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity" title="Remove from Group">
@@ -1813,7 +1847,7 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                                 variant="outline" 
                                                 size="sm" 
                                                 className="h-[22px] px-2 rounded-full border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
-                                                onClick={() => router.push(`/builder-dashboard?tab=chat&chatWith=${selectedLead.id || selectedLead._id}&memberId=${members[selectedMemberIdx].userId || members[selectedMemberIdx].visitorId || members[selectedMemberIdx].phone}&type=direct`)}
+                                                onClick={() => router.push(`${userRole === 'mandate' ? '/mandate-dashboard' : '/builder-dashboard'}?tab=chat&chatWith=${selectedLead.id || selectedLead._id}&memberId=${members[selectedMemberIdx].userId || members[selectedMemberIdx].visitorId || members[selectedMemberIdx].phone}&type=direct`)}
                                             >
                                                 <MessageSquare className="w-3 h-3 mr-1" />
                                                 <span className="text-[10px]">Chat</span>
@@ -1950,8 +1984,8 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                         <div className="space-y-2 pt-1">
                                             <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Quick Actions</label>
                                             <div className="grid grid-cols-2 gap-2">
-                                                <Button variant="outline" className="w-full gap-1.5 h-9 text-[11px] font-bold rounded-lg shadow-sm text-[#075E54] bg-[#25D366]/10 hover:bg-[#25D366]/20 border-[#25D366]/30 transition-transform active:scale-95" onClick={() => window.open(`https://wa.me/${members[selectedMemberIdx].phone.replace(/\s+/g, '')}`, '_blank')}>
-                                                    <MessageSquare className="h-3.5 w-3.5" /> WhatsApp
+                                                <Button variant="outline" className="w-full gap-1.5 h-9 text-[11px] font-bold rounded-lg shadow-sm text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200 transition-transform active:scale-95 cursor-pointer" onClick={() => router.push(`${userRole === 'mandate' ? '/mandate-dashboard' : '/builder-dashboard'}?tab=chat&chatWith=${selectedLead.id || selectedLead._id}&memberId=${members[selectedMemberIdx].userId || members[selectedMemberIdx].visitorId || members[selectedMemberIdx].phone}&type=direct`)}>
+                                                    <MessageSquare className="h-3.5 w-3.5 text-blue-600" /> Direct Chat
                                                 </Button>
                                                 <Button variant="outline" disabled={members[selectedMemberIdx].status === "Booked"} className={`w-full gap-1.5 h-9 text-[11px] font-bold rounded-lg shadow-sm transition-transform active:scale-95 ${members[selectedMemberIdx].status === "Junk" ? "text-slate-600 bg-slate-100 border-slate-200" : "text-red-600 bg-red-50 hover:text-red-700 hover:bg-red-100 border-red-200"}`} onClick={() => {
                                                     setPendingStatus((members[selectedMemberIdx].status === "Junk" ? "Fresh" : "Junk") as any);

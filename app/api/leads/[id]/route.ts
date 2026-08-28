@@ -192,15 +192,36 @@ export async function DELETE(
       );
     }
 
+    // Cascade delete any linked conversations (Group Pool and direct chats for this lead)
+    try {
+      const ConversationModel = (await import('@/models/Conversation')).default;
+      await ConversationModel.deleteMany({
+        $or: [
+          { leadId: id },
+          ...(lead.groupPoolKey ? [{ groupPoolKey: lead.groupPoolKey }] : [])
+        ]
+      });
+    } catch (convDelErr) {
+      console.warn("[DELETE /api/leads/[id]] Error deleting associated conversations:", convDelErr);
+    }
+
     await Lead.deleteOne({ _id: id });
 
     broadcastEvent({
       type: "LEAD_DELETED",
       leadId: id,
+      groupPoolKey: lead.groupPoolKey,
       timestamp: Date.now()
     });
 
-    return NextResponse.json({ success: true, message: "Lead permanently deleted" });
+    broadcastEvent({
+      type: "CONVERSATION_DELETED",
+      leadId: id,
+      groupPoolKey: lead.groupPoolKey,
+      timestamp: Date.now()
+    });
+
+    return NextResponse.json({ success: true, message: "Lead and associated chats permanently deleted" });
   } catch (error: any) {
     console.error("Error archiving lead:", error);
     return NextResponse.json(

@@ -6,6 +6,8 @@ const MessageSchema = new mongoose.Schema({
   senderId: { type: String },
   senderRole: { type: String, enum: ["builder", "mandate", "buyer", "agent", "support"], default: "buyer" },
   senderName: { type: String },
+  senderAvatar: { type: String },
+  senderPhoto: { type: String },
   readAt: { type: Date },
   attachments: [{ url: String, type: String }],
 }, { timestamps: true });
@@ -15,7 +17,9 @@ const ParticipantSchema = new mongoose.Schema({
   role: { type: String, enum: ["buyer", "builder", "mandate", "agent", "support"], default: "buyer" },
   name: { type: String },
   phone: { type: String },
-  email: { type: String }
+  email: { type: String },
+  avatar: { type: String },
+  photo: { type: String }
 }, { _id: false });
 
 const ConversationSchema = new mongoose.Schema({
@@ -45,6 +49,10 @@ const ConversationSchema = new mongoose.Schema({
     index: true,
   },
   memberUserId: {
+    type: String,
+    index: true,
+  },
+  staffUserId: {
     type: String,
     index: true,
   },
@@ -93,6 +101,7 @@ ConversationSchema.index({ accountId: 1, lastMessageAt: -1 });
 ConversationSchema.index({ mandateId: 1, lastMessageAt: -1 });
 ConversationSchema.index({ role: 1 });
 ConversationSchema.index({ groupPoolKey: 1, conversationType: 1 });
+ConversationSchema.index({ groupPoolKey: 1, memberUserId: 1, staffUserId: 1 });
 ConversationSchema.index({ conversationKey: 1 }, { sparse: true });
 ConversationSchema.index({ memberUserId: 1, conversationType: 1 });
 

@@ -1373,17 +1373,10 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
                             <div className="grid grid-cols-2 gap-2">
                                 <Button 
                                     variant="outline" 
-                                    className="w-full gap-1.5 h-10 text-xs font-bold rounded-xl shadow-sm text-[#075E54] bg-[#25D366]/10 hover:bg-[#25D366]/20 border-[#25D366]/30 transition-transform active:scale-95"
-                                    onClick={async () => {
-                                        window.open(`https://wa.me/${selectedLead.phone.replace(/\s+/g, '')}`, '_blank')
-                                        await offlineSafeFetch(`/api/leads/${selectedLead.id || selectedLead._id}`, {
-                                            method: "PATCH",
-                                            headers: { "Content-Type": "application/json" },
-                                            body: JSON.stringify({ actionType: "WhatsApp Sent", actionDesc: "Initiated WhatsApp conversation" })
-                                        })
-                                    }}
+                                    className="w-full gap-1.5 h-10 text-xs font-bold rounded-xl shadow-sm text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200 transition-transform active:scale-95 cursor-pointer"
+                                    onClick={() => router.push(`/builder-dashboard?tab=chat&chatWith=${selectedLead.id || selectedLead._id}`)}
                                 >
-                                    <MessageSquare className="h-4 w-4" /> WhatsApp
+                                    <MessageSquare className="h-4 w-4 text-blue-600" /> Direct Chat
                                 </Button>
                                 <Button 
                                     variant="outline" 
@@ -1915,8 +1908,8 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
                                         <div className="space-y-2 pt-1">
                                             <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Quick Actions</label>
                                             <div className="grid grid-cols-2 gap-2">
-                                                <Button variant="outline" className="w-full gap-1.5 h-9 text-[11px] font-bold rounded-lg shadow-sm text-[#075E54] bg-[#25D366]/10 hover:bg-[#25D366]/20 border-[#25D366]/30 transition-transform active:scale-95" onClick={() => window.open(`https://wa.me/${members[selectedMemberIdx].phone.replace(/\s+/g, '')}`, '_blank')}>
-                                                    <MessageSquare className="h-3.5 w-3.5" /> WhatsApp
+                                                <Button variant="outline" className="w-full gap-1.5 h-9 text-[11px] font-bold rounded-lg shadow-sm text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200 transition-transform active:scale-95 cursor-pointer" onClick={() => router.push(`/builder-dashboard?tab=chat&chatWith=${selectedLead.id || selectedLead._id}&memberId=${members[selectedMemberIdx].userId || members[selectedMemberIdx].visitorId || members[selectedMemberIdx].phone}&type=direct`)}>
+                                                    <MessageSquare className="h-3.5 w-3.5 text-blue-600" /> Direct Chat
                                                 </Button>
                                                 <Button variant="outline" disabled={members[selectedMemberIdx].status === "Booked"} className={`w-full gap-1.5 h-9 text-[11px] font-bold rounded-lg shadow-sm transition-transform active:scale-95 ${members[selectedMemberIdx].status === "Junk" ? "text-slate-600 bg-slate-100 border-slate-200" : "text-red-600 bg-red-50 hover:text-red-700 hover:bg-red-100 border-red-200"}`} onClick={() => {
                                                     setPendingStatus((members[selectedMemberIdx].status === "Junk" ? "Fresh" : "Junk") as any);

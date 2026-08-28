@@ -7,6 +7,30 @@ import { broadcastEvent } from "@/lib/sse";
 
 export const dynamic = "force-dynamic";
 
+// Helper to extract property hero image
+function extractPropertyImage(propDoc: any): string {
+  if (!propDoc) return "";
+  const d = propDoc.details || {};
+  let img = 
+    propDoc.thumbnail ||
+    d.heroImage ||
+    d.township?.heroImage ||
+    d.projectTemplate?.heroImage ||
+    d.towerTemplate?.heroImage ||
+    d.township?.galleryImages?.[0] ||
+    d.media?.heroImage ||
+    d.media?.photos?.[0] ||
+    d.photos?.[0] ||
+    propDoc.heroImage || "";
+
+  if (!img) {
+    const str = JSON.stringify(propDoc);
+    const matches = str.match(/https?:\/\/[^"\s]+\.(?:jpg|jpeg|png|webp|avif)/gi);
+    if (matches && matches.length > 0) img = matches[0];
+  }
+  return img || "";
+}
+
 // GET /api/conversations — list all conversations for a builder
 export async function GET(req: NextRequest) {
   try {
@@ -20,10 +44,46 @@ export async function GET(req: NextRequest) {
       ...getOwnershipQuery(context!)
     };
 
-    const conversations = await Conversation.find(query)
+    const rawConversations = await Conversation.find(query)
       .sort({ isPinned: -1, lastMessageAt: -1 })
       .select("-messages") // Don't send all messages in list view
+      .lean()
       .limit(100);
+
+    // Collect Property IDs and names to fetch Property documents in a single batch query
+    const propIds = rawConversations.map((c: any) => c.poolRootPropertyId).filter(Boolean);
+    const propNames = rawConversations.map((c: any) => {
+      const name = c.poolRootPropertyName || c.leadName || '';
+      return name.replace(/\s*—\s*Group Buying Pool/i, '').trim();
+    }).filter(Boolean);
+
+    const PropertyModel = (await import("@/models/Property")).default;
+    const propDocs = await PropertyModel.find({
+      $or: [
+        ...(propIds.length > 0 ? [{ _id: { $in: propIds } }] : []),
+        ...(propNames.length > 0 ? [{ name: { $in: propNames } }] : [])
+      ]
+    }).lean();
+
+    const propMapById = new Map();
+    const propMapByName = new Map();
+    propDocs.forEach((p: any) => {
+      propMapById.set(p._id.toString(), p);
+      if (p.name) propMapByName.set(p.name.toLowerCase().trim(), p);
+      if (p.details?.township?.name) propMapByName.set(p.details.township.name.toLowerCase().trim(), p);
+    });
+
+    const conversations = rawConversations.map((conv: any) => {
+      const cleanName = (conv.poolRootPropertyName || conv.leadName || '').replace(/\s*—\s*Group Buying Pool/i, '').trim().toLowerCase();
+      const propDoc = (conv.poolRootPropertyId && propMapById.get(conv.poolRootPropertyId.toString())) || propMapByName.get(cleanName);
+      const propertyImage = extractPropertyImage(propDoc);
+
+      return {
+        ...conv,
+        propertyImage: propertyImage || "",
+        poolRootPropertyThumbnail: propertyImage || "",
+      };
+    });
 
     return NextResponse.json({ success: true, conversations });
   } catch (error: any) {
@@ -58,6 +118,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "leadId or groupPoolKey required" }, { status: 400 });
     }
 
+    const cleanPoolKey = groupPoolKey ? groupPoolKey.toLowerCase().trim() : undefined;
     const ownership = getOwnershipQuery(context!);
     let conversation: any = null;
 
@@ -65,49 +126,49 @@ export async function POST(req: NextRequest) {
       const groupQuery: any = {
         conversationType: "GROUP",
         $or: [
-          ...(groupPoolKey ? [{ groupPoolKey }] : []),
+          ...(cleanPoolKey ? [{ groupPoolKey: cleanPoolKey }] : []),
           ...(leadId ? [{ leadId }] : [])
         ],
         ...ownership
       };
       conversation = await Conversation.findOne(groupQuery);
 
-      if (!conversation) {
-        // Find corresponding Lead to derive merged members
-        let initialParticipants: any[] = [
-          {
-            userId: context!.userId,
-            role: context!.role,
-            name: context!.email || 'Builder Team'
-          }
-        ];
+      // Find corresponding Lead to derive/sync merged members
+      let currentParticipants: any[] = [
+        {
+          userId: context!.userId,
+          role: context!.role,
+          name: context!.email || 'Builder Team'
+        }
+      ];
 
-        if (leadId || groupPoolKey) {
-          const leadDoc: any = await Lead.findOne({
-            $or: [
-              ...(leadId ? [{ _id: leadId }] : []),
-              ...(groupPoolKey ? [{ groupPoolKey }] : [])
-            ]
-          }).lean();
+      if (leadId || cleanPoolKey) {
+        const leadDoc: any = await Lead.findOne({
+          $or: [
+            ...(leadId ? [{ _id: leadId }] : []),
+            ...(cleanPoolKey ? [{ groupPoolKey: cleanPoolKey }] : [])
+          ]
+        }).lean();
 
-          if (leadDoc && Array.isArray(leadDoc.mergedMembers)) {
-            for (const m of leadDoc.mergedMembers) {
-              if (m.userId || m.visitorId) {
-                initialParticipants.push({
-                  userId: m.userId || m.visitorId,
-                  role: 'buyer',
-                  name: m.name,
-                  phone: m.phone,
-                  email: m.email
-                });
-              }
+        if (leadDoc && Array.isArray(leadDoc.mergedMembers)) {
+          for (const m of leadDoc.mergedMembers) {
+            if (m.userId || m.visitorId || m.phone) {
+              currentParticipants.push({
+                userId: m.userId || m.visitorId || m.phone,
+                role: 'buyer',
+                name: m.name || 'Group Buyer',
+                phone: m.phone || '',
+                email: m.email || ''
+              });
             }
           }
         }
+      }
 
+      if (!conversation) {
         conversation = await Conversation.create({
           conversationType: "GROUP",
-          groupPoolKey,
+          groupPoolKey: cleanPoolKey,
           poolRootPropertyId,
           poolRootPropertyName,
           leadId: leadId || undefined,
@@ -118,7 +179,7 @@ export async function POST(req: NextRequest) {
           leadName: leadName || `${poolRootPropertyName || 'Property'} — Group Buying Pool`,
           leadPhone: leadPhone || '',
           assignee: assignee || context!.email,
-          participants: initialParticipants,
+          participants: currentParticipants,
           messages: [
             {
               text: `Group Buying Conversation initiated for ${poolRootPropertyName || leadName || 'Pool'}.`,
@@ -131,14 +192,26 @@ export async function POST(req: NextRequest) {
           lastMessage: "Group Conversation initiated",
           lastMessageAt: new Date(),
         });
+      } else {
+        // Heal / synchronize participants list
+        await Conversation.updateOne(
+          { _id: conversation._id },
+          { 
+            $set: { 
+              participants: currentParticipants,
+              groupPoolKey: cleanPoolKey || conversation.groupPoolKey,
+              updatedAt: new Date() 
+            } 
+          }
+        );
       }
-    }
- else if (memberUserId) {
+    } else if (memberUserId) {
       // Direct Member Chat
-      const convKey = `${groupPoolKey || leadId}_${memberUserId}_${context!.userId}`;
+      const convKey = `${cleanPoolKey || leadId}_${memberUserId}_${context!.userId}`;
       conversation = await Conversation.findOne({
         $or: [
           { conversationKey: convKey },
+          { memberUserId, groupPoolKey: cleanPoolKey, conversationType: "DIRECT", ...ownership },
           { memberUserId, leadId, conversationType: "DIRECT", ...ownership }
         ]
       });
@@ -147,9 +220,12 @@ export async function POST(req: NextRequest) {
         conversation = await Conversation.create({
           conversationType: "DIRECT",
           conversationKey: convKey,
-          groupPoolKey,
+          groupPoolKey: cleanPoolKey,
+          poolRootPropertyId,
+          poolRootPropertyName,
           leadId: leadId || undefined,
           memberUserId,
+          staffUserId: context!.userId,
           memberPhone: memberPhone || leadPhone,
           memberEmail: memberEmail || '',
           builderId: context!.userId,
@@ -209,9 +285,17 @@ export async function POST(req: NextRequest) {
     }
 
     if (conversation) {
+      const eventType = conversationType === "GROUP" 
+        ? "GROUP_CONVERSATION_CREATED" 
+        : (memberUserId ? "DIRECT_CONVERSATION_CREATED" : "CONVERSATION_CREATED");
+
       broadcastEvent({
-        type: "CONVERSATION_CREATED",
+        type: eventType,
         leadId: leadId?.toString(),
+        conversationId: conversation._id.toString(),
+        role: context!.role,
+        builderId: context!.userId,
+        mandateId: context!.mandateId || undefined,
         data: conversation,
         timestamp: Date.now(),
       });
