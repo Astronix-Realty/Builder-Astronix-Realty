@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Conversation from "@/models/Conversation";
 import Lead from "@/models/Lead";
@@ -73,15 +74,100 @@ export async function GET(req: NextRequest) {
       if (p.details?.township?.name) propMapByName.set(p.details.township.name.toLowerCase().trim(), p);
     });
 
+    // Collect User identifiers to fetch avatars and usernames
+    const userIds = new Set<string>();
+    const emails = new Set<string>();
+    const phones = new Set<string>();
+
+    rawConversations.forEach((c: any) => {
+      if (c.memberUserId && mongoose.isValidObjectId(c.memberUserId)) userIds.add(c.memberUserId.toString());
+      if (c.memberEmail) emails.add(c.memberEmail.toLowerCase().trim());
+      if (c.memberPhone) {
+        const cp = c.memberPhone.replace(/\D/g, '').slice(-10);
+        if (cp) phones.add(cp);
+      }
+      if (c.leadPhone) {
+        const cp = c.leadPhone.replace(/\D/g, '').slice(-10);
+        if (cp) phones.add(cp);
+      }
+      if (Array.isArray(c.participants)) {
+        c.participants.forEach((p: any) => {
+          if (p.userId && mongoose.isValidObjectId(p.userId)) userIds.add(p.userId.toString());
+          if (p.email) emails.add(p.email.toLowerCase().trim());
+          if (p.phone) {
+            const cp = p.phone.replace(/\D/g, '').slice(-10);
+            if (cp) phones.add(cp);
+          }
+        });
+      }
+    });
+
+    let userDocs: any[] = [];
+    const userOrConditions: any[] = [];
+    if (userIds.size > 0) userOrConditions.push({ _id: { $in: Array.from(userIds).map(uid => new mongoose.Types.ObjectId(uid)) } });
+    if (emails.size > 0) userOrConditions.push({ email: { $in: Array.from(emails) } });
+    if (phones.size > 0) userOrConditions.push({ phone: { $in: Array.from(phones) } });
+
+    if (userOrConditions.length > 0) {
+      try {
+        const rawUserCol = mongoose.connection.db?.collection('users');
+        if (rawUserCol) {
+          userDocs = await rawUserCol.find({ $or: userOrConditions }).toArray();
+        }
+      } catch (e) {
+        console.error("Error batch fetching users for conversations:", e);
+      }
+    }
+
+    const userMapById = new Map<string, any>();
+    const userMapByEmail = new Map<string, any>();
+    const userMapByPhone = new Map<string, any>();
+
+    userDocs.forEach((u: any) => {
+      if (u._id) userMapById.set(u._id.toString(), u);
+      if (u.email) userMapByEmail.set(u.email.toLowerCase().trim(), u);
+      if (u.phone) {
+        const cp = u.phone.toString().replace(/\D/g, '').slice(-10);
+        if (cp) userMapByPhone.set(cp, u);
+      }
+    });
+
     const conversations = rawConversations.map((conv: any) => {
       const cleanName = (conv.poolRootPropertyName || conv.leadName || '').replace(/\s*—\s*Group Buying Pool/i, '').trim().toLowerCase();
       const propDoc = (conv.poolRootPropertyId && propMapById.get(conv.poolRootPropertyId.toString())) || propMapByName.get(cleanName);
       const propertyImage = extractPropertyImage(propDoc);
 
+      // Find user for direct member chat
+      const directUser = (conv.memberUserId && userMapById.get(conv.memberUserId.toString())) ||
+                         (conv.memberEmail && userMapByEmail.get(conv.memberEmail.toLowerCase().trim())) ||
+                         (conv.memberPhone && userMapByPhone.get(conv.memberPhone.replace(/\D/g, '').slice(-10))) ||
+                         (conv.leadPhone && userMapByPhone.get(conv.leadPhone.replace(/\D/g, '').slice(-10)));
+
+      const memberAvatar = directUser?.profilePhoto || directUser?.avatar || directUser?.photo || directUser?.profile?.photo || directUser?.profile?.avatar || "";
+      const memberUsername = directUser?.username || (directUser?.email ? directUser.email.split('@')[0] : "") || "";
+
+      // Enrich participants
+      const enrichedParticipants = Array.isArray(conv.participants) ? conv.participants.map((p: any) => {
+        const pUser = (p.userId && userMapById.get(p.userId.toString())) ||
+                      (p.email && userMapByEmail.get(p.email.toLowerCase().trim())) ||
+                      (p.phone && userMapByPhone.get(p.phone.replace(/\D/g, '').slice(-10)));
+        const pAvatar = p.avatar || p.photo || pUser?.profilePhoto || pUser?.avatar || pUser?.photo || pUser?.profile?.photo || "";
+        const pUsername = pUser?.username || (p.email ? p.email.split('@')[0] : (pUser?.email ? pUser.email.split('@')[0] : "")) || "";
+        return {
+          ...p,
+          avatar: pAvatar,
+          photo: pAvatar,
+          username: pUsername
+        };
+      }) : [];
+
       return {
         ...conv,
         propertyImage: propertyImage || "",
         poolRootPropertyThumbnail: propertyImage || "",
+        memberAvatar: memberAvatar || "",
+        memberUsername: memberUsername || "",
+        participants: enrichedParticipants
       };
     });
 

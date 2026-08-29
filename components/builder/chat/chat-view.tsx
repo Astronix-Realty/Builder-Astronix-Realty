@@ -41,6 +41,7 @@ interface Participant {
     email?: string
     avatar?: string
     photo?: string
+    username?: string
 }
 
 interface Conversation {
@@ -55,6 +56,10 @@ interface Conversation {
     poolRootPropertyThumbnail?: string
     propertyImage?: string
     memberUserId?: string
+    memberAvatar?: string
+    senderAvatar?: string
+    photo?: string
+    memberUsername?: string
     assignee?: string
     lastMessage?: string
     lastMessageAt?: string
@@ -70,6 +75,8 @@ interface MemberProfileData {
     userId?: string
     name: string
     avatar?: string
+    photo?: string
+    username?: string
     phone?: string
     email?: string
     poolName?: string
@@ -205,13 +212,14 @@ export function ChatView() {
             
             if (res.ok) {
                 const data = await res.json()
-                fetchedConvs = (data.conversations || []).map((c: any) => ({
-                    ...c,
-                    leadType: c.conversationType === "GROUP" ? "Group Pool" : (c.memberUserId ? "Group Member" : "Individual Lead")
-                }))
+                if (data.success && Array.isArray(data.conversations)) {
+                    fetchedConvs = data.conversations.map((c: any) => ({
+                        ...c,
+                        leadType: c.conversationType === "GROUP" ? "Group Pool" : (c.memberUserId ? "Group Member" : "Individual Lead")
+                    }))
+                    setConversations(fetchedConvs)
+                }
             }
-            
-            setConversations(fetchedConvs)
 
             // Handle query parameter initialization (e.g. from CRM lead header or member row)
             if (chatWith) {
@@ -394,7 +402,7 @@ export function ChatView() {
                             const matchPool = deletedPoolKey && (c.groupPoolKey || '').toLowerCase() === deletedPoolKey;
                             return !matchLead && !matchPool;
                         });
-                        if (selectedConv && (selectedConv.leadId === deletedLeadId || (deletedPoolKey && (selectedConv.groupPoolKey || '').toLowerCase() === deletedPoolKey))) {
+                        if (activeConvIdRef.current && (activeConvIdRef.current === deletedLeadId || (deletedPoolKey && (prev.find(c => c._id === activeConvIdRef.current)?.groupPoolKey || '').toLowerCase() === deletedPoolKey))) {
                             if (updated.length > 0) openConversation(updated[0]);
                             else setSelectedConv(null);
                         }
@@ -436,7 +444,7 @@ export function ChatView() {
             es.close();
             clearInterval(pollInterval);
         }
-    }, [fetchConversations, selectedConv, openConversation])
+    }, [fetchConversations, openConversation])
 
     // --- WhatsApp Feature Handlers: Avatar / Member Profile Click & Single Chat Launcher ---
     const handleAvatarClick = useCallback((msg: Message) => {
@@ -680,6 +688,7 @@ export function ChatView() {
                             const isMember = conv.conversationType === "DIRECT" && !!conv.memberUserId
                             const title = isGroup ? (conv.poolRootPropertyName || conv.leadName || "Group Pool") : (conv.leadName || "Direct Chat")
                             const propImage = conv.propertyImage || conv.poolRootPropertyThumbnail
+                            const memberAvatar = conv.memberAvatar || conv.senderAvatar || conv.photo || (Array.isArray(conv.participants) ? conv.participants.find((p: any) => p.role === 'buyer')?.avatar : '')
 
                             return (
                                 <button
@@ -705,13 +714,13 @@ export function ChatView() {
                                                     <Building2 className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                                                 )}
                                             </div>
-                                        ) : isMember ? (
-                                            <div className="w-10 h-10 rounded-xl overflow-hidden border border-indigo-200 dark:border-indigo-800/60 bg-gradient-to-br from-indigo-500 to-cyan-600 flex items-center justify-center text-white font-bold text-xs shadow-2xs">
-                                                {title.charAt(0)?.toUpperCase() || "M"}
-                                            </div>
                                         ) : (
-                                            <div className="w-10 h-10 rounded-xl overflow-hidden border border-blue-200 dark:border-blue-800/60 bg-gradient-to-br from-blue-600 to-slate-800 flex items-center justify-center text-white font-bold text-xs shadow-2xs">
-                                                {title.charAt(0)?.toUpperCase() || "L"}
+                                            <div className="w-10 h-10 rounded-xl overflow-hidden border border-indigo-200 dark:border-indigo-800/60 bg-gradient-to-br from-indigo-500 to-cyan-600 flex items-center justify-center text-white font-bold text-xs shadow-2xs">
+                                                {memberAvatar ? (
+                                                    <img src={memberAvatar} alt={title} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    title.charAt(0)?.toUpperCase() || "M"
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -719,9 +728,12 @@ export function ChatView() {
                                     {/* Info */}
                                     <div className="flex-1 min-w-0">
                                         <div className="flex justify-between items-baseline mb-0.5">
-                                            <span className="font-bold text-xs truncate text-slate-800 dark:text-slate-200">
-                                                {conv.isPinned && <Pin className="h-3 w-3 text-blue-500 inline mr-1" />}
-                                                {title}
+                                            <span className="font-bold text-xs truncate text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                                                {conv.isPinned && <Pin className="h-3 w-3 text-blue-500 inline mr-0.5" />}
+                                                <span>{title}</span>
+                                                {conv.memberUsername && (
+                                                    <span className="text-[10px] font-mono text-purple-600 dark:text-purple-400 font-normal">@{conv.memberUsername}</span>
+                                                )}
                                             </span>
                                             <span className="text-[9.5px] text-slate-400 font-medium shrink-0 ml-1">
                                                 {formatTime(conv.lastMessageAt)}
@@ -758,9 +770,9 @@ export function ChatView() {
 
             {/* ===== MAIN CHAT AREA ===== */}
             {selectedConv ? (
-                <div className="flex-1 flex flex-col min-w-0 bg-slate-50/40 dark:bg-slate-950/40">
-                    {/* Chat Header — WhatsApp-style Clickable Header */}
-                    <div className="px-5 py-3 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900 shrink-0">
+                <div className="flex-1 flex flex-col bg-slate-50/50 dark:bg-slate-900/50 overflow-hidden">
+                    {/* Active Chat Top Header */}
+                    <div className="p-3.5 md:px-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-2xs">
                         <div 
                             onClick={() => {
                                 if (selectedConv.conversationType === "GROUP") {
@@ -769,11 +781,11 @@ export function ChatView() {
                                     handleDirectHeaderClick();
                                 }
                             }}
-                            className="flex items-center gap-3 min-w-0 cursor-pointer group"
-                            title={selectedConv.conversationType === "GROUP" ? "Click to view Group Pool Info & Members" : "Click to view Member Profile"}
+                            className="flex items-center gap-3 cursor-pointer group hover:opacity-90 transition-opacity min-w-0"
+                            title={selectedConv.conversationType === "GROUP" ? "Click to view group info & participating buyers" : "Click to view buyer profile"}
                         >
-                            {/* Property / Contact Thumbnail */}
-                            <div className="relative shrink-0 transition-transform group-hover:scale-105">
+                            {/* Header Property / Buyer Avatar */}
+                            <div className="relative">
                                 {selectedConv.conversationType === "GROUP" ? (
                                     <div className="w-11 h-11 rounded-xl overflow-hidden border border-purple-200 dark:border-purple-800 bg-purple-100 dark:bg-purple-950 flex items-center justify-center shadow-xs">
                                         {(selectedConv.propertyImage || selectedConv.poolRootPropertyThumbnail) ? (
@@ -788,16 +800,31 @@ export function ChatView() {
                                     </div>
                                 ) : (
                                     <div className="w-11 h-11 rounded-xl overflow-hidden border border-indigo-200 dark:border-indigo-800 bg-gradient-to-br from-indigo-500 to-cyan-600 flex items-center justify-center text-white font-bold text-base shadow-xs">
-                                        {selectedConv.leadName?.charAt(0)?.toUpperCase() || "B"}
+                                        {(selectedConv.memberAvatar || selectedConv.senderAvatar || selectedConv.photo || (Array.isArray(selectedConv.participants) ? selectedConv.participants.find((p: any) => p.role === 'buyer')?.avatar : '')) ? (
+                                            <img 
+                                                src={selectedConv.memberAvatar || selectedConv.senderAvatar || selectedConv.photo || (Array.isArray(selectedConv.participants) ? selectedConv.participants.find((p: any) => p.role === 'buyer')?.avatar : '')} 
+                                                alt={selectedConv.leadName} 
+                                                className="w-full h-full object-cover" 
+                                            />
+                                        ) : (
+                                            selectedConv.leadName?.charAt(0)?.toUpperCase() || "B"
+                                        )}
                                     </div>
                                 )}
                             </div>
 
                             <div className="min-w-0">
                                 <h3 className="font-black text-sm flex items-center gap-2 truncate text-slate-900 dark:text-slate-100 group-hover:text-blue-600 transition-colors">
-                                    {selectedConv.conversationType === "GROUP" 
-                                        ? `${selectedConv.poolRootPropertyName || selectedConv.leadName} — Group Buying Pool` 
-                                        : selectedConv.leadName}
+                                    <span>
+                                        {selectedConv.conversationType === "GROUP" 
+                                            ? `${selectedConv.poolRootPropertyName || selectedConv.leadName} — Group Buying Pool` 
+                                            : selectedConv.leadName}
+                                    </span>
+                                    {selectedConv.memberUsername && (
+                                        <span className="text-xs font-mono font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/50 px-2 py-0.5 rounded-full font-normal">
+                                            @{selectedConv.memberUsername}
+                                        </span>
+                                    )}
                                     <Badge variant="secondary" className="text-[9.5px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border-none shrink-0">
                                         {selectedConv.conversationType === "GROUP" ? "Group Pool" : (selectedConv.memberUserId ? "Group Member" : "Lead")}
                                     </Badge>
@@ -974,6 +1001,10 @@ export function ChatView() {
             {/* ========================================================================= */}
             <Dialog open={showMemberProfileModal} onOpenChange={setShowMemberProfileModal}>
                 <DialogContent className="sm:max-w-md p-0 overflow-hidden border border-slate-200 dark:border-slate-800 rounded-3xl bg-white dark:bg-slate-900 shadow-2xl">
+                    <DialogHeader className="sr-only">
+                        <DialogTitle>{selectedMemberProfile?.name || "Member Profile"}</DialogTitle>
+                        <DialogDescription>Buyer contact and property interest details</DialogDescription>
+                    </DialogHeader>
                     {selectedMemberProfile && (
                         <div className="flex flex-col">
                             {/* Profile Header Banner */}
@@ -1059,6 +1090,10 @@ export function ChatView() {
             {/* ========================================================================= */}
             <Dialog open={showGroupInfoModal} onOpenChange={setShowGroupInfoModal}>
                 <DialogContent className="sm:max-w-lg p-0 overflow-hidden border border-slate-200 dark:border-slate-800 rounded-3xl bg-white dark:bg-slate-900 shadow-2xl">
+                    <DialogHeader className="sr-only">
+                        <DialogTitle>{selectedConv?.poolRootPropertyName || selectedConv?.leadName || "Group Pool Info"}</DialogTitle>
+                        <DialogDescription>Participating group buyers and campaign details</DialogDescription>
+                    </DialogHeader>
                     {selectedConv && (
                         <div className="flex flex-col max-h-[85vh]">
                             {/* Property Banner */}
@@ -1127,7 +1162,10 @@ export function ChatView() {
                                                             </div>
                                                             <div className="min-w-0">
                                                                 <div className="font-bold text-xs text-slate-800 dark:text-slate-200 truncate flex items-center gap-1.5">
-                                                                    {p.name}
+                                                                    <span>{p.name}</span>
+                                                                    {p.username && (
+                                                                        <span className="text-[9.5px] font-mono text-purple-600 dark:text-purple-400 font-normal">@{p.username}</span>
+                                                                    )}
                                                                     {isStaff && (
                                                                         <Badge variant="secondary" className="text-[8px] h-3.5 px-1 py-0 bg-blue-100 text-blue-800">
                                                                             Staff

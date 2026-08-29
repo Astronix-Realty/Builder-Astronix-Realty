@@ -85,6 +85,11 @@ interface Lead {
     clickedLevel?: string
     clickedPropertyName?: string
     sourceUrl?: string
+    userId?: string
+    avatar?: string
+    photo?: string
+    profilePhoto?: string
+    username?: string
 }
 
 // --- Mock Sentry Logger ---
@@ -1090,12 +1095,21 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
                     <CardHeader className="text-center pb-4 border-b border-slate-100 dark:border-slate-800 relative pt-8">
                         <div className="relative mx-auto mb-4">
                             <div className="absolute -inset-1.5 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-full blur opacity-30"></div>
-                            <div className="relative w-24 h-24 rounded-full bg-white dark:bg-slate-800 border-4 border-white dark:border-slate-800 shadow-sm flex items-center justify-center text-4xl font-black text-transparent bg-clip-text bg-gradient-to-br from-blue-600 to-indigo-600 mx-auto">
-                                {selectedLead.name.charAt(0)}
+                            <div className="relative w-24 h-24 rounded-full bg-white dark:bg-slate-800 border-4 border-white dark:border-slate-800 shadow-sm flex items-center justify-center text-4xl font-black text-transparent bg-clip-text bg-gradient-to-br from-blue-600 to-indigo-600 mx-auto overflow-hidden">
+                                {(selectedLead.avatar || selectedLead.profilePhoto || selectedLead.photo) ? (
+                                    <img src={selectedLead.avatar || selectedLead.profilePhoto || selectedLead.photo} alt={selectedLead.name} className="w-full h-full object-cover" />
+                                ) : (
+                                    selectedLead.name.charAt(0)
+                                )}
                             </div>
                         </div>
-                        <CardTitle className="flex items-center justify-center gap-2 text-xl tracking-tight">
-                            {selectedLead.name}
+                        <CardTitle className="flex items-center justify-center gap-1.5 text-xl tracking-tight">
+                            <span>{selectedLead.name}</span>
+                            {selectedLead.username && (
+                                <span className="text-xs font-mono font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/50 px-2 py-0.5 rounded-full">
+                                    @{selectedLead.username}
+                                </span>
+                            )}
                             {selectedLead.isTokenPaid && <Crown className="h-5 w-5 text-amber-500 fill-amber-500 drop-shadow-sm" />}
                         </CardTitle>
                         <CardDescription className="font-medium mt-1">{selectedLead.phone} <span className="text-green-500 text-[10px] uppercase tracking-wider ml-1 bg-green-50 px-1.5 py-0.5 rounded-full font-bold">Verified</span></CardDescription>
@@ -1512,9 +1526,15 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
             : [{
                 id: selectedLead.id || selectedLead._id,
                 _id: selectedLead.id || selectedLead._id,
+                userId: selectedLead.userId || selectedLead.visitorId || selectedLead.id || selectedLead._id,
+                visitorId: selectedLead.visitorId || selectedLead.userId || '',
                 name: selectedLead.name?.replace(/\s*—\s*Group Buying Pool/i, '') || selectedLead.name,
                 phone: selectedLead.phone,
                 email: selectedLead.email || '',
+                avatar: selectedLead.avatar || selectedLead.photo || selectedLead.profilePhoto || '',
+                photo: selectedLead.photo || selectedLead.avatar || selectedLead.profilePhoto || '',
+                profilePhoto: selectedLead.profilePhoto || selectedLead.avatar || selectedLead.photo || '',
+                username: selectedLead.username || (selectedLead.email ? selectedLead.email.split('@')[0] : '') || '',
                 status: selectedLead.status || 'Fresh',
                 clickedLevel: selectedLead.clickedLevel || 'Township',
                 clickedPropertyName: selectedLead.clickedPropertyName || selectedLead.topPropertyName || selectedLead.name,
@@ -1532,6 +1552,10 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
             name: m.name || `Buyer ${i + 1}`,
             phone: m.phone || selectedLead.phone || '',
             email: m.email || '',
+            avatar: m.avatar || m.photo || m.profilePhoto || selectedLead.avatar || selectedLead.photo || selectedLead.profilePhoto || '',
+            photo: m.photo || m.avatar || m.profilePhoto || selectedLead.avatar || selectedLead.photo || '',
+            profilePhoto: m.profilePhoto || m.avatar || m.photo || selectedLead.avatar || selectedLead.profilePhoto || '',
+            username: m.username || selectedLead.username || (m.email ? m.email.split('@')[0] : (selectedLead.email ? selectedLead.email.split('@')[0] : '')) || '',
             status: memberStatuses[i] || m.status || selectedLead.status || 'Fresh',
             clickedLevel: m.clickedLevel || selectedLead.clickedLevel || 'Property',
             clickedPropertyName: m.clickedPropertyName || selectedLead.clickedPropertyName || selectedLead.topPropertyName || '',
@@ -1691,11 +1715,22 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
                                             <tr key={m.id || idx} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors group">
                                                 <td className="p-4 pl-6 text-xs text-slate-400 font-bold text-center">{idx + 1}</td>
                                                 <td className="p-4 font-bold text-sm text-slate-800 dark:text-slate-200 flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 flex items-center justify-center font-bold text-xs">
-                                                        {m.name.charAt(0).toUpperCase()}
+                                                    <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden border border-purple-200 dark:border-purple-800">
+                                                        {(m.avatar || m.photo || m.profilePhoto) ? (
+                                                            <img src={m.avatar || m.photo || m.profilePhoto} alt={m.name} className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            m.name.charAt(0).toUpperCase()
+                                                        )}
                                                     </div>
                                                     <div>
-                                                        <p className="leading-tight">{m.name}</p>
+                                                        <p className="leading-tight flex items-center gap-1.5">
+                                                            <span>{m.name}</span>
+                                                            {m.username && (
+                                                                <span className="text-[10px] font-mono font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/50 px-1.5 py-0.5 rounded-md">
+                                                                    @{m.username}
+                                                                </span>
+                                                            )}
+                                                        </p>
                                                         {m.email && <p className="text-[11px] font-normal text-slate-400">{m.email}</p>}
                                                     </div>
                                                 </td>
@@ -1755,12 +1790,21 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
                                     <CardHeader className="text-center pb-3 border-b border-slate-100 dark:border-slate-800 relative pt-5">
                                         <div className="relative mx-auto mb-3">
                                             <div className="absolute -inset-1.5 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-full blur opacity-30"></div>
-                                            <div className="relative w-16 h-16 rounded-full bg-white dark:bg-slate-800 border-[3px] border-white dark:border-slate-800 shadow-sm flex items-center justify-center text-2xl font-black text-transparent bg-clip-text bg-gradient-to-br from-blue-600 to-indigo-600 mx-auto">
-                                                {members[selectedMemberIdx].name.charAt(0)}
+                                            <div className="relative w-16 h-16 rounded-full bg-white dark:bg-slate-800 border-[3px] border-white dark:border-slate-800 shadow-sm flex items-center justify-center text-2xl font-black text-transparent bg-clip-text bg-gradient-to-br from-blue-600 to-indigo-600 mx-auto overflow-hidden">
+                                                {(members[selectedMemberIdx].avatar || members[selectedMemberIdx].photo || members[selectedMemberIdx].profilePhoto) ? (
+                                                    <img src={members[selectedMemberIdx].avatar || members[selectedMemberIdx].photo || members[selectedMemberIdx].profilePhoto} alt={members[selectedMemberIdx].name} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    members[selectedMemberIdx].name.charAt(0)
+                                                )}
                                             </div>
                                         </div>
-                                        <CardTitle className="flex items-center justify-center gap-2 text-lg tracking-tight">
-                                            {members[selectedMemberIdx].name}
+                                        <CardTitle className="flex items-center justify-center gap-1.5 text-lg tracking-tight">
+                                            <span>{members[selectedMemberIdx].name}</span>
+                                            {members[selectedMemberIdx].username && (
+                                                <span className="text-xs font-mono font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/50 px-2 py-0.5 rounded-full">
+                                                    @{members[selectedMemberIdx].username}
+                                                </span>
+                                            )}
                                         </CardTitle>
                                         <CardDescription className="font-medium text-xs mt-0.5">{members[selectedMemberIdx].phone} <span className="text-green-500 text-[9px] uppercase tracking-wider ml-1 bg-green-50 px-1.5 py-0.5 rounded-full font-bold">Verified</span></CardDescription>
                                         <div className="flex justify-center items-center gap-2 mt-2">

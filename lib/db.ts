@@ -59,4 +59,42 @@ async function dbConnect() {
   return cached.conn;
 }
 
+// Global cached connection for Visitor Database
+// @ts-ignore
+let cachedVisitor = global.mongooseVisitor;
+if (!cachedVisitor) {
+  // @ts-ignore
+  cachedVisitor = global.mongooseVisitor = { conn: null, promise: null };
+}
+
+export async function connectVisitorDB() {
+  const VISITOR_URI = process.env.VISITOR_MONGODB_URI || "mongodb+srv://visitor-astronix-realty:visitorAstronixKrealty2026@customerdata.gs4hwqo.mongodb.net/alldataset?retryWrites=true&w=majority&appName=customerdata";
+
+  if (cachedVisitor.conn) {
+    return cachedVisitor.conn;
+  }
+
+  if (!cachedVisitor.promise) {
+    const opts: mongoose.ConnectOptions = {
+      bufferCommands: false,
+      serverSelectionTimeoutMS: 15000,
+      connectTimeoutMS: 15000,
+      family: 4,
+    };
+
+    cachedVisitor.promise = mongoose.createConnection(VISITOR_URI, opts).asPromise().then((conn) => {
+      return conn;
+    });
+  }
+
+  try {
+    cachedVisitor.conn = await cachedVisitor.promise;
+  } catch (e) {
+    cachedVisitor.promise = null;
+    throw e;
+  }
+
+  return cachedVisitor.conn;
+}
+
 export default dbConnect;

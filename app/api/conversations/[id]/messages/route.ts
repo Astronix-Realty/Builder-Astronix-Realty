@@ -39,7 +39,8 @@ export async function GET(
         propDoc = await PropertyModel.findById(conversation.poolRootPropertyId).lean();
       }
       if (!propDoc && (conversation.poolRootPropertyName || conversation.leadName)) {
-        const cleanName = (conversation.poolRootPropertyName || conversation.leadName).replace(/\s*—\s*Group Buying Pool/i, '').trim();
+        const rawName = (conversation.poolRootPropertyName || conversation.leadName || '').toString();
+        const cleanName = rawName.replace(/\s*—\s*Group Buying Pool/i, '').trim();
         propDoc = await PropertyModel.findOne({ name: new RegExp(`^${cleanName}$`, 'i') }).lean();
       }
       if (propDoc) {
@@ -99,40 +100,62 @@ export async function POST(
 
     const isStaff = sender === "agent" || sender === "builder" || sender === "mandate";
     let staffAvatar = "";
+    let resolvedStaffName = "";
 
     if (isStaff) {
       try {
         const UserModel = (await import('@/models/User')).default;
-        const userDoc: any = await UserModel.findById(context!.userId).select('profile role builderId mandateId').lean();
+        const userDoc: any = await UserModel.findById(context!.userId).select('profile role builderId mandateId companyName developerName fullName name').lean();
         if (userDoc) {
+          if (userDoc.builderId) {
+            const BuilderModel = (await import('@/models/Builder')).default;
+            const bDoc: any = await BuilderModel.findById(userDoc.builderId).select('companyName developerName logo').lean();
+            if (bDoc) {
+              resolvedStaffName = bDoc.companyName || bDoc.developerName || "";
+              if (bDoc.logo) staffAvatar = bDoc.logo;
+            }
+          } else if (userDoc.mandateId) {
+            const MandateModel = (await import('@/models/Mandate')).default;
+            const mDoc: any = await MandateModel.findById(userDoc.mandateId).select('companyName fullName logo').lean();
+            if (mDoc) {
+              resolvedStaffName = mDoc.companyName || mDoc.fullName || "";
+              if (mDoc.logo) staffAvatar = mDoc.logo;
+            }
+          }
+
+          if (!resolvedStaffName) {
+            resolvedStaffName = userDoc.companyName || userDoc.developerName || userDoc.profile?.companyName || "";
+          }
+
           if (userDoc.profile?.logo) staffAvatar = userDoc.profile.logo;
           else if (userDoc.profile?.photo) staffAvatar = userDoc.profile.photo;
           else if (userDoc.profile?.avatar) staffAvatar = userDoc.profile.avatar;
-          else if (userDoc.builderId) {
-            const BuilderModel = (await import('@/models/Builder')).default;
-            const bDoc: any = await BuilderModel.findById(userDoc.builderId).select('logo').lean();
-            if (bDoc?.logo) staffAvatar = bDoc.logo;
-          } else if (userDoc.mandateId) {
-            const MandateModel = (await import('@/models/Mandate')).default;
-            const mDoc: any = await MandateModel.findById(userDoc.mandateId).select('logo').lean();
-            if (mDoc?.logo) staffAvatar = mDoc.logo;
+        }
+
+        if (!resolvedStaffName || !staffAvatar) {
+          const BuilderModel = (await import('@/models/Builder')).default;
+          const bDoc: any = await BuilderModel.findById(context!.userId).select('companyName developerName logo').lean();
+          if (bDoc) {
+            if (!resolvedStaffName) resolvedStaffName = bDoc.companyName || bDoc.developerName;
+            if (!staffAvatar && bDoc.logo) staffAvatar = bDoc.logo;
           }
         }
 
-        if (!staffAvatar) {
-          const BuilderModel = (await import('@/models/Builder')).default;
-          const bDoc: any = await BuilderModel.findById(context!.userId).select('logo').lean();
-          if (bDoc?.logo) staffAvatar = bDoc.logo;
-        }
-
-        if (!staffAvatar) {
+        if (!resolvedStaffName || !staffAvatar) {
           const MandateModel = (await import('@/models/Mandate')).default;
-          const mDoc: any = await MandateModel.findById(context!.userId).select('logo').lean();
-          if (mDoc?.logo) staffAvatar = mDoc.logo;
+          const mDoc: any = await MandateModel.findById(context!.userId).select('companyName fullName logo').lean();
+          if (mDoc) {
+            if (!resolvedStaffName) resolvedStaffName = mDoc.companyName || mDoc.fullName;
+            if (!staffAvatar && mDoc.logo) staffAvatar = mDoc.logo;
+          }
         }
       } catch (err) {
         console.warn('Could not resolve staff avatar in builder messages route:', err);
       }
+    }
+
+    if (!resolvedStaffName && isStaff) {
+      resolvedStaffName = context!.role === 'mandate' ? "Astronix Realty Mandate Partner" : "Builder Astronix Realty";
     }
 
     const newMessage: any = {
@@ -140,7 +163,7 @@ export async function POST(
       sender: isStaff ? "agent" : "lead",
       senderId: context!.userId,
       senderRole: context!.role,
-      senderName: senderName || (isStaff ? (context!.email || "Builder Team") : conversation.leadName),
+      senderName: isStaff ? resolvedStaffName : (senderName || conversation.leadName),
       senderAvatar: staffAvatar,
       senderPhoto: staffAvatar,
       createdAt: new Date(),
