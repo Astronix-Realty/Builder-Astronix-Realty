@@ -561,8 +561,12 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
         const isAstronixLeadData = (leadData: any) => {
             if (!leadData) return false;
             const src = (leadData.source || '').toString();
+            const lType = (leadData.leadType || '').toString();
             return (
                 /website|astronix|doubt|visitor/i.test(src) ||
+                lType === "specific-doubt" ||
+                lType === "group-buying" ||
+                lType === "token-hold" ||
                 leadData.status === "Token VIP" ||
                 Boolean(leadData.isTokenPaid) ||
                 Boolean(leadData.isGroup) ||

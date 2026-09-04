@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import Lead from '@/models/Lead';
+import { broadcastEvent } from '@/lib/sse';
+import mongoose from 'mongoose';
 
 // POST /api/internal/leads — Receive visitor leads from Visitor panel
 export async function POST(req: NextRequest) {
@@ -211,59 +213,162 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, leadId: finalLeadId, isGroup: true });
     }
 
-    // Check for duplicate individual lead (same phone + same builder)
-    const existingLead = await Lead.findOne({
-      phone,
-      builderId: builderId || undefined,
-    });
+    const isSpecificDoubtLead = (
+      leadType === 'specific-doubt' ||
+      source === 'visitor-specific-doubt' ||
+      Boolean(body.question) ||
+      (typeof requirement === 'string' && requirement.includes('Specific Doubt'))
+    );
+    const isUserAuthenticated = (body.loginStatus === 'authenticated' || Boolean(body.userId));
+    const resolvedLeadType = isSpecificDoubtLead ? 'specific-doubt' : (leadType || 'normal');
+    const resolvedSource = isSpecificDoubtLead ? 'visitor-specific-doubt' : (source || 'Astronix Website');
+
+    // Check for duplicate individual lead (strictly exclude Group Buying Pool leads)
+    const phone10 = phone.replace(/\D/g, '').slice(-10);
+    const identityOrConditions: any[] = [];
+    if (phone10) {
+      identityOrConditions.push(
+        { phone },
+        { phone: phone10 },
+        { phone: `+91${phone10}` },
+        { phone: `+91 ${phone10}` },
+        { phone: new RegExp(`${phone10}$`) }
+      );
+    }
+    if (body.userId) {
+      if (mongoose.isValidObjectId(body.userId)) {
+        identityOrConditions.push({ userId: new mongoose.Types.ObjectId(body.userId) });
+      }
+      identityOrConditions.push({ userId: body.userId }, { visitorId: body.userId });
+    }
+    if (body.visitorId && body.visitorId !== body.userId) {
+      if (mongoose.isValidObjectId(body.visitorId)) {
+        identityOrConditions.push({ visitorId: new mongoose.Types.ObjectId(body.visitorId) });
+      }
+      identityOrConditions.push({ visitorId: body.visitorId });
+    }
+    if (email) {
+      identityOrConditions.push({ email: email.toString().trim().toLowerCase() });
+    }
+
+    const duplicateConditions: any[] = [
+      { isArchived: { $ne: true } },
+      { isGroup: { $ne: true } }, // Strictly isolate from Group Buying Pool
+      { $or: identityOrConditions }
+    ];
+
+    if (builderId) {
+      const bIdConds: any[] = [{ builderId }, { accountId: builderId }];
+      if (mongoose.isValidObjectId(builderId)) {
+        bIdConds.push({ builderId: new mongoose.Types.ObjectId(builderId) }, { accountId: new mongoose.Types.ObjectId(builderId) });
+      }
+      duplicateConditions.push({ $or: bIdConds });
+    }
+
+    const existingLead = await Lead.findOne({ $and: duplicateConditions });
 
     if (existingLead) {
-      existingLead.timeline.push({
-        title: `Repeat inquiry from ${source || 'Astronix Website'}`,
-        desc: `Property: ${propertyTitle || 'Unknown'}. Type: ${leadType || 'normal'}`,
+      // Classification: Logged-in user + Specific Doubt = Connected Lead. Never regress to Fresh.
+      let targetStatus = existingLead.status || 'Fresh';
+      if (isUserAuthenticated && isSpecificDoubtLead) {
+        if (targetStatus === 'Fresh') {
+          targetStatus = 'Connected';
+        }
+      }
+
+      const statusTransitionNote = (existingLead.status !== targetStatus)
+        ? ` [Status updated from ${existingLead.status} to ${targetStatus}]`
+        : '';
+
+      existingLead.status = targetStatus;
+      existingLead.source = resolvedSource;
+      existingLead.leadType = resolvedLeadType;
+      existingLead.loginStatus = isUserAuthenticated ? 'authenticated' : (existingLead.loginStatus || 'guest');
+      if (body.userId) existingLead.userId = body.userId;
+      if (body.visitorId) existingLead.visitorId = body.visitorId;
+      if (requirement) existingLead.requirement = requirement;
+
+      existingLead.timeline.unshift({
+        title: isSpecificDoubtLead ? 'Specific Doubt Submitted' : `Repeat inquiry from ${resolvedSource}`,
+        desc: `${body.question || requirement || `Property: ${propertyTitle || 'Unknown'}`}${statusTransitionNote}`,
         type: 'system',
         date: new Date(),
       });
+
+      if (body.question) {
+        if (!Array.isArray(existingLead.notes)) existingLead.notes = [];
+        existingLead.notes.unshift(`Visitor Query: "${body.question}"`);
+      }
+
       if (body.hierarchyContext) {
         existingLead.hierarchyContext = body.hierarchyContext;
         if (body.hierarchyContext.unitId) existingLead.unitId = body.hierarchyContext.unitId;
         if (body.hierarchyContext.unitNumber) existingLead.unitNumber = body.hierarchyContext.unitNumber;
       }
+
       await existingLead.save();
 
-      console.log(`[Internal] Duplicate lead updated for ${phone} (builder: ${builderId})`);
-      return NextResponse.json({ success: true, duplicate: true, leadId: existingLead._id.toString() });
+      broadcastEvent({
+        type: "LEAD_UPDATED",
+        leadId: existingLead._id.toString(),
+        role: existingLead.role,
+        accountId: existingLead.accountId?.toString(),
+        builderId: existingLead.builderId?.toString(),
+        mandateId: existingLead.mandateId?.toString(),
+        data: existingLead,
+        timestamp: Date.now()
+      });
+
+      console.log(`[Internal] Duplicate lead updated for ${phone} (builder: ${builderId}) to status: ${targetStatus}`);
+      return NextResponse.json({ success: true, duplicate: true, leadId: existingLead._id.toString(), status: targetStatus });
     }
 
     // Create new individual lead
+    const initialStatus = (isUserAuthenticated && isSpecificDoubtLead)
+      ? 'Connected'
+      : (isTokenPaid ? 'Token VIP' : (body.status || 'Fresh'));
+
     const lead = await Lead.create({
       name,
       phone,
       email: email || '',
       builderId: builderId || undefined,
-      source: source || 'Astronix Website',
-      status: 'Fresh',
+      source: resolvedSource,
+      status: initialStatus,
       requirement: requirement || '',
       budget: budget || '',
       isTokenPaid: isTokenPaid || false,
       isGroup: false,
-      leadType: leadType || 'normal',
-      loginStatus: body.loginStatus || 'guest',
+      leadType: resolvedLeadType,
+      loginStatus: isUserAuthenticated ? 'authenticated' : (body.loginStatus || 'guest'),
+      userId: body.userId || undefined,
       visitorId: body.visitorId || undefined,
       hierarchyContext: body.hierarchyContext || undefined,
       unitId: body.hierarchyContext?.unitId || undefined,
       unitNumber: body.hierarchyContext?.unitNumber || undefined,
+      notes: body.question ? [`Visitor Query: "${body.question}"`] : [],
       timeline: [{
-        title: `Lead received from ${source || 'Astronix Website'}`,
-        desc: `Property: ${propertyTitle || 'Unknown'}. Type: ${leadType || 'normal'}`,
+        title: isSpecificDoubtLead ? 'Specific Doubt Submitted' : `Lead received from ${resolvedSource}`,
+        desc: body.question || requirement || `Property: ${propertyTitle || 'Unknown'}. Type: ${resolvedLeadType}`,
         type: 'system',
         date: new Date(),
       }],
     });
 
-    console.log(`[Internal] New lead created: ${name} (${phone}) for builder ${builderId}`);
+    broadcastEvent({
+      type: "LEAD_CREATED",
+      leadId: lead._id.toString(),
+      role: lead.role,
+      accountId: lead.accountId?.toString(),
+      builderId: lead.builderId?.toString(),
+      mandateId: lead.mandateId?.toString(),
+      data: lead,
+      timestamp: Date.now()
+    });
 
-    return NextResponse.json({ success: true, leadId: lead._id.toString() });
+    console.log(`[Internal] New lead created: ${name} (${phone}) for builder ${builderId} with status: ${initialStatus}`);
+
+    return NextResponse.json({ success: true, leadId: lead._id.toString(), status: initialStatus });
   } catch (error: any) {
     console.error('[Internal] Error receiving lead:', error.message);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
