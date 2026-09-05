@@ -111,7 +111,7 @@ async function buildHierarchy(
     const dbProjectDocs = await Property.find({
       parentId: rootProperty._id,
       isDeleted: false,
-      status: { $nin: ["draft", "rejected"] },
+      status: { $ne: "rejected" },
       type: "project",
       ...ownershipQuery,
     }).sort({ updatedAt: -1 }).lean() as any[];
@@ -119,7 +119,7 @@ async function buildHierarchy(
     // 2. Canonical Project Resolution:
     // If rootProjects exists, resolve 1 project per entry in rootProjects (deduplicating multiple DB records)
     // Otherwise deduplicate dbProjectDocs by name (taking latest updatedAt)
-    const canonicalProjects: { _id: string; name: string; frontendId: string | null; dbDoc: any; isEmbedded: boolean }[] = [];
+    const canonicalProjects: { _id: string; name: string; frontendId: string | null; dbDoc: any; isEmbedded: boolean; details?: any }[] = [];
     if (rootProjects.length > 0) {
       for (const p of rootProjects) {
         const matchedDbDoc = dbProjectDocs.find((dbP) =>
@@ -132,6 +132,7 @@ async function buildHierarchy(
           frontendId: p.id || null,
           dbDoc: matchedDbDoc,
           isEmbedded: !matchedDbDoc,
+          details: p,
         });
       }
     } else if (dbProjectDocs.length > 0) {
@@ -177,7 +178,7 @@ async function buildHierarchy(
         dbTowerDocs = await Property.find({
           parentId: proj.dbDoc._id,
           isDeleted: false,
-          status: { $nin: ["draft", "rejected"] },
+          status: { $ne: "rejected" },
           type: "tower",
           ...ownershipQuery,
         }).sort({ updatedAt: -1 }).lean() as any[];
@@ -225,7 +226,7 @@ async function buildHierarchy(
         if (tower.dbDoc) {
           towerUnits = await Unit.find({
             towerId: tower.dbDoc._id,
-            status: { $nin: ["draft", "rejected"] },
+            status: { $ne: "rejected" },
           }).lean();
         }
 
@@ -313,6 +314,29 @@ async function buildHierarchy(
         name: proj.name,
         towerCount: canonicalTowers.length,
         unitCount: projUnits.length,
+        reraNumber: proj.dbDoc?.reraNumber || proj.dbDoc?.details?.reraNumber || proj.details?.reraNumber || "",
+      });
+    }
+
+    // Check for any unassigned towers directly on the township
+    const assignedTowerNames = new Set(towers.map((t) => t.name?.trim().toLowerCase()));
+    const unassignedRootTowers = rootTowers.filter((t: any) => {
+      const normTName = (t.name || "").trim().toLowerCase();
+      return !assignedTowerNames.has(normTName);
+    });
+
+    for (const t of unassignedRootTowers) {
+      const towerIdStr = t.id || t._id?.toString() || `tower-${t.name}`;
+      const towerUnits = rootEmbeddedUnits.filter((u: any) => u.towerId === towerIdStr || u.towerId === t.id);
+      const derivedFloors = deriveFloorCount(t.details || t, towerConfigs, towerIdStr, towerUnits);
+      const derivedUnitsPerFloor = Number(t.unitsPerFloor) || Number(t.details?.unitsPerFloor) || 0;
+      towers.push({
+        _id: towerIdStr,
+        name: t.name || "Direct Tower",
+        projectId: null,
+        floorCount: derivedFloors,
+        unitCount: towerUnits.length || (derivedFloors * derivedUnitsPerFloor) || 0,
+        baseRate: parseFloat(t.details?.baseRatePerSqft || t.baseRate || "0") || 0,
       });
     }
   } else if (rootProperty.type === "project") {
@@ -322,7 +346,7 @@ async function buildHierarchy(
     let dbTowerDocs = await Property.find({
       parentId: rootProperty._id,
       isDeleted: false,
-      status: { $nin: ["draft", "rejected"] },
+      status: { $ne: "rejected" },
       type: "tower",
       ...ownershipQuery,
     }).sort({ updatedAt: -1 }).lean() as any[];
@@ -368,7 +392,7 @@ async function buildHierarchy(
       if (tower.dbDoc) {
         towerUnits = await Unit.find({
           towerId: tower.dbDoc._id,
-          status: { $nin: ["draft", "rejected"] },
+          status: { $ne: "rejected" },
         }).lean();
       }
 
@@ -446,7 +470,7 @@ async function buildHierarchy(
     const towerIdStr = rootProperty._id.toString();
     let towerUnits: any[] = await Unit.find({
       towerId: rootProperty._id,
-      status: { $nin: ["draft", "rejected"] },
+      status: { $ne: "rejected" },
     }).lean() as any[];
 
     if (towerUnits.length === 0 && rootEmbeddedUnits.length > 0) {
@@ -552,10 +576,57 @@ export async function GET(
       return NextResponse.json({ error: "Property not found or unauthorized" }, { status: 404 });
     }
 
-    // 2. Build full hierarchy
+    // 2. Resolve parent hierarchy (if this property is a child project or child tower)
+    const parentHierarchy: {
+      township?: { _id: string; name: string; type: string; reraNumber?: string };
+      project?: { _id: string; name: string; type: string; reraNumber?: string };
+    } = {};
+
+    if (rootProperty.parentId) {
+      const parentDoc = await Property.findById(rootProperty.parentId).lean() as any;
+      if (parentDoc) {
+        if (parentDoc.type === "township") {
+          parentHierarchy.township = {
+            _id: parentDoc._id.toString(),
+            name: parentDoc.name || parentDoc.details?.township?.name || "Parent Township",
+            type: "township",
+            reraNumber: parentDoc.reraNumber || parentDoc.details?.reraNumber,
+          };
+        } else if (parentDoc.type === "project") {
+          parentHierarchy.project = {
+            _id: parentDoc._id.toString(),
+            name: parentDoc.name || "Parent Project",
+            type: "project",
+            reraNumber: parentDoc.reraNumber || parentDoc.details?.reraNumber,
+          };
+          if (parentDoc.parentId) {
+            const grandParentDoc = await Property.findById(parentDoc.parentId).lean() as any;
+            if (grandParentDoc && grandParentDoc.type === "township") {
+              parentHierarchy.township = {
+                _id: grandParentDoc._id.toString(),
+                name: grandParentDoc.name || grandParentDoc.details?.township?.name || "Parent Township",
+                type: "township",
+                reraNumber: grandParentDoc.reraNumber || grandParentDoc.details?.reraNumber,
+              };
+            }
+          }
+        }
+      }
+    }
+
+    if (!parentHierarchy.township && rootProperty.details?.township?.name) {
+      parentHierarchy.township = {
+        _id: rootProperty.details.township.id || "township-ref",
+        name: rootProperty.details.township.name,
+        type: "township",
+        reraNumber: rootProperty.details.township.reraNumber || rootProperty.details?.reraNumber,
+      };
+    }
+
+    // 3. Build full hierarchy
     const { projects, towers, units } = await buildHierarchy(rootProperty, propertyId, ownershipQuery);
 
-    // 3. Debug logging
+    // 4. Debug logging
     if (process.env.NODE_ENV !== "production") {
       console.log(
         `[GET /api/inventory/${propertyId}] type=${rootProperty.type} ` +
@@ -574,6 +645,9 @@ export async function GET(
           flowType: (rootProperty.flowType || rootProperty.type) as string,
           location: rootProperty.location || {},
           status: rootProperty.status,
+          reraNumber: rootProperty.reraNumber || rootProperty.details?.reraNumber || rootProperty.details?.township?.reraNumber || "",
+          parentId: rootProperty.parentId ? rootProperty.parentId.toString() : null,
+          parentHierarchy,
         },
         projects,
         towers,

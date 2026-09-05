@@ -16,13 +16,7 @@ import { TeamView } from "@/components/builder/team/team-view"
 import { BlogView } from "@/components/builder/blog/blog-view"
 import { OffersView } from "@/components/builder/offers/offers-view"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog"
+import PropertyHierarchyModal, { HierarchyPropertyInfo } from "@/components/PropertyHierarchyModal"
 
 interface MandateProfile {
   companyName: string
@@ -65,6 +59,13 @@ interface Property {
   thumbnail?: string
   searchBlob?: string
   reraNumber?: string
+  groupBuying?: {
+    enabled?: boolean
+    discountLabel?: string
+    targetCount?: number
+    startDate?: string
+    endDate?: string
+  }
 }
 
 
@@ -112,9 +113,7 @@ function DashboardContent() {
   const [isFetchingProperties, setIsFetchingProperties] = useState(false)
   const [deletingPropertyId, setDeletingPropertyId] = useState<string | null>(null)
   const [movingToDraftId, setMovingToDraftId] = useState<string | null>(null)
-  const [selectedPropertyForTowers, setSelectedPropertyForTowers] = useState<{ id: string; name: string } | null>(null)
-  const [towersList, setTowersList] = useState<any[]>([])
-  const [isFetchingTowers, setIsFetchingTowers] = useState(false)
+  const [selectedPropertyForHierarchy, setSelectedPropertyForHierarchy] = useState<HierarchyPropertyInfo | null>(null)
 
   // Theme Logic
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('light')
@@ -367,6 +366,9 @@ function DashboardContent() {
       reraNumber = `P517000${numPart.padStart(5, '0')}`;
     }
 
+    // Group Buying Extraction
+    const groupBuying = p.groupBuying || details?.groupBuying || details?.township?.groupBuying || undefined;
+
     return {
       id: p._id || p.id,
       townshipName: name,
@@ -383,6 +385,7 @@ function DashboardContent() {
       thumbnail: thumbnail,
       searchBlob,
       reraNumber,
+      groupBuying: groupBuying?.enabled ? groupBuying : undefined,
     }
   }
 
@@ -654,28 +657,8 @@ function DashboardContent() {
     }
   }
 
-  const handleViewTowers = async (propertyId: string, propertyName: string) => {
-    setSelectedPropertyForTowers({ id: propertyId, name: propertyName })
-    setIsFetchingTowers(true)
-    setTowersList([])
-    try {
-      const res = await fetch(`/api/inventory/${propertyId}`)
-      if (res.ok) {
-        const data = await res.json()
-        if (data.towers) {
-          setTowersList(data.towers)
-        }
-      } else {
-        const errorText = await res.text()
-        toast.error(`Failed to load towers (HTTP ${res.status}): ${errorText}`)
-        console.error("Tower fetch failed:", res.status, errorText)
-      }
-    } catch (error: any) {
-      console.error("Error fetching towers:", error)
-      toast.error(`Error loading towers: ${error.message}`)
-    } finally {
-      setIsFetchingTowers(false)
-    }
+  const handleViewTowers = (propertyId: string, propertyName: string, flowType?: string, status?: string) => {
+    setSelectedPropertyForHierarchy({ id: propertyId, name: propertyName, flowType, status })
   }
 
   const formatBaseRate = (rate: number) => {
@@ -1279,6 +1262,32 @@ function DashboardContent() {
                         </div>
                       </div>
 
+                      {/* Group Buying Strip */}
+                      {property.groupBuying?.enabled && (
+                        <div className="px-5 pb-1">
+                          <div className="flex items-center gap-2 bg-purple-50 dark:bg-purple-950/30 p-2.5 rounded-lg border border-purple-200/60 dark:border-purple-800/40">
+                            <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/60 flex items-center justify-center shrink-0">
+                              <Users className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-extrabold text-purple-700 dark:text-purple-400 uppercase tracking-wider">Group Buying</span>
+                                <span className="px-1.5 py-0.5 rounded bg-purple-500 text-white text-[8px] font-black uppercase tracking-wider animate-pulse">Active</span>
+                              </div>
+                              <p className="text-[10px] text-purple-600 dark:text-purple-300 font-semibold truncate mt-0.5">
+                                {property.groupBuying.discountLabel || 'Group discount available'}
+                                {property.groupBuying.targetCount ? ` · ${property.groupBuying.targetCount}+ buyers` : ''}
+                              </p>
+                            </div>
+                            {property.groupBuying.endDate && (
+                              <span className="text-[9px] font-bold text-purple-500 dark:text-purple-400 shrink-0 whitespace-nowrap">
+                                Ends {new Date(property.groupBuying.endDate).toLocaleDateString()}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/40">
                         <div className={`grid gap-4 text-center ${property.flowType === 'township' ? 'grid-cols-3' :
                             property.flowType === 'project' ? 'grid-cols-2' :
@@ -1342,7 +1351,7 @@ function DashboardContent() {
 
                       <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 flex gap-2">
                         <button
-                          onClick={() => handleViewTowers(property.id, property.townshipName)}
+                          onClick={() => handleViewTowers(property.id, property.townshipName, property.flowType, property.status)}
                           className="flex-1 px-3 py-2.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800/50 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 shadow-sm"
                         >
                           <Eye className="h-4 w-4" />
@@ -1914,76 +1923,12 @@ function DashboardContent() {
         </div>
       )}
 
-      {/* Towers View Modal */}
-      <Dialog open={!!selectedPropertyForTowers} onOpenChange={(open) => { if (!open) setSelectedPropertyForTowers(null); }}>
-        <DialogContent className="max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl p-6">
-          <DialogHeader className="pb-4 border-b border-slate-100 dark:border-slate-800">
-            <DialogTitle className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Building className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              Towers in {selectedPropertyForTowers?.name}
-            </DialogTitle>
-            <DialogDescription className="text-slate-500 dark:text-slate-400 text-sm">
-              List of configured towers and their pricing information.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="py-4 max-h-[350px] overflow-y-auto pr-1">
-            {isFetchingTowers ? (
-              <div className="flex flex-col items-center justify-center py-12 gap-3">
-                <Loader2 className="h-8 w-8 text-blue-600 dark:text-blue-400 animate-spin" />
-                <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Fetching tower list...</p>
-              </div>
-            ) : towersList.length === 0 ? (
-              <div className="text-center py-12">
-                <Building className="h-12 w-12 text-slate-300 dark:text-slate-700 mx-auto mb-3" />
-                <h4 className="text-base font-semibold text-slate-900 dark:text-white mb-1">No Towers Found</h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  There are no towers configured or generated for this property.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {towersList.map((tower) => (
-                  <div
-                    key={tower._id}
-                    className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-150 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-500/50 transition-all duration-200 group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-200">
-                        <Building2 className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-slate-900 dark:text-white text-sm group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200">
-                          {tower.name}
-                        </h4>
-                        <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
-                          <span>{tower.floorCount || 0} Floors</span>
-                          <span className="w-1 h-1 rounded-full bg-slate-350 dark:bg-slate-600"></span>
-                          <span>{tower.unitCount || 0} Units</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span className="inline-flex items-center px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 text-xs font-black font-mono shadow-sm">
-                        {formatBaseRate(tower.baseRate)}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-            <button
-              onClick={() => setSelectedPropertyForTowers(null)}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm font-semibold transition-colors"
-            >
-              Close
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Property Hierarchy View Modal */}
+      <PropertyHierarchyModal
+        isOpen={!!selectedPropertyForHierarchy}
+        onClose={() => setSelectedPropertyForHierarchy(null)}
+        property={selectedPropertyForHierarchy}
+      />
     </div>
   )
 }
