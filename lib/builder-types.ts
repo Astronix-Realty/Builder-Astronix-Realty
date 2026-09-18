@@ -48,7 +48,7 @@ export interface GroupBuyingTier {
 export interface GroupBuyingConfig {
   enabled: boolean
   currentCount?: number    // "248 buyers interested"
-  targetCount: number     // "500 target"
+  targetCount?: number     // "500 target"
   discountLabel: string   // "Extra 52% off on group booking"
   startDate?: string      // "2026-08-25T00:00" - Deal start date & time
   endDate?: string        // "2026-08-30T23:59" - Deal expiration date & time
@@ -757,7 +757,6 @@ export const initialCommonData: CommonInheritedData = {
   groupBuying: {
     enabled: false,
     currentCount: 0,
-    targetCount: 500,
     discountLabel: "Extra 2% off on group booking",
   },
 }

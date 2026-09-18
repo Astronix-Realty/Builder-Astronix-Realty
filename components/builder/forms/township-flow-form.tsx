@@ -928,7 +928,7 @@ function TownshipFlowFormBase({ data, onChange, user }: TownshipFlowFormProps) {
                     startDate: data.groupBuying?.startDate || formatDT(now),
                     endDate: data.groupBuying?.endDate || formatDT(new Date(now.getTime() + 48 * 60 * 60 * 1000)),
                     discountLabel: data.groupBuying?.discountLabel ?? "Extra 2% off on group booking",
-                    targetCount: Number(data.groupBuying?.targetCount) > 0 ? Number(data.groupBuying?.targetCount) : 500
+                    targetCount: Number(data.groupBuying?.targetCount) > 0 ? Number(data.groupBuying?.targetCount) : undefined
                   });
                 }}
                 className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer ${data.groupBuying?.enabled ? "bg-[#10B981]" : "bg-gray-200"}`}
@@ -950,9 +950,16 @@ function TownshipFlowFormBase({ data, onChange, user }: TownshipFlowFormProps) {
           <Field label="Minimum Participation to Trigger Discount" hint="Count of buyers to unlock base discount">
             <Input 
               type="number" 
-              value={data.groupBuying?.targetCount ?? 500} 
-              onChange={e => update("groupBuying", { ...data.groupBuying, targetCount: Number(e.target.value) })} 
-              placeholder="500" 
+              value={data.groupBuying?.targetCount !== undefined && data.groupBuying?.targetCount !== null && Number(data.groupBuying.targetCount) > 0 ? data.groupBuying.targetCount : ""} 
+              onChange={e => {
+                const val = e.target.value.trim()
+                update("groupBuying", { 
+                  ...data.groupBuying, 
+                  targetCount: val === "" ? undefined : Number(val) 
+                })
+              }} 
+              placeholder="10" 
+              className="placeholder:text-gray-400 dark:placeholder:text-gray-500"
             />
           </Field>
           <Field label="Deal Expiration / Live Until" hint="Countdown timer shown to buyers on unit card">

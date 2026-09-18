@@ -284,8 +284,8 @@ export async function POST(req: NextRequest) {
       existingLead.source = resolvedSource;
       existingLead.leadType = resolvedLeadType;
       existingLead.loginStatus = isUserAuthenticated ? 'authenticated' : (existingLead.loginStatus || 'guest');
-      if (body.userId) existingLead.userId = body.userId;
-      if (body.visitorId) existingLead.visitorId = body.visitorId;
+      if (body.userId) (existingLead as any).userId = body.userId;
+      if (body.visitorId) (existingLead as any).visitorId = body.visitorId;
       if (requirement) existingLead.requirement = requirement;
 
       existingLead.timeline.unshift({

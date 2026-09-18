@@ -959,7 +959,7 @@ function ProjectFlowFormBase({ data, onChange, townshipName, townshipData, onTow
                         startDate: townshipData.groupBuying?.startDate || formatDT(now),
                         endDate: townshipData.groupBuying?.endDate || formatDT(new Date(now.getTime() + 48 * 60 * 60 * 1000)),
                         discountLabel: townshipData.groupBuying?.discountLabel ?? "Extra 2% off on group booking",
-                        targetCount: Number(townshipData.groupBuying?.targetCount) > 0 ? Number(townshipData.groupBuying?.targetCount) : 500
+                        targetCount: Number(townshipData.groupBuying?.targetCount) > 0 ? Number(townshipData.groupBuying?.targetCount) : undefined
                       });
                     }}
                     className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer ${townshipData.groupBuying?.enabled ? "bg-[#10B981]" : "bg-gray-200"}`}
@@ -982,10 +982,16 @@ function ProjectFlowFormBase({ data, onChange, townshipName, townshipData, onTow
               <Field label="Minimum Participation to Trigger Discount" hint="Count of buyers to unlock base discount">
                 <Input 
                   type="number" 
-                  value={townshipData.groupBuying?.targetCount ?? 500} 
-                  onChange={e => updateCommon("groupBuying", { ...townshipData.groupBuying, targetCount: Number(e.target.value) })} 
-                  className="h-8 text-xs" 
-                  placeholder="500"
+                  value={townshipData.groupBuying?.targetCount !== undefined && townshipData.groupBuying?.targetCount !== null && Number(townshipData.groupBuying.targetCount) > 0 ? townshipData.groupBuying.targetCount : ""} 
+                  onChange={e => {
+                    const val = e.target.value.trim()
+                    updateCommon("groupBuying", { 
+                      ...townshipData.groupBuying, 
+                      targetCount: val === "" ? undefined : Number(val) 
+                    })
+                  }} 
+                  className="h-8 text-xs placeholder:text-gray-400 dark:placeholder:text-gray-500" 
+                  placeholder="10"
                 />
               </Field>
               <Field label="Deal Expiration / Live Until" hint="Countdown timer shown to buyers on unit card">

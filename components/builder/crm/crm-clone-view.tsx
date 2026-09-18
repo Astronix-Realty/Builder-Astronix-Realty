@@ -1138,7 +1138,7 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
                             </div>
                             <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
                                 <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider mb-1 flex items-center gap-1"><DollarSign className="w-3 h-3"/> Budget</p>
-                                <p className="font-bold text-slate-700 dark:text-slate-200">{selectedLead.budget}</p>
+                                <p className="font-bold text-slate-700 dark:text-slate-200">{selectedLead.budget || "Price on Request"}</p>
                             </div>
                             <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800 col-span-2">
                                 <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider mb-1 flex items-center gap-1"><Search className="w-3 h-3"/> Source</p>

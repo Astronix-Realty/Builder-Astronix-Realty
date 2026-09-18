@@ -378,7 +378,11 @@ function BuilderContent() {
             const facing = slot.facingOverride || facings[(unitNumber - 1) % facings.length]
             const carpetArea = slot.carpetAreaOverride || config.carpetArea || 0
             const builtUpArea = config?.builtUpArea || Math.round(carpetArea * 1.2)
-            let finalPrice = slot.priceOverride || (builtUpArea * ratePerSqft || basePrice)
+            const configRate = Number.parseFloat(config?.ratePerSqft || "0") || 0
+            const configBasePrice = Number.parseFloat(config?.basePrice || "0") || 0
+            const effectiveRate = Number.parseFloat(slot.rateOverride || "0") || (ratePerSqft > 0 ? ratePerSqft : configRate)
+            const effectiveBase = configBasePrice > 0 ? configBasePrice : basePrice
+            let finalPrice = slot.priceOverride || (builtUpArea * effectiveRate || effectiveBase)
 
             const floorRiseStart = 5
             if (floor >= floorRiseStart) {
@@ -402,7 +406,7 @@ function BuilderContent() {
               carpetArea,
               area: carpetArea,
               price: Math.round(finalPrice),
-              ratePerSqft: ratePerSqft > 0 ? ratePerSqft : Math.round(finalPrice / (carpetArea || 1)),
+              ratePerSqft: effectiveRate > 0 ? effectiveRate : (finalPrice > 0 && carpetArea > 0 ? Math.round(finalPrice / carpetArea) : 0),
               facing,
               status: slot.status || "available",
             })
@@ -419,7 +423,11 @@ function BuilderContent() {
 
               const carpetArea = config?.carpetArea || 0
               const builtUpArea = config?.builtUpArea || Math.round(carpetArea * 1.2)
-              let finalPrice = builtUpArea * ratePerSqft || basePrice
+              const configRate = Number.parseFloat(config?.ratePerSqft || "0") || 0
+              const configBasePrice = Number.parseFloat(config?.basePrice || "0") || 0
+              const effectiveRate = ratePerSqft > 0 ? ratePerSqft : configRate
+              const effectiveBase = configBasePrice > 0 ? configBasePrice : basePrice
+              let finalPrice = builtUpArea * effectiveRate || effectiveBase
 
               const floorRiseStart = 5
               if (floor >= floorRiseStart) {
@@ -433,17 +441,17 @@ function BuilderContent() {
               finalPrice = finalPrice * (1 + facingPremium)
 
               units.push({
-                id: `unit-${tower.id}-${floor}-${unitNumber}`,
+                id: `unit-${tower.id}-${floor}-${i + 1}`,
                 towerId: tower.id,
                 projectId: tower.projectId,
-                unitNumber: `${tower.name?.replace("Tower ", "") || "T"}-${floor}${String(unitNumber % 100).padStart(2, "0")}`,
+                unitNumber: `${tower.name?.replace("Tower ", "") || "T"}-${floor}${(i + 1).toString().padStart(2, "0")}`,
                 floor,
                 floorNumber: floor,
                 configuration: config?.type || "1BHK",
                 carpetArea,
                 area: carpetArea,
                 price: Math.round(finalPrice),
-                ratePerSqft: ratePerSqft > 0 ? ratePerSqft : Math.round(finalPrice / (carpetArea || 1)),
+                ratePerSqft: effectiveRate > 0 ? effectiveRate : (finalPrice > 0 && carpetArea > 0 ? Math.round(finalPrice / carpetArea) : 0),
                 facing,
                 status: "available",
               })

@@ -134,7 +134,7 @@ async function enrichLeadsWithUserProfiles(rawLeads: any[]) {
 
 export async function GET(req: NextRequest) {
     try {
-        const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+        const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate', 'teamLeader']);
         if (errorResponse) return errorResponse;
 
         await dbConnect();
@@ -209,7 +209,7 @@ export async function GET(req: NextRequest) {
             totalPages: Math.ceil(total / limit)
         });
     } catch (error: any) {
-        console.error("Error fetching leads:", error);
+        console.error("Error in GET /api/leads:", error);
         return NextResponse.json({ 
             success: false, 
             error: error.message || "Internal Server Error" 
@@ -219,7 +219,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
     try {
-        const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+        const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate', 'teamLeader']);
         if (errorResponse) return errorResponse;
 
         await dbConnect();
@@ -233,6 +233,10 @@ export async function POST(req: NextRequest) {
             }, { status: 400 });
         }
 
+        const effectiveBuilderId = context!.role === 'teamLeader'
+            ? (context!.builderAccountIds?.[0] || context!.builderId)
+            : context!.userId;
+
         // Create the new lead with injected tenancy attributes
         const newLead = await Lead.create({
             name: body.name,
@@ -242,9 +246,10 @@ export async function POST(req: NextRequest) {
             requirement: body.requirement,
             budget: body.budget,
             assignee: body.assignee || context!.email,
-            builderId: context!.userId, // legacy compatibility
-            accountId: context!.userId,
-            role: context!.role,
+            builderId: effectiveBuilderId, // legacy compatibility
+            accountId: effectiveBuilderId,
+            projectId: context!.role === 'teamLeader' && context!.propertyId ? context!.propertyId : body.projectId,
+            role: context!.role === 'teamLeader' ? 'builder' : context!.role,
             mandateId: context!.mandateId || null,
             status: body.status || "Fresh",
             isGroup: body.isGroup || false,

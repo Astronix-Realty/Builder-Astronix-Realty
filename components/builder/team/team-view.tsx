@@ -437,7 +437,7 @@ export function TeamView() {
               <div className="space-y-1.5">
                 <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Full Name *</label>
                 <Input
-                  placeholder="e.g. Rahul Sharma"
+                  placeholder="Enter full name"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                 />

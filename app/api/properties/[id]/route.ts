@@ -267,6 +267,38 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         // Silently continue if builder lookup fails
       }
 
+      // Fetch units to embed in the snapshot
+      let syncedDetails = property.details ? { ...property.details } : {};
+      try {
+        const UnitModel = (await import('@/models/Unit')).default;
+        const dbUnits = await UnitModel.find({
+          $or: [
+            { projectId: property._id },
+            { projectId: property._id.toString() },
+            { towerId: property._id },
+            { towerId: property._id.toString() }
+          ],
+          isDeleted: { $ne: true }
+        }).lean();
+        
+        if (dbUnits.length > 0) {
+          syncedDetails.generatedUnits = dbUnits.map((u: any) => ({
+            id: u.originalId || u._id.toString(),
+            _dbId: u._id.toString(),
+            towerId: u.towerId?.toString(),
+            projectId: u.projectId?.toString(),
+            unitNumber: u.unitNumber,
+            floorNumber: u.floorNumber,
+            configuration: u.configuration,
+            area: u.area,
+            price: u.price || 0,
+            status: u.status || 'available',
+          }));
+        }
+      } catch (e) {
+        console.error("Failed to load units for sync:", e);
+      }
+
       fetch(`${process.env.ADMIN_PANEL_URL}/api/internal/properties`, {
         method: 'POST',
         headers: {
@@ -282,10 +314,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
           location: `${property.location?.city || ''}, ${property.location?.state || ''}`.replace(/^, |, $/g, ''),
           price: property.details?.totalValue || '',
           type: property.type,
-          units: property.details?.generatedUnits?.length || 0,
+          units: syncedDetails.generatedUnits?.length || 0,
           area: property.details?.totalArea || '',
           status: 'pending',
-          snapshot: property.details,
+          snapshot: syncedDetails,
         }),
       }).catch((err: any) => console.error('[Sync] Admin property sync failed:', err.message));
     }

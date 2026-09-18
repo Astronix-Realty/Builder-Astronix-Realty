@@ -10,6 +10,9 @@ export interface RBACContext {
   builderId?: string;
   mandateId?: string;
   email: string;
+  propertyId?: string;
+  propertyName?: string;
+  builderAccountIds?: string[];
 }
 
 /**
@@ -57,15 +60,53 @@ export async function checkRBAC(
       return { errorResponse: NextResponse.json({ error: `Unauthorized. Role '${user.role}' is not allowed.` }, { status: 403 }) };
     }
 
-    return {
-      context: {
-        userId: user._id.toString(),
-        role: user.role,
-        builderId: user.builderId?.toString(),
-        mandateId: user.mandateId?.toString(),
-        email: user.email
-      }
+    const context: RBACContext = {
+      userId: user._id.toString(),
+      role: user.role,
+      builderId: user.builderId?.toString(),
+      mandateId: user.mandateId?.toString(),
+      email: user.email,
+      propertyId: user.profile?.propertyId?.toString(),
+      propertyName: user.profile?.propertyName?.toString(),
+      builderAccountIds: []
     };
+
+    if (user.role === 'teamLeader') {
+      const bIds = new Set<string>();
+      if (user.builderId) bIds.add(user.builderId.toString());
+      if (user.mandateId) bIds.add(user.mandateId.toString());
+
+      // Also find builder or mandate user record to bridge IDs
+      if (user.builderId) {
+        const builderUser = await User.findOne({
+          $or: [
+            { _id: user.builderId },
+            { builderId: user.builderId }
+          ],
+          isDeleted: { $ne: true }
+        }).lean();
+        if (builderUser) {
+          bIds.add(builderUser._id.toString());
+          if (builderUser.builderId) bIds.add(builderUser.builderId.toString());
+        }
+      }
+      if (user.mandateId) {
+        const mandateUser = await User.findOne({
+          $or: [
+            { _id: user.mandateId },
+            { mandateId: user.mandateId }
+          ],
+          isDeleted: { $ne: true }
+        }).lean();
+        if (mandateUser) {
+          bIds.add(mandateUser._id.toString());
+          if (mandateUser.mandateId) bIds.add(mandateUser.mandateId.toString());
+        }
+      }
+      context.builderAccountIds = Array.from(bIds);
+    }
+
+    return { context };
   } catch (error: any) {
     console.error("[RBAC Guard Error]:", error);
     try {
@@ -106,10 +147,60 @@ export function getOwnershipQuery(context: RBACContext): Record<string, any> {
       ]
     };
   } else if (context.role === 'teamLeader') {
+    const builderIds = context.builderAccountIds && context.builderAccountIds.length > 0
+      ? context.builderAccountIds
+      : [context.builderId, context.userId].filter(Boolean) as string[];
+
+    const bObjectIds = builderIds
+      .filter(id => mongoose.Types.ObjectId.isValid(id))
+      .map(id => new mongoose.Types.ObjectId(id));
+    const allBuilderIds = [...builderIds, ...bObjectIds];
+
+    const propConditions: any[] = [];
+    if (context.propertyId) {
+      const pId = context.propertyId;
+      if (mongoose.Types.ObjectId.isValid(pId)) {
+        propConditions.push({ projectId: new mongoose.Types.ObjectId(pId) });
+      }
+      propConditions.push(
+        { projectId: pId },
+        { 'hierarchyContext.propertyId': pId },
+        { 'hierarchyContext.projectId': pId },
+        { 'hierarchyContext.townshipId': pId },
+        { 'hierarchyContext.towerId': pId },
+        { poolRootPropertyId: pId }
+      );
+      if (context.propertyName) {
+        propConditions.push(
+          { 'hierarchyContext.propertyTitle': context.propertyName },
+          { 'hierarchyContext.topPropertyName': context.propertyName },
+          { poolRootPropertyName: context.propertyName }
+        );
+      }
+    }
+
+    if (propConditions.length > 0) {
+      return {
+        $and: [
+          {
+            $or: [
+              { builderId: { $in: allBuilderIds } },
+              { accountId: { $in: allBuilderIds } },
+              { mandateId: { $in: allBuilderIds } },
+              { createdBy: { $in: allBuilderIds } }
+            ]
+          },
+          { $or: propConditions }
+        ]
+      };
+    }
+
     return {
       $or: [
-        { builderId: { $in: allIds } },
-        { accountId: { $in: allIds } }
+        { builderId: { $in: allBuilderIds } },
+        { accountId: { $in: allBuilderIds } },
+        { mandateId: { $in: allBuilderIds } },
+        { createdBy: { $in: allBuilderIds } }
       ]
     };
   } else if (context.role === 'mandate') {

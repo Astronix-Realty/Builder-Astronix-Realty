@@ -100,6 +100,19 @@ async function buildHierarchy(
   const rootProjects: any[] = rootProperty?.details?.projects || [];
   const rootTowers: any[] = rootProperty?.details?.towers || [];
   const towerConfigs: any[] = rootProperty?.details?.towerUnitConfigs || [];
+  const templateConfigs: any[] = rootProperty?.details?.unitTemplate?.configurations || [];
+
+  const resolveUnitPricing = (u: any, fallbackRate: number = 0) => {
+    const config = templateConfigs.find((c: any) =>
+      (c.type && (u.configuration || u.type) && c.type.trim().toLowerCase() === (u.configuration || u.type).trim().toLowerCase()) ||
+      c.id === u.configId
+    );
+    const carpetArea = Number(u.carpetArea || u.area || config?.carpetArea || 0);
+    const builtUpArea = Number(u.builtUpArea || config?.builtUpArea || (carpetArea > 0 ? Math.round(carpetArea * 1.2) : 0));
+    const ratePerSqft = (Number(u.ratePerSqft) > 0) ? Number(u.ratePerSqft) : (Number(config?.ratePerSqft) || fallbackRate || 0);
+    const price = (Number(u.price) > 0) ? Number(u.price) : (Number(config?.basePrice) || (builtUpArea > 0 && ratePerSqft > 0 ? Math.round(builtUpArea * ratePerSqft) : 0));
+    return { carpetArea, builtUpArea, ratePerSqft, price, configType: config?.type };
+  };
 
   const projects: any[] = [];
   const towers: any[] = [];
@@ -240,6 +253,20 @@ async function buildHierarchy(
           });
         }
 
+        // Derive baseRate & floor count
+        const towerConfig = towerConfigs.find((c: any) =>
+          c.towerId === towerIdStr ||
+          c.towerId === frontendTowerId ||
+          c.towerId === tower.name
+        );
+        let baseRate =
+          parseFloat(tower.details?.baseRatePerSqft || "0") ||
+          parseFloat(towerConfig?.ratePerSqft || "0") ||
+          parseFloat(towerConfig?.baseRatePerSqft || "0") ||
+          parseFloat(rootProperty.details?.unitTemplate?.ratePerSqft || "0") ||
+          parseFloat(templateConfigs[0]?.ratePerSqft || "0") ||
+          0;
+
         // Normalize & Deduplicate units
         const normalizedTowerUnits: NormalizedUnit[] = [];
         for (const u of towerUnits) {
@@ -250,17 +277,18 @@ async function buildHierarchy(
           if (seenUnitKeys.has(unitKey)) continue;
           seenUnitKeys.add(unitKey);
 
+          const pricing = resolveUnitPricing(u, baseRate);
           const normU: NormalizedUnit = {
             _id: u.id || u.originalId || u._id?.toString() || unitKey,
             id: u.id || u.originalId || u._id?.toString() || unitKey,
             unitNumber: unitNum,
             floorNumber: floorNum,
-            configuration: u.configuration || u.type || "",
-            area: u.area || u.carpetArea || 0,
-            carpetArea: u.carpetArea || u.area || 0,
-            builtUpArea: u.builtUpArea || 0,
-            price: u.price || 0,
-            ratePerSqft: u.ratePerSqft || 0,
+            configuration: u.configuration || u.type || pricing.configType || "",
+            area: pricing.carpetArea,
+            carpetArea: pricing.carpetArea,
+            builtUpArea: pricing.builtUpArea,
+            price: pricing.price,
+            ratePerSqft: pricing.ratePerSqft,
             status: u.status || "available",
             towerId: towerIdStr,
             projectId: projIdStr,
@@ -277,19 +305,6 @@ async function buildHierarchy(
 
         projUnits.push(...normalizedTowerUnits);
         allUnits.push(...normalizedTowerUnits);
-
-        // Derive baseRate & floor count
-        const towerConfig = towerConfigs.find((c: any) =>
-          c.towerId === towerIdStr ||
-          c.towerId === frontendTowerId ||
-          c.towerId === tower.name
-        );
-        let baseRate =
-          parseFloat(tower.details?.baseRatePerSqft || "0") ||
-          parseFloat(towerConfig?.ratePerSqft || "0") ||
-          parseFloat(towerConfig?.baseRatePerSqft || "0") ||
-          parseFloat(rootProperty.details?.unitTemplate?.ratePerSqft || "0") ||
-          0;
 
         if (!baseRate && normalizedTowerUnits.length > 0) {
           const withRate = normalizedTowerUnits.find((u) => u.ratePerSqft > 0);
@@ -405,6 +420,13 @@ async function buildHierarchy(
         });
       }
 
+      const towerConfig = towerConfigs.find((c: any) => c.towerId === towerIdStr || c.towerId === frontendTowerId);
+      let baseRate =
+        parseFloat(tower.details?.baseRatePerSqft || "0") ||
+        parseFloat(towerConfig?.ratePerSqft || "0") ||
+        parseFloat(rootProperty.details?.unitTemplate?.ratePerSqft || "0") ||
+        parseFloat(templateConfigs[0]?.ratePerSqft || "0") || 0;
+
       const normalizedTowerUnits: NormalizedUnit[] = [];
       for (const u of towerUnits) {
         const unitNum = u.unitNumber || "";
@@ -413,17 +435,18 @@ async function buildHierarchy(
         if (seenUnitKeys.has(unitKey)) continue;
         seenUnitKeys.add(unitKey);
 
+        const pricing = resolveUnitPricing(u, baseRate);
         const normU: NormalizedUnit = {
           _id: u.id || u.originalId || u._id?.toString() || unitKey,
           id: u.id || u.originalId || u._id?.toString() || unitKey,
           unitNumber: unitNum,
           floorNumber: floorNum,
-          configuration: u.configuration || u.type || "",
-          area: u.area || u.carpetArea || 0,
-          carpetArea: u.carpetArea || u.area || 0,
-          builtUpArea: u.builtUpArea || 0,
-          price: u.price || 0,
-          ratePerSqft: u.ratePerSqft || 0,
+          configuration: u.configuration || u.type || pricing.configType || "",
+          area: pricing.carpetArea,
+          carpetArea: pricing.carpetArea,
+          builtUpArea: pricing.builtUpArea,
+          price: pricing.price,
+          ratePerSqft: pricing.ratePerSqft,
           status: u.status || "available",
           towerId: towerIdStr,
           projectId: projIdStr,
@@ -440,11 +463,10 @@ async function buildHierarchy(
       projUnits.push(...normalizedTowerUnits);
       allUnits.push(...normalizedTowerUnits);
 
-      const towerConfig = towerConfigs.find((c: any) => c.towerId === towerIdStr || c.towerId === frontendTowerId);
-      let baseRate =
-        parseFloat(tower.details?.baseRatePerSqft || "0") ||
-        parseFloat(towerConfig?.ratePerSqft || "0") ||
-        parseFloat(rootProperty.details?.unitTemplate?.ratePerSqft || "0") || 0;
+      if (!baseRate && normalizedTowerUnits.length > 0) {
+        const withRate = normalizedTowerUnits.find((u) => u.ratePerSqft > 0);
+        if (withRate) baseRate = withRate.ratePerSqft;
+      }
 
       const derivedFloors = deriveFloorCount(tower.details, towerConfigs, towerIdStr, normalizedTowerUnits);
       const derivedUnitsPerFloor = Number(tower.details?.unitsPerFloor) || parseInt(String(tower.details?.unitsPerFloor || "")) || 0;
@@ -477,6 +499,12 @@ async function buildHierarchy(
       towerUnits = rootEmbeddedUnits;
     }
 
+    let baseRate =
+      parseFloat(rootProperty.details?.baseRatePerSqft || "0") ||
+      parseFloat(rootProperty.details?.unitTemplate?.ratePerSqft || "0") ||
+      parseFloat(templateConfigs[0]?.ratePerSqft || "0") ||
+      0;
+
     const normalizedTowerUnits: NormalizedUnit[] = [];
     for (const u of towerUnits) {
       const unitNum = u.unitNumber || "";
@@ -485,17 +513,18 @@ async function buildHierarchy(
       if (seenUnitKeys.has(unitKey)) continue;
       seenUnitKeys.add(unitKey);
 
+      const pricing = resolveUnitPricing(u, baseRate);
       const normU: NormalizedUnit = {
         _id: u.id || u.originalId || u._id?.toString() || unitKey,
         id: u.id || u.originalId || u._id?.toString() || unitKey,
         unitNumber: unitNum,
         floorNumber: floorNum,
-        configuration: u.configuration || u.type || "",
-        area: u.area || u.carpetArea || 0,
-        carpetArea: u.carpetArea || u.area || 0,
-        builtUpArea: u.builtUpArea || 0,
-        price: u.price || 0,
-        ratePerSqft: u.ratePerSqft || 0,
+        configuration: u.configuration || u.type || pricing.configType || "",
+        area: pricing.carpetArea,
+        carpetArea: pricing.carpetArea,
+        builtUpArea: pricing.builtUpArea,
+        price: pricing.price,
+        ratePerSqft: pricing.ratePerSqft,
         status: u.status || "available",
         towerId: towerIdStr,
         projectId: null,
@@ -511,9 +540,13 @@ async function buildHierarchy(
 
     allUnits.push(...normalizedTowerUnits);
 
+    if (!baseRate && normalizedTowerUnits.length > 0) {
+      const withRate = normalizedTowerUnits.find((u) => u.ratePerSqft > 0);
+      if (withRate) baseRate = withRate.ratePerSqft;
+    }
+
     const derivedFloors = deriveFloorCount(rootProperty, towerConfigs, towerIdStr, normalizedTowerUnits);
     const derivedUnitsPerFloor = Number(rootProperty.details?.unitsPerFloor) || parseInt(String(rootProperty.details?.unitsPerFloor || "")) || 0;
-    const baseRate = parseFloat(rootProperty.details?.baseRatePerSqft || "0") || parseFloat(rootProperty.details?.unitTemplate?.ratePerSqft || "0") || 0;
 
     towers.push({
       _id: towerIdStr,

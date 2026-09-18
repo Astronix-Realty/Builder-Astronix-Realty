@@ -5,7 +5,7 @@ import { checkRBAC } from "@/lib/rbac";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+  const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate', 'teamLeader']);
   if (errorResponse) return errorResponse;
 
   const encoder = new TextEncoder();
@@ -41,6 +41,13 @@ export async function GET(req: NextRequest) {
               if (String(eventBuilderId) === uId || String(eventAccountId) === uId) {
                 isAuthorized = true;
               }
+            }
+          } else if (context!.role === 'teamLeader') {
+            const allowedTenantIds = context!.builderAccountIds && context!.builderAccountIds.length > 0
+              ? context!.builderAccountIds
+              : [context!.builderId, context!.userId].filter(Boolean) as string[];
+            if (allowedTenantIds.some(id => String(eventBuilderId) === String(id) || String(eventAccountId) === String(id))) {
+              isAuthorized = true;
             }
           } else if (context!.role === 'mandate') {
             if (eventRole === 'mandate') {

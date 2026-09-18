@@ -20,7 +20,7 @@ export async function GET(
     return NextResponse.json({ success: false, error: "Invalid lead ID" }, { status: 400 });
   }
   try {
-    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate', 'teamLeader']);
     if (errorResponse) return errorResponse;
 
     await dbConnect();
@@ -168,7 +168,7 @@ export async function PATCH(
     return NextResponse.json({ success: false, error: "Invalid lead ID" }, { status: 400 });
   }
   try {
-    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate', 'teamLeader']);
     if (errorResponse) return errorResponse;
 
     await dbConnect();
@@ -287,7 +287,7 @@ export async function DELETE(
     return NextResponse.json({ success: false, error: "Invalid lead ID" }, { status: 400 });
   }
   try {
-    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate', 'teamLeader']);
     if (errorResponse) return errorResponse;
 
     await dbConnect();
