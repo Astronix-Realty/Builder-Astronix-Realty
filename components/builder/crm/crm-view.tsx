@@ -1192,6 +1192,82 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                             </div>
                         )}
 
+                        {/* ─── PENDING PAYMENT VERIFICATION — ADMIN APPROVE/REJECT ─── */}
+                        {(selectedLead as any).payment_status === 'PendingVerification' && !selectedLead.isTokenPaid && (
+                            <div className="mt-4 p-3.5 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/10 border-2 border-orange-300 dark:border-orange-700 rounded-xl shadow-md animate-pulse-slow">
+                                <h5 className="font-black text-orange-800 dark:text-orange-300 text-xs mb-2 flex items-center gap-1.5 uppercase tracking-wide">
+                                    <Clock className="w-4 h-4 text-orange-600 animate-spin" style={{ animationDuration: '3s' }} /> Payment Pending Verification
+                                </h5>
+                                <div className="space-y-1.5 text-xs mb-3">
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">UTR Submitted:</span>
+                                        <span className="font-mono font-bold text-orange-900 dark:text-orange-200">{(selectedLead as any).bank_utr_number || 'N/A'}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Amount:</span>
+                                        <span className="font-bold text-green-600">₹{(selectedLead as any).amount || (selectedLead as any).tokenAmount || 111}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Submitted At:</span>
+                                        <span className="font-medium text-slate-700 dark:text-slate-300">{(selectedLead as any).utrSubmittedAt ? new Date((selectedLead as any).utrSubmittedAt).toLocaleString('en-IN') : 'N/A'}</span>
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-orange-700 dark:text-orange-400 mb-3 leading-relaxed">
+                                    ⚠️ User ne UTR submit kiya hai. Paytm Business / Bank Statement me check karo aur approve ya reject karo.
+                                </p>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={async () => {
+                                            if (!confirm(`Approve payment of ₹${(selectedLead as any).amount || 111} for ${selectedLead.name}? UTR: ${(selectedLead as any).bank_utr_number}`)) return;
+                                            try {
+                                                const res = await fetch(`/api/leads/${selectedLead.id}/approve-payment`, {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ action: 'approve' }),
+                                                });
+                                                const data = await res.json();
+                                                if (data.success) {
+                                                    alert(`✅ Payment Approved! Receipt: ${data.receiptNo}`);
+                                                    window.location.reload();
+                                                } else {
+                                                    alert(`Error: ${data.error}`);
+                                                }
+                                            } catch (err: any) {
+                                                alert(`Error: ${err.message}`);
+                                            }
+                                        }}
+                                        className="flex-1 py-2 px-3 rounded-lg bg-green-600 hover:bg-green-700 text-white text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md transition-all active:scale-95"
+                                    >
+                                        <CheckCircle2 className="w-3.5 h-3.5" /> Approve Payment
+                                    </button>
+                                    <button
+                                        onClick={async () => {
+                                            const reason = prompt('Rejection reason (optional):');
+                                            try {
+                                                const res = await fetch(`/api/leads/${selectedLead.id}/approve-payment`, {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ action: 'reject', adminNote: reason || '' }),
+                                                });
+                                                const data = await res.json();
+                                                if (data.success) {
+                                                    alert('❌ Payment Rejected.');
+                                                    window.location.reload();
+                                                } else {
+                                                    alert(`Error: ${data.error}`);
+                                                }
+                                            } catch (err: any) {
+                                                alert(`Error: ${err.message}`);
+                                            }
+                                        }}
+                                        className="py-2 px-3 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 text-[11px] font-bold flex items-center justify-center gap-1 transition-all"
+                                    >
+                                        <XCircle className="w-3.5 h-3.5" /> Reject
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                         {/* DYNAMIC GROUP SECTION */}
                         {selectedLead.isGroup && (
                             <div className="mt-4 space-y-3">
