@@ -60,7 +60,7 @@ const LeadSchema = new mongoose.Schema({
     assignee: { type: String },
     leadType: {
         type: String,
-        enum: ["normal", "token-hold", "group-buying", "specific-doubt"],
+        enum: ["normal", "token-hold", "group-buying", "specific-doubt", "offer-enquiry", "vip-lead", "enquiry-form"],
         default: "normal",
         index: true
     },

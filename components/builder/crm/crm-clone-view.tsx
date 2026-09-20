@@ -567,11 +567,12 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
             const src = (leadData.source || '').toString();
             const lType = (leadData.leadType || '').toString();
             return (
-                !/website|astronix|doubt|visitor/i.test(src) &&
-                !/group-buying|token-hold|specific-doubt/i.test(lType) &&
+                !/website|astronix|doubt|visitor|offer/i.test(src) &&
+                !/group-buying|token-hold|specific-doubt|vip-lead|offer-enquiry|enquiry-form/i.test(lType) &&
                 leadData.status !== "Token VIP" &&
                 !leadData.isTokenPaid &&
                 !leadData.isGroup &&
+                !leadData.claimedOffer &&
                 (!leadData.groupSize || leadData.groupSize === 0)
             );
         };

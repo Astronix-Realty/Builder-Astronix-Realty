@@ -565,13 +565,17 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
             const src = (leadData.source || '').toString();
             const lType = (leadData.leadType || '').toString();
             return (
-                /website|astronix|doubt|visitor/i.test(src) ||
+                /website|astronix|doubt|visitor|offer/i.test(src) ||
                 lType === "specific-doubt" ||
                 lType === "group-buying" ||
                 lType === "token-hold" ||
+                lType === "vip-lead" ||
+                lType === "offer-enquiry" ||
+                lType === "enquiry-form" ||
                 leadData.status === "Token VIP" ||
                 Boolean(leadData.isTokenPaid) ||
                 Boolean(leadData.isGroup) ||
+                Boolean(leadData.claimedOffer) ||
                 (typeof leadData.groupSize === 'number' && leadData.groupSize > 0)
             );
         };
@@ -857,7 +861,8 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                             <div className="p-2 flex-1 overflow-y-auto space-y-2 min-h-[100px]">
                                 {filteredLeads.filter(l => l.status === col).map((lead, idx) => {
                                     const isSpecificDoubt = lead.source?.includes('doubt') || lead.leadType === 'specific-doubt' || lead.requirement?.includes('Specific Doubt');
-                                    const isTokenHold = lead.status === 'Token VIP' || lead.isTokenPaid || lead.leadType === 'token-hold';
+                                    const isTokenHold = lead.status === 'Token VIP' || lead.isTokenPaid || lead.leadType === 'token-hold' || lead.leadType === 'vip-lead';
+                                    const isOfferLead = lead.leadType === 'offer-enquiry' || Boolean(lead.claimedOffer);
 
                                     return (
                                         <div
@@ -896,6 +901,11 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                                     {isSpecificDoubt && (
                                                         <span className="bg-blue-100 text-blue-800 text-[9px] font-bold px-1.5 py-0.5 rounded">
                                                             Specific Doubt
+                                                        </span>
+                                                    )}
+                                                    {isOfferLead && (
+                                                        <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[9px] font-black px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                                                            🎁 Offer
                                                         </span>
                                                     )}
                                                 </div>

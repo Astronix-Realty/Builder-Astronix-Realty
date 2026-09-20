@@ -168,24 +168,29 @@ export async function GET(req: NextRequest) {
         if (leadType === "our") {
             andConditions.push({
                 $and: [
-                    { source: { $not: /website|astronix|doubt|visitor|group/i } },
-                    { leadType: { $not: /group-buying|token-hold|specific-doubt/i } },
+                    { source: { $not: /website|astronix|doubt|visitor|offer/i } },
+                    { leadType: { $not: /group-buying|token-hold|specific-doubt|vip-lead|offer-enquiry|enquiry-form/i } },
                     { status: { $ne: "Token VIP" } },
                     { isTokenPaid: { $ne: true } },
                     { isGroup: { $ne: true } },
+                    { claimedOffer: { $exists: false } },
                     { $or: [{ groupSize: 0 }, { groupSize: null }, { groupSize: { $exists: false } }] }
                 ]
             });
         } else if (leadType === "astronix") {
             andConditions.push({
                 $or: [
-                    { source: { $regex: /website|astronix|doubt|visitor|group/i } },
+                    { source: { $regex: /website|astronix|doubt|visitor|offer/i } },
                     { leadType: "group-buying" },
                     { leadType: "token-hold" },
                     { leadType: "specific-doubt" },
+                    { leadType: "offer-enquiry" },
+                    { leadType: "vip-lead" },
+                    { leadType: "enquiry-form" },
                     { status: "Token VIP" },
                     { isTokenPaid: true },
                     { isGroup: true },
+                    { claimedOffer: { $exists: true, $ne: null } },
                     { groupSize: { $gt: 0 } }
                 ]
             });
