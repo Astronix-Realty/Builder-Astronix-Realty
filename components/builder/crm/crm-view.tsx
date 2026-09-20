@@ -36,7 +36,8 @@ import {
     Users, Search, Filter, Phone, Mail, MoreHorizontal, Calendar, MessageSquare,
     UserPlus, ArrowUpRight, GripVertical, Clock, MapPin, DollarSign,
     CheckCircle2, XCircle, AlertCircle, TrendingUp, User, Activity, FileText, Send, Crown,
-    Building2, Lock, RefreshCw, Database, Trash2, Home, ArrowRight, ArrowLeft, Split, Merge, Percent, UserMinus
+    Building2, Lock, RefreshCw, Database, Trash2, Home, ArrowRight, ArrowLeft, Split, Merge, Percent, UserMinus,
+    Sparkles
 } from "lucide-react"
 
 // --- Types ---
