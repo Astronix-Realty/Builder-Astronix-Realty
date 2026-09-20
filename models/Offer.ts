@@ -15,7 +15,10 @@ export interface IOffer extends Document {
   autoExpire: boolean;
   bannerImage?: string;
   
-  propertyId: mongoose.Types.ObjectId; // Township, Project, or Tower
+  propertyId: mongoose.Types.ObjectId; // Targeted Entity ID
+  propertyLevel?: "township" | "project" | "tower" | "unit";
+  targetScope?: "cascade" | "exact"; // cascade = auto-inherit to children, exact = only this level
+  townshipId?: mongoose.Types.ObjectId;
   projectId?: mongoose.Types.ObjectId;
   towerId?: mongoose.Types.ObjectId;
   unitId?: mongoose.Types.ObjectId;
@@ -67,7 +70,10 @@ const OfferSchema = new Schema<IOffer>({
   autoExpire: { type: Boolean, default: false },
   bannerImage: { type: String, default: "" },
 
-  propertyId: { type: Schema.Types.ObjectId, ref: "Property", required: true },
+  propertyId: { type: Schema.Types.ObjectId, required: true },
+  propertyLevel: { type: String, enum: ["township", "project", "tower", "unit"], default: "tower" },
+  targetScope: { type: String, enum: ["cascade", "exact"], default: "cascade" },
+  townshipId: { type: Schema.Types.ObjectId, ref: "Property" },
   projectId: { type: Schema.Types.ObjectId, ref: "Property" },
   towerId: { type: Schema.Types.ObjectId, ref: "Property" },
   unitId: { type: Schema.Types.ObjectId, ref: "Unit" },

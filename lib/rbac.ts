@@ -72,6 +72,36 @@ export async function checkRBAC(
     };
 
     if (user.role === 'teamLeader') {
+      // Auto-heal stale or deleted propertyId if property was updated/republished
+      if (user.profile?.propertyName) {
+        try {
+          const Property = (await import("@/models/Property")).default;
+          let activeProp: any = null;
+          if (context.propertyId && mongoose.Types.ObjectId.isValid(context.propertyId)) {
+            activeProp = await Property.findOne({ _id: context.propertyId, isDeleted: { $ne: true } }).select("_id name").lean();
+          }
+          if (!activeProp) {
+            activeProp = await Property.findOne({
+              name: new RegExp(`^${user.profile.propertyName.trim()}$`, 'i'),
+              isDeleted: { $ne: true },
+              parentId: null
+            }).sort({ updatedAt: -1 }).select("_id name").lean();
+
+            if (activeProp) {
+              const activeId = activeProp._id.toString();
+              context.propertyId = activeId;
+              context.propertyName = activeProp.name;
+              User.updateOne(
+                { _id: user._id },
+                { $set: { "profile.propertyId": activeId, "profile.propertyName": activeProp.name } }
+              ).exec().catch(() => {});
+            }
+          }
+        } catch (healErr) {
+          console.error("[RBAC TeamLeader Property Heal Error]:", healErr);
+        }
+      }
+
       const bIds = new Set<string>();
       if (user.builderId) bIds.add(user.builderId.toString());
       if (user.mandateId) bIds.add(user.mandateId.toString());

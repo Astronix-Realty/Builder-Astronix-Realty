@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
     const {
       offerName, benefitText, benefitHighlight, description, termsAndConditions,
       offerType, visibility, priorityBadge, status, startDate, endDate, autoExpire,
-      bannerImage, propertyId, projectId, towerId, unitId
+      bannerImage, propertyId, propertyLevel, targetScope, townshipId, projectId, towerId, unitId
     } = body;
 
     if (!offerName || !benefitText || !propertyId) {
@@ -76,9 +76,12 @@ export async function POST(req: NextRequest) {
       autoExpire: autoExpire || false,
       bannerImage,
       propertyId,
-      projectId,
-      towerId,
-      unitId,
+      propertyLevel: propertyLevel || "tower",
+      targetScope: targetScope || "cascade",
+      townshipId: townshipId || null,
+      projectId: projectId || null,
+      towerId: towerId || null,
+      unitId: unitId || null,
       builderId: context!.userId,
       accountId: context!.userId,
       mandateId: context!.mandateId || null,

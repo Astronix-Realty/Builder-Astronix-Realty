@@ -104,6 +104,11 @@ export function TeamView() {
   }
 
   const handleOpenAdd = (property: Property) => {
+    const existing = getLeaderForProperty(property)
+    if (existing.length > 0) {
+      toast.error("This property already has a Team Leader assigned. Only 1 leader is allowed per property.")
+      return
+    }
     setSelectedProperty(property)
     setForm({ name: "", email: "", phone: "", password: generatePassword() })
     setCreatedLeader(null)
@@ -160,8 +165,14 @@ export function TeamView() {
     return "bg-slate-100 text-slate-600"
   }
 
-  const getLeaderForProperty = (propertyId: string) =>
-    teamLeaders.filter((l) => l.propertyId === propertyId)
+  const getLeaderForProperty = (property: Property) =>
+    teamLeaders.filter(
+      (l) =>
+        l.propertyId === property.id ||
+        (l.propertyName &&
+          property.townshipName &&
+          l.propertyName.trim().toLowerCase() === property.townshipName.trim().toLowerCase())
+    )
 
   if (isLoading) {
     return (
@@ -201,7 +212,7 @@ export function TeamView() {
           { label: "Total Properties", value: properties.length, color: "blue" },
           { label: "Published", value: properties.filter(p => p.status === "published").length, color: "emerald" },
           { label: "Team Leaders", value: teamLeaders.length, color: "purple" },
-          { label: "Assigned Properties", value: [...new Set(teamLeaders.map(l => l.propertyId))].length, color: "amber" },
+          { label: "Assigned Properties", value: [...new Set(teamLeaders.map(l => l.propertyId || l.propertyName))].length, color: "amber" },
         ].map((stat) => (
           <div key={stat.label} className={`bg-${stat.color}-50 dark:bg-${stat.color}-900/10 border border-${stat.color}-200 dark:border-${stat.color}-800 rounded-xl p-4`}>
             <p className={`text-2xl font-black text-${stat.color}-700 dark:text-${stat.color}-400`}>{stat.value}</p>
@@ -220,7 +231,7 @@ export function TeamView() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {properties.map((property) => {
-            const leaders = getLeaderForProperty(property.id)
+            const leaders = getLeaderForProperty(property)
             const hasLeader = leaders.length > 0
 
             return (
@@ -273,10 +284,10 @@ export function TeamView() {
                     ))}
                   </div>
 
-                  {/* Assigned Team Leaders */}
+                  {/* Assigned Team Leader */}
                   {hasLeader ? (
                     <div className="mb-3 space-y-2">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assigned Team Leaders</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assigned Team Leader</p>
                       {leaders.map((leader) => (
                         <div key={leader.id} className="flex items-center gap-2 p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
                           <div className="w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
@@ -301,14 +312,29 @@ export function TeamView() {
                     </div>
                   )}
 
-                  {/* Add Team Leader Button */}
-                  <Button
-                    onClick={() => handleOpenAdd(property)}
-                    className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold h-9 gap-2 rounded-xl"
-                  >
-                    <UserPlus className="w-4 h-4" />
-                    Add Team Leader for this Property
-                  </Button>
+                  {/* Add or Status Action (Only 1 Team Leader per Property) */}
+                  {!hasLeader ? (
+                    <Button
+                      onClick={() => handleOpenAdd(property)}
+                      className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold h-9 gap-2 rounded-xl shadow-sm"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      Add Team Leader for this Property
+                    </Button>
+                  ) : (
+                    <div className="flex items-center justify-between px-3 py-2 bg-emerald-50/60 dark:bg-emerald-950/20 rounded-xl border border-emerald-200/80 dark:border-emerald-800/60">
+                      <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 text-xs font-semibold">
+                        <BadgeCheck className="w-4 h-4 text-emerald-600" />
+                        Leader Assigned (Max 1)
+                      </span>
+                      <button
+                        onClick={() => setViewLeader(leaders[0])}
+                        className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 hover:underline flex items-center gap-1"
+                      >
+                        Manage / Remove
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             )

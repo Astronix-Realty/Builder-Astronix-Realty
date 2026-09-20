@@ -833,6 +833,29 @@ export async function publishProperty(draftId: string, context: RBACContext) {
             console.error(`[Publish Sync] Admin property sync failed:`, syncErr.message);
           }
         }
+
+        // Sync any assigned team leaders to the newly published property ID
+        try {
+          const User = (await import('@/models/User')).default;
+          await User.updateMany(
+            {
+              role: 'teamLeader',
+              $or: [
+                { 'profile.propertyName': new RegExp(`^${(publishedProp as any).name?.trim()}$`, 'i') },
+                { 'profile.propertyId': rootDraft._id?.toString() },
+                { 'profile.propertyId': (publishedProp as any)._id?.toString() }
+              ]
+            },
+            {
+              $set: {
+                'profile.propertyId': (publishedProp as any)._id.toString(),
+                'profile.propertyName': (publishedProp as any).name
+              }
+            }
+          );
+        } catch (tlErr) {
+          console.error('[Publish Sync] Team leader property sync error:', tlErr);
+        }
       }
     }
     

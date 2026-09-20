@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import User from "@/models/User";
+import Property from "@/models/Property";
 import { checkRBAC } from "@/lib/rbac";
 import bcrypt from "bcryptjs";
 
@@ -34,16 +35,50 @@ export async function GET(req: NextRequest) {
       isDeleted: { $ne: true },
     }).select("email profile status createdAt").lean();
 
-    const mapped = leaders.map((u: any) => ({
-      id: u._id.toString(),
-      name: u.profile?.name || u.email?.split("@")[0] || "Unknown",
-      email: u.email,
-      phone: u.profile?.phone || "",
-      userId: u.profile?.userId || "",
-      propertyId: u.profile?.propertyId || "",
-      propertyName: u.profile?.propertyName || "",
-      status: u.status || "active",
-      createdAt: u.createdAt,
+    // Fetch active properties for this builder to ensure propertyId is always in sync with active property
+    const activeProperties = await Property.find({
+      $or: [
+        { builderId: builderId },
+        { accountId: builderId },
+        { createdBy: builderId }
+      ],
+      parentId: null,
+      isDeleted: { $ne: true }
+    }).select("_id name").lean();
+
+    const propMapByName = new Map<string, string>();
+    const activePropIds = new Set<string>();
+    activeProperties.forEach((p: any) => {
+      activePropIds.add(p._id.toString());
+      if (p.name) propMapByName.set(p.name.trim().toLowerCase(), p._id.toString());
+    });
+
+    const mapped = await Promise.all(leaders.map(async (u: any) => {
+      let propId = u.profile?.propertyId || "";
+      const propName = u.profile?.propertyName || "";
+
+      // If current propertyId is missing or points to a non-existent/deleted property, heal from propertyName
+      if ((!propId || !activePropIds.has(propId)) && propName && propMapByName.has(propName.trim().toLowerCase())) {
+        const resolvedId = propMapByName.get(propName.trim().toLowerCase())!;
+        propId = resolvedId;
+        // Update user record in background so DB stays consistent
+        User.updateOne(
+          { _id: u._id },
+          { $set: { "profile.propertyId": resolvedId } }
+        ).exec().catch(() => {});
+      }
+
+      return {
+        id: u._id.toString(),
+        name: u.profile?.name || u.email?.split("@")[0] || "Unknown",
+        email: u.email,
+        phone: u.profile?.phone || "",
+        userId: u.profile?.userId || "",
+        propertyId: propId,
+        propertyName: propName,
+        status: u.status || "active",
+        createdAt: u.createdAt,
+      };
     }));
 
     return NextResponse.json({ success: true, leaders: mapped });
@@ -76,8 +111,32 @@ export async function POST(req: NextRequest) {
 
     const builderId = context!.builderId || context!.userId;
 
+    // Enforce 1 Team Leader per Property limit
+    const existingLeaderForProperty = await User.findOne({
+      role: "teamLeader",
+      builderId: builderId,
+      isDeleted: { $ne: true },
+      $or: [
+        { "profile.propertyId": propertyId },
+        ...(propertyName ? [{ "profile.propertyName": new RegExp(`^${propertyName.trim()}$`, "i") }] : [])
+      ]
+    });
+
     // Smart email conflict check
     const existing = await User.findOne({ email: email.toLowerCase().trim() });
+
+    if (existingLeaderForProperty) {
+      // Allow only if it's the same existing leader being updated
+      if (!existing || existing._id.toString() !== existingLeaderForProperty._id.toString()) {
+        return NextResponse.json(
+          {
+            error: `This property already has an assigned Team Leader (${existingLeaderForProperty.profile?.name || existingLeaderForProperty.email}). A property can only have 1 Team Leader. Please remove the existing leader first.`
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     if (existing) {
       // Case 1: Same builder's teamLeader → update property assignment
       if (
@@ -86,6 +145,8 @@ export async function POST(req: NextRequest) {
       ) {
         const passwordHash = await bcrypt.hash(password, 12);
         existing.passwordHash = passwordHash;
+        existing.isDeleted = false;
+        existing.status = "active";
         existing.profile = {
           ...existing.profile,
           name: name.trim(),

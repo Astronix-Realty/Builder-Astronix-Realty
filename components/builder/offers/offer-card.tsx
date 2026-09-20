@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Eye, Users, Copy, Pause, Play, Edit2, Trash2, Tag, Calendar, TrendingUp, Percent } from "lucide-react";
+import { Eye, Users, Copy, Pause, Play, Edit2, Trash2, Tag, Calendar, TrendingUp, Percent, Building2 } from "lucide-react";
 import Image from "next/image";
 
 interface OfferCardProps {
@@ -88,6 +88,22 @@ export function OfferCard({ offer, onEdit, onDuplicate, onToggleStatus, onDelete
         </div>
 
         <div className="space-y-3 mb-6">
+          {offer.propertyLevel && (
+            <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg">
+              <span className="flex items-center gap-1.5 font-bold capitalize text-slate-800 dark:text-slate-200">
+                <Building2 className="w-3.5 h-3.5 text-blue-500" />
+                {offer.propertyLevel} Level
+              </span>
+              <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                offer.targetScope === 'exact'
+                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                  : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+              }`}>
+                {offer.targetScope === 'exact' ? 'Exact Level' : 'Cascading'}
+              </span>
+            </div>
+          )}
+
           <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg">
             <Tag className="w-4 h-4 text-slate-400" />
             <span className="font-medium">{offer.offerType || "—"}</span>

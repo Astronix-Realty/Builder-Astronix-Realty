@@ -77,7 +77,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Property not found' }, { status: 404 });
     }
 
-    console.log(`[Internal Correlation:${correlationId}] Property "${property.name}" (${externalId}) status updated to: ${updateData.status || targetStatus}`);
+    if (property && updateData.status === 'published') {
+      try {
+        const User = (await import('@/models/User')).default;
+        await User.updateMany(
+          {
+            role: 'teamLeader',
+            $or: [
+              { 'profile.propertyName': new RegExp(`^${property.name.trim()}$`, 'i') },
+              { 'profile.propertyId': property._id.toString() }
+            ]
+          },
+          {
+            $set: {
+              'profile.propertyId': property._id.toString(),
+              'profile.propertyName': property.name
+            }
+          }
+        );
+      } catch (tlErr) {
+        console.error('[Internal] Error updating team leader property link:', tlErr);
+      }
+    }
+
+    console.log(`[Internal Correlation:${correlationId}] Property "${property?.name}" (${externalId}) status updated to: ${updateData.status || targetStatus}`);
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
