@@ -90,6 +90,8 @@ interface Lead {
     photo?: string
     profilePhoto?: string
     username?: string
+    claimedOffer?: any
+    offerDetails?: string
 }
 
 // --- Mock Sentry Logger ---
@@ -1166,6 +1168,31 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                 <p className="font-black text-sm text-green-900 dark:text-green-100">{selectedLead.interestedUnit}</p>
                             </div>
                         )}
+
+                        {/* CLAIMED / APPLIED BUILDER OFFER INFO */}
+                        {((selectedLead as any).claimedOffer || (selectedLead as any).offerDetails) && (
+                            <div className="bg-gradient-to-r from-amber-500/10 via-orange-500/15 to-amber-500/10 dark:from-amber-950/40 dark:to-orange-950/40 p-3 rounded-xl border-2 border-amber-400/60 shadow-sm">
+                                <div className="flex items-center justify-between gap-2 mb-1">
+                                    <p className="text-amber-800 dark:text-amber-300 text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                                        <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Applied Builder Offer
+                                    </p>
+                                    {(selectedLead as any).claimedOffer?.tag && (
+                                        <Badge className="bg-orange-500 text-white font-black text-[9px] px-2 py-0.2 border-none">
+                                            {(selectedLead as any).claimedOffer.tag}
+                                        </Badge>
+                                    )}
+                                </div>
+                                <p className="font-black text-sm text-slate-900 dark:text-white">
+                                    {(selectedLead as any).claimedOffer?.type || (selectedLead as any).claimedOffer?.offerName || (selectedLead as any).offerDetails || 'Special Offer'}
+                                </p>
+                                {((selectedLead as any).claimedOffer?.benefit || (selectedLead as any).claimedOffer?.condition) && (
+                                    <p className="text-xs font-bold text-amber-700 dark:text-amber-300 mt-1 flex items-center gap-1">
+                                        <span>🎁</span>
+                                        <span>{(selectedLead as any).claimedOffer?.benefit || (selectedLead as any).claimedOffer?.condition}</span>
+                                    </p>
+                                )}
+                            </div>
+                        )}
                         <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
                             <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider mb-2">Assigned Executive</p>
                             <div className="flex items-center gap-2.5 bg-white dark:bg-slate-900 p-2 rounded-lg border border-slate-200 shadow-sm">
@@ -2014,6 +2041,22 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                                 <span className="font-bold truncate max-w-[100px]" title={selectedLead.name}>{selectedLead.name}</span>
                                             </div>
                                         </div>
+
+                                        {((selectedLead as any).claimedOffer || (selectedLead as any).offerDetails) && (
+                                            <div className="p-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg mt-2">
+                                                <h5 className="font-bold text-amber-800 dark:text-amber-300 text-[11px] mb-1 flex items-center gap-1">
+                                                    <Sparkles className="w-3 h-3 text-amber-500" /> Applied Offer
+                                                </h5>
+                                                <p className="font-black text-xs text-slate-800 dark:text-slate-100">
+                                                    {(selectedLead as any).claimedOffer?.type || (selectedLead as any).claimedOffer?.offerName || (selectedLead as any).offerDetails}
+                                                </p>
+                                                {((selectedLead as any).claimedOffer?.benefit || (selectedLead as any).claimedOffer?.condition) && (
+                                                    <p className="text-[10.5px] font-semibold text-amber-700 dark:text-amber-300 mt-0.5">
+                                                        🎁 {(selectedLead as any).claimedOffer?.benefit || (selectedLead as any).claimedOffer?.condition}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        )}
                                     </CardContent>
                                 </Card>
                                 
