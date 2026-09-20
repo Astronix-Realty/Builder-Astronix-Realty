@@ -567,7 +567,7 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
             const src = (leadData.source || '').toString();
             const lType = (leadData.leadType || '').toString();
             return (
-                !/website|astronix|doubt|visitor|offer/i.test(src) &&
+                !/website|astronix|doubt|visitor|offer|discovery|enquiry|portal/i.test(src) &&
                 !/group-buying|token-hold|specific-doubt|vip-lead|offer-enquiry|enquiry-form/i.test(lType) &&
                 leadData.status !== "Token VIP" &&
                 !leadData.isTokenPaid &&

@@ -168,7 +168,7 @@ export async function GET(req: NextRequest) {
         if (leadType === "our") {
             andConditions.push({
                 $and: [
-                    { source: { $not: /website|astronix|doubt|visitor|offer/i } },
+                    { source: { $not: /website|astronix|doubt|visitor|offer|discovery|enquiry|portal/i } },
                     { leadType: { $not: /group-buying|token-hold|specific-doubt|vip-lead|offer-enquiry|enquiry-form/i } },
                     { status: { $ne: "Token VIP" } },
                     { isTokenPaid: { $ne: true } },
@@ -180,7 +180,7 @@ export async function GET(req: NextRequest) {
         } else if (leadType === "astronix") {
             andConditions.push({
                 $or: [
-                    { source: { $regex: /website|astronix|doubt|visitor|offer/i } },
+                    { source: { $regex: /website|astronix|doubt|visitor|offer|discovery|enquiry|portal/i } },
                     { leadType: "group-buying" },
                     { leadType: "token-hold" },
                     { leadType: "specific-doubt" },

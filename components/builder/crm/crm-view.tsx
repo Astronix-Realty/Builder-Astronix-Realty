@@ -565,7 +565,7 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
             const src = (leadData.source || '').toString();
             const lType = (leadData.leadType || '').toString();
             return (
-                /website|astronix|doubt|visitor|offer/i.test(src) ||
+                /website|astronix|doubt|visitor|offer|discovery|enquiry|portal/i.test(src) ||
                 lType === "specific-doubt" ||
                 lType === "group-buying" ||
                 lType === "token-hold" ||
