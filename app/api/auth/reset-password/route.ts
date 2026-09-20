@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     }
 
     await dbConnect()
-    const user = await User.findOne({ email: email.toLowerCase().trim(), isDeleted: false })
+    const user = await User.findOne({ email: email.toLowerCase().trim(), isDeleted: { $ne: true } })
 
     if (!user) {
       return NextResponse.json({ error: "Invalid OTP or email" }, { status: 400 })

@@ -14,7 +14,7 @@ import {
     Users, Search, Home, CheckCircle2, Lock, Clock,
     Building2, Layers, LayoutGrid, RefreshCw, CircleDollarSign,
     CheckSquare, X, User, TrendingUp, Building, Filter,
-    ChevronRight, MapPin, AlertCircle
+    ChevronRight, MapPin, AlertCircle, HelpCircle
 } from "lucide-react"
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
@@ -26,6 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { HierarchyAccordion } from "./hierarchy-accordion"
 import { HierarchyBreadcrumb } from "./hierarchy-breadcrumb"
 import { StatusBadge } from "./status-badge"
+import { VisitorQaTab } from "./visitor-qa-tab"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -94,6 +95,9 @@ interface InventoryViewProps {
 
 export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
     const router = useRouter()
+    // ── Tab State ──────────────────────────────────────────────────────────
+    const [activeInventoryViewTab, setActiveInventoryViewTab] = useState<"inventory" | "visitor-qa">("inventory")
+
     // ── Property List State ────────────────────────────────────────────────
     const [properties, setProperties] = useState<InventoryProperty[]>([])
     const [selectedPropertyId, setSelectedPropertyId] = useState<string>("")
@@ -894,8 +898,40 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                 )}
             </div>
 
-            {/* ── Hierarchy Error ── */}
-            {hierarchyError && (
+            {/* ── Sub-Navigation Tabs ── */}
+            <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+                <button
+                    onClick={() => setActiveInventoryViewTab('inventory')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                        activeInventoryViewTab === 'inventory'
+                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                            : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'
+                    }`}
+                >
+                    <LayoutGrid className="w-4 h-4" />
+                    <span>Structure & Unit Inventory</span>
+                </button>
+
+                <button
+                    onClick={() => setActiveInventoryViewTab('visitor-qa')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                        activeInventoryViewTab === 'visitor-qa'
+                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                            : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'
+                    }`}
+                >
+                    <HelpCircle className="w-4 h-4 text-amber-500" />
+                    <span>Visitor Q&A & FAQs</span>
+                    <Badge className="bg-amber-500 text-white text-[10px] px-1.5 py-0.2">Q&A</Badge>
+                </button>
+            </div>
+
+            {activeInventoryViewTab === 'visitor-qa' ? (
+                <VisitorQaTab userRole={userRole} />
+            ) : (
+                <>
+                    {/* ── Hierarchy Error ── */}
+                    {hierarchyError && (
                 <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900">
                     <AlertCircle className="h-5 w-5 text-red-500 shrink-0" />
                     <p className="text-sm text-red-700 dark:text-red-300 font-medium">{hierarchyError}</p>
@@ -1431,6 +1467,8 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                     </Card>
                 </div>
             </div>
+            </>
+            )}
 
             {/* ── Unit Edit Dialog ── */}
             <Dialog open={!!editingUnit} onOpenChange={open => !open && setEditingUnit(null)}>

@@ -47,7 +47,7 @@ export async function POST(
     const now = new Date();
     const utr = leadObj.bank_utr_number || leadObj.paymentId || 'N/A';
     const amount = leadObj.amount || leadObj.tokenAmount || 111;
-    const adminName = context?.name || context?.username || 'Admin';
+    const adminName = (context as any)?.name || (context as any)?.username || 'Admin';
 
     if (action === 'approve') {
       // ─── APPROVE PAYMENT ───

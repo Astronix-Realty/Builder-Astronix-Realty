@@ -23,7 +23,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const existingProp = await Property.findOne({
       _id: id,
       ...getOwnershipQuery(context!),
-      isDeleted: false,
+      isDeleted: { $ne: true },
     }).select("status").lean();
 
     if (!existingProp) {
@@ -58,7 +58,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       { 
         _id: id, 
         ...getOwnershipQuery(context!), 
-        isDeleted: false,
+        isDeleted: { $ne: true },
       },
       { 
         $set,

@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
       // Return all units for this user
       const ownershipQuery = getOwnershipQuery(context!);
       const units = await Unit.find(ownershipQuery).limit(50).lean();
-      const properties = await Property.find({ ...ownershipQuery, parentId: null, isDeleted: false }).lean();
+      const properties = await Property.find({ ...ownershipQuery, parentId: null, isDeleted: { $ne: true } }).lean();
       return NextResponse.json({
         context: { role: context!.role, userId: context!.userId, mandateId: context!.mandateId },
         rootProperties: properties.map((p: any) => ({ _id: p._id, name: p.name, type: p.type, status: p.status, role: p.role, builderId: p.builderId, mandateId: p.mandateId })),
@@ -47,10 +47,10 @@ export async function GET(req: NextRequest) {
 
     // Collect all descendant property IDs
     const allPropIds: string[] = [prop._id.toString()];
-    const children = await Property.find({ parentId: prop._id, isDeleted: false }).lean() as any[];
+    const children = await Property.find({ parentId: prop._id, isDeleted: { $ne: true } }).lean() as any[];
     for (const child of children) {
       allPropIds.push(child._id.toString());
-      const grandchildren = await Property.find({ parentId: child._id, isDeleted: false }).lean() as any[];
+      const grandchildren = await Property.find({ parentId: child._id, isDeleted: { $ne: true } }).lean() as any[];
       grandchildren.forEach((gc: any) => allPropIds.push(gc._id.toString()));
     }
 

@@ -1119,7 +1119,7 @@ export const createDefaultUnitConfig = (type: UnitConfiguration["type"], carpetA
   bathroomCount: type === "2BHK" ? 2 : 3,
   servantRoom: false,
   studyRoom: false,
-  poojaRoom: true,
+  poojaRoom: false,
   dryBalcony: true,
   flooringType: "Vitrified Tiles (800x800)",
   wallFinish: "2-Coat OBD Premium Paint",
@@ -1217,6 +1217,9 @@ export interface GeneratedUnit {
   floorNumber: number
   unit?: number
   unitNumber?: string // For compatibility
+  slotNumber?: string
+  slotId?: string
+  configId?: string
   type?: string
   configuration: string
   carpetArea: number
@@ -1228,6 +1231,10 @@ export interface GeneratedUnit {
   status: "available" | "sold" | "reserved"
   reraNumber?: string
   area?: number
+  vastuDetails?: any
+  vastuAnalysis?: any[]
+  roomDimensions?: any[]
+  [key: string]: any
 }
 
 export interface GeneratedTower {

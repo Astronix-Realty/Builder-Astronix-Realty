@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
     const rootProperties = await Property.find({
       ...ownershipQuery,
       parentId: null,
-      isDeleted: false,
+      isDeleted: { $ne: true },
       status: { $in: ["published", "active", "pending"] },
     })
       .sort({ updatedAt: -1 })

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useMemo, useEffect, Suspense, Fragment } from "react"
+import { useState, useCallback, useMemo, useEffect, Suspense, Fragment, useRef } from "react"
 import { v4 as uuidv4 } from "uuid"
 import { useSearchParams } from "next/navigation"
 import { ProgressBar } from "@/components/builder/progress-bar"
@@ -167,9 +167,27 @@ function BuilderContent() {
           const checkRes = await fetch(`/api/properties/${editId}`)
           if (checkRes.ok) {
             const checkData = await checkRes.json()
-            // For draft/pending/rejected properties, the editId IS the draft id.
-            // Inject it immediately so useAutoDraft doesn't re-read a stale localStorage value.
-            setResolvedDraftId(editId)
+            if (checkData.property?.status === 'published' || checkData.property?.status === 'active') {
+              console.log("[loadProperty] Property is published. Cloning to draft...")
+              const cloneRes = await fetch(`/api/properties/${editId}/clone-to-draft`, { method: 'POST' })
+              if (cloneRes.ok) {
+                const cloneData = await cloneRes.json()
+                targetId = cloneData.draftId
+                setResolvedDraftId(cloneData.draftId)
+                
+                // Update the URL so it reflects the draft ID instead of the published ID
+                const newUrl = new URL(window.location.href)
+                newUrl.searchParams.set('edit', cloneData.draftId)
+                window.history.replaceState({}, '', newUrl.toString())
+              } else {
+                console.error("[loadProperty] Failed to clone property to draft")
+                setResolvedDraftId(editId)
+              }
+            } else {
+              // For draft/pending/rejected properties, the editId IS the draft id.
+              // Inject it immediately so useAutoDraft doesn't re-read a stale localStorage value.
+              setResolvedDraftId(editId)
+            }
           }
 
           const res = await fetch(`/api/properties/${targetId}`)
@@ -402,6 +420,9 @@ function BuilderContent() {
               unitNumber: `${tower.name?.replace("Tower ", "") || "T"}-${floor}${slot.slotNumber.padStart(2, "0")}`,
               floor,
               floorNumber: floor,
+              slotNumber: slot.slotNumber,
+              slotId: slot.id,
+              configId: slot.configId,
               configuration: slot.typeOverride || config?.type || "1BHK",
               carpetArea,
               area: carpetArea,
@@ -409,6 +430,28 @@ function BuilderContent() {
               ratePerSqft: effectiveRate > 0 ? effectiveRate : (finalPrice > 0 && carpetArea > 0 ? Math.round(finalPrice / carpetArea) : 0),
               facing,
               status: slot.status || "available",
+              vastuDetails: slot.vastuDetails || config?.vastuDetails || null,
+              vastuAnalysis: config?.vastuAnalysis || [],
+              roomDimensions: slot.roomDimensions || config?.roomDimensions || [],
+              flooringType: config?.flooringType || unitTemplate?.defaultFlooringType || unitTemplate?.flooringType,
+              wallFinish: config?.wallFinish || unitTemplate?.defaultWallFinish || unitTemplate?.wallFinish,
+              ceilingHeight: config?.ceilingHeight || unitTemplate?.defaultCeilingHeight || unitTemplate?.ceilingHeight,
+              furnishingStatus: config?.furnishingStatus || unitTemplate?.defaultFurnishingStatus || unitTemplate?.furnishingStatus,
+              viewType: config?.viewType || unitTemplate?.defaultViewType || unitTemplate?.viewType,
+              defaultBalconyRailing: unitTemplate?.defaultBalconyRailing,
+              defaultWindows: unitTemplate?.defaultWindows,
+              defaultMainDoor: unitTemplate?.defaultMainDoor,
+              defaultInternalDoors: unitTemplate?.defaultInternalDoors,
+              defaultKitchenPlatform: unitTemplate?.defaultKitchenPlatform,
+              defaultKitchenFittings: unitTemplate?.defaultKitchenFittings,
+              defaultBathroomCpFittings: unitTemplate?.defaultBathroomCpFittings,
+              defaultSanitaryware: unitTemplate?.defaultSanitaryware,
+              defaultWiringSwitches: unitTemplate?.defaultWiringSwitches,
+              defaultPowerBackup: unitTemplate?.defaultPowerBackup,
+              defaultSmartHomeProvisions: unitTemplate?.defaultSmartHomeProvisions,
+              defaultPlasterPaint: unitTemplate?.defaultPlasterPaint,
+              defaultFireSafety: unitTemplate?.defaultFireSafety,
+              defaultVastuCompliance: unitTemplate?.defaultVastuCompliance,
             })
           })
         })
@@ -454,6 +497,28 @@ function BuilderContent() {
                 ratePerSqft: effectiveRate > 0 ? effectiveRate : (finalPrice > 0 && carpetArea > 0 ? Math.round(finalPrice / carpetArea) : 0),
                 facing,
                 status: "available",
+                vastuDetails: config?.vastuDetails || null,
+                vastuAnalysis: config?.vastuAnalysis || [],
+                roomDimensions: config?.roomDimensions || [],
+                flooringType: config?.flooringType || unitTemplate?.defaultFlooringType || unitTemplate?.flooringType,
+                wallFinish: config?.wallFinish || unitTemplate?.defaultWallFinish || unitTemplate?.wallFinish,
+                ceilingHeight: config?.ceilingHeight || unitTemplate?.defaultCeilingHeight || unitTemplate?.ceilingHeight,
+                furnishingStatus: config?.furnishingStatus || unitTemplate?.defaultFurnishingStatus || unitTemplate?.furnishingStatus,
+                viewType: config?.viewType || unitTemplate?.defaultViewType || unitTemplate?.viewType,
+                defaultBalconyRailing: unitTemplate?.defaultBalconyRailing,
+                defaultWindows: unitTemplate?.defaultWindows,
+                defaultMainDoor: unitTemplate?.defaultMainDoor,
+                defaultInternalDoors: unitTemplate?.defaultInternalDoors,
+                defaultKitchenPlatform: unitTemplate?.defaultKitchenPlatform,
+                defaultKitchenFittings: unitTemplate?.defaultKitchenFittings,
+                defaultBathroomCpFittings: unitTemplate?.defaultBathroomCpFittings,
+                defaultSanitaryware: unitTemplate?.defaultSanitaryware,
+                defaultWiringSwitches: unitTemplate?.defaultWiringSwitches,
+                defaultPowerBackup: unitTemplate?.defaultPowerBackup,
+                defaultSmartHomeProvisions: unitTemplate?.defaultSmartHomeProvisions,
+                defaultPlasterPaint: unitTemplate?.defaultPlasterPaint,
+                defaultFireSafety: unitTemplate?.defaultFireSafety,
+                defaultVastuCompliance: unitTemplate?.defaultVastuCompliance,
               })
             }
           })
@@ -815,8 +880,15 @@ function BuilderContent() {
     window.location.href = `${dashboardPath}?tab=properties&filter=drafts`
   }
 
+  const isSubmittingRef = useRef(false)
 
   const handleCreate = async () => {
+    if (isSubmittingRef.current) {
+      console.warn("[handleCreate] Submission already in progress. Ignoring duplicate click.");
+      return;
+    }
+    isSubmittingRef.current = true;
+
     try {
       setIsCreating(true)
 
@@ -842,6 +914,7 @@ function BuilderContent() {
       if (newIds) {
         currentDraftIds = newIds;
       }
+
 
       // Re-read draft IDs securely using the resolved variable
       const rootDraftId = currentDraftIds.townshipId || currentDraftIds.projectId || currentDraftIds.towerId;
@@ -968,6 +1041,7 @@ function BuilderContent() {
       await new Promise((resolve) => setTimeout(resolve, 1500))
       setIsCreating(false)
       setIsComplete(true)
+      isSubmittingRef.current = false
       
       // Crucial: Clear draft from localStorage and DB on successful publish
       // This prevents the "Resume Draft" banner from appearing for already published content.
@@ -981,6 +1055,7 @@ function BuilderContent() {
     } catch (error: any) {
       console.error("Error creating property:", error)
       setIsCreating(false)
+      isSubmittingRef.current = false
       
       const msg = error.message || "";
       if (msg.includes("unauthorized") || msg.includes("authenticated")) {

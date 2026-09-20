@@ -66,11 +66,11 @@ export async function POST(req: NextRequest) {
     }
 
     const updateResult = await Property.updateMany(
-      { $or: matchConditions, isDeleted: false },
+      { $or: matchConditions, isDeleted: { $ne: true } },
       { $set: updateData }
     );
 
-    const property = await Property.findOne({ $or: matchConditions, isDeleted: false });
+    const property = await Property.findOne({ $or: matchConditions, isDeleted: { $ne: true } });
 
     if (!property && updateResult.matchedCount === 0) {
       console.error(`[Internal Correlation:${correlationId}] Property not found for externalId: ${externalId}`);

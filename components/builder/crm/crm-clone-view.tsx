@@ -1034,6 +1034,13 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
 
                                 updates.timeline = newTimeline;
 
+                                if (droppedLead.isGroup && Array.isArray(droppedLead.mergedMembers) && droppedLead.mergedMembers.length > 0) {
+                                    updates.mergedMembers = droppedLead.mergedMembers.map((m: any) => ({
+                                        ...m,
+                                        status: status
+                                    }));
+                                }
+
                                 // Idempotent optimistic update
                                 optimisticUpdateStatus(toId(leadId), status, mutationId);
                                 upsertLead({ ...droppedLead, ...updates, id: toId(leadId) });
@@ -2010,12 +2017,16 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
                                 if (!pendingStatus || !selectedLead) return;
                                 const id = selectedLead.id || selectedLead._id;
                                 
+                                const extraNotes = buildStageExtraNotes(pendingStatus, extraFields);
+                                let finalReason = statusReason.trim();
+                                if (extraNotes) finalReason += (finalReason ? "\n" : "") + extraNotes.trim();
+
                                 const newTimeline = [...(selectedLead.timeline || [])];
                                 const updates: any = {};
                                 
-                                if (statusReason.trim()) {
+                                if (finalReason) {
                                     updates.actionType = "Status Note";
-                                    updates.actionDesc = `[Member Update] Changed to ${pendingStatus}: ${statusReason}`;
+                                    updates.actionDesc = `[Member Update] Changed to ${pendingStatus}:\n${finalReason}`;
                                     newTimeline.unshift({
                                         title: "Member Status Changed",
                                         desc: updates.actionDesc,
@@ -2044,13 +2055,48 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
                                     }
                                 }
 
+                                // Prepare updated merged members array
+                                const currentMembers = (Array.isArray(selectedLead.mergedMembers) && selectedLead.mergedMembers.length > 0)
+                                    ? selectedLead.mergedMembers
+                                    : [{
+                                        id: selectedLead.id || selectedLead._id,
+                                        _id: selectedLead.id || selectedLead._id,
+                                        userId: selectedLead.userId || selectedLead.visitorId || selectedLead.id || selectedLead._id,
+                                        visitorId: selectedLead.visitorId || selectedLead.userId || '',
+                                        name: selectedLead.name?.replace(/\s*—\s*Group Buying Pool/i, '') || selectedLead.name,
+                                        phone: selectedLead.phone,
+                                        email: selectedLead.email || '',
+                                        avatar: selectedLead.avatar || selectedLead.photo || selectedLead.profilePhoto || '',
+                                        photo: selectedLead.photo || selectedLead.avatar || selectedLead.profilePhoto || '',
+                                        profilePhoto: selectedLead.profilePhoto || selectedLead.avatar || selectedLead.photo || '',
+                                        username: selectedLead.username || '',
+                                        status: selectedLead.status || 'Fresh',
+                                        clickedLevel: selectedLead.clickedLevel || 'Township',
+                                        clickedPropertyName: selectedLead.clickedPropertyName || selectedLead.topPropertyName || selectedLead.name,
+                                        sourceUrl: selectedLead.sourceUrl || '',
+                                        joinedAt: selectedLead.createdAt || new Date().toISOString()
+                                    }];
+
+                                const updatedMergedMembers = currentMembers.map((m: any, idx: number) => {
+                                    if (idx === selectedMemberIdx) {
+                                        return { ...m, status: pendingStatus };
+                                    }
+                                    return m;
+                                });
+
+                                // Update main lead status and mergedMembers so the lead drops into the correct follow-up stage column on the pipeline board
+                                updates.status = pendingStatus;
+                                updates.mergedMembers = updatedMergedMembers;
+
                                 upsertLead({
                                     ...selectedLead,
+                                    status: pendingStatus,
+                                    mergedMembers: updatedMergedMembers,
                                     nextActionTime: updates.nextActionTime || selectedLead.nextActionTime,
                                     timeline: newTimeline
                                 });
 
-                                // Update local member status state so it reflects visually, but don't change the main lead status
+                                // Update local member status state so it reflects visually
                                 setMemberStatuses(prev => ({
                                     ...prev,
                                     [selectedMemberIdx as number]: pendingStatus as string

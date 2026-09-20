@@ -123,7 +123,7 @@ async function buildHierarchy(
     // 1. Fetch child project documents from DB
     const dbProjectDocs = await Property.find({
       parentId: rootProperty._id,
-      isDeleted: false,
+      isDeleted: { $ne: true },
       status: { $ne: "rejected" },
       type: "project",
       ...ownershipQuery,
@@ -190,7 +190,7 @@ async function buildHierarchy(
       if (proj.dbDoc) {
         dbTowerDocs = await Property.find({
           parentId: proj.dbDoc._id,
-          isDeleted: false,
+          isDeleted: { $ne: true },
           status: { $ne: "rejected" },
           type: "tower",
           ...ownershipQuery,
@@ -360,7 +360,7 @@ async function buildHierarchy(
 
     let dbTowerDocs = await Property.find({
       parentId: rootProperty._id,
-      isDeleted: false,
+      isDeleted: { $ne: true },
       status: { $ne: "rejected" },
       type: "tower",
       ...ownershipQuery,
@@ -593,7 +593,7 @@ export async function GET(
     const rootProperty = await Property.findOne({
       _id: propertyId,
       ...(context!.role !== "teamLeader" ? ownershipQuery : {}),
-      isDeleted: false,
+      isDeleted: { $ne: true },
     }).lean() as any;
 
     if (!rootProperty) {

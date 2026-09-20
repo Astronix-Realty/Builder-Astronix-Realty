@@ -72,10 +72,61 @@ interface Property {
 function DashboardContent() {
   const router = useRouter()
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [activeTab, setActiveTab] = useState<"properties" | "inventory" | "crm" | "crm2" | "chat" | "documents" | "offers" | "blog" | "settings" | "team">("properties")
+  const [activeTab, setActiveTab] = useState<"properties" | "inventory" | "crm" | "crm2" | "chat" | "documents" | "offers" | "blog" | "settings" | "team">(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get("tab");
+      const validTabs = ["properties", "inventory", "crm", "crm2", "chat", "documents", "offers", "blog", "team", "settings"];
+      if (tabParam && validTabs.includes(tabParam)) return tabParam as any;
+      try {
+        const stored = sessionStorage.getItem("mandate_active_tab");
+        if (stored && validTabs.includes(stored)) return stored as any;
+      } catch (e) {}
+    }
+    return "properties";
+  })
   const [activeSettingsTab, setActiveSettingsTab] = useState<"profile" | "preferences">("profile")
   const [showAddProperty, setShowAddProperty] = useState(false)
-  const [propertyFilter, setPropertyFilter] = useState<'published' | 'pending' | 'draft' | 'rejected'>('published')
+  const [propertyFilter, setPropertyFilter] = useState<'published' | 'pending' | 'draft' | 'rejected'>(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const filterParam = params.get("filter");
+      if (filterParam === "drafts" || filterParam === "draft") return "draft";
+      if (filterParam === "pending") return "pending";
+      if (filterParam === "published" || filterParam === "active") return "published";
+      if (filterParam === "rejected") return "rejected";
+      try {
+        const stored = sessionStorage.getItem("mandate_property_filter");
+        if (stored && ['published', 'pending', 'draft', 'rejected'].includes(stored)) return stored as any;
+      } catch (e) {}
+    }
+    return "published";
+  })
+
+  const handleTabChange = (tab: "properties" | "inventory" | "crm" | "crm2" | "chat" | "documents" | "offers" | "blog" | "settings" | "team") => {
+    setActiveTab(tab);
+    setIsMobileMenuOpen(false);
+    if (typeof window !== "undefined") {
+      try {
+        sessionStorage.setItem("mandate_active_tab", tab);
+        const url = new URL(window.location.href);
+        url.searchParams.set("tab", tab);
+        window.history.replaceState({}, "", url.toString());
+      } catch (e) {}
+    }
+  };
+
+  const handleFilterChange = (filter: 'published' | 'pending' | 'draft' | 'rejected') => {
+    setPropertyFilter(filter);
+    if (typeof window !== "undefined") {
+      try {
+        sessionStorage.setItem("mandate_property_filter", filter);
+        const url = new URL(window.location.href);
+        url.searchParams.set("filter", filter);
+        window.history.replaceState({}, "", url.toString());
+      } catch (e) {}
+    }
+  };
   const [isLoading, setIsLoading] = useState(true)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
   const [isChangingPassword, setIsChangingPassword] = useState(false)
@@ -218,21 +269,43 @@ function DashboardContent() {
     const filterParam = searchParams.get("filter")
 
     if (tabParam) {
-      if (["properties", "offers", "profile", "settings"].includes(tabParam)) {
+      if (["properties", "inventory", "crm", "crm2", "chat", "documents", "offers", "blog", "team", "profile", "settings"].includes(tabParam)) {
         setActiveTab(tabParam as any)
+        try { sessionStorage.setItem("mandate_active_tab", tabParam) } catch (e) {}
       }
+    } else {
+      try {
+        const storedTab = sessionStorage.getItem("mandate_active_tab");
+        if (storedTab && ["properties", "inventory", "crm", "crm2", "chat", "documents", "offers", "blog", "team", "profile", "settings"].includes(storedTab)) {
+          setActiveTab(storedTab as any);
+          const url = new URL(window.location.href);
+          url.searchParams.set("tab", storedTab);
+          window.history.replaceState({}, "", url.toString());
+        }
+      } catch (e) {}
     }
 
     if (filterParam) {
       if (filterParam === "drafts" || filterParam === "draft") {
         setPropertyFilter("draft")
+        try { sessionStorage.setItem("mandate_property_filter", "draft") } catch (e) {}
       } else if (filterParam === "pending") {
         setPropertyFilter("pending")
+        try { sessionStorage.setItem("mandate_property_filter", "pending") } catch (e) {}
       } else if (filterParam === "published" || filterParam === "active") {
         setPropertyFilter("published")
+        try { sessionStorage.setItem("mandate_property_filter", "published") } catch (e) {}
       } else if (filterParam === "rejected") {
         setPropertyFilter("rejected")
+        try { sessionStorage.setItem("mandate_property_filter", "rejected") } catch (e) {}
       }
+    } else {
+      try {
+        const storedFilter = sessionStorage.getItem("mandate_property_filter");
+        if (storedFilter && ['published', 'pending', 'draft', 'rejected'].includes(storedFilter)) {
+          setPropertyFilter(storedFilter as any);
+        }
+      } catch (e) {}
     }
   }, [searchParams])
 
@@ -753,42 +826,42 @@ function DashboardContent() {
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           <button
-            onClick={() => { setActiveTab("properties"); setIsMobileMenuOpen(false); }}
+            onClick={() => handleTabChange("properties")}
             className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "properties" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
           >
             <Building2 className="h-5 w-5" />
             Properties
           </button>
           <button
-            onClick={() => { setActiveTab("inventory"); setIsMobileMenuOpen(false); }}
+            onClick={() => handleTabChange("inventory")}
             className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "inventory" ? "bg-teal-50 text-teal-700 dark:bg-teal-900/20 dark:teal-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
           >
             <Layers className="h-5 w-5" />
             Inventory
           </button>
           <button
-            onClick={() => { setActiveTab("crm"); setIsMobileMenuOpen(false); }}
+            onClick={() => handleTabChange("crm")}
             className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "crm" ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
           >
             <Users className="h-5 w-5 shrink-0" />
             <span className="text-left leading-tight">Astronix Leads and CRM</span>
           </button>
           <button
-            onClick={() => { setActiveTab("crm2"); setIsMobileMenuOpen(false); }}
+            onClick={() => handleTabChange("crm2")}
             className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "crm2" ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
           >
             <Users className="h-5 w-5 shrink-0" />
             <span className="text-left leading-tight">Our Leads and CRM</span>
           </button>
           <button
-            onClick={() => { setActiveTab("chat"); setIsMobileMenuOpen(false); }}
+            onClick={() => handleTabChange("chat")}
             className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "chat" ? "bg-sky-50 text-sky-700 dark:bg-sky-900/20 dark:sky-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
           >
             <MessageSquare className="h-5 w-5" />
             Chat
           </button>
           <button
-            onClick={() => { setActiveTab("documents"); setIsMobileMenuOpen(false); }}
+            onClick={() => handleTabChange("documents")}
             className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "documents" ? "bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:orange-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
           >
             <FileText className="h-5 w-5" />
@@ -796,28 +869,28 @@ function DashboardContent() {
           </button>
 
           <button
-            onClick={() => { setActiveTab("offers"); setIsMobileMenuOpen(false); }}
+            onClick={() => handleTabChange("offers")}
             className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "offers" ? "bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:purple-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
           >
             <Gift className="h-5 w-5" />
             Offers
           </button>
           <button
-            onClick={() => { setActiveTab("blog"); setIsMobileMenuOpen(false); }}
+            onClick={() => handleTabChange("blog")}
             className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "blog" ? "bg-pink-50 text-pink-700 dark:bg-pink-900/20 dark:pink-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
           >
             <FileText className="h-5 w-5" />
             Blog
           </button>
           <button
-            onClick={() => { setActiveTab("team"); setIsMobileMenuOpen(false); }}
+            onClick={() => handleTabChange("team")}
             className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "team" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
           >
             <Users className="h-5 w-5" />
             Team
           </button>
           <button
-            onClick={() => { setActiveTab("settings"); setIsMobileMenuOpen(false); }}
+            onClick={() => handleTabChange("settings")}
             className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "settings" ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
           >
             <Settings className="h-5 w-5" />
@@ -828,7 +901,7 @@ function DashboardContent() {
         {/* User Profile - Bottom Sidebar */}
         <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex flex-col gap-2">
           <button 
-            onClick={() => { setActiveTab("settings"); setIsMobileMenuOpen(false); }}
+            onClick={() => handleTabChange("settings")}
             className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-white dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 hover:shadow-sm transition-all text-left group cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500/20"
           >
             <div className={`relative w-10 h-10 shrink-0 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center border-2 border-white dark:border-slate-600 shadow-sm overflow-hidden group-hover:border-slate-100 dark:group-hover:border-slate-700 transition-colors`}>
@@ -910,7 +983,7 @@ function DashboardContent() {
               {activeTab === "properties" && (
                 <div className="hidden md:flex items-center gap-6 text-sm font-medium absolute left-1/2 -translate-x-1/2">
                   <button
-                    onClick={() => setPropertyFilter("published")}
+                    onClick={() => handleFilterChange("published")}
                     className={`pb-1 transition-colors ${propertyFilter === "published"
                       ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
                       : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
@@ -920,7 +993,7 @@ function DashboardContent() {
                   </button>
 
                   <button
-                    onClick={() => setPropertyFilter("pending")}
+                    onClick={() => handleFilterChange("pending")}
                     className={`pb-1 transition-colors ${propertyFilter === "pending"
                       ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
                       : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
@@ -930,7 +1003,7 @@ function DashboardContent() {
                   </button>
 
                   <button
-                    onClick={() => setPropertyFilter("draft")}
+                    onClick={() => handleFilterChange("draft")}
                     className={`pb-1 transition-colors ${propertyFilter === "draft"
                       ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
                       : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
@@ -940,7 +1013,7 @@ function DashboardContent() {
                   </button>
 
                   <button
-                    onClick={() => setPropertyFilter("rejected")}
+                    onClick={() => handleFilterChange("rejected")}
                     className={`pb-1 transition-colors ${propertyFilter === "rejected"
                       ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
                       : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
@@ -982,7 +1055,7 @@ function DashboardContent() {
             {activeTab === "properties" && (
               <div className="md:hidden mt-4 flex gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
                 <button
-                  onClick={() => setPropertyFilter("published")}
+                  onClick={() => handleFilterChange("published")}
                   className={`flex-1 py-2 text-sm rounded-md font-medium transition ${propertyFilter === "published"
                     ? "bg-white dark:bg-slate-900 text-blue-600 shadow"
                     : "text-slate-600 dark:text-slate-400"
@@ -992,7 +1065,7 @@ function DashboardContent() {
                 </button>
 
                 <button
-                  onClick={() => setPropertyFilter("pending")}
+                  onClick={() => handleFilterChange("pending")}
                   className={`flex-1 py-2 text-sm rounded-md font-medium transition ${propertyFilter === "pending"
                     ? "bg-white dark:bg-slate-900 text-blue-600 shadow"
                     : "text-slate-600 dark:text-slate-400"
@@ -1002,7 +1075,7 @@ function DashboardContent() {
                 </button>
 
                 <button
-                  onClick={() => setPropertyFilter("draft")}
+                  onClick={() => handleFilterChange("draft")}
                   className={`flex-1 py-2 text-sm rounded-md font-medium transition ${propertyFilter === "draft"
                     ? "bg-white dark:bg-slate-900 text-blue-600 shadow"
                     : "text-slate-600 dark:text-slate-400"

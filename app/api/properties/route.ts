@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     const query: Record<string, any> = {
       ...getOwnershipQuery(context!),
       parentId: null,
-      isDeleted: false,
+      isDeleted: { $ne: true },
     };
 
     if (statusFilter) {
@@ -46,6 +46,7 @@ export async function GET(req: NextRequest) {
     const allRawProperties = await Property.find(query).sort({ updatedAt: -1 }).lean();
 
     // Deduplicate: If a property has a pending, published, or active version, exclude any duplicate draft version of the same property
+    // Also deduplicate multiple properties with the exact same name (keep the most recently updated one).
     const activeOrPendingNameSet = new Set(
       allRawProperties
         .filter((p: any) => p.status === 'published' || p.status === 'active' || p.status === 'pending')
@@ -53,13 +54,35 @@ export async function GET(req: NextRequest) {
         .filter(Boolean)
     );
 
+    const seenActiveOrPendingNames = new Set<string>();
+    const seenDraftNames = new Set<string>();
+
     const rawProperties = allRawProperties.filter((p: any) => {
-      if (p.status === 'draft') {
-        const cleanName = (p.name || p.townshipName || '').trim().toLowerCase();
-        if (cleanName && activeOrPendingNameSet.has(cleanName)) {
-          return false;
+      const cleanName = (p.name || p.townshipName || '').trim().toLowerCase();
+      
+      if (!cleanName) return true; // keep nameless properties
+
+      if (p.status === 'published' || p.status === 'active' || p.status === 'pending') {
+        if (seenActiveOrPendingNames.has(cleanName)) {
+          return false; // hide older duplicates of published/pending properties
         }
+        seenActiveOrPendingNames.add(cleanName);
+        return true;
       }
+
+      if (p.status === 'draft') {
+        if (activeOrPendingNameSet.has(cleanName)) {
+          return false; // hide draft if a published/pending version exists
+        }
+
+        if (seenDraftNames.has(cleanName)) {
+          return false; // hide older duplicate drafts
+        }
+
+        seenDraftNames.add(cleanName);
+        return true;
+      }
+
       return true;
     });
 
@@ -73,14 +96,14 @@ export async function GET(req: NextRequest) {
     const townshipIds = rootTownships.map((p: any) => p._id);
     
     // Fetch ALL projects for root townships
-    const allChildProjects = await Property.find({ parentId: { $in: townshipIds }, isDeleted: false }, '_id parentId details.heroImage details.heroImages').lean();
+    const allChildProjects = await Property.find({ parentId: { $in: townshipIds }, isDeleted: { $ne: true } }, '_id parentId details.heroImage details.heroImages').lean();
     const allChildProjectIds = allChildProjects.map((p: any) => p._id);
     
     // Combine root project IDs and child project IDs
     const combinedProjectIds = [...rootProjects.map((p: any) => p._id), ...allChildProjectIds];
     
     // Fetch ALL towers for all projects
-    const allChildTowers = await Property.find({ parentId: { $in: combinedProjectIds }, isDeleted: false }, '_id parentId details.heroImage details.id').lean();
+    const allChildTowers = await Property.find({ parentId: { $in: combinedProjectIds }, isDeleted: { $ne: true } }, '_id parentId details.heroImage details.id').lean();
     const allChildTowerIds = allChildTowers.map((t: any) => t._id);
     
     // Combine root tower IDs and child tower IDs

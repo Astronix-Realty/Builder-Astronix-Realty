@@ -25,7 +25,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const property = await Property.findOne({
       _id: id,
       ...getOwnershipQuery(context!),
-      isDeleted: false
+      isDeleted: { $ne: true }
     });
 
     if (!property) {
@@ -94,7 +94,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       if (finalProperty.type === 'township') {
         wizardState.township = finalProperty.details?.township || finalProperty.details || {};
 
-        const projects = await Property.find({ parentId: rootId, isDeleted: false, type: 'project' }).lean();
+        const projects = await Property.find({ parentId: rootId, isDeleted: { $ne: true }, type: 'project' }).lean();
         wizardState.projects = projects.map(p => {
           const pData = extractProjectData(p.details, (p as any)._id.toString(), (p as any).name);
           projectDbIds.push((p as any)._id.toString());
@@ -106,7 +106,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
           };
         });
 
-        const towers = await Property.find({ parentId: { $in: projectDbIds }, isDeleted: false, type: 'tower' }).lean();
+        const towers = await Property.find({ parentId: { $in: projectDbIds }, isDeleted: { $ne: true }, type: 'tower' }).lean();
 
         wizardState.towers = towers.map(t => {
           const tData = extractTowerData(t.details, (t as any)._id.toString(), (t as any).name);
@@ -122,7 +122,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         wizardState.projects = [{ ...projDetails, _dbId: id, id: id }];
         projectDbIds.push(id);
 
-        const towers = await Property.find({ parentId: rootId, isDeleted: false, type: 'tower' }).lean();
+        const towers = await Property.find({ parentId: rootId, isDeleted: { $ne: true }, type: 'tower' }).lean();
         wizardState.towers = towers.map(t => {
           const tData = extractTowerData(t.details, (t as any)._id.toString(), (t as any).name);
           const { unitConfig, ...rest } = tData as any;
@@ -238,7 +238,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     const property = await Property.findOneAndUpdate(
-      { _id: id, ...getOwnershipQuery(context!), isDeleted: false },
+      { _id: id, ...getOwnershipQuery(context!), isDeleted: { $ne: true } },
       updatePayload,
       { new: true, runValidators: true }
     );
@@ -350,12 +350,30 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     const property = await Property.findOneAndUpdate(
-      { _id: id, ...getOwnershipQuery(context!), isDeleted: false },
+      { _id: id, ...getOwnershipQuery(context!), isDeleted: { $ne: true } },
       { $set: updateData },
       { new: true, runValidators: true }
     );
     if (!property) {
       return NextResponse.json({ error: "Property not found or unauthorized" }, { status: 404 });
+    }
+
+    if (updateData.status === 'draft' && process.env.ADMIN_PANEL_URL && process.env.INTERNAL_API_SECRET) {
+      try {
+        await fetch(`${process.env.ADMIN_PANEL_URL}/api/internal/properties`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-internal-secret': process.env.INTERNAL_API_SECRET,
+          },
+          body: JSON.stringify({
+            eventId: `draft_${property._id}_${Date.now()}`,
+            externalId: property._id.toString(),
+            title: property.name || 'Property',
+            status: 'draft',
+          }),
+        }).catch((err: any) => console.error('[PATCH draft sync] Admin sync failed:', err.message));
+      } catch (e) {}
     }
 
     return NextResponse.json({ property }, { status: 200 });

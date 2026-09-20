@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     // Query all root properties (parentId: null) that are not deleted and not in draft status
     const rootProperties = await Property.find({
       parentId: null,
-      isDeleted: false,
+      isDeleted: { $ne: true },
       status: { $ne: 'draft' },
     }).lean();
 

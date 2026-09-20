@@ -48,21 +48,13 @@ function loadDraftIds(flowType: string, forcedRootId?: string | null): DraftIds 
     towerMap,
   }
 
-  // FIX 2 & 4: If a forcedRootId is provided (set after clone-to-draft resolves),
-  // it ALWAYS wins over localStorage. This prevents the stale publishedId bug.
-  if (forcedRootId) {
-    if (flowType === "township") ids.townshipId = forcedRootId
-    else if (flowType === "project") ids.projectId = forcedRootId
-    else if (flowType === "tower") ids.towerId = forcedRootId
-  } else {
-    // Otherwise fall back to URL param (edit mode on page load)
-    const searchParams = new URLSearchParams(window.location.search)
-    const editId = searchParams.get("edit")
-    if (editId) {
-      if (flowType === "township" && !ids.townshipId) ids.townshipId = editId
-      else if (flowType === "project" && !ids.projectId) ids.projectId = editId
-      else if (flowType === "tower" && !ids.towerId) ids.towerId = editId
-    }
+  // If a forcedRootId is provided or if edit param is in URL, it ALWAYS wins over localStorage.
+  const activeRootId = forcedRootId || (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("edit") : null)
+
+  if (activeRootId) {
+    if (flowType === "township") ids.townshipId = activeRootId
+    else if (flowType === "project") ids.projectId = activeRootId
+    else if (flowType === "tower") ids.towerId = activeRootId
   }
 
   return ids
@@ -325,7 +317,7 @@ export function useAutoDraft({
           const tp = state.township
           const townshipId = await saveEntity("township", newIds.townshipId, {
             name: tp?.name,
-            location: { city: tp?.city, state: tp?.state },
+            location: { city: tp?.city, state: tp?.state, coordinates: tp?.coordinates } as any,
             details: fullStateSnapshot,
           })
           newIds.townshipId = townshipId
@@ -336,7 +328,8 @@ export function useAutoDraft({
           for (const proj of state.projects || []) {
             const projectLocation = {
               city: proj.city || tp?.city,
-              state: proj.state || tp?.state
+              state: proj.state || tp?.state,
+              coordinates: proj.coordinates || tp?.coordinates
             }
             const mappedProjectId = currentProjectMap[proj.id]
             const projectId = await saveEntity("project", mappedProjectId, {
@@ -371,7 +364,7 @@ export function useAutoDraft({
           const currentTowerMap = newIds.towerMap || {}
 
           for (const proj of state.projects || []) {
-            const projectLocation = { city: proj.city, state: proj.state }
+            const projectLocation = { city: proj.city, state: proj.state, coordinates: proj.coordinates }
             const mappedProjectId = currentProjectMap[proj.id]
             const projectId = await saveEntity("project", mappedProjectId, {
               name: proj.name,
@@ -407,7 +400,8 @@ export function useAutoDraft({
           for (const tower of state.towers || []) {
             const towerLocation = {
               city: (tower as any).city || state.township?.city,
-              state: (tower as any).state || state.township?.state
+              state: (tower as any).state || state.township?.state,
+              coordinates: (tower as any).coordinates || state.township?.coordinates,
             }
             const mappedTowerId = currentTowerMap[tower.id]
             const towerId = await saveEntity("tower", mappedTowerId, {

@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     }
 
     await dbConnect()
-    const user = await User.findOne({ email: email.toLowerCase().trim(), isDeleted: false })
+    const user = await User.findOne({ email: email.toLowerCase().trim(), isDeleted: { $ne: true } })
 
     // Security: Always return success to prevent email enumeration
     const successResponse = NextResponse.json(

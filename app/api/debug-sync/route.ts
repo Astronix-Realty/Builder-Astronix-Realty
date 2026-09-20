@@ -10,20 +10,20 @@ export async function GET(req: NextRequest) {
     await dbConnect();
     
     // Find all towers to trigger bottom-up sync
-    const properties = await Property.find({ type: "tower", isDeleted: false });
+    const properties = await Property.find({ type: "tower", isDeleted: { $ne: true } });
     
     for (const prop of properties) {
       await aggregateTowerCounts(prop._id);
     }
     
     // Also sync standalone projects that might have no towers
-    const standaloneProjects = await Property.find({ type: "project", isDeleted: false });
+    const standaloneProjects = await Property.find({ type: "project", isDeleted: { $ne: true } });
     for (const prop of standaloneProjects) {
        await aggregateProjectCounts(prop._id);
     }
 
     // Also sync standalone townships that might have no projects
-    const standaloneTownships = await Property.find({ type: "township", isDeleted: false });
+    const standaloneTownships = await Property.find({ type: "township", isDeleted: { $ne: true } });
     for (const prop of standaloneTownships) {
        await aggregateTownshipCounts(prop._id);
     }
