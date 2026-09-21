@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
     // Deduplicate properties with the exact same name and type
     const propertyMap = new Map<string, any>();
     for (const p of rawProperties) {
-      const id = p._id.toString();
+      const id = (p as any)._id.toString();
       propertyMap.set(id, p);
     }
 

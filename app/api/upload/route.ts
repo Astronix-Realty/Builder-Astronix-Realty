@@ -88,21 +88,12 @@ export async function POST(req: NextRequest) {
       uploadOptions.public_id = `${nameWithoutExt}_${Date.now()}.${ext}`;
     }
 
-    // Upload to Cloudinary using upload_stream (avoids base64 doubling)
-    const uploadResponse = await new Promise<any>((resolve, reject) => {
-      const uploadStream = cloudinary.uploader.upload_stream(
-        uploadOptions,
-        (error, result) => {
-          if (error) {
-            console.error("[Upload] Cloudinary stream error:", error.message)
-            reject(error)
-          } else {
-            resolve(result)
-          }
-        }
-      )
-      uploadStream.end(buffer)
-    })
+    // Convert Buffer to Data URI
+    const base64Data = buffer.toString('base64')
+    const dataUri = `data:${file.type};base64,${base64Data}`
+
+    // Upload to Cloudinary using base64 (more reliable in Next.js API routes than streams)
+    const uploadResponse = await cloudinary.uploader.upload(dataUri, uploadOptions)
 
     console.log(`[Upload] Success: ${uploadResponse.secure_url}`)
 

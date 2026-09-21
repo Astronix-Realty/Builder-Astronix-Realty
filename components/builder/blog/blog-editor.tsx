@@ -4,7 +4,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   ArrowLeft, Save, Play, CheckCircle2, AlertCircle, LayoutTemplate,
   HelpCircle, Image as ImageIcon, Scale, MousePointerClick, AlignLeft,
-  Trash2, Undo2, Redo2, Wifi, WifiOff, Lock, Settings, ArrowUp, ArrowDown, Eye, EyeOff
+  Trash2, Undo2, Redo2, Wifi, WifiOff, Lock, Settings, ArrowUp, ArrowDown, Eye, EyeOff,
+  TrendingUp, Search, Building, Star, Table
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
@@ -15,6 +16,7 @@ import { calculateBlogHealthScore } from '@/lib/utils/health-score';
 import { migrateBlogData } from '@/lib/utils/blog-migration';
 import { useBlogEditorStore } from '@/lib/store/blog-editor-store';
 import { BlockRenderer } from './renderers/BlockRenderer';
+import { BlogPreviewRenderer } from './renderers/BlogPreviewRenderer';
 import { BlogSettingsDrawer } from './BlogSettingsDrawer';
 
 // ─── Memoized per-block card — never remounts on sibling updates ───────────
@@ -77,7 +79,7 @@ const BlockCard = React.memo(({ block, index, totalBlocks, onUpdate, onRemove, o
     </div>
   );
 }, (prev, next) =>
-  prev.block.id === next.block.id &&
+  prev.block === next.block &&
   prev.index === next.index &&
   prev.totalBlocks === next.totalBlocks
 );
@@ -138,6 +140,9 @@ export function BlogEditor({ blogId, initialData, onBack }: {
       })();
     } else {
       store.initNew();
+      if (initialData?.category) {
+        useBlogEditorStore.getState().updateField('category', initialData.category);
+      }
     }
 
     return () => {
@@ -311,7 +316,7 @@ export function BlogEditor({ blogId, initialData, onBack }: {
     );
   }
 
-  const BLOCK_ICONS: any = { LayoutTemplate, AlignLeft, HelpCircle, ImageIcon, Scale, MousePointerClick };
+  const BLOCK_ICONS: any = { LayoutTemplate, AlignLeft, HelpCircle, ImageIcon, Scale, MousePointerClick, TrendingUp, Search, Building, Star, Table };
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-50 dark:bg-slate-950 flex flex-col h-screen overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -324,11 +329,16 @@ export function BlogEditor({ blogId, initialData, onBack }: {
             <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-slate-300" />
           </button>
           <div className="flex flex-col gap-0.5 min-w-0">
+            {blog.category && (
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 px-2 py-0.5 rounded w-max">
+                {blog.category}
+              </span>
+            )}
             <input
               type="text"
               value={title}
               onChange={e => store.updateField('title', e.target.value)}
-              className="text-xl font-bold bg-transparent border-none focus:outline-none focus:ring-0 text-slate-900 dark:text-white placeholder:text-slate-300 w-72 lg:w-96 truncate"
+              className="text-xl font-bold bg-transparent border-none focus:outline-none focus:ring-0 text-slate-900 dark:text-white placeholder:text-slate-300 w-72 lg:w-96 truncate p-0"
               placeholder="Blog title..."
             />
             {publishErrors.title && (
@@ -357,6 +367,13 @@ export function BlogEditor({ blogId, initialData, onBack }: {
               <Redo2 className="w-4 h-4" />
             </button>
           </div>
+
+          {/* Category Tag */}
+          {blog.category && (
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded-full text-xs font-semibold">
+              <span className="opacity-75">Topic:</span> {blog.category}
+            </div>
+          )}
 
           {/* Save status */}
           <div className="hidden md:flex items-center gap-1.5 text-xs font-medium">
@@ -448,10 +465,8 @@ export function BlogEditor({ blogId, initialData, onBack }: {
         <div className="w-full flex flex-col bg-slate-50 dark:bg-slate-900/50 overflow-hidden relative">
 
           {isPreviewMode ? (
-            <div className="absolute inset-0 bg-white dark:bg-slate-950 overflow-y-auto z-10">
-              <div className="max-w-[1200px] mx-auto py-10 px-4 md:px-8">
-                <BlockRenderer blocks={blocks} title={blog.title} blog={blog} />
-              </div>
+            <div className="absolute inset-0 bg-white dark:bg-slate-950 z-[100] flex flex-col h-full overflow-hidden">
+              <BlogPreviewRenderer blocks={blocks} title={blog.title} blog={blog} onClose={() => setIsPreviewMode(false)} />
             </div>
           ) : null}
 

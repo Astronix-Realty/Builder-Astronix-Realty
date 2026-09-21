@@ -60,10 +60,7 @@ export function calculateBlogHealthScore(blogData: any): HealthScore {
     if (hasCta) {
       score += 10;
       readabilityScore += 25;
-    } else {
-      recommendations.push('Add a Call to Action (CTA) block to drive engagement.');
     }
-
     // Subtitle in hero (5 pts)
     const heroBlock = blocks.find(b => b.type === 'hero');
     if (heroBlock?.data?.subtitle?.trim()) {

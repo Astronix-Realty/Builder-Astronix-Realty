@@ -173,9 +173,9 @@ export async function PATCH(
 
     await dbConnect();
     const body = await req.json();
-    const { status, assignee, notes, interestedUnit, actionType, actionDesc, nextActionTime, groupSize, mergedMembers } = body;
+    const { status, assignee, notes, interestedUnit, actionType, actionDesc, nextActionTime, groupSize, mergedMembers, isUnitHeld, isUnitSold, unitId, propertyId } = body;
 
-    const lead = await Lead.findOne({ 
+    let lead = await Lead.findOne({ 
       _id: id, 
       ...getOwnershipQuery(context!),
       isArchived: { $ne: true } 
@@ -215,8 +215,28 @@ export async function PATCH(
       isModified = true;
     }
 
-    if (interestedUnit) {
+    if (interestedUnit !== undefined) {
       lead.interestedUnit = interestedUnit;
+      isModified = true;
+    }
+
+    if (isUnitHeld !== undefined) {
+      lead.isUnitHeld = Boolean(isUnitHeld);
+      isModified = true;
+    }
+
+    if (isUnitSold !== undefined) {
+      lead.isUnitSold = Boolean(isUnitSold);
+      isModified = true;
+    }
+
+    if (unitId !== undefined) {
+      lead.unitId = unitId;
+      isModified = true;
+    }
+
+    if (propertyId !== undefined) {
+      lead.propertyId = propertyId;
       isModified = true;
     }
 
@@ -258,14 +278,75 @@ export async function PATCH(
     }
 
     if (isModified) {
-      await lead.save();
-      broadcastEvent({
-        type: "LEAD_UPDATED",
-        leadId: lead._id.toString(),
-        data: lead,
-        timestamp: Date.now()
-      });
-      console.log("[DB] Lead updated successfully in MongoDB:", id);
+      try {
+        await lead.save();
+      } catch (saveErr: any) {
+        if (saveErr.name === 'VersionError') {
+          console.warn(`[DB] VersionError encountered on lead ${id}, falling back to atomic update...`);
+          const updateDoc: any = {};
+          const pushDoc: any = {};
+
+          if (status) updateDoc.status = status;
+          if (assignee) updateDoc.assignee = assignee;
+          if (interestedUnit !== undefined) updateDoc.interestedUnit = interestedUnit;
+          if (isUnitHeld !== undefined) updateDoc.isUnitHeld = Boolean(isUnitHeld);
+          if (isUnitSold !== undefined) updateDoc.isUnitSold = Boolean(isUnitSold);
+          if (unitId !== undefined) updateDoc.unitId = unitId;
+          if (propertyId !== undefined) updateDoc.propertyId = propertyId;
+          if (nextActionTime) updateDoc.nextActionTime = new Date(nextActionTime);
+          if (groupSize !== undefined) updateDoc.groupSize = groupSize;
+          if (mergedMembers !== undefined) updateDoc.mergedMembers = mergedMembers;
+
+          const timelineEntries: any[] = [];
+          if (!actionType && status && status !== lead.status) {
+            timelineEntries.push({
+              title: "Status Updated",
+              desc: `Status changed to ${status}`,
+              type: "system",
+              date: new Date()
+            });
+          }
+          if (actionType) {
+            timelineEntries.push({
+              title: actionType,
+              desc: actionDesc || "Action performed",
+              type: actionType.toLowerCase().includes("call") ? "call" :
+                    actionType.toLowerCase().includes("visit") ? "visit" : "system",
+              date: new Date()
+            });
+          }
+          if (notes) {
+            pushDoc.notes = notes;
+            timelineEntries.push({
+              title: "Note Added",
+              desc: notes,
+              type: "note",
+              date: new Date()
+            });
+          }
+          if (timelineEntries.length > 0) {
+            pushDoc.timeline = { $each: timelineEntries, $position: 0 };
+          }
+
+          const mongoOps: any = {};
+          if (Object.keys(updateDoc).length > 0) mongoOps.$set = updateDoc;
+          if (Object.keys(pushDoc).length > 0) mongoOps.$push = pushDoc;
+
+          lead = await Lead.findByIdAndUpdate(id, mongoOps, { new: true });
+        } else {
+          throw saveErr;
+        }
+      }
+
+      if (lead) {
+        broadcastEvent({
+          type: "LEAD_UPDATED",
+          leadId: lead._id.toString(),
+          data: lead,
+          timestamp: Date.now()
+        });
+        console.log("[DB] Lead updated successfully in MongoDB:", id);
+      }
     }
 
     return NextResponse.json({ success: true, lead });

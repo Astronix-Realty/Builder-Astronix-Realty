@@ -172,7 +172,6 @@ export const SeoScoreWidget: React.FC<SeoScoreWidgetProps> = ({ health }) => {
                 <SubScoreRow icon={Globe}              label="SEO"         score={health.seoScore}         color="bg-blue-500" />
                 <SubScoreRow icon={BookOpen}           label="Readability" score={health.readabilityScore} color="bg-purple-500" />
                 <SubScoreRow icon={ImageIcon}          label="Media"       score={health.mediaScore}       color="bg-pink-500" />
-                <SubScoreRow icon={MousePointerClick}  label="CTA"         score={health.issues.some(i => i.includes('CTA')) ? 0 : 100} color="bg-orange-500" />
               </div>
 
               {/* Critical Issues */}

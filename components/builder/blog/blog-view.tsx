@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import Image from "next/image";
 import {
   Plus, Edit2, Trash2, FileText, Search, X,
-  Clock, Eye, Calendar, Menu, RefreshCw, Layers
+  Clock, Eye, Calendar, Menu, RefreshCw, Layers, CheckCircle2
 } from "lucide-react";
 import { BlogEditor } from "./blog-editor";
 import { toast } from "sonner";
@@ -21,6 +21,28 @@ export function BlogView({ onMenuClick }: BlogViewProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [editingBlogId, setEditingBlogId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
+  
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+
+  const BLOG_CATEGORIES = [
+    "Project Reviews",
+    "Locality Analysis",
+    "Buying Guide",
+    "Legal & RERA",
+    "Investment Advisory",
+    "Home Loans & Finance",
+    "Market Trends"
+  ];
+
+  const handleCreateNewBlog = () => {
+    if (!selectedCategory) {
+      toast.error("Please select a blog category");
+      return;
+    }
+    setIsCategoryModalOpen(false);
+    setEditingBlogId("new");
+  };
 
   const [blogSearchInput, setBlogSearchInput] = useState<Record<string, string>>({
     all: "",
@@ -118,11 +140,16 @@ export function BlogView({ onMenuClick }: BlogViewProps) {
   if (editingBlogId) {
     const blogToEdit = editingBlogId === "new" ? undefined : blogs.find(b => b._id === editingBlogId);
     return (
-      <BlogEditor
-        blogId={editingBlogId === "new" ? undefined : editingBlogId}
-        initialData={blogToEdit}
-        onBack={() => setEditingBlogId(null)}
-      />
+      <div className="h-full w-full">
+        <BlogEditor 
+          blogId={editingBlogId === 'new' ? undefined : editingBlogId} 
+          initialData={editingBlogId === 'new' ? { category: selectedCategory } : undefined}
+          onBack={() => {
+            setEditingBlogId(null);
+            fetchBlogs();
+          }}
+        />
+      </div>
     );
   }
 
@@ -165,7 +192,7 @@ export function BlogView({ onMenuClick }: BlogViewProps) {
           </div>
 
           <div className="flex items-center gap-3">
-             <button onClick={() => setEditingBlogId("new")} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm">
+             <button onClick={() => setIsCategoryModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm">
                <Plus className="h-5 w-5" />
                <span className="hidden sm:inline">Add Blog</span>
              </button>
@@ -377,7 +404,7 @@ export function BlogView({ onMenuClick }: BlogViewProps) {
                   "You haven't created any blogs yet."}
               </p>
               <button
-                onClick={() => setEditingBlogId("new")}
+                onClick={() => setIsCategoryModalOpen(true)}
                 className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2 transition-colors mx-auto"
               >
                 <Plus className="h-5 w-5" />
@@ -387,6 +414,55 @@ export function BlogView({ onMenuClick }: BlogViewProps) {
           )}
         </div>
       </div>
+
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex items-center justify-between p-5 border-b border-slate-200 dark:border-slate-800">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Select Blog Category</h3>
+              <button onClick={() => setIsCategoryModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-1 rounded-md">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5">
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                What type of blog do you want to create?
+              </p>
+              <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+                {BLOG_CATEGORIES.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`flex items-center justify-between p-3 rounded-xl border text-left transition-all ${
+                      selectedCategory === cat 
+                        ? "border-blue-600 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 shadow-sm" 
+                        : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300"
+                    }`}
+                  >
+                    <span className="font-medium text-sm">{cat}</span>
+                    {selectedCategory === cat && <CheckCircle2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="p-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30 flex justify-end gap-3">
+              <button 
+                onClick={() => setIsCategoryModalOpen(false)}
+                className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleCreateNewBlog}
+                disabled={!selectedCategory}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-sm transition-all"
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

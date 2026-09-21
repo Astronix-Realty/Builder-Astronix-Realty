@@ -232,7 +232,9 @@ export function DocumentsView() {
                 if (leadsRes.ok && isMounted) {
                     const data = await leadsRes.json()
                     if (data.success && data.leads && data.leads.length > 0) {
-                        const mappedLeads: Customer[] = data.leads.map((l: any) => ({
+                        // Filter to only include booked leads (purchased customers)
+                        const bookedLeads = data.leads.filter((l: any) => l.status === "Booked")
+                        const mappedLeads: Customer[] = bookedLeads.map((l: any) => ({
                             id: l._id || l.id,
                             name: l.name,
                             phone: l.phone || "+91 N/A",
@@ -241,8 +243,14 @@ export function DocumentsView() {
                             aadhar: l.aadhar || "______________",
                             address: l.address || "________________________________"
                         }))
-                        setCustomers(mappedLeads)
-                        setSelectedCustomerId(mappedLeads[0].id)
+                        
+                        if (mappedLeads.length > 0) {
+                            setCustomers(mappedLeads)
+                            setSelectedCustomerId(mappedLeads[0].id)
+                        } else {
+                            setCustomers([])
+                            setSelectedCustomerId("")
+                        }
                     }
                 }
 
@@ -547,10 +555,10 @@ export function DocumentsView() {
     return (
         <div className="h-full max-h-full flex flex-col lg:flex-row gap-6 p-1 max-w-[1600px] w-full mx-auto print:p-0 overflow-hidden">
             {/* Left Control Panel / Editor (Hidden on Print) */}
-            <div className="w-full lg:w-[420px] flex flex-col gap-4 pr-1 shrink-0 h-full max-h-full print:hidden overflow-hidden">
+            <div className="w-full lg:w-[420px] flex flex-col gap-4 pr-1 shrink-0 h-full max-h-full print:hidden overflow-y-auto pb-6">
                 
                 {/* Selector Header */}
-                <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
+                <Card className="border-slate-200 dark:border-slate-800 shadow-sm shrink-0">
                     <CardHeader className="p-4 pb-2">
                         <div className="flex justify-between items-center">
                             <CardTitle className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Document Center</CardTitle>
@@ -576,22 +584,26 @@ export function DocumentsView() {
                         </div>
                         
                         {activeDoc !== "repository" && (
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="flex flex-col space-y-3 mt-3">
                                 <div className="space-y-1">
                                     <label className="text-xs font-semibold text-slate-500">Select Customer</label>
                                     <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
-                                        <SelectTrigger className="bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+                                        <SelectTrigger className="w-full bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {customers.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                                            {customers.length === 0 ? (
+                                                <SelectItem value="empty" disabled>No booked customers found</SelectItem>
+                                            ) : (
+                                                customers.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)
+                                            )}
                                         </SelectContent>
                                     </Select>
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-xs font-semibold text-slate-500">Select Unit</label>
                                     <Select value={selectedUnitId} onValueChange={setSelectedUnitId}>
-                                        <SelectTrigger className="bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+                                        <SelectTrigger className="w-full bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -605,7 +617,7 @@ export function DocumentsView() {
                 </Card>
 
                 {/* Left Editor Controls */}
-                <div className="flex-1 overflow-y-auto pr-1">
+                <div className="flex flex-col shrink-0 gap-4">
                     {activeDoc === "cost-sheet" && (
                         <Card className="border-slate-200 dark:border-slate-800 shadow-sm space-y-4 p-4">
                             <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2 border-b pb-2">

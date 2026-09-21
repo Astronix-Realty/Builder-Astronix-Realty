@@ -210,11 +210,12 @@ export const useBlogEditorStore = create<BlogEditorStore>()(
 
       previewMode: 'desktop',
 
-      // ── Init ──────────────────────────────────────────────
       initNew: () => {
+        const initialBlocks: BlogBlock[] = [];
+
         set({
           blogId: null,
-          blog: { ...EMPTY_BLOG },
+          blog: { ...EMPTY_BLOG, blocks: initialBlocks },
           savedBlog: null,
           isDirty: false,
           past: [],
@@ -277,25 +278,57 @@ export const useBlogEditorStore = create<BlogEditorStore>()(
 
       // ── Block operations ───────────────────────────────────
       addBlock: (type, defaultData) => {
-        const SINGLETONS = ['hero', 'pros-cons', 'cta'];
-        if (SINGLETONS.includes(type)) {
-          const exists = (get().blog.blocks || []).some(b => b.type === type);
-          if (exists) return;
-        }
+        // All blocks are singletons now based on user request, so prevent duplicate addition
+        const exists = (get().blog.blocks || []).some(b => b.type === type);
+        if (exists) return;
+
         get().pushHistory();
         const newBlock: BlogBlock = {
           id: uuidv4(),
           type,
           data: { ...defaultData },
         };
-        set(state => ({
-          blog: {
-            ...state.blog,
-            blocks: [...(state.blog.blocks || []), newBlock],
-          },
-          isDirty: true,
-          future: [], // clear redo on new action
-        }), false, `addBlock:${type}`);
+        
+        set(state => {
+          const blocks = [...(state.blog.blocks || [])];
+          
+          // The predefined logical sequence of blocks
+          const BLOCK_ORDER = [
+            'hero',
+            'text',
+            'market-trends',
+            'deep-dive',
+            'featured-projects',
+            'gallery',
+            'pros-cons',
+            'cta',
+            'takeaways',
+            'faq'
+          ];
+          
+          const newBlockWeight = BLOCK_ORDER.indexOf(type);
+          
+          // Find the right place to insert the new block
+          // Insert after the last block that has a smaller weight.
+          let insertIndex = 0;
+          for (let i = 0; i < blocks.length; i++) {
+            const currentWeight = BLOCK_ORDER.indexOf(blocks[i].type);
+            if (currentWeight !== -1 && currentWeight < newBlockWeight) {
+              insertIndex = i + 1;
+            }
+          }
+          
+          blocks.splice(insertIndex, 0, newBlock);
+
+          return {
+            blog: {
+              ...state.blog,
+              blocks,
+            },
+            isDirty: true,
+            future: [],
+          };
+        }, false, `addBlock:${type}`);
       },
 
       updateBlock: (index, data) => {
@@ -611,9 +644,31 @@ export const useBlogEditorStore = create<BlogEditorStore>()(
           if (!hero?.data?.imageUrl && !hero?.data?.heroImageUrl) {
             errors.hero = 'A Hero Section with an image is required to publish';
           }
-          const wordCount = blog.blocks
-            .filter(b => b.type === 'text')
-            .reduce((n, b) => n + (b.data?.content || '').split(/\s+/).filter(Boolean).length, 0);
+          const wordCount = blog.blocks.reduce((n, b) => {
+            let text = '';
+            // Hero
+            if (b.type === 'hero') text += ` ${b.data.heading || ''} ${b.data.subtitle || ''}`;
+            // All text variants
+            else if (['text', 'market-trends', 'deep-dive', 'featured-projects'].includes(b.type)) {
+              text += ` ${b.data.title || ''} ${b.data.content || ''}`;
+            }
+            // FAQ
+            else if (b.type === 'faq' && b.data.questions) {
+              b.data.questions.forEach((q: any) => { text += ` ${q.q || ''} ${q.a || ''}`; });
+            }
+            // Pros & Cons
+            else if (b.type === 'pros-cons') {
+              if (b.data.pros) b.data.pros.forEach((p: any) => { text += ` ${p.value || ''}`; });
+              if (b.data.cons) b.data.cons.forEach((c: any) => { text += ` ${c.value || ''}`; });
+            }
+            // Key Takeaways
+            else if (b.type === 'takeaways' && b.data.items) {
+              b.data.items.forEach((item: any) => { text += ` ${item.value || ''}`; });
+            }
+            
+            const plainText = text.replace(/<[^>]+>/g, ' ');
+            return n + plainText.split(/\s+/).filter(Boolean).length;
+          }, 0);
           if (wordCount < 100) {
             errors.content = `Content too short — ${wordCount}/100 words minimum`;
           }

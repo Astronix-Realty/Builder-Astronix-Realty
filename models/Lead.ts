@@ -88,6 +88,9 @@ const LeadSchema = new mongoose.Schema({
     holdId: { type: String, index: true },
     holdExpiresAt: { type: Date },
     interestedUnit: { type: String },
+    isUnitHeld: { type: Boolean, default: false },
+    isUnitSold: { type: Boolean, default: false },
+    propertyId: { type: String, index: true },
     hierarchyContext: {
         level: { type: String },
         propertyId: { type: String },
@@ -120,6 +123,7 @@ const LeadSchema = new mongoose.Schema({
             default: "system"
         }
     }],
+    nextActionTime: { type: Date },
     isArchived: { type: Boolean, default: false }
 }, { 
     timestamps: true 

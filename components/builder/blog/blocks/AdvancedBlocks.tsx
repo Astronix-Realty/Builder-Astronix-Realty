@@ -1,5 +1,5 @@
 "use client";
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { BlockProps } from './index';
 import {
   Plus, Trash2, UploadCloud, X, Loader2,
@@ -192,6 +192,11 @@ export const GalleryBlock: React.FC<BlockProps> = ({ data, onChange, isEditing }
   const fileInputRef = useRef<HTMLInputElement>(null);
   const images: string[] = data.images || [];
 
+  const dataRef = useRef(data);
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
+
   const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
@@ -202,14 +207,17 @@ export const GalleryBlock: React.FC<BlockProps> = ({ data, onChange, isEditing }
         const formData = new FormData();
         formData.append('file', file);
         const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const result = await res.json();
         if (res.ok) {
-          const result = await res.json();
           newImages.push(result.url);
+        } else {
+          toast.error(`Failed to upload ${file.name}: ${result.error || result.details || 'Unknown error'}`);
         }
       }
-      onChange({ ...data, images: newImages });
-    } catch (error: any) {
-      toast.error(error.message === 'Failed to fetch' ? 'Network error: Could not connect to upload server.' : 'Image upload failed.');
+      onChange({ ...dataRef.current, images: newImages });
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message === 'Failed to fetch' ? 'Network error: Could not connect to upload server.' : `Image upload failed: ${err.message || 'Please try again'}`);
     } finally {
       setIsUploading(false);
     }
@@ -392,253 +400,113 @@ export const ProsConsBlock: React.FC<BlockProps> = ({ data, onChange, isEditing 
   );
 };
 
-// ─────────────────────────────────────────────────────
-// CTA Block — Fixed defaultData, fully functional
-// ─────────────────────────────────────────────────────
-export const CTA_VARIANTS = {
-  minimal: {
-    label: 'Minimal Blue',
-    bg: 'bg-white dark:bg-slate-900',
-    border: 'border border-slate-200 dark:border-slate-800',
-    heading: 'text-slate-950 dark:text-white',
-    sub: 'text-slate-500 dark:text-slate-400',
-    btn: 'bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 shadow-blue-600/10',
-  },
-  luxury: {
-    label: 'Luxury Gold',
-    bg: 'bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30',
-    border: 'border border-amber-200 dark:border-amber-900/50',
-    heading: 'text-amber-900 dark:text-amber-100',
-    sub: 'text-amber-800 dark:text-amber-300',
-    btn: 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-amber-500/20',
-  },
-  dark: {
-    label: 'Dark Sapphire',
-    bg: 'bg-gradient-to-br from-blue-950 via-slate-900 to-slate-950',
-    border: 'border border-blue-900/40 dark:border-blue-900/20',
-    heading: 'text-white',
-    sub: 'text-blue-200/80',
-    btn: 'bg-blue-600 text-white hover:bg-blue-500 dark:bg-blue-600 dark:hover:bg-blue-500 shadow-blue-600/20',
-  },
-  gradient: {
-    label: 'Gradient Blue',
-    bg: 'bg-gradient-to-br from-blue-600 to-indigo-600 dark:from-blue-700 dark:to-indigo-700',
-    border: 'border border-transparent',
-    heading: 'text-white',
-    sub: 'text-blue-100 dark:text-blue-200',
-    btn: 'bg-white text-blue-700 hover:bg-blue-50 shadow-blue-900/20',
-  },
-  rera: {
-    label: 'RERA Verification',
-    bg: 'bg-slate-50 dark:bg-slate-900',
-    border: 'border border-slate-200 dark:border-slate-800',
-    heading: 'text-slate-900 dark:text-white',
-    sub: 'text-slate-500 dark:text-slate-400',
-    btn: 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-emerald-600/20',
-  },
-};
+// ─── Table Block ──────────────────────────────────────────────────────────
+export const TableBlock: React.FC<BlockProps> = ({ data, onChange, isEditing }) => {
+  const { title = '', rows = [['Header 1', 'Header 2'], ['Row 1, Cell 1', 'Row 1, Cell 2']] } = data;
 
-export const getButtonConfig = (url: string | undefined | null) => {
-  const rawUrl = (url || '').trim();
-  if (!rawUrl || rawUrl === '#') {
-    return { href: '#', isExternal: false, isValid: false };
-  }
-  
-  const isExternal = /^(https?:)?\/\//i.test(rawUrl);
-  if (isExternal) {
-    try {
-      new URL(rawUrl.startsWith('//') ? `https:${rawUrl}` : rawUrl);
-      return { href: rawUrl, isExternal: true, isValid: true };
-    } catch {
-      return { href: '#', isExternal: false, isValid: false };
-    }
-  }
-
-  // Internal route
-  const href = rawUrl.startsWith('/') ? rawUrl : `/${rawUrl}`;
-  return { href, isExternal: false, isValid: true };
-};
-
-export const CtaBlock: React.FC<BlockProps> = ({ data, onChange, isEditing }) => {
-  const variant = (data.variant || 'minimal') as keyof typeof CTA_VARIANTS;
-  const cfg = CTA_VARIANTS[variant] || CTA_VARIANTS.minimal;
-
-  // Always use controlled values — no undefined inputs
-  const heading     = data.heading     ?? 'Ready to Get Started?';
-  const description = data.description ?? 'Take the next step and discover your dream property today.';
-  const buttonText  = data.buttonText  ?? 'Explore Properties';
-  const buttonUrl   = data.buttonUrl   ?? '#';
-
-  // ── View mode ──────────────────────────────────────
   if (!isEditing) {
-    const { href, isExternal, isValid } = getButtonConfig(buttonUrl);
-
-    const buttonProps = {
-      className: `inline-flex items-center gap-2 px-8 py-3.5 rounded-full font-bold text-sm transition-all shadow-lg active:scale-95 duration-200 cursor-pointer ${cfg.btn}`,
-      onClick: !isValid ? (e: React.MouseEvent) => e.preventDefault() : undefined,
-    };
-
-    const buttonInner = (
-      <>
-        {buttonText} <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-      </>
-    );
-
+    if (!rows || rows.length === 0) return null;
     return (
-      <div className="w-full max-w-2xl mx-auto px-4 sm:px-6 mb-12">
-        <div className={`rounded-2xl ${cfg.bg} ${cfg.border} px-6 py-8 md:p-10 text-center shadow-xl relative overflow-hidden group`}>
-          {variant === 'luxury' && (
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(251,191,36,0.08),transparent_45%)] pointer-events-none" />
-          )}
-          {variant === 'gradient' && (
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.15),transparent_40%)] pointer-events-none" />
-          )}
-          
-          {variant === 'rera' ? (
-            <div className="flex flex-col md:flex-row items-center justify-between text-left gap-6">
-              <div className="flex-1 flex items-start gap-5">
-                <div className="hidden md:flex shrink-0 w-16 h-16 rounded-2xl bg-white border border-slate-200 shadow-sm items-center justify-center">
-                  <ShieldCheck className="w-8 h-8 text-emerald-600" />
-                </div>
-                <div>
-                  <h3 className={`text-xl md:text-2xl font-black mb-2 leading-tight tracking-tight ${cfg.heading}`}>{heading}</h3>
-                  <p className={`text-sm leading-relaxed max-w-lg ${cfg.sub}`}>{description}</p>
-                </div>
-              </div>
-              <div className="shrink-0">
-                {isExternal ? (
-                  <motion.a href={href} target="_blank" rel="noopener noreferrer" whileHover={{ scale: 1.04, y: -2 }} whileTap={{ scale: 0.98 }} {...buttonProps}>
-                    {buttonInner}
-                  </motion.a>
-                ) : (
-                  <motion.div whileHover={{ scale: 1.04, y: -2 }} whileTap={{ scale: 0.98 }} className="inline-block">
-                    <Link href={href} {...buttonProps}>
-                      {buttonInner}
-                    </Link>
-                  </motion.div>
-                )}
-              </div>
-            </div>
-          ) : (
-            <>
-              <h3 className={`text-2xl md:text-3xl font-black mb-3 leading-tight tracking-tight ${cfg.heading}`}>{heading}</h3>
-              <p className={`text-sm md:text-base mb-8 max-w-xl mx-auto leading-relaxed ${cfg.sub}`}>{description}</p>
-              
-              <div className="flex justify-center">
-                {isExternal ? (
-                  <motion.a
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    whileHover={{ scale: 1.04, y: -2 }}
-                    whileTap={{ scale: 0.98 }}
-                    {...buttonProps}
-                  >
-                    {buttonInner}
-                  </motion.a>
-                ) : (
-                  <motion.div
-                    whileHover={{ scale: 1.04, y: -2 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="inline-block"
-                  >
-                    <Link href={href} {...buttonProps}>
-                      {buttonInner}
-                    </Link>
-                  </motion.div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
+      <div className="w-full max-w-4xl mx-auto px-5 mb-12 overflow-x-auto">
+        {title && <h3 className="text-xl font-bold mb-4">{title}</h3>}
+        <table className="w-full text-left border-collapse border border-slate-200 dark:border-slate-700">
+          <thead>
+            <tr>
+              {rows[0]?.map((cell: string, i: number) => (
+                <th key={i} className="border border-slate-200 dark:border-slate-700 p-3 bg-slate-50 dark:bg-slate-800 font-semibold">{cell}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.slice(1).map((row: string[], rowIndex: number) => (
+              <tr key={rowIndex}>
+                {row.map((cell: string, cellIndex: number) => (
+                  <td key={cellIndex} className="border border-slate-200 dark:border-slate-700 p-3">{cell}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     );
   }
 
-  // ── Editor mode ────────────────────────────────────
-  const update = useCallback((field: string, value: string) => {
-    onChange({ ...data, [field]: value });
-  }, [data, onChange]);
+  // Editing Mode
+  const updateCell = (rIndex: number, cIndex: number, val: string) => {
+    const newRows = rows.map((r: string[], i: number) => i === rIndex ? r.map((c: string, j: number) => j === cIndex ? val : c) : r);
+    onChange({ ...data, rows: newRows });
+  };
+
+  const addRow = () => {
+    const cols = rows[0]?.length || 2;
+    onChange({ ...data, rows: [...rows, Array(cols).fill('')] });
+  };
+
+  const addColumn = () => {
+    const newRows = rows.map((r: string[]) => [...r, '']);
+    onChange({ ...data, rows: newRows });
+  };
+
+  const removeRow = (rIndex: number) => {
+    if (rows.length <= 1) return;
+    const newRows = rows.filter((_: any, i: number) => i !== rIndex);
+    onChange({ ...data, rows: newRows });
+  };
+
+  const removeColumn = (cIndex: number) => {
+    if (rows[0]?.length <= 1) return;
+    const newRows = rows.map((r: string[]) => r.filter((_: any, i: number) => i !== cIndex));
+    onChange({ ...data, rows: newRows });
+  };
 
   return (
     <div className="space-y-4">
-      {/* Variant Selector */}
-      <div>
-        <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-2">Layout Preset</label>
-        <div className="flex gap-2 flex-wrap">
-          {Object.entries(CTA_VARIANTS).map(([key, v]) => (
-            <button
-              key={key}
-              onClick={() => onChange({ ...data, variant: key })}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all cursor-pointer ${
-                variant === key
-                  ? 'bg-blue-600 text-white border-blue-600 shadow-md'
-                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-blue-400'
-              }`}
-            >
-              {v.label}
-            </button>
+      <input
+        type="text"
+        placeholder="Table Title (Optional)"
+        value={title}
+        onChange={(e) => onChange({ ...data, title: e.target.value })}
+        className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg"
+      />
+      
+      <div className="overflow-x-auto pb-4">
+        <div className="inline-flex flex-col gap-1">
+          <div className="flex gap-1 mb-1">
+            <div className="w-8 shrink-0" /> {/* Empty corner for row delete buttons */}
+            {rows[0]?.map((_: any, cIndex: number) => (
+              <div key={cIndex} className="w-48 shrink-0 flex justify-center">
+                <button onClick={() => removeColumn(cIndex)} className="text-[10px] text-red-500 hover:bg-red-50 px-2 rounded">Delete Col</button>
+              </div>
+            ))}
+          </div>
+
+          {rows.map((row: string[], rIndex: number) => (
+            <div key={rIndex} className="flex gap-1 items-center">
+              <button onClick={() => removeRow(rIndex)} className="w-8 shrink-0 flex justify-center text-red-500 hover:bg-red-50 p-1 rounded">
+                <X className="w-4 h-4" />
+              </button>
+              {row.map((cell: string, cIndex: number) => (
+                <input
+                  key={cIndex}
+                  type="text"
+                  value={cell}
+                  onChange={(e) => updateCell(rIndex, cIndex, e.target.value)}
+                  placeholder={rIndex === 0 ? "Header" : "Cell data"}
+                  className={`w-48 shrink-0 px-3 py-2 text-sm border border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 outline-none ${rIndex === 0 ? 'font-bold bg-slate-50 dark:bg-slate-800' : 'bg-white dark:bg-slate-900'}`}
+                />
+              ))}
+            </div>
           ))}
         </div>
       </div>
 
-      {/* Fields */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div>
-          <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-1.5">Heading</label>
-          <input
-            value={heading}
-            onChange={(e) => update('heading', e.target.value)}
-            className="w-full px-3 py-2.5 text-sm font-semibold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            placeholder="Your CTA Headline..."
-          />
-        </div>
-        <div>
-          <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-1.5">Button Text</label>
-          <input
-            value={buttonText}
-            onChange={(e) => update('buttonText', e.target.value)}
-            className="w-full px-3 py-2.5 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            placeholder="Get Started"
-          />
-        </div>
-        <div className="md:col-span-2">
-          <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-1.5">Description</label>
-          <textarea
-            value={description}
-            onChange={(e) => update('description', e.target.value)}
-            rows={2}
-            className="w-full px-3 py-2.5 text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none text-slate-900 dark:text-white"
-            placeholder="Compelling description..."
-          />
-        </div>
-        <div className="md:col-span-2">
-          <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-1.5">Button URL</label>
-          <input
-            value={buttonUrl}
-            onChange={(e) => update('buttonUrl', e.target.value)}
-            className="w-full px-3 py-2.5 text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-900 dark:text-white"
-            placeholder="https://..."
-          />
-        </div>
-      </div>
-
-      {/* Live Preview */}
-      <div>
-        <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-2">Live Preview</label>
-        <div className={`rounded-2xl ${cfg.bg} ${cfg.border} p-6 text-center shadow-sm relative overflow-hidden group pointer-events-none select-none`}>
-          {variant === 'luxury' && (
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(251,191,36,0.08),transparent_45%)] pointer-events-none" />
-          )}
-          {variant === 'gradient' && (
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.15),transparent_40%)] pointer-events-none" />
-          )}
-          <p className={`text-lg md:text-xl font-black mb-1.5 leading-tight tracking-tight ${cfg.heading}`}>{heading}</p>
-          <p className={`text-xs md:text-sm mb-4 max-w-md mx-auto leading-relaxed ${cfg.sub}`}>{description}</p>
-          <span className={`inline-flex items-center gap-1.5 px-6 py-2 rounded-full text-[10px] font-bold ${cfg.btn} shadow`}>
-            {buttonText} <ArrowRight className="w-3.5 h-3.5" />
-          </span>
-        </div>
+      <div className="flex gap-3">
+        <button onClick={addRow} className="flex items-center gap-1 text-sm text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200">
+          <Plus className="w-4 h-4" /> Add Row
+        </button>
+        <button onClick={addColumn} className="flex items-center gap-1 text-sm text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200">
+          <Plus className="w-4 h-4" /> Add Column
+        </button>
       </div>
     </div>
   );

@@ -842,7 +842,7 @@ export async function publishProperty(draftId: string, context: RBACContext) {
               role: 'teamLeader',
               $or: [
                 { 'profile.propertyName': new RegExp(`^${(publishedProp as any).name?.trim()}$`, 'i') },
-                { 'profile.propertyId': rootDraft._id?.toString() },
+                { 'profile.propertyId': draftId.toString() },
                 { 'profile.propertyId': (publishedProp as any)._id?.toString() }
               ]
             },

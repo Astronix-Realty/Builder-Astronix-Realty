@@ -14,11 +14,13 @@ export const BlockRenderer = ({ blocks, title, blog }: { blocks: any[]; title?: 
       {blocks.map((block, index) => {
         switch (block.type) {
           case 'hero':     return <HeroRenderer     key={block.id || index} data={block.data} title={title} blog={blog} />;
-          case 'text':     return <TextRenderer     key={block.id || index} data={block.data} />;
+          case 'text':
+          case 'market-trends':
+          case 'deep-dive':
+          case 'featured-projects': return <TextRenderer     key={block.id || index} data={block.data} />;
           case 'faq':      return <FaqRenderer      key={block.id || index} data={block.data} />;
           case 'gallery':  return <GalleryRenderer  key={block.id || index} data={block.data} />;
           case 'pros-cons':return <ProsConsRenderer key={block.id || index} data={block.data} />;
-          case 'cta':      return <CtaRenderer      key={block.id || index} data={block.data} />;
           case 'takeaways':return <TakeawaysRenderer key={block.id || index} data={block.data} />;
           default:         return null;
         }
@@ -105,24 +107,14 @@ const HeroRenderer = ({ data, title, blog }: { data: any; title?: string; blog?:
 const TextRenderer = ({ data }: { data: any }) => {
   if (!data.content) return null;
 
-  // Very basic markdown parser for the formatting toolbar
-  let htmlContent = data.content
-    .replace(/</g, '&lt;') // Sanitize somewhat
-    .replace(/>/g, '&gt;')
-    .replace(/^### (.*$)/gim, '<h3 className="text-2xl font-bold mt-8 mb-4 text-slate-800 dark:text-white">$1</h3>')
-    .replace(/^## (.*$)/gim, '<h2 className="text-3xl font-black mt-10 mb-5 text-slate-900 dark:text-white">$1</h2>')
-    .replace(/^# (.*$)/gim, '<h1 className="text-4xl font-black mt-12 mb-6 text-slate-900 dark:text-white">$1</h1>')
-    .replace(/\*\*(.*?)\*\*/gim, '<strong className="font-bold text-slate-900 dark:text-white">$1</strong>')
-    .replace(/\*(.*?)\*/gim, '<em className="italic text-slate-700 dark:text-slate-300">$1</em>')
-    .replace(/\[([^\[]+)\]\(([^\)]+)\)/gim, '<a href="$2" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 underline decoration-blue-300 underline-offset-4">$1</a>')
-    .replace(/^- (.*$)/gim, '<li className="ml-6 list-disc mb-2">$1</li>')
-    .replace(/\n$/gim, '<br />');
-
   return (
     <div className="w-full max-w-3xl mx-auto px-5 sm:px-6 md:px-8 mb-12">
+      {data.title && (
+        <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-6">{data.title}</h2>
+      )}
       <div 
         className="prose prose-lg dark:prose-invert prose-slate max-w-none font-sans text-[clamp(1.0625rem,4vw,1.1875rem)] leading-[clamp(1.8rem,6vw,1.95rem)] text-slate-700 dark:text-slate-300 tracking-tight"
-        dangerouslySetInnerHTML={{ __html: htmlContent }}
+        dangerouslySetInnerHTML={{ __html: data.content }}
       />
     </div>
   );
@@ -243,103 +235,6 @@ const TakeawaysRenderer = ({ data }: { data: any }) => {
   );
 };
 
-// ─── CTA ───────────────────────────────────────────────────────────────────
-import { getButtonConfig, CTA_VARIANTS } from '@/components/builder/blog/blocks/AdvancedBlocks';
 
-const CtaRenderer = ({ data }: { data: any }) => {
-  const variant = data.variant || 'minimal';
-  const cfg = (CTA_VARIANTS as any)[variant] || (CTA_VARIANTS as any).minimal;
-  const heading = data.heading || 'Ready to Get Started?';
-  const description = data.description || '';
-  const buttonText = data.buttonText || 'Explore Properties';
-  const buttonUrl = data.buttonUrl || '#';
 
-  const { href, isExternal, isValid } = getButtonConfig(buttonUrl);
 
-  const buttonProps = {
-    className: `inline-flex items-center gap-2 px-8 py-3.5 rounded-full font-bold text-sm transition-all shadow-lg active:scale-95 duration-200 cursor-pointer ${cfg.btn}`,
-    onClick: !isValid ? (e: React.MouseEvent) => e.preventDefault() : undefined,
-  };
-
-  const buttonInner = (
-    <>
-      {buttonText} <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-    </>
-  );
-
-  return (
-    <div className="w-full max-w-2xl mx-auto px-4 sm:px-6 mb-12">
-      <div className={`rounded-2xl ${cfg.bg} ${cfg.border} px-6 py-8 md:p-10 text-center shadow-xl relative overflow-hidden group`}>
-        {variant === 'luxury' && (
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(251,191,36,0.08),transparent_45%)] pointer-events-none" />
-        )}
-        {variant === 'gradient' && (
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.15),transparent_40%)] pointer-events-none" />
-        )}
-        
-        {variant === 'rera' ? (
-          <div className="flex flex-col md:flex-row items-center justify-between text-left gap-6">
-            <div className="flex-1 flex items-start gap-5">
-              <div className="hidden md:flex shrink-0 w-16 h-16 rounded-2xl bg-white border border-slate-200 shadow-sm items-center justify-center">
-                <ShieldCheck className="w-8 h-8 text-emerald-600" />
-              </div>
-              <div>
-                <h3 className={`text-xl md:text-2xl font-black mb-2 leading-tight tracking-tight ${cfg.heading}`}>{heading}</h3>
-                <p className={`text-sm leading-relaxed max-w-lg ${cfg.sub}`}>{description}</p>
-              </div>
-            </div>
-            <div className="shrink-0">
-              {isExternal ? (
-                <motion.a href={href} target="_blank" rel="noopener noreferrer" whileHover={{ scale: 1.04, y: -2 }} whileTap={{ scale: 0.98 }} {...buttonProps}>
-                  {buttonInner}
-                </motion.a>
-              ) : (
-                <motion.div whileHover={{ scale: 1.04, y: -2 }} whileTap={{ scale: 0.98 }} className="inline-block">
-                  <Link href={href} {...buttonProps}>
-                    {buttonInner}
-                  </Link>
-                </motion.div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <>
-            <h3 className={`text-2xl md:text-3xl font-black mb-3 leading-tight tracking-tight ${cfg.heading}`}>
-              {heading}
-            </h3>
-            {description && (
-              <p className={`text-sm md:text-base mb-8 max-w-xl mx-auto leading-relaxed ${cfg.sub}`}>
-                {description}
-              </p>
-            )}
-            
-            <div className="flex justify-center">
-              {isExternal ? (
-                <motion.a
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  whileHover={{ scale: 1.04, y: -2 }}
-                  whileTap={{ scale: 0.98 }}
-                  {...buttonProps}
-                >
-                  {buttonInner}
-                </motion.a>
-              ) : (
-                <motion.div
-                  whileHover={{ scale: 1.04, y: -2 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="inline-block"
-                >
-                  <Link href={href} {...buttonProps}>
-                    {buttonInner}
-                  </Link>
-                </motion.div>
-              )}
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-};

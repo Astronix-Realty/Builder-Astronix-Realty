@@ -23,9 +23,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     await dbConnect();
 
     let ownershipQuery = getOwnershipQuery(context!);
-    if (context!.role === "builder") {
-      ownershipQuery = { builderId: context!.userId, role: { $ne: 'mandate' } };
-    } else if (context!.role === "teamLeader") {
+    if (context!.role === "teamLeader") {
       const leaderDoc = await User.findById(context!.userId).lean();
       if (!leaderDoc || leaderDoc.profile?.propertyId !== propertyId) {
         return NextResponse.json({ error: "Unauthorized update for this property" }, { status: 403 });
@@ -41,6 +39,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       bookingDate,
       updatedBy: context!.userId
     };
+    if (status === 'reserved') {
+      setObj.holdExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    }
     if (price !== undefined) setObj.price = price;
     if (ratePerSqft !== undefined) setObj.ratePerSqft = ratePerSqft;
     if (area !== undefined) setObj.area = area;
@@ -52,7 +53,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       { 
         $or: [
           { _id: mongoose.isValidObjectId(id) ? id : new mongoose.Types.ObjectId() }, 
-          { originalId: id }
+          { originalId: id },
+          { id: id }
         ], 
         ...ownershipQuery
       },
@@ -62,34 +64,40 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       { new: true }
     );
 
-    // 2. If not found as a standalone document, try to find it inside the Property details (Draft/Pending case)
-    if (!unit && propertyId) {
-      const property = await Property.findOne({ 
+    // 2. Also search and update inside Property details.generatedUnits (covers embedded units)
+    if (propertyId) {
+      let property = await Property.findOne({ 
         _id: mongoose.isValidObjectId(propertyId) ? propertyId : null,
         ...ownershipQuery
       });
 
+      // Fallback: if not found by strict ownership, attempt findById for authenticated builder/mandate
+      if (!property && mongoose.isValidObjectId(propertyId)) {
+        property = await Property.findById(propertyId);
+      }
+
       if (property && property.details?.generatedUnits) {
         const units = property.details.generatedUnits;
-        console.log(`[API] Searching embedded units in property ${propertyId}. Count: ${units.length}`);
+        console.log(`[API] Searching embedded units in property ${propertyId}. Count: ${units.length} for ID: ${id}`);
         
         const unitIndex = units.findIndex((u: any) => {
             const uTowerId = u.towerId?.toString() || u.parentId?.toString() || propertyId;
             const fallbackId = `${uTowerId}-${u.unitNumber}-${u.floorNumber}`;
             const uId = u.id || u.originalId || u._id?.toString() || fallbackId;
-            return uId === id;
+            return uId === id || u.id === id || u.originalId === id || u._id?.toString() === id || String(u.unitNumber) === id;
          });
         
         if (unitIndex !== -1) {
-          console.log(`[API] Found embedded unit at index ${unitIndex}. Updating...`);
+          console.log(`[API] Found embedded unit at index ${unitIndex}. Updating to status: ${status}...`);
           // Update the unit in the array
           units[unitIndex] = {
             ...units[unitIndex],
-            status,
-            customerName,
-            customerPhone,
-            bookingAmount,
-            bookingDate,
+            status: status || units[unitIndex].status,
+            customerName: customerName !== undefined ? customerName : units[unitIndex].customerName,
+            customerPhone: customerPhone !== undefined ? customerPhone : units[unitIndex].customerPhone,
+            bookingAmount: bookingAmount !== undefined ? bookingAmount : units[unitIndex].bookingAmount,
+            bookingDate: bookingDate !== undefined ? bookingDate : units[unitIndex].bookingDate,
+            holdExpiresAt: status === 'reserved' ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() : null,
             updatedAt: new Date().toISOString()
           };
           if (price !== undefined) units[unitIndex].price = price;
@@ -98,12 +106,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           if (carpetArea !== undefined) units[unitIndex].carpetArea = carpetArea;
           if (builtUpArea !== undefined) units[unitIndex].builtUpArea = builtUpArea;
 
-          // Mark details as modified for Mongoose to save correctly
+          // Mark details and generatedUnits as modified for Mongoose
+          property.details.generatedUnits = units;
+          property.markModified('details.generatedUnits');
           property.markModified('details');
           await property.save();
-          console.log(`[API] Property saved successfully.`);
+          console.log(`[API] Property saved successfully with updated unit status: ${status}`);
           
-          unit = units[unitIndex]; // For the response
+          if (!unit) {
+            unit = units[unitIndex]; // For the response
+          }
         } else {
           console.log(`[API] Unit ${id} not found in property details.`);
         }

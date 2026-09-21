@@ -1089,7 +1089,7 @@ function DashboardContent() {
         )}
 
         {/* Content Scroll Area */}
-        <div className={`flex-1 ${activeTab === "documents" ? "overflow-hidden flex flex-col h-full" : "overflow-y-auto"} ${activeTab === "blog" ? "p-0" : "p-8"}`}>
+        <div className={`flex-1 ${(activeTab === "documents" || activeTab === "crm" || activeTab === "crm2") ? "overflow-hidden flex flex-col h-full" : "overflow-y-auto"} ${activeTab === "blog" ? "p-0" : (activeTab === "crm" || activeTab === "crm2") ? "p-4 md:p-6" : "p-8"}`}>
           {activeTab === "inventory" && <InventoryView userRole={currentUser?.role || "mandate"} />}
           {activeTab === "crm" && <CRMView userRole={currentUser?.role || "mandate"} />}
           {activeTab === "crm2" && <CRMCloneView userRole={currentUser?.role || "mandate"} />}

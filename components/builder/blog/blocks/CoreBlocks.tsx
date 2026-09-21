@@ -1,8 +1,13 @@
 "use client";
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { BlockProps } from './index';
-import { UploadCloud, X, Image as ImageIcon, Loader2, Maximize2, RefreshCw, Bold, Italic, Link2, List, Heading1, Heading2 } from 'lucide-react';
+import { UploadCloud, X, Image as ImageIcon, Loader2, Maximize2, RefreshCw, Bold, Italic, Link2, List, Heading1, Heading2, Table as TableIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import dynamic from 'next/dynamic';
+import 'react-quill-new/dist/quill.snow.css';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+
+const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false }) as any;
 
 // ─────────────────────────────────────────────────────────────
 // Cloudinary URL optimization helpers
@@ -152,25 +157,31 @@ const CoverUploadZone: React.FC<UploaderProps> = ({
 export const HeroBlock: React.FC<BlockProps> = ({ data, onChange, isEditing, globalTitle, onGlobalTitleChange }) => {
   const [uploadingTarget, setUploadingTarget] = useState<'hero' | 'bg' | null>(null);
 
+  const dataRef = useRef(data);
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
+
   const handleUpload = useCallback(async (file: File, target: 'hero' | 'bg') => {
     setUploadingTarget(target);
     const formData = new FormData();
     formData.append('file', file);
     try {
       const res = await fetch('/api/upload', { method: 'POST', body: formData });
-      if (!res.ok) throw new Error('Upload failed');
       const result = await res.json();
-      const oldUrl = target === 'hero' ? data.heroImageUrl : data.imageUrl;
+      if (!res.ok) throw new Error(result.error || result.details || 'Upload failed');
+      const currentData = dataRef.current;
+      const oldUrl = target === 'hero' ? currentData.heroImageUrl : currentData.imageUrl;
       if (oldUrl) deleteFromCloudinary(oldUrl);
-      if (target === 'hero') onChange({ ...data, heroImageUrl: result.url });
-      else onChange({ ...data, imageUrl: result.url });
-    } catch (err) {
+      if (target === 'hero') onChange({ ...currentData, heroImageUrl: result.url });
+      else onChange({ ...currentData, imageUrl: result.url });
+    } catch (err: any) {
       console.error(err);
-      alert('Image upload failed. Please try again.');
+      alert(`Image upload failed: ${err.message || 'Please try again.'}`);
     } finally {
       setUploadingTarget(null);
     }
-  }, [data, onChange]);
+  }, [onChange]);
 
   const removeImg = useCallback((target: 'hero' | 'bg') => {
     const oldUrl = target === 'hero' ? data.heroImageUrl : data.imageUrl;
@@ -269,7 +280,7 @@ export const HeroBlock: React.FC<BlockProps> = ({ data, onChange, isEditing, glo
                   if (onGlobalTitleChange) onGlobalTitleChange(e.target.value);
                   else onChange({ ...data, heading: e.target.value });
                 }}
-                className="w-full px-4 py-3 text-xl font-extrabold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none transition-all placeholder:font-normal placeholder:text-slate-300"
+                className="w-full px-4 py-3 text-xl font-extrabold bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none transition-all placeholder:font-normal placeholder:text-slate-400 dark:placeholder:text-slate-500"
                 placeholder="Type here blog title"
               />
             </div>
@@ -279,7 +290,7 @@ export const HeroBlock: React.FC<BlockProps> = ({ data, onChange, isEditing, glo
                 value={data.subtitle || ''}
                 onChange={(e) => onChange({ ...data, subtitle: e.target.value })}
                 rows={5}
-                className="w-full px-4 py-3 text-base bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none transition-all resize-none placeholder:text-slate-300"
+                className="w-full px-4 py-3 text-base bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:outline-none transition-all resize-none placeholder:text-slate-400 dark:placeholder:text-slate-500"
                 placeholder="A compelling description that draws readers in..."
               />
             </div>
@@ -308,71 +319,100 @@ export const HeroBlock: React.FC<BlockProps> = ({ data, onChange, isEditing, glo
 // TextBlock
 // ─────────────────────────────────────────────────────────────
 export const TextBlock: React.FC<BlockProps> = ({ data, onChange, isEditing }) => {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const quillRef = useRef<any>(null);
+  const [toolbarId] = useState(() => `toolbar-${Math.random().toString(36).slice(2, 9)}`);
 
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    onChange({ ...data, content: e.target.value });
+  const handleChange = useCallback((value: string) => {
+    onChange({ ...data, content: value });
   }, [data, onChange]);
 
-  const insertMarkdown = (prefix: string, suffix: string = '') => {
-    const el = textareaRef.current;
-    if (!el) return;
-    const start = el.selectionStart;
-    const end = el.selectionEnd;
-    const text = el.value;
-    const before = text.substring(0, start);
-    const selected = text.substring(start, end);
-    const after = text.substring(end, text.length);
-
-    const newText = before + prefix + selected + suffix + after;
-    onChange({ ...data, content: newText });
-
-    setTimeout(() => {
-      el.focus();
-      el.setSelectionRange(start + prefix.length, end + prefix.length);
-    }, 0);
-  };
+  const modules = React.useMemo(() => ({
+    toolbar: {
+      container: `#${toolbarId}`
+    }
+  }), [toolbarId]);
 
   if (!isEditing) {
     return (
       <div className="w-full max-w-3xl mx-auto px-5 sm:px-6 md:px-8 mb-8">
-        <p className="whitespace-pre-wrap font-serif text-[clamp(1.0625rem,4vw,1.1875rem)] leading-[clamp(1.8rem,6vw,1.95rem)] text-slate-800 dark:text-slate-200 tracking-tight">
-          {data.content || ''}
-        </p>
+        {data.title && (
+          <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-6">{data.title}</h2>
+        )}
+        <div 
+          className="prose prose-slate dark:prose-invert max-w-none prose-p:font-serif prose-p:text-[clamp(1.0625rem,4vw,1.1875rem)] prose-p:leading-[clamp(1.8rem,6vw,1.95rem)] prose-headings:font-sans"
+          dangerouslySetInnerHTML={{ __html: data.content || '' }}
+        />
       </div>
     );
   }
 
   return (
     <div className="flex flex-col border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-900 focus-within:ring-2 focus-within:ring-blue-500 transition-all">
-      <div className="flex items-center gap-1 p-2 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
-        <button type="button" onClick={() => insertMarkdown('**', '**')} className="p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 rounded" title="Bold">
-          <Bold className="w-4 h-4" />
-        </button>
-        <button type="button" onClick={() => insertMarkdown('*', '*')} className="p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 rounded" title="Italic">
-          <Italic className="w-4 h-4" />
-        </button>
-        <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1"></div>
-        <button type="button" onClick={() => insertMarkdown('# ', '')} className="p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 rounded" title="Heading 1">
-          <Heading1 className="w-4 h-4" />
-        </button>
-        <button type="button" onClick={() => insertMarkdown('## ', '')} className="p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 rounded" title="Heading 2">
-          <Heading2 className="w-4 h-4" />
-        </button>
-        <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1"></div>
-        <button type="button" onClick={() => insertMarkdown('- ', '')} className="p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 rounded" title="Bullet List">
-          <List className="w-4 h-4" />
-        </button>
-        <button type="button" onClick={() => insertMarkdown('[', '](url)')} className="p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 rounded" title="Link">
-          <Link2 className="w-4 h-4" />
-        </button>
+      {data.title !== undefined && (
+        <div className="px-4 py-3 bg-slate-50/80 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 flex items-center">
+          <input 
+             type="text"
+             value={data.title}
+             onChange={(e) => onChange({ ...data, title: e.target.value })}
+             className="w-full bg-transparent font-bold text-lg focus:outline-none text-slate-800 dark:text-slate-200 placeholder:text-slate-400"
+             placeholder="Section Title (Optional)"
+          />
+        </div>
+      )}
+      <style dangerouslySetInnerHTML={{__html: `
+        .ql-toolbar.ql-snow {
+          border: none;
+          border-bottom: 1px solid #e2e8f0;
+          background-color: #f8fafc;
+        }
+        .dark .ql-toolbar.ql-snow {
+          border-bottom: 1px solid #334155;
+          background-color: #1e293b;
+        }
+        .ql-container.ql-snow {
+          border: none;
+          min-height: 160px;
+        }
+        .dark .ql-snow .ql-stroke { stroke: #94a3b8; }
+        .dark .ql-snow .ql-fill { fill: #94a3b8; }
+        .dark .ql-snow .ql-picker { color: #94a3b8; }
+        .ql-editor.ql-blank::before { color: #64748b; font-style: normal; } /* slate-500 */
+        .dark .ql-editor.ql-blank::before { color: #94a3b8; font-style: normal; }
+      `}} />
+      <div id={toolbarId} className="ql-toolbar ql-snow">
+        <span className="ql-formats">
+          <select className="ql-header" defaultValue="">
+            <option value="1"></option>
+            <option value="2"></option>
+            <option value="3"></option>
+            <option value=""></option>
+          </select>
+        </span>
+        <span className="ql-formats">
+          <button className="ql-bold"></button>
+          <button className="ql-italic"></button>
+          <button className="ql-underline"></button>
+          <button className="ql-strike"></button>
+        </span>
+        <span className="ql-formats">
+          <button className="ql-list" value="ordered"></button>
+          <button className="ql-list" value="bullet"></button>
+        </span>
+        <span className="ql-formats flex items-center">
+          <button className="ql-link"></button>
+
+          <button className="ql-clean"></button>
+        </span>
       </div>
-      <textarea
-        ref={textareaRef}
+      <ReactQuill 
+        ref={quillRef}
+        theme="snow"
         value={data.content || ''}
         onChange={handleChange}
-        className="w-full min-h-[160px] px-4 py-3 bg-transparent border-none focus:outline-none focus:ring-0 font-mono text-sm leading-relaxed resize-y placeholder:text-slate-400"
-        placeholder="Write your article content here... (Markdown supported)"
+
+        modules={modules}
+        placeholder={data.placeholder || "Write your article content here..."}
+        className="w-full h-full text-slate-800 dark:text-slate-200"
       />
     </div>
   );

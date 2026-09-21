@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Switch } from "@/components/ui/switch"
 import { Skeleton } from "@/components/ui/skeleton"
 import { offlineSafeFetch } from "@/lib/offline-queue"
@@ -36,7 +38,8 @@ import {
     Users, Search, Filter, Phone, Mail, MoreHorizontal, Calendar, MessageSquare,
     UserPlus, ArrowUpRight, GripVertical, Clock, MapPin, DollarSign,
     CheckCircle2, XCircle, AlertCircle, TrendingUp, User, Activity, FileText, Send, Crown,
-    Building2, Lock, RefreshCw, Database, Trash2, Home, ArrowRight, ArrowLeft, Split, Merge, Percent, UserMinus
+    Building2, Lock, RefreshCw, Database, Trash2, Home, ArrowRight, ArrowLeft, Split, Merge, Percent, UserMinus,
+    Bookmark, ChevronsUpDown, Check
 } from "lucide-react"
 
 // --- Types ---
@@ -70,6 +73,10 @@ interface Lead {
     notes: string[]
     timeline: { date: string, title: string, desc: string, type: "call" | "visit" | "system" | "note" | "booking" }[]
     interestedUnit?: string
+    isUnitHeld?: boolean
+    isUnitSold?: boolean
+    propertyId?: string
+    unitId?: string
     builderId?: string
     projectId?: string
     createdAt?: string
@@ -309,7 +316,11 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
     // Inventory Data State
     const [properties, setProperties] = useState<any[]>([])
     const [selectedPropertyId, setSelectedPropertyId] = useState<string>("")
+    const [selectedTowerId, setSelectedTowerId] = useState<string>("")
     const [selectedUnitId, setSelectedUnitId] = useState<string>("")
+    const [isUnitDropdownOpen, setIsUnitDropdownOpen] = useState(false)
+    const [isHoldUnitEnabled, setIsHoldUnitEnabled] = useState(false)
+    const [isBlockingUnit, setIsBlockingUnit] = useState(false)
 
     // Status Change Dialog State
     const [pendingStatus, setPendingStatus] = useState<LeadStatus | null>(null)
@@ -692,12 +703,20 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
         }
     }, [selectedLead?.timeline, viewMode])
 
+    useEffect(() => {
+        if (selectedLead) {
+            setIsHoldUnitEnabled(Boolean(selectedLead.isUnitHeld || selectedLead.isUnitSold || selectedLead.status === "Booked"));
+        }
+    }, [selectedLead?.id, selectedLead?.status, selectedLead?.isUnitSold, selectedLead?.isUnitHeld])
+
     const openProfile = (id: string) => {
-        setSelectedLeadId(toId(id))
+        const cleanId = toId(id)
+        setSelectedLeadId(cleanId)
         setViewMode("profile")
-        // Reset inventory selection when opening new profile
-        setSelectedPropertyId("")
-        setSelectedUnitId("")
+        const l = leads.find(lead => (lead.id || toId(lead._id)) === cleanId)
+        setIsHoldUnitEnabled(Boolean(l?.isUnitHeld || l?.isUnitSold || l?.status === "Booked"))
+        setSelectedPropertyId(l?.propertyId || "")
+        setSelectedUnitId(l?.unitId || "")
     }
 
     const handleAddNote = async () => {
@@ -781,51 +800,239 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
         }
     }
 
-    const handleBlockUnit = async () => {
-        if (!selectedLead || !selectedPropertyId || !selectedUnitId) return
+    const getCleanUnitLabel = (unitNumber: string, propertyName?: string) => {
+        if (!unitNumber) return "";
+        let clean = String(unitNumber).trim();
+        if (propertyName && clean.toLowerCase().startsWith(propertyName.toLowerCase())) {
+            clean = clean.slice(propertyName.length).replace(/^[\s\-_]+/, '');
+        }
+        clean = clean.replace(/^Unit\s+/i, '').replace(/^Flat\s+/i, '');
+        return clean || unitNumber;
+    };
 
+    const handleSavePreferredUnit = async () => {
+        if (!selectedLead || !selectedPropertyId || !selectedUnitId || isBlockingUnit) return;
+
+        setIsBlockingUnit(true);
         try {
-            // 1. Update Unit Status in DB
-            const unitRes = await fetch(`/api/units/${selectedUnitId}?propertyId=${selectedPropertyId}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    status: "reserved",
-                    customerName: selectedLead.name,
-                    customerPhone: selectedLead.phone,
-                    bookingDate: new Date().toISOString()
-                })
-            })
+            const activeProp = properties.find(p => (p._id || p.id) === selectedPropertyId);
+            const propName = activeProp?.name || activeProp?.townshipName || activeProp?.title || "Property";
+            const allUnits = activeProp?.details?.generatedUnits || [];
+            const unitObj = allUnits.find((u: any, idx: number) => (u.id || u._id || `unit-${idx}`) === selectedUnitId);
 
-            if (!unitRes.ok) throw new Error("Failed to reserve unit in inventory")
+            const cleanUnit = unitObj ? getCleanUnitLabel(unitObj.unitNumber, propName) : selectedUnitId;
+            const configStr = unitObj?.configuration ? ` (${unitObj.configuration})` : '';
+            const unitLabel = `${propName} - Flat ${cleanUnit}${configStr}`;
 
-            // 2. Update Lead Status and Interest in DB
+            const isLeadBooked = selectedLead.status === "Booked" || Boolean(selectedLead.isUnitSold);
+            const targetUnitStatus = isLeadBooked ? "sold" : (isHoldUnitEnabled ? "reserved" : null);
+
+            // Release previous unit if changing to a new unit
+            const oldUnitId = selectedLead.unitId;
+            const oldPropertyId = selectedLead.propertyId;
+            if (oldUnitId && oldUnitId !== selectedUnitId && oldPropertyId) {
+                try {
+                    await fetch(`/api/units/${oldUnitId}?propertyId=${oldPropertyId}`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            status: "available",
+                            customerName: "",
+                            customerPhone: "",
+                            bookingDate: null
+                        })
+                    });
+                } catch (uErr) {
+                    console.error("[CRM] Error reverting previous unit status:", uErr);
+                }
+
+                // Update local state for old unit
+                setProperties(prev => prev.map(p => {
+                    if ((p._id || p.id) === oldPropertyId && p.details?.generatedUnits) {
+                        const updatedUnits = p.details.generatedUnits.map((u: any, idx: number) => {
+                            const uKey = u.id || u._id || `unit-${idx}`;
+                            if (uKey === oldUnitId) {
+                                return { ...u, status: "available", customerName: "", customerPhone: "" };
+                            }
+                            return u;
+                        });
+                        return { ...p, details: { ...p.details, generatedUnits: updatedUnits } };
+                    }
+                    return p;
+                }));
+            }
+
+            if (targetUnitStatus) {
+                // Update Unit status in Inventory & Property DB
+                try {
+                    const unitRes = await fetch(`/api/units/${selectedUnitId}?propertyId=${selectedPropertyId}`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            status: targetUnitStatus,
+                            customerName: selectedLead.name,
+                            customerPhone: selectedLead.phone,
+                            bookingDate: new Date().toISOString()
+                        })
+                    });
+                    if (!unitRes.ok) {
+                        console.warn("[CRM] Direct unit update failed, proceeding with lead record update");
+                    }
+                } catch (uErr) {
+                    console.error("[CRM] Error updating unit status:", uErr);
+                }
+
+                // Update unit in local properties state so dropdown & inventory immediately reflect status
+                setProperties(prev => prev.map(p => {
+                    if ((p._id || p.id) === selectedPropertyId && p.details?.generatedUnits) {
+                        const updatedUnits = p.details.generatedUnits.map((u: any, idx: number) => {
+                            const uKey = u.id || u._id || `unit-${idx}`;
+                            if (uKey === selectedUnitId) {
+                                return { ...u, status: targetUnitStatus, customerName: selectedLead.name, customerPhone: selectedLead.phone };
+                            }
+                            return u;
+                        });
+                        return { ...p, details: { ...p.details, generatedUnits: updatedUnits } };
+                    }
+                    return p;
+                }));
+            }
+
+            // Update Lead Interest
             const leadRes = await fetch(`/api/leads/${selectedLead.id || selectedLead._id}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    status: "Negotiation",
-                    interestedUnit: selectedUnitId, // Storing ID for link
-                    actionType: "Unit Reserved",
-                    actionDesc: `Reserved Unit via CRM Console`
+                    interestedUnit: unitLabel,
+                    unitId: selectedUnitId,
+                    propertyId: selectedPropertyId,
+                    isUnitHeld: isLeadBooked ? false : isHoldUnitEnabled,
+                    isUnitSold: isLeadBooked,
+                    actionType: isLeadBooked ? "Unit Marked as Sold" : (isHoldUnitEnabled ? "Unit Reserved (Hold)" : "Preferred Unit Marked"),
+                    actionDesc: isLeadBooked
+                        ? `Marked Flat ${cleanUnit} (${propName}) as SOLD OUT for ${selectedLead.name}`
+                        : isHoldUnitEnabled 
+                            ? `Reserved Flat ${cleanUnit} (${propName}) in Inventory & Visitor Panel for ${selectedLead.name}` 
+                            : `Marked ${unitLabel} as preferred unit`
                 })
-            })
+            });
 
-            if (!leadRes.ok) throw new Error("Failed to update lead record")
-
-            const updatedLeadData = await leadRes.json()
-            if (updatedLeadData.lead) {
-                upsertLead({ ...updatedLeadData.lead, id: toId(updatedLeadData.lead._id) });
+            if (!leadRes.ok) {
+                const errData = await leadRes.json().catch(() => ({}));
+                throw new Error(errData.error || errData.message || "Failed to update lead record");
             }
 
-            alert(`Unit has been reserved for ${selectedLead.name}!`)
-            setSelectedUnitId("")
-            fetchProperties() // Refresh inventory state
+            const updatedLeadData = await leadRes.json();
+            if (updatedLeadData.lead) {
+                upsertLead({ 
+                    ...updatedLeadData.lead, 
+                    id: toId(updatedLeadData.lead._id),
+                    interestedUnit: unitLabel,
+                    unitId: selectedUnitId,
+                    propertyId: selectedPropertyId,
+                    isUnitHeld: isLeadBooked ? false : isHoldUnitEnabled,
+                    isUnitSold: isLeadBooked
+                });
+            }
+
+            alert(isLeadBooked 
+                ? `🏷️ Unit Marked as SOLD!\n${unitLabel} is now marked as SOLD OUT in Inventory and Visitor Panel for ${selectedLead.name}.`
+                : isHoldUnitEnabled 
+                    ? `🔒 Unit Reserved & Held!\n${unitLabel} is now marked as RESERVED in Inventory and Visitor Panel for ${selectedLead.name}.`
+                    : `Preferred unit marked for ${selectedLead.name}: ${unitLabel}`
+            );
         } catch (err: any) {
-            console.error("Blocking error:", err)
-            alert(err.message || "Failed to reserve unit")
+            console.error("Unit selection error:", err);
+            alert(err.message || "Failed to mark preferred unit");
+        } finally {
+            setIsBlockingUnit(false);
         }
-    }
+    };
+
+    const handleClearPreferredUnit = async () => {
+        if (!selectedLead || isBlockingUnit) return;
+
+        setIsBlockingUnit(true);
+        try {
+            const targetUnitId = selectedLead.unitId || selectedUnitId;
+            const targetPropertyId = selectedLead.propertyId || selectedPropertyId;
+
+            // If unit was held or sold, restore unit status to 'available' in inventory
+            if (targetUnitId && targetPropertyId) {
+                try {
+                    await fetch(`/api/units/${targetUnitId}?propertyId=${targetPropertyId}`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            status: "available",
+                            customerName: "",
+                            customerPhone: "",
+                            bookingDate: null
+                        })
+                    });
+                } catch (uErr) {
+                    console.error("[CRM] Error reverting unit status:", uErr);
+                }
+
+                // Update local properties state
+                setProperties(prev => prev.map(p => {
+                    if ((p._id || p.id) === targetPropertyId && p.details?.generatedUnits) {
+                        const updatedUnits = p.details.generatedUnits.map((u: any, idx: number) => {
+                            const uKey = u.id || u._id || `unit-${idx}`;
+                            if (uKey === targetUnitId) {
+                                return { ...u, status: "available", customerName: "", customerPhone: "" };
+                            }
+                            return u;
+                        });
+                        return { ...p, details: { ...p.details, generatedUnits: updatedUnits } };
+                    }
+                    return p;
+                }));
+            }
+
+            const leadRes = await fetch(`/api/leads/${selectedLead.id || selectedLead._id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    interestedUnit: "",
+                    unitId: "",
+                    propertyId: "",
+                    isUnitHeld: false,
+                    isUnitSold: false,
+                    actionType: "Unit Status Released",
+                    actionDesc: `Removed preferred unit tag & released inventory status back to available`
+                })
+            });
+
+            if (!leadRes.ok) {
+                const errData = await leadRes.json().catch(() => ({}));
+                throw new Error(errData.error || errData.message || "Failed to clear preferred unit");
+            }
+
+            const updatedLeadData = await leadRes.json();
+            if (updatedLeadData.lead) {
+                upsertLead({ 
+                    ...updatedLeadData.lead, 
+                    id: toId(updatedLeadData.lead._id),
+                    interestedUnit: "",
+                    unitId: "",
+                    propertyId: "",
+                    isUnitHeld: false,
+                    isUnitSold: false
+                });
+            }
+
+            setIsHoldUnitEnabled(false);
+            setSelectedUnitId("");
+        } catch (err: any) {
+            console.error("Clear error:", err);
+            alert(err.message || "Failed to clear preferred unit");
+        } finally {
+            setIsBlockingUnit(false);
+        }
+    };
+
+    const handleBlockUnit = handleSavePreferredUnit;
 
     // --- PIPELINE VIEW ---
     const PipelineBoard = () => {
@@ -1091,21 +1298,23 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
     const LeadProfile = () => {
         if (!selectedLead) return null
 
-        // Filter available units for selected property
+        // Get units for selected property (all units accessible for tagging interest)
         const activeProperty = properties.find(p => (p._id || p.id) === selectedPropertyId);
-        const availableUnits = activeProperty?.details?.generatedUnits?.filter((u: any) => u.status === "available" || !u.status) || [];
+        const propertyTowers = activeProperty?.details?.towers || [];
+        const allPropertyUnits = activeProperty?.details?.generatedUnits || [];
+        const propertyUnits = selectedTowerId && selectedTowerId !== "all" ? allPropertyUnits.filter((u:any) => u.towerId === selectedTowerId) : allPropertyUnits;
+        const availableUnits = propertyUnits;
 
         return (
-            <div className="h-full flex flex-col md:flex-row gap-6">
+            <div className="h-full flex flex-col lg:flex-row gap-4 min-h-0 overflow-hidden">
                 {/* Left: Customer Bio */}
-                <Card className="w-full md:w-1/4 h-full border-0 shadow-xl shadow-slate-200/40 dark:shadow-none bg-white dark:bg-slate-900 flex flex-col overflow-y-auto custom-scrollbar relative">
+                <Card className="w-full lg:w-[320px] xl:w-[340px] shrink-0 h-full border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm bg-white dark:bg-slate-900 flex flex-col overflow-hidden relative">
                     {/* Decorative Top Gradient */}
-                    <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-br from-indigo-500 via-blue-500 to-cyan-400 opacity-10"></div>
+                    <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 opacity-15"></div>
                     
-                    <CardHeader className="text-center pb-4 border-b border-slate-100 dark:border-slate-800 relative pt-8">
-                        <div className="relative mx-auto mb-4">
-                            <div className="absolute -inset-1.5 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-full blur opacity-30"></div>
-                            <div className="relative w-24 h-24 rounded-full bg-white dark:bg-slate-800 border-4 border-white dark:border-slate-800 shadow-sm flex items-center justify-center text-4xl font-black text-transparent bg-clip-text bg-gradient-to-br from-blue-600 to-indigo-600 mx-auto overflow-hidden">
+                    <CardHeader className="text-center pb-2 border-b border-slate-100 dark:border-slate-800 relative pt-3.5 shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm">
+                        <div className="relative mx-auto mb-1.5">
+                            <div className="relative w-14 h-14 rounded-full bg-white dark:bg-slate-800 border-2 border-white dark:border-slate-800 shadow-sm flex items-center justify-center text-xl font-black text-transparent bg-clip-text bg-gradient-to-br from-blue-600 to-indigo-600 mx-auto overflow-hidden">
                                 {(selectedLead.avatar || selectedLead.profilePhoto || selectedLead.photo) ? (
                                     <img src={selectedLead.avatar || selectedLead.profilePhoto || selectedLead.photo} alt={selectedLead.name} className="w-full h-full object-cover" />
                                 ) : (
@@ -1113,62 +1322,88 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
                                 )}
                             </div>
                         </div>
-                        <CardTitle className="flex items-center justify-center gap-1.5 text-xl tracking-tight">
+                        <CardTitle className="flex items-center justify-center gap-1 text-base tracking-tight font-black">
                             <span>{selectedLead.name}</span>
                             {selectedLead.username && (
-                                <span className="text-xs font-mono font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/50 px-2 py-0.5 rounded-full">
+                                <span className="text-[9px] font-mono font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/50 px-1.5 py-0.2 rounded-full">
                                     @{selectedLead.username}
                                 </span>
                             )}
-                            {selectedLead.isTokenPaid && <Crown className="h-5 w-5 text-amber-500 fill-amber-500 drop-shadow-sm" />}
+                            {selectedLead.isTokenPaid && <Crown className="h-3.5 w-3.5 text-amber-500 fill-amber-500 drop-shadow-sm" />}
                         </CardTitle>
-                        <CardDescription className="font-medium mt-1">{selectedLead.phone} <span className="text-green-500 text-[10px] uppercase tracking-wider ml-1 bg-green-50 px-1.5 py-0.5 rounded-full font-bold">Verified</span></CardDescription>
-                        <div className="flex justify-center items-center gap-2 mt-4">
-                            <Badge className={`px-4 py-1.5 text-xs font-bold uppercase tracking-widest ${selectedLead.isTokenPaid ? "bg-gradient-to-r from-amber-200 to-yellow-400 text-amber-900 border-0 shadow-sm" : "bg-blue-50 text-blue-700 border border-blue-200"}`}>
+                        <CardDescription className="font-semibold text-[11px] mt-0.5 flex items-center justify-center gap-1">
+                            <span className="font-mono text-slate-600 dark:text-slate-300">{selectedLead.phone}</span>
+                            <span className="text-emerald-600 dark:text-emerald-400 text-[8.5px] uppercase tracking-wider bg-emerald-50 dark:bg-emerald-950/50 px-1.5 py-0.2 rounded-full font-bold border border-emerald-200/50">Verified</span>
+                        </CardDescription>
+                        <div className="flex justify-center items-center gap-1.5 mt-2">
+                            <Badge className={`px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider ${selectedLead.isTokenPaid ? "bg-gradient-to-r from-amber-400 to-orange-400 text-amber-950 border-0 shadow-sm" : "bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800"}`}>
                                 {selectedLead.status}
                             </Badge>
                             <Button 
                                 variant="outline" 
                                 size="sm" 
-                                className="h-[28px] rounded-full border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800 shadow-sm"
-                                onClick={() => router.push(`/builder-dashboard?tab=chat&chatWith=${selectedLead.id || selectedLead._id}`)}
+                                className="h-6 px-2.5 rounded-full border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800 text-[10px] font-bold shadow-sm flex items-center gap-1"
+                                onClick={() => router.push(`${userRole === 'mandate' ? '/mandate-dashboard' : '/builder-dashboard'}?tab=chat&chatWith=${selectedLead.id || selectedLead._id}${selectedLead.isGroup ? '&type=group' : ''}`)}
                             >
-                                <MessageSquare className="w-3.5 h-3.5 mr-1" />
-                                Chat
+                                <MessageSquare className="w-3 h-3" />
+                                <span>{selectedLead.isGroup ? 'Group Chat' : 'Chat'}</span>
                             </Button>
                         </div>
                     </CardHeader>
-                    <CardContent className="flex-1 p-5 space-y-5 text-sm overflow-visible pb-10">
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
-                                <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider mb-1 flex items-center gap-1"><Home className="w-3 h-3"/> Req</p>
-                                <p className="font-bold text-slate-700 dark:text-slate-200">{selectedLead.requirement}</p>
+                    <CardContent className="flex-1 overflow-y-auto p-3 space-y-2.5 custom-scrollbar">
+                        <div className="grid grid-cols-2 gap-1.5">
+                            <div className="bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
+                                <p className="text-muted-foreground text-[9px] font-bold uppercase tracking-wider mb-0.5 flex items-center gap-1"><Home className="w-2.5 h-2.5"/> Req</p>
+                                <p className="font-bold text-xs text-slate-700 dark:text-slate-200 truncate">{selectedLead.requirement}</p>
                             </div>
-                            <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
-                                <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider mb-1 flex items-center gap-1"><DollarSign className="w-3 h-3"/> Budget</p>
-                                <p className="font-bold text-slate-700 dark:text-slate-200">{selectedLead.budget || "Price on Request"}</p>
+                            <div className="bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
+                                <p className="text-muted-foreground text-[9px] font-bold uppercase tracking-wider mb-0.5 flex items-center gap-1"><DollarSign className="w-2.5 h-2.5"/> Budget</p>
+                                <p className="font-bold text-xs text-slate-700 dark:text-slate-200 truncate">{selectedLead.budget || "On Request"}</p>
                             </div>
-                            <div className="bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800 col-span-2">
-                                <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider mb-1 flex items-center gap-1"><Search className="w-3 h-3"/> Source</p>
-                                <p className="font-bold text-slate-700 dark:text-slate-200">{selectedLead.source}</p>
+                            <div className="bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg border border-slate-100 dark:border-slate-800 col-span-2">
+                                <p className="text-muted-foreground text-[9px] font-bold uppercase tracking-wider mb-0.5 flex items-center gap-1"><Search className="w-2.5 h-2.5"/> Source</p>
+                                <p className="font-bold text-xs text-slate-700 dark:text-slate-200 truncate">{selectedLead.source}</p>
                             </div>
                         </div>
 
-                        {selectedLead.interestedUnit && (
-                            <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 p-3 rounded-xl border border-green-200 dark:border-green-800 shadow-sm">
-                                <p className="text-green-800 dark:text-green-300 text-[10px] font-black uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                                    <CheckCircle2 className="h-3.5 w-3.5" /> Unit Reserved
-                                </p>
-                                <p className="font-black text-sm text-green-900 dark:text-green-100">{selectedLead.interestedUnit}</p>
-                            </div>
-                        )}
-                        <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-                            <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-wider mb-2">Assigned Executive</p>
-                            <div className="flex items-center gap-2.5 bg-white dark:bg-slate-900 p-2 rounded-lg border border-slate-200 shadow-sm">
-                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                        {selectedLead.interestedUnit && (() => {
+                            const isSoldLead = Boolean(selectedLead.isUnitSold || (selectedLead.status === "Booked" && selectedLead.interestedUnit));
+                            return (
+                                <div className={`p-2 rounded-lg border shadow-sm ${
+                                    isSoldLead
+                                        ? "bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 border-red-300 dark:border-red-700"
+                                        : selectedLead.isUnitHeld
+                                            ? "bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-amber-300 dark:border-amber-700"
+                                            : "bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800"
+                                }`}>
+                                    <div className="flex items-center justify-between gap-1 mb-0.5">
+                                        <p className={`text-[9px] font-black uppercase tracking-wider flex items-center gap-1 ${
+                                            isSoldLead ? "text-red-800 dark:text-red-300" : selectedLead.isUnitHeld ? "text-amber-800 dark:text-amber-300" : "text-blue-800 dark:text-blue-300"
+                                        }`}>
+                                            {isSoldLead ? <CheckCircle2 className="h-3 w-3 text-red-600" /> : selectedLead.isUnitHeld ? <Lock className="h-3 w-3 text-amber-600" /> : <Bookmark className="h-3 w-3 text-blue-600 dark:text-blue-400" />}
+                                            {isSoldLead ? "Sold / Booked Unit" : selectedLead.isUnitHeld ? "Reserved / Held Unit" : "Preferred Unit"}
+                                        </p>
+                                        <span className={`text-[8px] font-bold px-1.5 py-0.2 rounded ${
+                                            isSoldLead
+                                                ? "bg-red-200 dark:bg-red-900 text-red-950 dark:text-red-200 font-black animate-pulse"
+                                                : selectedLead.isUnitHeld
+                                                    ? "bg-amber-200 dark:bg-amber-900 text-amber-950 dark:text-amber-200 animate-pulse"
+                                                    : "bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300"
+                                        }`}>
+                                            {isSoldLead ? "SOLD OUT" : selectedLead.isUnitHeld ? "HOLD" : "Marked"}
+                                        </span>
+                                    </div>
+                                    <p className="font-black text-xs text-slate-900 dark:text-slate-100 truncate">{selectedLead.interestedUnit}</p>
+                                </div>
+                            );
+                        })()}
+                        <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800">
+                            <p className="text-muted-foreground text-[9px] font-bold uppercase tracking-wider mb-1">Assigned Executive</p>
+                            <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 p-1.5 px-2 rounded-lg border border-slate-200/70 shadow-none">
+                                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-[10px] font-bold shadow-sm shrink-0">
                                     {selectedLead.assignee?.charAt(0) || "?"}
                                 </div>
-                                <span className="font-semibold text-sm">{selectedLead.assignee || "Unassigned"}</span>
+                                <span className="font-semibold text-xs truncate">{selectedLead.assignee || "Unassigned"}</span>
                             </div>
                         </div>
 
@@ -1234,20 +1469,20 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
                 </Card>
 
                 {/* Center: Activity Timeline */}
-                <Card className="flex-1 h-full border-slate-200 dark:border-slate-800 flex flex-col bg-slate-50/50 dark:bg-slate-900/50">
-                    <CardHeader className="pb-3 border-b bg-white dark:bg-slate-900">
-                        <CardTitle className="text-lg flex justify-between items-center">
-                            Activity Timeline
-                            <span className="text-xs font-normal text-muted-foreground flex items-center gap-1">
+                <Card className="flex-1 h-full min-w-0 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col bg-white dark:bg-slate-900 overflow-hidden">
+                    <CardHeader className="shrink-0 px-5 py-3 border-b bg-slate-50/70 dark:bg-slate-900/70 backdrop-blur-sm">
+                        <CardTitle className="text-base font-bold flex justify-between items-center text-slate-800 dark:text-slate-100">
+                            <span>Activity Timeline</span>
+                            <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/40 px-2.5 py-0.5 rounded-full flex items-center gap-1.5">
                                 <span className="relative flex h-2 w-2">
-                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                                 </span>
-                                Realtime Sync Active
+                                Realtime Sync
                             </span>
                         </CardTitle>
                     </CardHeader>
-                    <div ref={timelineRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+                    <div ref={timelineRef} className="flex-1 overflow-y-auto p-4 space-y-3.5 custom-scrollbar bg-slate-50/40 dark:bg-slate-950/30">
                         {/* We reverse the array so newest is at the bottom for a chat feel */}
                         {[...(selectedLead.timeline || [])].reverse().map((event, i) => {
                             const isSystem = event.type === 'system';
@@ -1255,14 +1490,14 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
                             
                             if (isSystem) {
                                 return (
-                                    <div key={i} className="flex justify-center w-full my-4">
-                                        <div className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[11.5px] py-2 px-4 rounded-xl shadow-sm border border-slate-200 flex flex-col items-center gap-1 max-w-[85%] text-center">
-                                            <div className="flex items-center gap-1.5 font-bold text-slate-400">
+                                    <div key={i} className="flex justify-center w-full my-3">
+                                        <div className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[11.5px] py-2 px-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col items-center gap-1 max-w-[85%] text-center">
+                                            <div className="flex items-center gap-1.5 font-bold text-slate-500 dark:text-slate-400">
                                                 <Activity className="h-3 w-3" />
                                                 <span>{event.title || 'System Update'}</span>
                                             </div>
                                             <span className="break-words whitespace-pre-wrap leading-relaxed">{event.desc}</span>
-                                            <span className="opacity-50 text-[9px] mt-1">
+                                            <span className="opacity-60 text-[9px] mt-0.5">
                                                 {event.date ? new Date(event.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                                             </span>
                                         </div>
@@ -1274,9 +1509,9 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
                                 return (
                                     <div key={i} className="flex flex-col items-end w-full space-y-1">
                                         <div className="bg-blue-600 text-white p-3 rounded-2xl rounded-tr-sm max-w-[80%] shadow-sm">
-                                            <p className="text-sm">{event.desc}</p>
+                                            <p className="text-xs leading-relaxed">{event.desc}</p>
                                         </div>
-                                        <span className="text-[10px] text-muted-foreground pr-1">
+                                        <span className="text-[10px] text-muted-foreground pr-1 font-mono">
                                             {event.date ? new Date(event.date).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
                                         </span>
                                     </div>
@@ -1297,11 +1532,11 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
                                             {event.type === 'booking' && <Lock className="h-4 w-4" />}
                                         </div>
                                         <div className="bg-white dark:bg-slate-800 p-3 rounded-2xl rounded-tl-sm max-w-[80%] shadow-sm border border-slate-100 dark:border-slate-700">
-                                            <h4 className="font-semibold text-sm mb-1">{event.title}</h4>
-                                            <p className="text-sm text-slate-600 dark:text-slate-300">{event.desc}</p>
+                                            <h4 className="font-semibold text-xs mb-1 text-slate-800 dark:text-slate-100">{event.title}</h4>
+                                            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">{event.desc}</p>
                                         </div>
                                     </div>
-                                    <span className="text-[10px] text-muted-foreground pl-10">
+                                    <span className="text-[10px] text-muted-foreground pl-10 font-mono">
                                         {event.date ? new Date(event.date).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
                                     </span>
                                 </div>
@@ -1309,18 +1544,48 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
                         })}
                     </div>
 
+                    {/* Quick Note Input Bar at Bottom */}
+                    <div className="shrink-0 p-3 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-2">
+                        <Input
+                            placeholder="Write an internal follow-up note (press Enter to post)..."
+                            value={noteInput}
+                            onChange={(e) => setNoteInput(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" && !e.shiftKey) {
+                                    e.preventDefault();
+                                    handleAddNote();
+                                }
+                            }}
+                            className="h-9 text-xs bg-slate-50 dark:bg-slate-800 rounded-xl border-slate-200 dark:border-slate-700"
+                        />
+                        <Button 
+                            size="sm"
+                            onClick={handleAddNote}
+                            disabled={!noteInput.trim() || isSendingNote}
+                            className="h-9 px-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm shrink-0 flex items-center gap-1.5 transition-transform active:scale-95"
+                        >
+                            {isSendingNote ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                            <span>Add Note</span>
+                        </Button>
+                    </div>
+
                 </Card>
 
                 {/* Right: Action Console */}
-                <Card className="w-full md:w-1/4 h-full border-0 shadow-xl shadow-slate-200/40 dark:shadow-none bg-gradient-to-b from-blue-50/40 to-white dark:from-slate-900 dark:to-slate-950 flex flex-col overflow-y-auto custom-scrollbar relative">
-                    <CardHeader className="pb-4 border-b border-blue-100/50 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 backdrop-blur-md sticky top-0 z-10">
-                        <CardTitle className="text-lg font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-indigo-700 dark:from-blue-400 dark:to-indigo-400">Action Console</CardTitle>
+                <Card className="w-full lg:w-[320px] xl:w-[340px] shrink-0 h-full border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm bg-white dark:bg-slate-900 flex flex-col overflow-hidden">
+                    <CardHeader className="shrink-0 px-3.5 py-2 border-b bg-slate-50/70 dark:bg-slate-900/70 backdrop-blur-sm">
+                        <CardTitle className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center justify-between">
+                            <span>Action Console</span>
+                            <Badge variant="outline" className="text-[9px] font-mono font-semibold px-1.5 py-0 border-slate-200">
+                                Controls
+                            </Badge>
+                        </CardTitle>
                     </CardHeader>
-                    <CardContent className="grid gap-6 p-5">
+                    <CardContent className="flex-1 overflow-y-auto p-2.5 space-y-2 custom-scrollbar">
 
                         {/* 2. Pipeline Stage */}
-                        <div className="space-y-2.5">
-                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5"/> Pipeline Stage</label>
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1"><TrendingUp className="w-3 h-3 text-blue-600"/> Pipeline Stage</label>
                             <Select
                                 value={selectedLead.status}
                                 disabled={selectedLead.status === "Booked"}
@@ -1330,89 +1595,288 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
                                     setPendingFollowUp(selectedLead.nextActionTime ? new Date(selectedLead.nextActionTime).toISOString().slice(0,16) : "");
                                 }}
                             >
-                                <SelectTrigger className="h-11 font-bold text-sm bg-white dark:bg-slate-800 rounded-xl shadow-sm border-slate-200 dark:border-slate-700 ring-offset-0 focus:ring-2 focus:ring-blue-500 hover:border-blue-300 transition-colors">
+                                <SelectTrigger className="h-8 font-bold text-xs bg-slate-50/60 dark:bg-slate-800 rounded-lg shadow-none border-slate-200 dark:border-slate-700 ring-offset-0 focus:ring-1 focus:ring-blue-500 hover:border-blue-300 transition-colors">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="Fresh" className="font-semibold cursor-pointer py-2">Fresh (New Inquiry)</SelectItem>
-                                    {selectedLead.status === "Token VIP" && <SelectItem value="Token VIP" className="font-semibold cursor-pointer py-2">Token VIP (VIP Booking)</SelectItem>}
-                                    <SelectItem value="Connected" className="font-semibold cursor-pointer py-2">Connected (Follow-up)</SelectItem>
-                                    <SelectItem value="Site Visit" className="font-semibold cursor-pointer py-2">Site Visit (Property Seen)</SelectItem>
-                                    <SelectItem value="Negotiation" className="font-semibold cursor-pointer py-2">Negotiation (Closing)</SelectItem>
-                                    <SelectItem value="Final Negotiation" className="font-semibold cursor-pointer py-2">Final Negotiation (Final Deal)</SelectItem>
-                                    <SelectItem value="Booked" className="font-semibold cursor-pointer py-2">Booked (Deal Closed)</SelectItem>
-                                    <SelectItem value="Junk" className="font-semibold cursor-pointer py-2">Not Interested (Junk)</SelectItem>
+                                    <SelectItem value="Fresh" className="font-semibold cursor-pointer py-1 text-xs">Fresh (New Inquiry)</SelectItem>
+                                    {selectedLead.status === "Token VIP" && <SelectItem value="Token VIP" className="font-semibold cursor-pointer py-1 text-xs">Token VIP (VIP Booking)</SelectItem>}
+                                    <SelectItem value="Connected" className="font-semibold cursor-pointer py-1 text-xs">Connected (Follow-up)</SelectItem>
+                                    <SelectItem value="Site Visit" className="font-semibold cursor-pointer py-1 text-xs">Site Visit (Property Seen)</SelectItem>
+                                    <SelectItem value="Negotiation" className="font-semibold cursor-pointer py-1 text-xs">Negotiation (Closing)</SelectItem>
+                                    <SelectItem value="Final Negotiation" className="font-semibold cursor-pointer py-1 text-xs">Final Negotiation (Final Deal)</SelectItem>
+                                    <SelectItem value="Booked" className="font-semibold cursor-pointer py-1 text-xs">Booked (Deal Closed)</SelectItem>
+                                    <SelectItem value="Junk" className="font-semibold cursor-pointer py-1 text-xs">Not Interested (Junk)</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
 
-                        {/* 3. Unit Blocking (Important for VIP & Group) */}
-                        <div className={`space-y-3 p-4 border rounded-2xl shadow-sm transition-all duration-300 ${selectedLead.isTokenPaid ? 'bg-gradient-to-br from-amber-50 to-orange-50/50 dark:from-amber-900/20 dark:to-orange-900/10 border-amber-200 shadow-amber-100/50' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'}`}>
-                            <h4 className={`font-black text-[11px] uppercase tracking-wider flex items-center gap-1.5 ${selectedLead.isTokenPaid ? 'text-amber-800 dark:text-amber-400' : 'text-slate-500'}`}>
-                                <Building2 className={`h-4 w-4 ${selectedLead.isTokenPaid ? 'text-amber-600' : 'text-slate-400'}`} />
-                                {selectedLead.isTokenPaid ? 'Claim VIP Booking' : 'Unit Allocation'}
-                            </h4>
-                            {properties.length > 0 ? (
-                                <div className="space-y-3">
-                                    <Select value={selectedPropertyId} onValueChange={setSelectedPropertyId}>
-                                        <SelectTrigger className="h-10 text-xs font-semibold bg-white dark:bg-slate-900 rounded-xl border-slate-200">
-                                            <SelectValue placeholder="Select Property" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {properties.map(p => (
-                                                <SelectItem key={p._id || p.id} value={p._id || p.id} className="text-xs py-2 cursor-pointer">{p.name || p.townshipName || "Property"}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <Select value={selectedUnitId} onValueChange={setSelectedUnitId} disabled={!selectedPropertyId}>
-                                        <SelectTrigger className="h-10 text-xs font-semibold bg-white dark:bg-slate-900 rounded-xl border-slate-200">
-                                            <SelectValue placeholder="Available Unit" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {availableUnits.map((u: any, idx: number) => (
-                                                <SelectItem key={u.id || `unit-${idx}`} value={u.id || `unit-${idx}`} className="text-xs py-2 cursor-pointer">{u.unitNumber} ({u.configuration})</SelectItem>
-                                            ))}
-                                            {availableUnits.length === 0 && <SelectItem key="none" value="none" disabled>No Units Available</SelectItem>}
-                                        </SelectContent>
-                                    </Select>
-                                    <Button
-                                        className={`w-full h-11 text-xs font-bold text-white shadow-md rounded-xl transition-all active:scale-95 ${selectedLead.isTokenPaid ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 animate-pulse' : 'bg-blue-600 hover:bg-blue-700'}`}
-                                        disabled={!selectedUnitId}
-                                        onClick={handleBlockUnit}
-                                    >
-                                        <Lock className="h-4 w-4 mr-1.5" /> {selectedLead.isGroup ? 'Reserve Bulk Units' : 'Lock Unit & Sync'}
-                                    </Button>
+                        {/* 3. Preferred Unit Selection with Hold / Reserve / Sold Option */}
+                        {(() => {
+                            const isLeadBooked = selectedLead.status === "Booked" || Boolean(selectedLead.isUnitSold);
+                            const isSold = Boolean(selectedLead.isUnitSold || (selectedLead.status === "Booked" && selectedLead.interestedUnit));
+
+                            return (
+                                <div className="space-y-2 p-2.5 border rounded-xl shadow-none bg-slate-50/40 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700">
+                                    <div className="flex items-center justify-between pb-1 border-b border-slate-200/60 dark:border-slate-700/60">
+                                        <h4 className="font-bold text-[11px] flex items-center gap-1 text-slate-800 dark:text-slate-200">
+                                            {isSold ? (
+                                                <CheckCircle2 className="h-3 w-3 text-red-600 dark:text-red-400" />
+                                            ) : selectedLead.isUnitHeld ? (
+                                                <Lock className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                                            ) : (
+                                                <Bookmark className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+                                            )}
+                                            Preferred Unit
+                                        </h4>
+                                        <span className={`text-[8.5px] font-bold px-1.5 py-0.2 rounded-full border ${
+                                            isSold
+                                                ? "text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-950/60 border-red-300 dark:border-red-800 animate-pulse"
+                                                : selectedLead.isUnitHeld 
+                                                    ? "text-amber-900 dark:text-amber-200 bg-amber-100 dark:bg-amber-900/60 border-amber-300 dark:border-amber-700" 
+                                                    : "text-slate-500 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                                        }`}>
+                                            {isSold ? "SOLD OUT" : selectedLead.isUnitHeld ? "RESERVED" : "Reference"}
+                                        </span>
+                                    </div>
+
+                                    {selectedLead.interestedUnit && (
+                                        <div className={`p-1.5 px-2 rounded-lg border flex items-center justify-between gap-1.5 ${
+                                            isSold
+                                                ? "bg-red-50/90 dark:bg-red-950/40 border-red-300 dark:border-red-800/70"
+                                                : selectedLead.isUnitHeld 
+                                                    ? "bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800/70" 
+                                                    : "bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800/60"
+                                        }`}>
+                                            <div className="min-w-0">
+                                                <div className="flex items-center gap-1">
+                                                    <p className={`text-[8.5px] font-bold uppercase tracking-wider ${
+                                                        isSold ? "text-red-700 dark:text-red-400" : selectedLead.isUnitHeld ? "text-amber-700 dark:text-amber-400" : "text-blue-600 dark:text-blue-400"
+                                                    }`}>
+                                                        {isSold ? "Sold Unit" : selectedLead.isUnitHeld ? "Reserved Unit" : "Current Tag"}
+                                                    </p>
+                                                    {isSold ? (
+                                                        <span className="text-[7.5px] font-black uppercase px-1 py-0 rounded bg-red-600 text-white animate-pulse">
+                                                            Sold
+                                                        </span>
+                                                    ) : selectedLead.isUnitHeld ? (
+                                                        <span className="text-[7.5px] font-black uppercase px-1 py-0 rounded bg-amber-500 text-white animate-pulse">
+                                                            Held
+                                                        </span>
+                                                    ) : null}
+                                                </div>
+                                                <p className="text-[11px] font-bold truncate text-slate-900 dark:text-slate-100">{selectedLead.interestedUnit}</p>
+                                            </div>
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                className="h-5 px-1.5 text-[9px] font-bold text-red-600 hover:text-red-700 hover:bg-red-100/50 rounded shrink-0"
+                                                disabled={isBlockingUnit}
+                                                onClick={handleClearPreferredUnit}
+                                                title={isSold ? "Release sold unit back to available" : selectedLead.isUnitHeld ? "Release unit hold in inventory" : "Clear unit preference"}
+                                            >
+                                                {isSold || selectedLead.isUnitHeld ? "Release" : "Clear"}
+                                            </Button>
+                                        </div>
+                                    )}
+
+                                    {properties.length > 0 ? (
+                                        <div className="space-y-1.5">
+                                            <div>
+                                                <label className="text-[9px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 block">Property</label>
+                                                <Select value={selectedPropertyId} onValueChange={(val) => { setSelectedPropertyId(val); setSelectedUnitId(""); }}>
+                                                    <SelectTrigger className="h-8 text-xs font-medium bg-white dark:bg-slate-900 rounded-lg border-slate-200">
+                                                        <SelectValue placeholder="Choose Property" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {properties.map(p => (
+                                                            <SelectItem key={p._id || p.id} value={p._id || p.id} className="text-xs py-1 cursor-pointer">{p.name || p.townshipName || p.title || "Property"}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            {propertyTowers.length > 0 && (
+                                                <div>
+                                                    <label className="text-[9px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 block">Tower / Phase</label>
+                                                    <Select value={selectedTowerId} onValueChange={(val) => { setSelectedTowerId(val === "all" ? "" : val); setSelectedUnitId(""); }} disabled={!selectedPropertyId}>
+                                                        <SelectTrigger className="h-8 text-xs font-medium bg-white dark:bg-slate-900 rounded-lg border-slate-200">
+                                                            <SelectValue placeholder="Choose Tower" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="all" className="text-xs py-1 cursor-pointer font-bold">All Towers</SelectItem>
+                                                            {propertyTowers.map((t: any) => (
+                                                                <SelectItem key={t.id || t._id} value={t.id || t._id} className="text-xs py-1 cursor-pointer">{t.name}</SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                            )}
+
+                                            <div>
+                                                <label className="text-[9px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 block">Unit / Flat</label>
+                                                <Popover open={isUnitDropdownOpen} onOpenChange={setIsUnitDropdownOpen}>
+                                                    <PopoverTrigger asChild>
+                                                        <Button
+                                                            variant="outline"
+                                                            role="combobox"
+                                                            aria-expanded={isUnitDropdownOpen}
+                                                            disabled={!selectedPropertyId}
+                                                            className="w-full h-8 text-xs font-medium bg-white dark:bg-slate-900 rounded-lg border-slate-200 justify-between px-3"
+                                                        >
+                                                            <span className="truncate">
+                                                                {selectedUnitId
+                                                                    ? (() => {
+                                                                        const u = propertyUnits.find((u: any) => (u.id || u._id) === selectedUnitId);
+                                                                        if (!u) return "Choose Unit";
+                                                                        const cleanNum = getCleanUnitLabel(u.unitNumber, activeProperty?.name || activeProperty?.title);
+                                                                        return `Flat ${cleanNum} ${u.configuration ? `(${u.configuration})` : ''}`;
+                                                                    })()
+                                                                    : !selectedPropertyId ? "Select property first" : "Choose Unit"}
+                                                            </span>
+                                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                        </Button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-[300px] p-0" align="start">
+                                                        <Command>
+                                                            <CommandInput placeholder="Search unit number..." className="h-9 text-xs" />
+                                                            <CommandList>
+                                                                <CommandEmpty>No unit found.</CommandEmpty>
+                                                                <CommandGroup>
+                                                                    {propertyUnits.map((u: any, idx: number) => {
+                                                                        const unitKey = u.id || u._id || `unit-${idx}`;
+                                                                        const statusSuffix = u.status && u.status !== 'available' ? ` (${u.status})` : '';
+                                                                        const cleanNum = getCleanUnitLabel(u.unitNumber, activeProperty?.name || activeProperty?.title);
+                                                                        const label = `Flat ${cleanNum} ${u.configuration ? `(${u.configuration})` : ''}${statusSuffix}`;
+                                                                        return (
+                                                                            <CommandItem
+                                                                                key={unitKey}
+                                                                                value={label} // used for filtering internally by Command
+                                                                                onSelect={() => {
+                                                                                    setSelectedUnitId(unitKey === selectedUnitId ? "" : unitKey);
+                                                                                    setIsUnitDropdownOpen(false);
+                                                                                }}
+                                                                                className="text-xs py-1.5 cursor-pointer"
+                                                                            >
+                                                                                <Check
+                                                                                    className={`mr-2 h-3.5 w-3.5 ${
+                                                                                        selectedUnitId === unitKey ? "opacity-100" : "opacity-0"
+                                                                                    }`}
+                                                                                />
+                                                                                {label}
+                                                                            </CommandItem>
+                                                                        );
+                                                                    })}
+                                                                    {propertyUnits.length === 0 && (
+                                                                        <div className="p-2 text-xs text-center text-slate-500">No Units in this Property</div>
+                                                                    )}
+                                                                </CommandGroup>
+                                                            </CommandList>
+                                                        </Command>
+                                                    </PopoverContent>
+                                                </Popover>
+                                            </div>
+
+                                            {/* Hold / Reserve or Sold Toggle (Updates Inventory & Visitor Panel) */}
+                                            <div className={`flex items-center justify-between p-1.5 px-2 rounded-lg border shadow-xs ${
+                                                isLeadBooked
+                                                    ? "bg-red-50/90 dark:bg-red-950/40 border-red-200/80 dark:border-red-800/60"
+                                                    : "bg-amber-50/90 dark:bg-amber-950/40 border-amber-200/80 dark:border-amber-800/60"
+                                            }`}>
+                                                <label htmlFor="hold-unit-toggle" className="flex items-center gap-1.5 cursor-pointer select-none">
+                                                    <input 
+                                                        id="hold-unit-toggle"
+                                                        type="checkbox"
+                                                        checked={isHoldUnitEnabled}
+                                                        onChange={(e) => setIsHoldUnitEnabled(e.target.checked)}
+                                                        className={`w-3.5 h-3.5 rounded cursor-pointer ${
+                                                            isLeadBooked
+                                                                ? "text-red-600 border-red-300 focus:ring-red-500 accent-red-600"
+                                                                : "text-amber-600 border-amber-300 focus:ring-amber-500 accent-amber-600"
+                                                        }`}
+                                                    />
+                                                    <span className={`text-[10px] font-black ${
+                                                        isLeadBooked ? "text-red-900 dark:text-red-200" : "text-amber-900 dark:text-amber-200"
+                                                    }`}>
+                                                        {isLeadBooked ? "Mark Unit as Sold" : "Hold / Reserve Unit"}
+                                                    </span>
+                                                </label>
+                                                <span className={`text-[8px] font-bold px-1 py-0.2 rounded border uppercase tracking-tight ${
+                                                    isLeadBooked
+                                                        ? "text-red-700 dark:text-red-300 bg-red-100/80 dark:bg-red-900/60 border-red-300/50"
+                                                        : "text-amber-700 dark:text-amber-400 bg-amber-100/80 dark:bg-amber-900/60 border-amber-300/50"
+                                                }`}>
+                                                    {isLeadBooked ? "Sold Out • Inventory & Visitor" : "Inventory & Visitor"}
+                                                </span>
+                                            </div>
+
+                                            <Button
+                                                className={`w-full h-8 text-xs font-bold text-white shadow-none rounded-lg transition-all active:scale-95 flex items-center justify-center gap-1.5 ${
+                                                    isLeadBooked && isHoldUnitEnabled
+                                                        ? "bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700"
+                                                        : isHoldUnitEnabled 
+                                                            ? "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700" 
+                                                            : "bg-blue-600 hover:bg-blue-700"
+                                                }`}
+                                                disabled={!selectedUnitId || isBlockingUnit}
+                                                onClick={handleSavePreferredUnit}
+                                            >
+                                                {isBlockingUnit ? (
+                                                    <>
+                                                        <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                        <span>{isLeadBooked ? "Marking as Sold..." : isHoldUnitEnabled ? "Reserving Unit..." : "Saving..."}</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        {isLeadBooked && isHoldUnitEnabled ? (
+                                                            <CheckCircle2 className="h-3 w-3" />
+                                                        ) : isHoldUnitEnabled ? (
+                                                            <Lock className="h-3 w-3" />
+                                                        ) : (
+                                                            <Bookmark className="h-3 w-3" />
+                                                        )}
+                                                        <span>
+                                                            {isLeadBooked && isHoldUnitEnabled 
+                                                                ? "Confirm & Mark Unit as Sold" 
+                                                                : isHoldUnitEnabled 
+                                                                    ? "Reserve & Tag Unit" 
+                                                                    : "Save Preferred Unit"}
+                                                        </span>
+                                                    </>
+                                                )}
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-slate-50 dark:bg-slate-900/50 p-2 rounded-lg border border-dashed border-slate-200 dark:border-slate-700 text-center">
+                                            <p className="text-[9px] font-medium text-slate-500">No inventory found</p>
+                                        </div>
+                                    )}
                                 </div>
-                            ) : (
-                                <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 text-center">
-                                    <p className="text-[11px] font-medium text-slate-500">No inventory found.</p>
-                                    <p className="text-[10px] text-slate-400 mt-1">Add properties in Dashboard.</p>
-                                </div>
-                            )}
-                        </div>
+                            );
+                        })()}
 
                         {/* 4. Contact Actions */}
-                        <div className="space-y-2.5 pt-2">
-                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Quick Actions</label>
-                            <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1 pt-0.5">
+                            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Quick Actions</label>
+                            <div className="grid grid-cols-2 gap-1.5">
                                 <Button 
                                     variant="outline" 
-                                    className="w-full gap-1.5 h-10 text-xs font-bold rounded-xl shadow-sm text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200 transition-transform active:scale-95 cursor-pointer"
-                                    onClick={() => router.push(`/builder-dashboard?tab=chat&chatWith=${selectedLead.id || selectedLead._id}`)}
+                                    className="w-full gap-1 h-8 text-xs font-bold rounded-lg shadow-none text-blue-700 bg-blue-50 hover:bg-blue-100 border-blue-200 transition-transform active:scale-95 cursor-pointer"
+                                    onClick={() => router.push(`${userRole === 'mandate' ? '/mandate-dashboard' : '/builder-dashboard'}?tab=chat&chatWith=${selectedLead.id || selectedLead._id}`)}
                                 >
-                                    <MessageSquare className="h-4 w-4 text-blue-600" /> Direct Chat
+                                    <MessageSquare className="h-3.5 w-3.5 text-blue-600" /> Chat
                                 </Button>
                                 <Button 
                                     variant="outline" 
                                     disabled={selectedLead.status === "Booked"}
-                                    className={`w-full gap-1.5 h-10 text-xs font-bold rounded-xl shadow-sm transition-transform active:scale-95 ${selectedLead.status === "Junk" ? "text-slate-600 bg-slate-100 border-slate-200" : "text-red-600 bg-red-50 hover:text-red-700 hover:bg-red-100 border-red-200"}`}
+                                    className={`w-full gap-1 h-8 text-xs font-bold rounded-lg shadow-none transition-transform active:scale-95 ${selectedLead.status === "Junk" ? "text-slate-600 bg-slate-100 border-slate-200" : "text-red-600 bg-red-50 hover:text-red-700 hover:bg-red-100 border-red-200"}`}
                                     onClick={() => {
                                         setPendingStatus((selectedLead.status === "Junk" ? "Fresh" : "Junk") as any);
                                         setStatusReason("");
                                         setPendingFollowUp(selectedLead.nextActionTime ? new Date(selectedLead.nextActionTime).toISOString().slice(0,16) : "");
                                     }}
                                 >
-                                    {selectedLead.status === "Junk" ? <><CheckCircle2 className="h-4 w-4" /> Restore</> : <><XCircle className="h-4 w-4" /> Not Interested</>}
+                                    {selectedLead.status === "Junk" ? <><CheckCircle2 className="h-3.5 w-3.5" /> Restore</> : <><XCircle className="h-3.5 w-3.5" /> Not Interested</>}
                                 </Button>
                             </div>
                         </div>
@@ -1495,10 +1959,49 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
                                     }
                                 }
 
+                                const isBookedStage = pendingStatus === "Booked";
+                                const targetUnitId = selectedLead.unitId || selectedUnitId;
+                                const targetPropertyId = selectedLead.propertyId || selectedPropertyId;
+
+                                if (isBookedStage) {
+                                    updates.isUnitSold = true;
+                                    updates.isUnitHeld = false;
+                                    setIsHoldUnitEnabled(true);
+
+                                    if (targetUnitId && targetPropertyId) {
+                                        offlineSafeFetch(`/api/units/${targetUnitId}?propertyId=${targetPropertyId}`, {
+                                            method: "PATCH",
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({
+                                                status: "sold",
+                                                customerName: selectedLead.name,
+                                                customerPhone: selectedLead.phone,
+                                                bookingDate: new Date().toISOString()
+                                            })
+                                        }).catch(err => console.error("Error auto-marking unit as sold:", err));
+
+                                        setProperties(prev => prev.map(p => {
+                                            if ((p._id || p.id) === targetPropertyId && p.details?.generatedUnits) {
+                                                const updatedUnits = p.details.generatedUnits.map((u: any, idx: number) => {
+                                                    const uKey = u.id || u._id || `unit-${idx}`;
+                                                    if (uKey === targetUnitId) {
+                                                        return { ...u, status: "sold", customerName: selectedLead.name, customerPhone: selectedLead.phone };
+                                                    }
+                                                    return u;
+                                                });
+                                                return { ...p, details: { ...p.details, generatedUnits: updatedUnits } };
+                                            }
+                                            return p;
+                                        }));
+                                    }
+                                }
+
                                 // Apply to local state immediately
                                 upsertLead({
                                     ...selectedLead,
                                     status: pendingStatus,
+                                    isUnitSold: isBookedStage ? true : selectedLead.isUnitSold,
+                                    isUnitHeld: isBookedStage ? false : selectedLead.isUnitHeld,
                                     nextActionTime: updates.nextActionTime || selectedLead.nextActionTime,
                                     timeline: newTimeline
                                 });
@@ -1952,10 +2455,23 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
                                         
                                         <div className="space-y-2.5 p-3 border rounded-xl shadow-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
                                             <h4 className="font-black text-[10px] uppercase tracking-wider flex items-center gap-1.5 text-slate-500">
-                                                <Building2 className="h-3.5 w-3.5 text-slate-400" /> Unit Allocation
+                                                <Bookmark className="h-3.5 w-3.5 text-slate-400" /> Preferred Member Unit
                                             </h4>
-                                            <Button className="w-full h-10 text-xs font-bold text-white shadow-md rounded-xl bg-blue-600 hover:bg-blue-700 transition-all active:scale-95" onClick={handleBlockUnit}>
-                                                <Lock className="h-3.5 w-3.5 mr-1.5" /> Block Member Unit
+                                            <Button 
+                                                className="w-full h-10 text-xs font-bold text-white shadow-md rounded-xl bg-blue-600 hover:bg-blue-700 transition-all active:scale-95" 
+                                                disabled={isBlockingUnit || !selectedUnitId}
+                                                onClick={handleSavePreferredUnit}
+                                            >
+                                                {isBlockingUnit ? (
+                                                    <span className="flex items-center gap-1.5">
+                                                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                        Saving Preference...
+                                                    </span>
+                                                ) : (
+                                                    <>
+                                                        <Bookmark className="h-3.5 w-3.5 mr-1.5" /> Save Member Preferred Unit
+                                                    </>
+                                                )}
                                             </Button>
                                         </div>
 
@@ -2477,37 +2993,45 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
     )
 
     return (
-        <div className="h-[calc(100vh-140px)] flex flex-col space-y-4">
-                        {/* Top Toolbar */}
-            <div className="flex w-full items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-1.5 rounded-xl border border-slate-200/60 dark:border-slate-800/60 shadow-sm mb-0">
-                {/* Left Side: Tabs */}
-                <div className="flex items-center gap-1 bg-slate-100/50 dark:bg-slate-800/50 p-1 rounded-lg border border-slate-200/50 dark:border-slate-700/50 flex-shrink-0">
-                    {viewMode === 'profile' && (
-                        <Button variant="ghost" className="h-8 px-2.5 text-xs shadow-none gap-1.5 text-slate-500 hover:text-slate-800 font-semibold border-r border-slate-200/50 dark:border-slate-700/50 rounded-none mr-1" onClick={() => { setViewMode('pipeline'); setSelectedMemberIdx(null); }}>
-                            <ArrowUpRight className="h-3.5 w-3.5 rotate-[225deg]" /> <span className="hidden sm:inline">Back</span>
+        <div className="h-full flex flex-col space-y-3 min-h-0">
+            {/* Top Toolbar */}
+            <div className="flex w-full items-center justify-between bg-white dark:bg-slate-900 p-1.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-sm shrink-0">
+                {/* Left Side: Tabs / Back button */}
+                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+                    {viewMode === 'profile' ? (
+                        <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="h-8 px-3 text-xs gap-1.5 text-blue-700 dark:text-blue-400 font-bold hover:bg-white dark:hover:bg-slate-700 rounded-md shadow-sm"
+                            onClick={() => { setViewMode('pipeline'); setSelectedMemberIdx(null); }}
+                        >
+                            <ArrowLeft className="h-3.5 w-3.5" /> <span>Back to Pipeline</span>
                         </Button>
+                    ) : (
+                        <>
+                            <Button
+                                variant={viewMode === 'pipeline' ? 'secondary' : 'ghost'}
+                                onClick={() => setViewMode('pipeline')}
+                                className={`h-8 px-3 text-xs shadow-none gap-1.5 rounded-md font-semibold transition-all ${viewMode === 'pipeline' ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-700 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'}`}
+                            >
+                                <TrendingUp className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Pipeline</span>
+                            </Button>
+                            <Button
+                                variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                                onClick={() => setViewMode('list')}
+                                className={`h-8 px-3 text-xs shadow-none gap-1.5 rounded-md font-semibold transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-700 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'}`}
+                            >
+                                <Users className="h-3.5 w-3.5" /> <span className="hidden sm:inline">List</span>
+                            </Button>
+                            <Button
+                                variant={viewMode === 'analytics' ? 'secondary' : 'ghost'}
+                                onClick={() => setViewMode('analytics')}
+                                className={`h-8 px-3 text-xs shadow-none gap-1.5 rounded-md font-semibold transition-all ${viewMode === 'analytics' ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-700 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'}`}
+                            >
+                                <Activity className="h-3.5 w-3.5" /> <span className="hidden lg:inline">Analytics</span>
+                            </Button>
+                        </>
                     )}
-                    <Button
-                        variant={viewMode === 'pipeline' ? 'secondary' : 'ghost'}
-                        onClick={() => setViewMode('pipeline')}
-                        className={`h-8 px-2.5 text-xs shadow-none gap-1.5 rounded-md transition-all ${viewMode === 'pipeline' ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-700 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'}`}
-                    >
-                        <TrendingUp className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Pipeline</span>
-                    </Button>
-                    <Button
-                        variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-                        onClick={() => setViewMode('list')}
-                        className={`h-8 px-2.5 text-xs shadow-none gap-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-700 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'}`}
-                    >
-                        <Users className="h-3.5 w-3.5" /> <span className="hidden sm:inline">List</span>
-                    </Button>
-                    <Button
-                        variant={viewMode === 'analytics' ? 'secondary' : 'ghost'}
-                        onClick={() => setViewMode('analytics')}
-                        className={`h-8 px-2.5 text-xs shadow-none gap-1.5 rounded-md transition-all ${viewMode === 'analytics' ? 'bg-white dark:bg-slate-700 shadow-sm text-blue-700 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'}`}
-                    >
-                        <Activity className="h-3.5 w-3.5" /> <span className="hidden lg:inline">Analytics</span>
-                    </Button>
                 </div>
 
                 {/* Right Side: Filters, Search, Actions */}

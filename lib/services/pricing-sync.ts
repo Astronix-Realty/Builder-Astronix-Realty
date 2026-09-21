@@ -17,7 +17,7 @@ export function formatPriceLabel(min: number, max: number): string {
 
 // 1. Aggregate Tower Pricing from its Units
 export async function aggregateTowerPricing(towerId: string | mongoose.Types.ObjectId) {
-  if (!towerId) return;
+  if (!towerId || !mongoose.isValidObjectId(towerId)) return;
 
   try {
     // Find all units for this tower
@@ -60,7 +60,7 @@ export async function aggregateTowerPricing(towerId: string | mongoose.Types.Obj
 
 // 2. Aggregate Project Pricing from its Towers
 export async function aggregateProjectPricing(projectId: string | mongoose.Types.ObjectId) {
-  if (!projectId) return;
+  if (!projectId || !mongoose.isValidObjectId(projectId)) return;
 
   try {
     // Find all towers for this project
