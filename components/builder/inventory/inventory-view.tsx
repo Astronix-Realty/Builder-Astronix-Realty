@@ -14,7 +14,7 @@ import {
     Users, Search, Home, CheckCircle2, Lock, Clock,
     Building2, Layers, LayoutGrid, RefreshCw, CircleDollarSign,
     CheckSquare, X, User, TrendingUp, Building, Filter,
-    ChevronRight, MapPin, AlertCircle, HelpCircle
+    ChevronRight, MapPin, AlertCircle, HelpCircle, Phone, Sparkles
 } from "lucide-react"
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
@@ -88,6 +88,15 @@ interface InventoryHierarchy {
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
+
+const getCleanUnitNum = (unitNum?: string) => {
+    if (!unitNum) return "—";
+    if (unitNum.includes("-")) {
+        const parts = unitNum.split("-");
+        return parts[parts.length - 1].trim() || unitNum;
+    }
+    return unitNum;
+};
 
 interface InventoryViewProps {
     userRole?: "builder" | "mandate"
@@ -1472,297 +1481,352 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
 
             {/* ── Unit Edit Dialog ── */}
             <Dialog open={!!editingUnit} onOpenChange={open => !open && setEditingUnit(null)}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center justify-between">
-                            <div className="flex flex-col gap-1">
-                                <div className="flex items-center gap-2 text-xl font-black">
-                                    Unit {editingUnit?.unitNumber}
-                                    <Badge variant="secondary" className="uppercase text-[10px]">
-                                        {editingUnit?.configuration}
-                                    </Badge>
-                                </div>
-                                {editingUnit?.status === "sold" && (
-                                    <p className="text-xs font-bold text-red-600 uppercase tracking-tighter">
-                                        Sold to {editingUnit.customerName || "N/A"}
-                                    </p>
-                                )}
-                            </div>
-                            <Badge className={
-                                editingUnit?.status === "available" ? "bg-emerald-600" :
-                                    editingUnit?.status === "sold" ? "bg-red-600" :
-                                        editingUnit?.status === "reserved" ? "bg-amber-500" : "bg-slate-500"
-                            }>
-                                {editingUnit?.status || "Available"}
-                            </Badge>
-                        </DialogTitle>
-                        <DialogDescription>
-                            {hierarchy?.towers.find(t => t._id === editingUnit?.towerId)?.name || ""}
-                            {editingUnit?.floorNumber !== undefined && ` — Floor ${editingUnit.floorNumber}`}
-                        </DialogDescription>
-                    </DialogHeader>
+                <DialogContent className="sm:max-w-2xl max-h-[92vh] flex flex-col p-0 gap-0 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl bg-white dark:bg-slate-900">
+                    {/* Header */}
+                    {(() => {
+                        const rawNum = editingUnit?.unitNumber || "";
+                        const cleanNum = getCleanUnitNum(rawNum);
+                        const towerObj = hierarchy?.towers.find(t => t._id === editingUnit?.towerId);
+                        const towerName = towerObj?.name || "Tower";
 
-                    <Tabs defaultValue="status" className="w-full">
-                        <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="status">Status & Action</TabsTrigger>
-                            <TabsTrigger value="details">Details & Pricing</TabsTrigger>
-                        </TabsList>
+                        return (
+                            <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-b from-slate-50/70 to-white dark:from-slate-900 dark:to-slate-900/60 text-left">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="flex items-center gap-3.5">
+                                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center font-black text-lg shadow-md shadow-indigo-500/20 shrink-0">
+                                            #{cleanNum}
+                                        </div>
+                                        <div>
+                                            <DialogTitle className="flex items-center gap-2 flex-wrap text-xl font-black text-slate-900 dark:text-white tracking-tight">
+                                                <span>Unit {cleanNum}</span>
+                                                {editingUnit?.configuration && (
+                                                    <Badge variant="outline" className="text-xs font-bold uppercase px-2.5 py-0.5 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800">
+                                                        {editingUnit.configuration}
+                                                    </Badge>
+                                                )}
+                                            </DialogTitle>
+                                            <DialogDescription className="text-xs font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-1">
+                                                <span className="font-semibold text-slate-700 dark:text-slate-300">{towerName}</span>
+                                                <span>•</span>
+                                                <span>Floor {editingUnit?.floorNumber ?? "—"}</span>
+                                                {currentProperty?.name && (
+                                                    <>
+                                                        <span>•</span>
+                                                        <span className="text-slate-500">{currentProperty.name}</span>
+                                                    </>
+                                                )}
+                                            </DialogDescription>
+                                        </div>
+                                    </div>
 
-                        <TabsContent value="status" className="py-4 space-y-4">
-                            {/* Customer form */}
-                            <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50 dark:bg-slate-900/40 space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <p className="text-xs font-black text-slate-600 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                                        <User className="h-3.5 w-3.5 text-indigo-500" />
-                                        {editingUnit?.status === "available" ? "New Buyer/Hold Details" : "Customer Info"}
-                                    </p>
-                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                        <Badge variant="outline" className="text-[10px] font-bold dark:border-slate-700 dark:bg-slate-950">
-                                            Flat: ₹{editingUnit?.price?.toLocaleString("en-IN")}
+                                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                        <Badge className={`text-xs font-extrabold uppercase px-3 py-1 rounded-full shadow-sm ${
+                                            editingUnit?.status === "available" ? "bg-emerald-600 hover:bg-emerald-600 text-white" :
+                                            editingUnit?.status === "sold" ? "bg-rose-600 hover:bg-rose-600 text-white" :
+                                            editingUnit?.status === "reserved" ? "bg-amber-500 hover:bg-amber-500 text-white" : "bg-slate-600 hover:bg-slate-600 text-white"
+                                        }`}>
+                                            {editingUnit?.status || "Available"}
                                         </Badge>
-                                        {editingUnit?.price ? (
-                                            <Badge className="text-[10px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white">
-                                                All-Incl: ₹{Math.round(editingUnit.price * 1.13).toLocaleString("en-IN")}
-                                            </Badge>
-                                        ) : null}
+                                        {editingUnit?.status === "sold" && editingUnit.customerName && (
+                                            <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-200/50 dark:border-rose-900/40 px-2 py-0.5 rounded-md">
+                                                Sold to {editingUnit.customerName}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
-                                <div className="space-y-2.5">
-                                     <div className="grid grid-cols-2 gap-2">
-                                         <div>
-                                            <Label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block tracking-wider">Carpet Area (sq.ft)</Label>
+                            </DialogHeader>
+                        );
+                    })()}
+
+                    {/* Tabs & Content */}
+                    <div className="flex-1 overflow-y-auto px-6 py-4">
+                        <Tabs defaultValue="status" className="w-full">
+                            <TabsList className="grid w-full grid-cols-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl mb-4">
+                                <TabsTrigger value="status" className="text-xs font-bold py-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm">
+                                    Status & Pricing Actions
+                                </TabsTrigger>
+                                <TabsTrigger value="details" className="text-xs font-bold py-2 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm">
+                                    Technical Specs & Breakdown
+                                </TabsTrigger>
+                            </TabsList>
+
+                            {/* Tab 1: Status & Action */}
+                            <TabsContent value="status" className="space-y-4 focus-visible:outline-none mt-0">
+                                {/* Section 1: Pricing & Dimensions */}
+                                <div className="p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 space-y-3">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
+                                        <Layers className="w-3.5 h-3.5 text-indigo-500" />
+                                        Unit Dimensions & Pricing Calculation
+                                    </span>
+
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                        <div>
+                                            <Label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1.5 block">Carpet Area (sq.ft)</Label>
                                             <Input
                                                 placeholder="Carpet Area"
                                                 type="number"
-                                                className="h-10 text-sm font-medium bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500/50"
+                                                className="h-10 text-sm font-semibold bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
                                                 value={customerForm.carpetArea}
                                                 onChange={e => {
-                                                    const val = e.target.value
-                                                    const carpet = parseFloat(val) || 0
-                                                    const builtUp = carpet > 0 ? Math.round(carpet * 1.2) : 0
-                                                    const rate = parseFloat(customerForm.ratePerSqft) || 0
-                                                    const newPrice = builtUp > 0 && rate > 0 ? Math.round(builtUp * rate) : (parseFloat(customerForm.price) || 0)
+                                                    const val = e.target.value;
+                                                    const carpet = parseFloat(val) || 0;
+                                                    const builtUp = carpet > 0 ? Math.round(carpet * 1.2) : 0;
+                                                    const rate = parseFloat(customerForm.ratePerSqft) || 0;
+                                                    const newPrice = builtUp > 0 && rate > 0 ? Math.round(builtUp * rate) : (parseFloat(customerForm.price) || 0);
                                                     setCustomerForm(f => ({
                                                         ...f,
                                                         carpetArea: val,
                                                         builtUpArea: builtUp > 0 ? builtUp.toString() : f.builtUpArea,
                                                         price: newPrice > 0 ? newPrice.toString() : f.price,
                                                         allInclusivePrice: newPrice > 0 ? Math.round(newPrice * 1.13).toString() : f.allInclusivePrice
-                                                    }))
+                                                    }));
                                                 }}
                                             />
-                                         </div>
-                                         <div>
-                                            <Label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block tracking-wider">Built-Up Area (sq.ft)</Label>
+                                        </div>
+
+                                        <div>
+                                            <Label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1.5 block">Built-Up Area (sq.ft)</Label>
                                             <Input
                                                 placeholder="Built-Up Area"
                                                 type="number"
-                                                className="h-10 text-sm font-medium bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500/50"
+                                                className="h-10 text-sm font-semibold bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
                                                 value={customerForm.builtUpArea}
                                                 onChange={e => {
-                                                    const val = e.target.value
-                                                    const builtUp = parseFloat(val) || 0
-                                                    const rate = parseFloat(customerForm.ratePerSqft) || 0
-                                                    const newPrice = builtUp > 0 && rate > 0 ? Math.round(builtUp * rate) : (parseFloat(customerForm.price) || 0)
+                                                    const val = e.target.value;
+                                                    const builtUp = parseFloat(val) || 0;
+                                                    const rate = parseFloat(customerForm.ratePerSqft) || 0;
+                                                    const newPrice = builtUp > 0 && rate > 0 ? Math.round(builtUp * rate) : (parseFloat(customerForm.price) || 0);
                                                     setCustomerForm(f => ({
                                                         ...f,
                                                         builtUpArea: val,
                                                         price: newPrice > 0 ? newPrice.toString() : f.price,
                                                         allInclusivePrice: newPrice > 0 ? Math.round(newPrice * 1.13).toString() : f.allInclusivePrice
-                                                    }))
+                                                    }));
                                                 }}
                                             />
-                                         </div>
-                                     </div>
+                                        </div>
 
-                                     <div className="grid grid-cols-2 gap-2">
-                                         <div>
-                                            <Label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block tracking-wider">Flat Price</Label>
-                                            <Input
-                                                placeholder="Total Price"
-                                                type="number"
-                                                className="h-10 text-sm font-medium bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500/50"
-                                                value={customerForm.price}
-                                                onChange={e => {
-                                                    const val = e.target.value
-                                                    const num = parseFloat(val) || 0
-                                                    const builtUp = parseFloat(customerForm.builtUpArea) || (editingUnit?.builtUpArea || (editingUnit?.area ? Math.round(editingUnit.area * 1.2) : 0)) || 0
-                                                    const rate = num > 0 && builtUp > 0 ? Math.round(num / builtUp) : (parseFloat(customerForm.ratePerSqft) || 0)
-                                                    setCustomerForm(f => ({
-                                                        ...f,
-                                                        price: val,
-                                                        ratePerSqft: rate > 0 ? rate.toString() : f.ratePerSqft,
-                                                        allInclusivePrice: num > 0 ? Math.round(num * 1.13).toString() : ""
-                                                    }))
-                                                }}
-                                            />
-                                         </div>
-                                         <div>
-                                            <Label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block tracking-wider">Rate / sq.ft</Label>
+                                        <div>
+                                            <Label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1.5 block">Rate / sq.ft (₹)</Label>
                                             <Input
                                                 placeholder="Rate"
                                                 type="number"
-                                                className="h-10 text-sm font-medium bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500/50"
+                                                className="h-10 text-sm font-semibold bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
                                                 value={customerForm.ratePerSqft}
                                                 onChange={e => {
-                                                    const val = e.target.value
-                                                    const rate = parseFloat(val) || 0
-                                                    const builtUp = parseFloat(customerForm.builtUpArea) || (editingUnit?.builtUpArea || (editingUnit?.area ? Math.round(editingUnit.area * 1.2) : 0)) || 0
-                                                    const newPrice = builtUp > 0 && rate > 0 ? Math.round(rate * builtUp) : (parseFloat(customerForm.price) || 0)
+                                                    const val = e.target.value;
+                                                    const rate = parseFloat(val) || 0;
+                                                    const builtUp = parseFloat(customerForm.builtUpArea) || (editingUnit?.builtUpArea || (editingUnit?.area ? Math.round(editingUnit.area * 1.2) : 0)) || 0;
+                                                    const newPrice = builtUp > 0 && rate > 0 ? Math.round(rate * builtUp) : (parseFloat(customerForm.price) || 0);
                                                     setCustomerForm(f => ({
                                                         ...f,
                                                         ratePerSqft: val,
                                                         price: newPrice > 0 ? newPrice.toString() : f.price,
                                                         allInclusivePrice: newPrice > 0 ? Math.round(newPrice * 1.13).toString() : f.allInclusivePrice
-                                                    }))
+                                                    }));
                                                 }}
                                             />
-                                         </div>
-                                     </div>
+                                        </div>
 
-                                     {(() => {
-                                         const baseP = parseFloat(customerForm.price) || 0
-                                         const gstP = Math.round(baseP * 0.05)
-                                         const stampP = Math.round(baseP * 0.07)
-                                         const regP = Math.round(baseP * 0.01)
-                                         return (
-                                             <div className="grid grid-cols-2 gap-2 items-stretch">
-                                                 <div className="flex flex-col justify-between">
-                                                     <Label className="text-[10px] font-bold uppercase text-indigo-600 dark:text-indigo-400 mb-1 block tracking-wider flex items-center gap-1">
-                                                         <CircleDollarSign className="h-3 w-3" />
-                                                         All-Inclusive Price
-                                                     </Label>
-                                                     <Input
-                                                         placeholder="All-Inclusive Price"
-                                                         type="number"
-                                                         className="h-10 text-sm font-bold bg-indigo-50/50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800/60 focus-visible:ring-indigo-500/50 text-indigo-950 dark:text-indigo-200"
-                                                         value={customerForm.allInclusivePrice}
-                                                         onChange={e => {
-                                                             const val = e.target.value
-                                                             const num = parseFloat(val) || 0
-                                                             const flatPrice = num > 0 ? Math.round(num / 1.13) : 0
-                                                             setCustomerForm(f => ({
-                                                                 ...f,
-                                                                 allInclusivePrice: val,
-                                                                 price: flatPrice > 0 ? flatPrice.toString() : f.price
-                                                             }))
-                                                         }}
-                                                     />
-                                                     <span className="text-[9px] text-slate-400 font-medium mt-1">Excl. Legal & Parking</span>
-                                                 </div>
+                                        <div>
+                                            <Label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1.5 block">Flat Base Price (₹)</Label>
+                                            <Input
+                                                placeholder="Base Price"
+                                                type="number"
+                                                className="h-10 text-sm font-semibold bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
+                                                value={customerForm.price}
+                                                onChange={e => {
+                                                    const val = e.target.value;
+                                                    const num = parseFloat(val) || 0;
+                                                    const builtUp = parseFloat(customerForm.builtUpArea) || (editingUnit?.builtUpArea || (editingUnit?.area ? Math.round(editingUnit.area * 1.2) : 0)) || 0;
+                                                    const rate = num > 0 && builtUp > 0 ? Math.round(num / builtUp) : (parseFloat(customerForm.ratePerSqft) || 0);
+                                                    setCustomerForm(f => ({
+                                                        ...f,
+                                                        price: val,
+                                                        ratePerSqft: rate > 0 ? rate.toString() : f.ratePerSqft,
+                                                        allInclusivePrice: num > 0 ? Math.round(num * 1.13).toString() : ""
+                                                    }));
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
 
-                                                 <div className="bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/60 rounded-xl p-2 flex flex-col justify-between text-xs">
-                                                     <div className="flex justify-between items-center text-[9px] font-black text-indigo-900 dark:text-indigo-300 pb-1 border-b border-indigo-200/60 dark:border-indigo-800/60 uppercase tracking-wider">
-                                                         <span>Govt Taxes (+13%)</span>
-                                                         <span className="text-indigo-600 font-extrabold">₹{(gstP + stampP + regP).toLocaleString("en-IN")}</span>
-                                                     </div>
-                                                     <div className="space-y-0.5 text-[9px] text-slate-600 dark:text-slate-400 pt-1 font-medium">
-                                                         <div className="flex justify-between">
-                                                             <span>GST (5%):</span>
-                                                             <span className="font-bold text-slate-900 dark:text-slate-200">₹{gstP.toLocaleString("en-IN")}</span>
-                                                         </div>
-                                                         <div className="flex justify-between">
-                                                             <span>Stamp Duty (7%):</span>
-                                                             <span className="font-bold text-slate-900 dark:text-slate-200">₹{stampP.toLocaleString("en-IN")}</span>
-                                                         </div>
-                                                         <div className="flex justify-between">
-                                                             <span>Reg. Fees (1%):</span>
-                                                             <span className="font-bold text-slate-900 dark:text-slate-200">₹{regP.toLocaleString("en-IN")}</span>
-                                                         </div>
-                                                     </div>
-                                                 </div>
-                                             </div>
-                                         )
-                                     })()}
+                                    {/* All-Inclusive & Tax Banner */}
+                                    {(() => {
+                                        const baseP = parseFloat(customerForm.price) || 0;
+                                        const gstP = Math.round(baseP * 0.05);
+                                        const stampP = Math.round(baseP * 0.07);
+                                        const regP = Math.round(baseP * 0.01);
+                                        const allInclP = baseP + gstP + stampP + regP;
 
-                                     <hr className="border-slate-200 dark:border-slate-800 my-3" />
-                                    <Input
-                                        placeholder="Customer full name"
-                                        className="h-10 text-sm font-semibold bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500/50"
-                                        value={customerForm.name}
-                                        onChange={e => setCustomerForm(f => ({ ...f, name: e.target.value }))}
-                                    />
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <Input
-                                            placeholder="Mobile number"
-                                            className="h-10 text-sm font-medium bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500/50"
-                                            value={customerForm.phone}
-                                            onChange={e => setCustomerForm(f => ({ ...f, phone: e.target.value }))}
-                                        />
-                                        <Input
-                                            placeholder="Booking/Hold amount"
-                                            type="number"
-                                            className="h-10 text-sm font-medium bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500/50"
-                                            value={customerForm.amount}
-                                            onChange={e => setCustomerForm(f => ({ ...f, amount: e.target.value }))}
-                                        />
+                                        return (
+                                            <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-50/90 via-purple-50/50 to-pink-50/30 dark:from-indigo-950/40 dark:via-purple-950/20 dark:to-slate-900 border border-indigo-100 dark:border-indigo-900/50 mt-2">
+                                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                                    <div>
+                                                        <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                                                            <CircleDollarSign className="w-3.5 h-3.5" /> Estimated All-Inclusive Price
+                                                        </span>
+                                                        <div className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">
+                                                            ₹{allInclP > 0 ? allInclP.toLocaleString("en-IN") : "0"}
+                                                        </div>
+                                                        <span className="text-[10px] text-slate-500 font-medium">Includes 13% Govt Taxes (excl. legal & parking)</span>
+                                                    </div>
+                                                    <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
+                                                        <span className="px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-900/90 border border-indigo-100 dark:border-indigo-900/50 text-slate-700 dark:text-slate-300">
+                                                            GST (5%): <strong className="text-indigo-600 dark:text-indigo-400">₹{gstP.toLocaleString("en-IN")}</strong>
+                                                        </span>
+                                                        <span className="px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-900/90 border border-indigo-100 dark:border-indigo-900/50 text-slate-700 dark:text-slate-300">
+                                                            Stamp (7%): <strong className="text-indigo-600 dark:text-indigo-400">₹{stampP.toLocaleString("en-IN")}</strong>
+                                                        </span>
+                                                        <span className="px-2.5 py-1 rounded-lg bg-white/90 dark:bg-slate-900/90 border border-indigo-100 dark:border-indigo-900/50 text-slate-700 dark:text-slate-300">
+                                                            Reg (1%): <strong className="text-indigo-600 dark:text-indigo-400">₹{regP.toLocaleString("en-IN")}</strong>
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
+
+                                {/* Section 2: Customer / Buyer Record */}
+                                <div className="p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 space-y-3">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
+                                        <User className="w-3.5 h-3.5 text-indigo-500" />
+                                        {editingUnit?.status === "available" ? "Customer / Hold Details (Optional)" : "Assigned Customer Information"}
+                                    </span>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                        <div>
+                                            <Label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1.5 block">Buyer / Customer Name</Label>
+                                            <div className="relative">
+                                                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                                <Input
+                                                    placeholder="Customer full name"
+                                                    className="pl-9 h-10 text-sm font-medium bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
+                                                    value={customerForm.name}
+                                                    onChange={e => setCustomerForm(f => ({ ...f, name: e.target.value }))}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <Label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1.5 block">Contact Phone Number</Label>
+                                            <div className="relative">
+                                                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                                <Input
+                                                    placeholder="10-digit mobile number"
+                                                    className="pl-9 h-10 text-sm font-medium bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
+                                                    value={customerForm.phone}
+                                                    onChange={e => setCustomerForm(f => ({ ...f, phone: e.target.value }))}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <Label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1.5 block">Booking / Hold Amount (₹)</Label>
+                                            <div className="relative">
+                                                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">₹</span>
+                                                <Input
+                                                    placeholder="Token amount"
+                                                    type="number"
+                                                    className="pl-8 h-10 text-sm font-medium bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800"
+                                                    value={customerForm.amount}
+                                                    onChange={e => setCustomerForm(f => ({ ...f, amount: e.target.value }))}
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* Action Buttons */}
-                            <div className="grid grid-cols-2 gap-3">
-                                {[
-                                    { s: "available" as const, label: "Mark Available", activeLabel: "Unit Available", icon: CheckCircle2, colors: "border-emerald-200 dark:border-emerald-900/60 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 dark:bg-slate-950/50", activeColors: "bg-emerald-600 dark:bg-emerald-600 hover:bg-emerald-700 dark:hover:bg-emerald-500 text-white border-emerald-600 shadow-md dark:shadow-emerald-900/20" },
-                                    { s: "blocked" as const, label: "Hold Unit", activeLabel: "Unhold Unit", icon: Lock, colors: "border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/80 dark:bg-slate-950/50", activeColors: "bg-slate-600 dark:bg-slate-600 hover:bg-slate-700 dark:hover:bg-slate-500 text-white border-slate-600 shadow-md dark:shadow-slate-900/20" },
-                                    { s: "reserved" as const, label: "Reserve Unit", activeLabel: "Unreserve Unit", icon: Clock, colors: "border-amber-200 dark:border-amber-900/60 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 dark:bg-slate-950/50", activeColors: "bg-amber-500 dark:bg-amber-600 hover:bg-amber-600 dark:hover:bg-amber-500 text-white border-amber-500 dark:border-amber-600 shadow-md dark:shadow-amber-900/20" },
-                                    { s: "sold" as const, label: "Mark as Sold", activeLabel: "Mark Unsold", icon: CircleDollarSign, colors: "border-red-200 dark:border-red-900/60 text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 dark:bg-slate-950/50", activeColors: "bg-red-600 dark:bg-red-600 hover:bg-red-700 dark:hover:bg-red-500 text-white border-red-600 shadow-md dark:shadow-red-900/20" },
-                                ].map(({ s, label, activeLabel, icon: Icon, colors, activeColors }) => {
-                                    const isActive = editingUnit?.status === s
-                                    const targetStatus = isActive && s !== "available" ? "available" : s
-                                    return (
-                                        <Button
-                                            key={s}
-                                            variant="outline"
-                                            onClick={() => handleUnitUpdate(targetStatus)}
-                                            className={`h-14 font-bold border-2 transition-all duration-300 rounded-xl ${isActive ? activeColors + ' ring-2 ring-offset-2 ring-offset-white dark:ring-offset-slate-950 scale-[1.02]' : colors + ' hover:scale-[1.02]'}`}
-                                        >
-                                            <Icon className={`mr-2 ${isActive ? 'h-5 w-5' : 'h-4 w-4 opacity-80'}`} />
-                                            {isActive ? activeLabel : label}
-                                        </Button>
-                                    )
-                                })}
-                            </div>
-                        </TabsContent>
-
-                        <TabsContent value="details" className="py-4 space-y-3 text-sm">
-                            {[
-                                { label: "Unit Number", value: editingUnit?.unitNumber },
-                                { label: "Floor", value: editingUnit?.floorNumber },
-                                { label: "Configuration", value: editingUnit?.configuration },
-                                { label: "Carpet Area", value: (editingUnit?.carpetArea || editingUnit?.area) ? `${editingUnit?.carpetArea || editingUnit?.area} sq.ft` : "—" },
-                                { label: "Built-Up Area", value: (editingUnit?.builtUpArea || (editingUnit?.area ? Math.round(editingUnit.area * 1.2) : 0)) ? `${editingUnit?.builtUpArea || Math.round((editingUnit?.area || 0) * 1.2)} sq.ft` : "—" },
-                                { label: "Rate/sqft", value: editingUnit?.ratePerSqft ? `₹${editingUnit.ratePerSqft.toLocaleString("en-IN")}` : "—" },
-                                { label: "Flat Price (Base)", value: editingUnit?.price ? new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(editingUnit.price) : "—" },
-                                { label: "GST (5%)", value: editingUnit?.price ? `+₹${Math.round(editingUnit.price * 0.05).toLocaleString("en-IN")}` : "—" },
-                                { label: "Stamp Duty (7%)", value: editingUnit?.price ? `+₹${Math.round(editingUnit.price * 0.07).toLocaleString("en-IN")}` : "—" },
-                                { label: "Registration Fees (1%)", value: editingUnit?.price ? `+₹${Math.round(editingUnit.price * 0.01).toLocaleString("en-IN")}` : "—" },
-                                { label: "All-Inclusive Price (Excl. Legal & Parking)", value: editingUnit?.price ? new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(Math.round(editingUnit.price * 1.13)) : "—" },
-                                ...(editingUnit?.facing ? [{ label: "Facing", value: editingUnit.facing }] : []),
-                            ].map(({ label, value }) => (
-                                <div key={label} className="flex justify-between py-2 border-b border-slate-100 dark:border-slate-800">
-                                    <span className="text-slate-500 text-sm">{label}</span>
-                                    <span className="font-semibold text-slate-900 dark:text-white">{String(value ?? "—")}</span>
-                                </div>
-                            ))}
-
-                            {editingUnit?.status === "sold" && (
-                                <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-xl p-3 space-y-2 mt-2">
-                                    <p className="text-xs font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Sale Record</p>
-                                    <div className="grid grid-cols-2 gap-1 text-xs">
-                                        <span className="text-slate-500">Customer</span>
-                                        <span className="font-semibold">{editingUnit.customerName || "—"}</span>
-                                        <span className="text-slate-500">Phone</span>
-                                        <span className="font-semibold">{editingUnit.customerPhone || "—"}</span>
-                                        <span className="text-slate-500">Booking Date</span>
-                                        <span className="font-semibold">{editingUnit.bookingDate ? new Date(editingUnit.bookingDate).toLocaleDateString("en-IN") : "—"}</span>
-                                        <span className="text-slate-500">Amount Paid</span>
-                                        <span className="font-semibold">{editingUnit.bookingAmount ? `₹${editingUnit.bookingAmount.toLocaleString("en-IN")}` : "—"}</span>
+                                {/* Section 3: Status Actions */}
+                                <div className="space-y-2 pt-1">
+                                    <Label className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">
+                                        Update Unit Status
+                                    </Label>
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                                        {[
+                                            { s: "available" as const, label: "Mark Available", activeLabel: "Available", icon: CheckCircle2, colors: "border-emerald-200 dark:border-emerald-900/60 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 bg-white dark:bg-slate-950", activeColors: "bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-500/20" },
+                                            { s: "blocked" as const, label: "Hold Unit", activeLabel: "On Hold", icon: Lock, colors: "border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/80 bg-white dark:bg-slate-950", activeColors: "bg-slate-700 text-white border-slate-700 shadow-md shadow-slate-500/20" },
+                                            { s: "reserved" as const, label: "Reserve Unit", activeLabel: "Reserved", icon: Clock, colors: "border-amber-200 dark:border-amber-900/60 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 bg-white dark:bg-slate-950", activeColors: "bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-500/20" },
+                                            { s: "sold" as const, label: "Mark as Sold", activeLabel: "Mark Unsold", icon: CircleDollarSign, colors: "border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 bg-white dark:bg-slate-950", activeColors: "bg-rose-600 text-white border-rose-600 shadow-md shadow-rose-500/20" },
+                                        ].map(({ s, label, activeLabel, icon: Icon, colors, activeColors }) => {
+                                            const isActive = editingUnit?.status === s;
+                                            const targetStatus = isActive && s !== "available" ? "available" : s;
+                                            return (
+                                                <Button
+                                                    key={s}
+                                                    variant="outline"
+                                                    onClick={() => handleUnitUpdate(targetStatus)}
+                                                    className={`h-11 font-bold text-xs border transition-all duration-200 rounded-xl cursor-pointer ${isActive ? activeColors + ' ring-2 ring-offset-1 ring-offset-white dark:ring-offset-slate-900' : colors}`}
+                                                >
+                                                    <Icon className={`mr-1.5 ${isActive ? 'h-4 w-4' : 'h-3.5 w-3.5 opacity-80'}`} />
+                                                    {isActive ? activeLabel : label}
+                                                </Button>
+                                            );
+                                        })}
                                     </div>
                                 </div>
-                            )}
-                        </TabsContent>
-                    </Tabs>
+                            </TabsContent>
+
+                            {/* Tab 2: Technical Specifications & Breakdown */}
+                            <TabsContent value="details" className="space-y-4 focus-visible:outline-none mt-0">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                    {[
+                                        { label: "Unit Number", value: getCleanUnitNum(editingUnit?.unitNumber) },
+                                        { label: "Floor", value: `${editingUnit?.floorNumber ?? "—"}` },
+                                        { label: "Configuration / Typology", value: editingUnit?.configuration || "—" },
+                                        { label: "Carpet Area", value: (editingUnit?.carpetArea || editingUnit?.area) ? `${editingUnit?.carpetArea || editingUnit?.area} sq.ft` : "—" },
+                                        { label: "Built-Up Area", value: (editingUnit?.builtUpArea || (editingUnit?.area ? Math.round(editingUnit.area * 1.2) : 0)) ? `${editingUnit?.builtUpArea || Math.round((editingUnit?.area || 0) * 1.2)} sq.ft` : "—" },
+                                        { label: "Rate / sq.ft", value: editingUnit?.ratePerSqft ? `₹${editingUnit.ratePerSqft.toLocaleString("en-IN")}` : "—" },
+                                        { label: "Flat Price (Base)", value: editingUnit?.price ? new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(editingUnit.price) : "—" },
+                                        { label: "GST (5%)", value: editingUnit?.price ? `+₹${Math.round(editingUnit.price * 0.05).toLocaleString("en-IN")}` : "—" },
+                                        { label: "Stamp Duty (7%)", value: editingUnit?.price ? `+₹${Math.round(editingUnit.price * 0.07).toLocaleString("en-IN")}` : "—" },
+                                        { label: "Registration Fees (1%)", value: editingUnit?.price ? `+₹${Math.round(editingUnit.price * 0.01).toLocaleString("en-IN")}` : "—" },
+                                        { label: "All-Inclusive Total", value: editingUnit?.price ? new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(Math.round(editingUnit.price * 1.13)) : "—" },
+                                        ...(editingUnit?.facing ? [{ label: "Facing", value: `${editingUnit.facing} (Vastu Compliant)` }] : []),
+                                    ].map(({ label, value }) => (
+                                        <div key={label} className="flex justify-between items-center p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/80">
+                                            <span className="text-xs text-slate-500 font-medium">{label}</span>
+                                            <span className="text-xs font-bold text-slate-900 dark:text-white">{String(value ?? "—")}</span>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {editingUnit?.status === "sold" && (
+                                    <div className="bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/50 rounded-xl p-4 space-y-2 mt-3">
+                                        <p className="text-xs font-black text-rose-700 dark:text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
+                                            <CheckCircle2 className="w-4 h-4" /> Verified Sale Record
+                                        </p>
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs pt-1">
+                                            <div>
+                                                <span className="text-slate-500 block text-[10px] uppercase font-bold">Buyer</span>
+                                                <span className="font-bold text-slate-900 dark:text-white">{editingUnit.customerName || "—"}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-slate-500 block text-[10px] uppercase font-bold">Phone</span>
+                                                <span className="font-bold text-slate-900 dark:text-white">{editingUnit.customerPhone || "—"}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-slate-500 block text-[10px] uppercase font-bold">Booking Date</span>
+                                                <span className="font-bold text-slate-900 dark:text-white">{editingUnit.bookingDate ? new Date(editingUnit.bookingDate).toLocaleDateString("en-IN") : "—"}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-slate-500 block text-[10px] uppercase font-bold">Token Paid</span>
+                                                <span className="font-bold text-emerald-600 dark:text-emerald-400">{editingUnit.bookingAmount ? `₹${editingUnit.bookingAmount.toLocaleString("en-IN")}` : "—"}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </TabsContent>
+                        </Tabs>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="px-6 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex justify-end">
+                        <Button variant="outline" size="sm" onClick={() => setEditingUnit(null)} className="h-9 px-4 text-xs font-bold">
+                            Close
+                        </Button>
+                    </div>
                 </DialogContent>
             </Dialog>
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import mongoose from 'mongoose';
 import dbConnect from '@/lib/db';
 import Property from '@/models/Property';
 import User from '@/models/User';
@@ -19,10 +20,10 @@ export async function GET(req: NextRequest) {
     }
 
     await dbConnect();
+    const Unit = mongoose.models.Unit || (await import('@/models/Unit')).default;
 
-    const properties = await Property.find({
+    const allProperties = await Property.find({
       isDeleted: { $ne: true },
-      $or: [{ parentId: null }, { parentId: { $exists: false } }],
     })
       .populate({
         path: 'builderId',
@@ -30,8 +31,54 @@ export async function GET(req: NextRequest) {
       })
       .sort({ createdAt: -1 })
       .lean();
+      
+    const allUnits = await Unit.find({}).lean();
 
-    const formattedProperties = properties.map((p: any) => {
+    const townships = allProperties.filter((p: any) => (!p.parentId || p.parentId === null) && p.type === 'township');
+    const standaloneProjects = allProperties.filter((p: any) => (!p.parentId || p.parentId === null) && p.type === 'project');
+    const standaloneTowers = allProperties.filter((p: any) => (!p.parentId || p.parentId === null) && p.type === 'tower');
+    
+    const childProjects = allProperties.filter((p: any) => p.parentId && p.type === 'project');
+    const childTowers = allProperties.filter((p: any) => p.parentId && p.type === 'tower');
+
+    const getUnitsForTower = (towerId: string) => {
+      return allUnits.filter((u: any) => u.towerId?.toString() === towerId || u.parentId?.toString() === towerId).map((u: any) => ({
+        id: u._id.toString(),
+        unitNumber: u.unitNumber,
+        floorNum: u.floorNumber || 1,
+        status: (u.status || 'available').toLowerCase(),
+        config: u.configuration || '',
+        price: u.price || 'N/A',
+        area: u.area || 'N/A',
+        carpet: u.carpetArea || 'N/A',
+        balcony: u.builtUpArea || 'N/A',
+        facing: u.facing || 'N/A',
+      }));
+    };
+
+    const formatTower = (t: any) => ({
+      id: t._id.toString(),
+      name: t.name,
+      desc: t.details?.description || 'Tower details',
+      status: t.status,
+      propertyUnits: getUnitsForTower(t._id.toString()), // the admin UI sometimes looks for units on towers
+      units: getUnitsForTower(t._id.toString())
+    });
+
+    const formatProject = (p: any) => {
+      const pTowers = childTowers.filter((t: any) => t.parentId?.toString() === p._id.toString());
+      return {
+        id: p._id.toString(),
+        name: p.name,
+        tag: p.details?.tag || 'Phase',
+        status: p.status,
+        towers: pTowers.map(formatTower)
+      };
+    };
+
+    const topLevelProps = [...townships, ...standaloneProjects, ...standaloneTowers];
+
+    const formattedProperties = topLevelProps.map((p: any) => {
       const builderUser = p.builderId || {};
       const bProfile = builderUser.builderId || {};
       const mProfile = builderUser.mandateId || {};
@@ -62,6 +109,19 @@ export async function GET(req: NextRequest) {
       }
 
       const userRole = (p.role || builderUser.role || (builderUser.mandateId ? 'mandate' : (p.mandateId ? 'mandate' : 'builder'))).toLowerCase();
+
+      // Attach projects / towers based on type
+      let projects: any[] | undefined = undefined;
+      let towers: any[] | undefined = undefined;
+      let propertyUnits: any[] | undefined = undefined;
+
+      if (p.type === 'township') {
+        projects = childProjects.filter((cp: any) => cp.parentId?.toString() === p._id.toString()).map(formatProject);
+      } else if (p.type === 'project') {
+        towers = childTowers.filter((ct: any) => ct.parentId?.toString() === p._id.toString()).map(formatTower);
+      } else if (p.type === 'tower') {
+        propertyUnits = getUnitsForTower(p._id.toString());
+      }
 
       return {
         id: p._id.toString(),
@@ -96,6 +156,9 @@ export async function GET(req: NextRequest) {
         submittedAt: p.submittedAt || p.createdAt,
         createdAt: p.createdAt,
         updatedAt: p.updatedAt,
+        projects,
+        towers,
+        propertyUnits
       };
     });
 

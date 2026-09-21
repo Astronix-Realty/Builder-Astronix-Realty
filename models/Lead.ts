@@ -124,6 +124,9 @@ const LeadSchema = new mongoose.Schema({
         }
     }],
     nextActionTime: { type: Date },
+    revenueStatus: { type: String, default: null, index: true },
+    invoiceDetails: { type: mongoose.Schema.Types.Mixed, default: null },
+    paymentProof: { type: mongoose.Schema.Types.Mixed, default: null },
     isArchived: { type: Boolean, default: false }
 }, { 
     timestamps: true 

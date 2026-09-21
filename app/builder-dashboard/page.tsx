@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, Suspense } from "react"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Plus, Building2, MapPin, DollarSign, ChevronRight, Edit2, Trash2, Home, Layers, Building, Eye, User, Save, Globe, Mail, Phone, FileText, Tag, Percent, Calendar, Clock, Gift, Paintbrush, Image as ImageIcon, LogOut, Settings, Menu, X, Palette, Bell, Shield, ShieldCheck, Lock, Headphones, Smartphone, MessageSquare, Users, Briefcase, Loader2, RefreshCw, Search } from "lucide-react"
+import { Plus, Building2, MapPin, DollarSign, ChevronRight, Edit2, Trash2, Home, Layers, Building, Eye, User, Save, Globe, Mail, Phone, FileText, Tag, Percent, Calendar, Clock, Gift, Paintbrush, Image as ImageIcon, LogOut, Settings, Menu, X, Palette, Bell, Shield, ShieldCheck, Lock, Headphones, Smartphone, MessageSquare, Users, Briefcase, Loader2, RefreshCw, Search, Receipt } from "lucide-react"
 import { toast } from "sonner"
 import BannerEditor from "@/components/BannerEditor"
 import { ImageUpload } from "@/components/ui/image-upload"
@@ -15,6 +15,7 @@ import { DocumentsView } from "@/components/builder/documents/documents-view"
 import { TeamView } from "@/components/builder/team/team-view"
 import { BlogView } from "@/components/builder/blog/blog-view"
 import { OffersView } from "@/components/builder/offers/offers-view"
+import { BillsView } from "@/components/builder/bills/bills-view"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import PropertyHierarchyModal, { HierarchyPropertyInfo } from "@/components/PropertyHierarchyModal"
 
@@ -70,11 +71,11 @@ interface Property {
 function DashboardContent() {
   const router = useRouter()
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [activeTab, setActiveTab] = useState<"properties" | "inventory" | "crm" | "crm2" | "chat" | "documents" | "offers" | "blog" | "settings" | "team">(() => {
+  const [activeTab, setActiveTab] = useState<"bills" | "properties" | "inventory" | "crm" | "crm2" | "chat" | "documents" | "offers" | "blog" | "settings" | "team">(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get("tab");
-      const validTabs = ["properties", "inventory", "crm", "crm2", "chat", "documents", "offers", "blog", "team", "settings"];
+      const validTabs = ["bills", "properties", "inventory", "crm", "crm2", "chat", "documents", "offers", "blog", "team", "settings"];
       if (tabParam && validTabs.includes(tabParam)) return tabParam as any;
       try {
         const stored = sessionStorage.getItem("builder_active_tab");
@@ -101,7 +102,7 @@ function DashboardContent() {
     return "published";
   })
 
-  const handleTabChange = (tab: "properties" | "inventory" | "crm" | "crm2" | "chat" | "documents" | "offers" | "blog" | "settings" | "team") => {
+  const handleTabChange = (tab: "bills" | "properties" | "inventory" | "crm" | "crm2" | "chat" | "documents" | "offers" | "blog" | "settings" | "team") => {
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
     if (typeof window !== "undefined") {
@@ -442,7 +443,12 @@ function DashboardContent() {
     }
 
     // Group Buying Extraction
-    const groupBuying = p.groupBuying || details?.groupBuying || details?.township?.groupBuying || undefined;
+    // Give priority to details.groupBuying since forms save it there, ignoring stale p.groupBuying overrides
+    const groupBuyingRaw = details?.groupBuying || p.groupBuying || details?.township?.groupBuying || undefined;
+    const groupBuying = groupBuyingRaw?.enabled ? { 
+      ...groupBuyingRaw, 
+      targetCount: Number(groupBuyingRaw.targetCount) > 0 ? Number(groupBuyingRaw.targetCount) : undefined 
+    } : undefined;
 
     return {
       id: p._id || p.id,
@@ -830,6 +836,13 @@ function DashboardContent() {
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           <button
+            onClick={() => handleTabChange("bills")}
+            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "bills" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 shadow-sm font-bold" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
+          >
+            <Receipt className="h-5 w-5" />
+            Bills
+          </button>
+          <button
             onClick={() => handleTabChange("properties")}
             className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "properties" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
           >
@@ -955,6 +968,7 @@ function DashboardContent() {
                 {/* Title */}
                 <div>
                   <h2 className="text-xl md:text-2xl font-bold text-slate-800 dark:text-white">
+                    {activeTab === "bills" && "Bills & Brokerage Invoices"}
                     {activeTab === "properties" && "Property Details"}
                     {activeTab === "inventory" && "Inventory Management"}
                     {activeTab === "crm" && "Astronix Leads and CRM"}
@@ -969,6 +983,7 @@ function DashboardContent() {
 
                   {/* Subtitle (Desktop only) */}
                   <p className="hidden md:block text-sm text-slate-500 dark:text-slate-400">
+                    {activeTab === "bills" && "Track official brokerage invoices issued by Admin for booked clients"}
                     {activeTab === "properties" && "Manage your real estate inventory"}
                     {activeTab === "inventory" && "Track unit status, sales, and availability"}
                     {activeTab === "crm" && "Manage leads, site visits, and bookings"}
@@ -1103,7 +1118,8 @@ function DashboardContent() {
 
 
         {/* Content Scroll Area */}
-        <div className={`flex-1 ${(activeTab === "documents" || activeTab === "crm" || activeTab === "crm2") ? "overflow-hidden flex flex-col h-full" : "overflow-y-auto"} ${activeTab === "blog" ? "p-0" : (activeTab === "crm" || activeTab === "crm2") ? "p-4 md:p-6" : "p-8"}`}>
+        <div className={`flex-1 ${(activeTab === "documents" || activeTab === "crm" || activeTab === "crm2") ? "overflow-hidden flex flex-col h-full" : "overflow-y-auto"} ${activeTab === "blog" ? "p-0" : (activeTab === "crm" || activeTab === "crm2") ? "p-4 md:p-6" : "p-4 md:p-8"}`}>
+          {activeTab === "bills" && <BillsView />}
           {activeTab === "inventory" && <InventoryView userRole={currentUser?.role || "builder"} />}
           {activeTab === "crm" && <CRMView userRole={currentUser?.role || "builder"} />}
           {activeTab === "crm2" && <CRMCloneView userRole={currentUser?.role || "builder"} />}
