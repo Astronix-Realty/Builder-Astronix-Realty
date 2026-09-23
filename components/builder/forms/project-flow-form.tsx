@@ -979,21 +979,40 @@ function ProjectFlowFormBase({ data, onChange, townshipName, townshipData, onTow
                   className="h-8 text-xs" 
                 />
               </Field>
-              <Field label="Minimum Participation to Trigger Discount" hint="Count of buyers to unlock base discount">
-                <Input 
-                  type="number" 
-                  value={townshipData.groupBuying?.targetCount !== undefined && townshipData.groupBuying?.targetCount !== null && Number(townshipData.groupBuying.targetCount) > 0 ? townshipData.groupBuying.targetCount : ""} 
-                  onChange={e => {
-                    const val = e.target.value.trim()
-                    updateCommon("groupBuying", { 
-                      ...townshipData.groupBuying, 
-                      targetCount: val === "" ? undefined : Number(val) 
-                    })
-                  }} 
-                  className="h-8 text-xs placeholder:text-gray-400 dark:placeholder:text-gray-500" 
-                  placeholder="10"
-                />
-              </Field>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Minimum (To Activate)" hint="Minimum buyers to unlock discount">
+                  <Input 
+                    type="number" 
+                    value={townshipData.groupBuying?.minTarget !== undefined && townshipData.groupBuying?.minTarget !== null && Number(townshipData.groupBuying.minTarget) > 0 ? townshipData.groupBuying.minTarget : ""} 
+                    onChange={e => {
+                      const val = e.target.value.trim()
+                      updateCommon("groupBuying", { 
+                        ...townshipData.groupBuying, 
+                        minTarget: val === "" ? undefined : Number(val) 
+                      })
+                    }} 
+                    className="h-8 text-xs placeholder:text-gray-400 dark:placeholder:text-gray-500" 
+                    placeholder="10"
+                  />
+                </Field>
+                <Field label="Maximum (Pool Limit)" hint="Maximum allowed in this group pool">
+                  <Input 
+                    type="number" 
+                    value={townshipData.groupBuying?.maxTarget !== undefined && townshipData.groupBuying?.maxTarget !== null && Number(townshipData.groupBuying.maxTarget) > 0 ? townshipData.groupBuying.maxTarget : ""} 
+                    onChange={e => {
+                      const val = e.target.value.trim()
+                      const numVal = val === "" ? undefined : Number(val)
+                      updateCommon("groupBuying", { 
+                        ...townshipData.groupBuying, 
+                        maxTarget: numVal,
+                        targetCount: numVal // Kept for backwards compatibility
+                      })
+                    }} 
+                    className="h-8 text-xs placeholder:text-gray-400 dark:placeholder:text-gray-500" 
+                    placeholder="50"
+                  />
+                </Field>
+              </div>
               <Field label="Deal Expiration / Live Until" hint="Countdown timer shown to buyers on unit card">
                 <Input 
                   type="datetime-local" 

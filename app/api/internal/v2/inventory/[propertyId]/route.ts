@@ -571,7 +571,7 @@ export async function GET(
     const { propertyId } = await params;
     
     const secret = req.headers.get('x-internal-secret');
-    const expectedSecret = process.env.INTERNAL_API_SECRET || 'astronix-internal-2026-xK9mN3pQ';
+    const expectedSecret = process.env.INTERNAL_API_SECRET;
 
     if (!secret || secret !== expectedSecret) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

@@ -339,8 +339,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     await dbConnect();
 
-    // Only allow specific safe PATCH updates, primarily status transitions like "Move to Draft"
-    const allowedFields = ["status"];
+    // Only allow specific safe PATCH updates, primarily status transitions like "Move to Draft" and quick inline updates like "groupBuying"
+    const allowedFields = ["status", "groupBuying"];
     const updateData: any = { updatedBy: context!.userId };
     
     for (const key of Object.keys(body)) {
@@ -352,7 +352,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const property = await Property.findOneAndUpdate(
       { _id: id, ...getOwnershipQuery(context!), isDeleted: { $ne: true } },
       { $set: updateData },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true, strict: false }
     );
     if (!property) {
       return NextResponse.json({ error: "Property not found or unauthorized" }, { status: 404 });

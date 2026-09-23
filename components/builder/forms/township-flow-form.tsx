@@ -947,21 +947,40 @@ function TownshipFlowFormBase({ data, onChange, user }: TownshipFlowFormProps) {
               placeholder="Extra 2% off on group booking" 
             />
           </Field>
-          <Field label="Minimum Participation to Trigger Discount" hint="Count of buyers to unlock base discount">
-            <Input 
-              type="number" 
-              value={data.groupBuying?.targetCount !== undefined && data.groupBuying?.targetCount !== null && Number(data.groupBuying.targetCount) > 0 ? data.groupBuying.targetCount : ""} 
-              onChange={e => {
-                const val = e.target.value.trim()
-                update("groupBuying", { 
-                  ...data.groupBuying, 
-                  targetCount: val === "" ? undefined : Number(val) 
-                })
-              }} 
-              placeholder="10" 
-              className="placeholder:text-gray-400 dark:placeholder:text-gray-500"
-            />
-          </Field>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Minimum (To Activate)" hint="Minimum buyers to unlock discount">
+              <Input 
+                type="number" 
+                value={data.groupBuying?.minTarget !== undefined && data.groupBuying?.minTarget !== null && Number(data.groupBuying.minTarget) > 0 ? data.groupBuying.minTarget : ""} 
+                onChange={e => {
+                  const val = e.target.value.trim()
+                  update("groupBuying", { 
+                    ...data.groupBuying, 
+                    minTarget: val === "" ? undefined : Number(val) 
+                  })
+                }} 
+                placeholder="10" 
+                className="h-8 text-xs placeholder:text-gray-400 dark:placeholder:text-gray-500"
+              />
+            </Field>
+            <Field label="Maximum (Pool Limit)" hint="Maximum allowed in this group pool">
+              <Input 
+                type="number" 
+                value={data.groupBuying?.maxTarget !== undefined && data.groupBuying?.maxTarget !== null && Number(data.groupBuying.maxTarget) > 0 ? data.groupBuying.maxTarget : ""} 
+                onChange={e => {
+                  const val = e.target.value.trim()
+                  const numVal = val === "" ? undefined : Number(val)
+                  update("groupBuying", { 
+                    ...data.groupBuying, 
+                    maxTarget: numVal,
+                    targetCount: numVal // Kept for backwards compatibility
+                  })
+                }} 
+                placeholder="50" 
+                className="h-8 text-xs placeholder:text-gray-400 dark:placeholder:text-gray-500"
+              />
+            </Field>
+          </div>
           <Field label="Deal Expiration / Live Until" hint="Countdown timer shown to buyers on unit card">
             <Input 
               type="datetime-local" 

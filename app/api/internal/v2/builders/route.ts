@@ -11,7 +11,7 @@ const _models = [Builder, Mandate];
 export async function GET(req: NextRequest) {
   try {
     const secret = req.headers.get('x-internal-secret');
-    const expectedSecret = process.env.INTERNAL_API_SECRET || 'astronix_realty_secure_internal_api_secret_2026';
+    const expectedSecret = process.env.INTERNAL_API_SECRET;
 
     if (!secret || secret !== expectedSecret) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

@@ -18,6 +18,7 @@ import { OffersView } from "@/components/builder/offers/offers-view"
 import { BillsView } from "@/components/builder/bills/bills-view"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import PropertyHierarchyModal, { HierarchyPropertyInfo } from "@/components/PropertyHierarchyModal"
+import GroupBuyingQuickEdit from "@/components/builder/group-buying-quick-edit"
 
 interface MandateProfile {
   companyName: string
@@ -780,6 +781,12 @@ function DashboardContent() {
     }
   }
 
+  const handleUpdateGroupBuying = (propertyId: string, newGroupBuyingData: any) => {
+    setProperties(prev => prev.map(p => 
+      p.id === propertyId ? { ...p, groupBuying: newGroupBuyingData } : p
+    ))
+  }
+
   // Show loading while checking auth
   if (isLoading || !currentUser) {
     return (
@@ -1347,30 +1354,11 @@ function DashboardContent() {
                       </div>
 
                       {/* Group Buying Strip */}
-                      {property.groupBuying?.enabled && (
-                        <div className="px-5 pb-1">
-                          <div className="flex items-center gap-2 bg-purple-50 dark:bg-purple-950/30 p-2.5 rounded-lg border border-purple-200/60 dark:border-purple-800/40">
-                            <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/60 flex items-center justify-center shrink-0">
-                              <Users className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] font-extrabold text-purple-700 dark:text-purple-400 uppercase tracking-wider">Group Buying</span>
-                                <span className="px-1.5 py-0.5 rounded bg-purple-500 text-white text-[8px] font-black uppercase tracking-wider animate-pulse">Active</span>
-                              </div>
-                              <p className="text-[10px] text-purple-600 dark:text-purple-300 font-semibold truncate mt-0.5">
-                                {property.groupBuying.discountLabel || 'Group discount available'}
-                                {property.groupBuying.targetCount ? ` · ${property.groupBuying.targetCount}+ buyers` : ''}
-                              </p>
-                            </div>
-                            {property.groupBuying.endDate && (
-                              <span className="text-[9px] font-bold text-purple-500 dark:text-purple-400 shrink-0 whitespace-nowrap">
-                                Ends {new Date(property.groupBuying.endDate).toLocaleDateString()}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      )}
+                      <GroupBuyingQuickEdit 
+                        propertyId={property.id} 
+                        initialData={property.groupBuying || { enabled: false }}
+                        onUpdate={handleUpdateGroupBuying}
+                      />
 
                       <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/40">
                         <div className={`grid gap-4 text-center ${property.flowType === 'township' ? 'grid-cols-3' :

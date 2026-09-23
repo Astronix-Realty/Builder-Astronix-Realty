@@ -61,7 +61,7 @@ const BlogSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ["builder", "mandate"],
+    enum: ["builder", "mandate", "admin"],
     default: "builder",
     index: true
   },
