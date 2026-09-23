@@ -745,13 +745,13 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
                         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
                             <Wand2 className="h-4 w-4 text-white" />
                         </div>
-                        <span className="text-white font-bold">Pro Banner Studio</span>
+                        <span className="text-white font-bold text-sm sm:text-base truncate max-w-[130px] sm:max-w-none">Banner Studio</span>
                     </div>
 
-                    <div className="h-6 w-px bg-slate-700" />
+                    <div className="h-6 w-px bg-slate-700 hidden md:block" />
 
                     {/* Undo/Redo */}
-                    <div className="flex items-center gap-1">
+                    <div className="hidden md:flex items-center gap-1">
                         <button onClick={undo} disabled={historyIndex <= 0} className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg disabled:opacity-30 transition-all">
                             <Undo className="h-4 w-4" />
                         </button>
@@ -760,10 +760,10 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
                         </button>
                     </div>
 
-                    <div className="h-6 w-px bg-slate-700" />
+                    <div className="h-6 w-px bg-slate-700 hidden md:block" />
 
                     {/* Zoom */}
-                    <div className="flex items-center gap-2 bg-slate-800 rounded-lg px-2 py-1">
+                    <div className="hidden md:flex items-center gap-2 bg-slate-800 rounded-lg px-2 py-1">
                         <button onClick={() => handleZoom(-10)} className="p-1 text-slate-400 hover:text-white transition-colors">
                             <ZoomOut className="h-4 w-4" />
                         </button>
@@ -774,20 +774,21 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3">
                     <button
                         onClick={handleDownload}
-                        className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
+                        className="px-3 sm:px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium flex items-center gap-1.5 sm:gap-2 transition-colors text-xs sm:text-sm"
                     >
                         <Download className="h-4 w-4" />
-                        Download
+                        <span className="hidden sm:inline">Download</span>
                     </button>
                     <button
                         onClick={handleSave}
-                        className="px-5 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-lg font-bold flex items-center gap-2 transition-all shadow-lg"
+                        className="px-3 sm:px-5 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-lg font-bold flex items-center gap-1.5 sm:gap-2 transition-all shadow-lg text-xs sm:text-sm"
                     >
                         <Sparkles className="h-4 w-4" />
-                        Save & Use
+                        <span>Save</span>
+                        <span className="hidden sm:inline">& Use</span>
                     </button>
                     <button onClick={onClose} className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-all">
                         <X className="h-5 w-5" />
@@ -795,9 +796,9 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
                 </div>
             </div>
 
-            <div className="flex-1 flex overflow-hidden">
+            <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
                 {/* Left Panel - Tools */}
-                <div className="w-80 bg-slate-900 border-r border-slate-800 flex flex-col">
+                <div className="w-full lg:w-80 max-h-[38vh] lg:max-h-none order-2 lg:order-1 bg-slate-900 border-t lg:border-t-0 lg:border-r border-slate-800 flex flex-col shrink-0">
                     {/* Tabs */}
                     <div className="flex border-b border-slate-800">
                         {[
@@ -1049,7 +1050,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
                 </div>
 
                 {/* Canvas Area */}
-                <div className="flex-1 bg-slate-950 flex items-center justify-center overflow-auto p-8 relative">
+                <div className="flex-1 order-1 lg:order-2 bg-slate-950 flex items-center justify-center overflow-auto p-3 sm:p-8 relative min-h-[35vh]">
                     {/* Grid overlay */}
                     {showGrid && (
                         <div
@@ -1077,7 +1078,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
                 </div>
 
                 {/* Right Panel - Layers */}
-                <div className="w-64 bg-slate-900 border-l border-slate-800 flex flex-col">
+                <div className="hidden lg:flex w-64 bg-slate-900 border-l border-slate-800 flex-col order-3 shrink-0">
                     <div className="p-4 border-b border-slate-800">
                         <h3 className="text-white font-semibold text-sm flex items-center gap-2">
                             <Layers className="h-4 w-4 text-purple-400" />

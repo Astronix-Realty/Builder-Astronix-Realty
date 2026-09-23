@@ -71,12 +71,45 @@
 
 @layer utilities {
   .text-shadow { text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5); }
-  .hide-scrollbar::-webkit-scrollbar { display: none; }
-  .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .hide-scrollbar::-webkit-scrollbar,
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .hide-scrollbar,
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
   .animate-fade-in-up { animation: fadeInUp 0.8s ease-out forwards; }
+  
+  /* Safe Area Insets for Mobile/Android Edge-to-Edge */
+  .pb-safe { padding-bottom: max(16px, env(safe-area-inset-bottom, 16px)); }
+  .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+  .bottom-nav-safe { padding-bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px)); }
+  
+  /* Bottom Sheet Animations */
+  .animate-slide-up-sheet {
+    animation: slideUpSheet 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .animate-backdrop-fade {
+    animation: sheetBackdropFade 0.2s ease-out forwards;
+  }
+}
+
+/* Native Android/Mobile Touch Optimizations */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+button, a, input, select, textarea {
+  touch-action: manipulation;
 }
 
 @keyframes fadeInUp {
   from { transform: translateY(40px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slideUpSheet {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes sheetBackdropFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }

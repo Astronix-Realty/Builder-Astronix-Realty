@@ -44,6 +44,7 @@ interface Unit {
 
 export function DocumentsView() {
     const [activeDoc, setActiveDoc] = useState<DocType>("cost-sheet")
+    const [mobileDocTab, setMobileDocTab] = useState<'editor' | 'preview'>('editor')
     const [loadingData, setLoadingData] = useState(false)
 
     // Current logged-in user & repository states
@@ -553,9 +554,37 @@ export function DocumentsView() {
     }, [repositoryFiles, fileSearchQuery])
 
     return (
-        <div className="h-full max-h-full flex flex-col lg:flex-row gap-6 p-1 max-w-[1600px] w-full mx-auto print:p-0 overflow-hidden">
+        <div className="h-full max-h-full flex flex-col lg:flex-row gap-4 lg:gap-6 p-1 sm:p-2 lg:p-1 max-w-[1600px] w-full mx-auto print:p-0 overflow-y-auto lg:overflow-hidden pb-24 lg:pb-0">
+            {/* Mobile View Mode Switcher (Editor vs Live Preview) */}
+            <div className="flex lg:hidden items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl shrink-0 gap-1 print:hidden">
+                <button
+                    type="button"
+                    onClick={() => setMobileDocTab('editor')}
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                        mobileDocTab === 'editor'
+                            ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
+                            : 'text-slate-600 dark:text-slate-400'
+                    }`}
+                >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>Edit Form</span>
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setMobileDocTab('preview')}
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                        mobileDocTab === 'preview'
+                            ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
+                            : 'text-slate-600 dark:text-slate-400'
+                    }`}
+                >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>Live Preview</span>
+                </button>
+            </div>
+
             {/* Left Control Panel / Editor (Hidden on Print) */}
-            <div className="w-full lg:w-[420px] flex flex-col gap-4 pr-1 shrink-0 h-full max-h-full print:hidden overflow-y-auto pb-6">
+            <div className={`w-full lg:w-[420px] flex-col gap-4 pr-1 shrink-0 h-full max-h-full print:hidden overflow-y-auto pb-6 ${mobileDocTab === 'editor' ? 'flex' : 'hidden lg:flex'}`}>
                 
                 {/* Selector Header */}
                 <Card className="border-slate-200 dark:border-slate-800 shadow-sm shrink-0">
@@ -1151,7 +1180,7 @@ export function DocumentsView() {
             </div>
 
             {/* Right Live Document Preview Container */}
-            <div className="flex-1 bg-slate-100 dark:bg-slate-950/60 rounded-2xl p-6 overflow-y-auto shadow-inner flex justify-center items-start print:bg-white print:p-0 print:shadow-none h-full max-h-full border dark:border-slate-900">
+            <div className={`flex-1 bg-slate-100 dark:bg-slate-950/60 rounded-2xl p-2 sm:p-6 overflow-y-auto shadow-inner justify-center items-start print:bg-white print:p-0 print:shadow-none h-full max-h-full border dark:border-slate-900 ${mobileDocTab === 'preview' ? 'flex' : 'hidden lg:flex'}`}>
                 {activeDoc === "repository" ? (
                     <div className="h-full w-full flex flex-col p-6 overflow-hidden">
                         <div className="flex justify-between items-center mb-6 shrink-0">
@@ -1216,7 +1245,7 @@ export function DocumentsView() {
                         </div>
                     </div>
                 ) : (
-                    <div className="w-[210mm] min-h-[297mm] bg-white text-slate-900 shadow-2xl p-12 flex flex-col text-sm relative print:shadow-none print:p-4 print:w-full print:min-h-0 print:bg-transparent">
+                    <div className="w-full max-w-[210mm] min-h-[297mm] bg-white text-slate-900 shadow-2xl p-4 sm:p-8 lg:p-12 flex flex-col text-sm relative print:shadow-none print:p-4 print:w-full print:min-h-0 print:bg-transparent">
                         
                         {/* Printable CSS wrapper */}
                         <style dangerouslySetInnerHTML={{__html: `

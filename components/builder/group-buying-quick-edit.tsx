@@ -76,10 +76,10 @@ export default function GroupBuyingQuickEdit({ propertyId, initialData, onUpdate
             )}
           </div>
           
-          {/* Edit Button (Visible on Hover) */}
+          {/* Edit Button (Always visible on mobile/touch, hover on desktop lg+) */}
           <button 
             onClick={() => setIsEditing(true)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-white dark:bg-slate-800 rounded shadow border border-slate-200 dark:border-slate-700 opacity-0 group-hover/gb:opacity-100 transition-opacity hover:bg-slate-50"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-white dark:bg-slate-800 rounded-lg shadow border border-slate-200 dark:border-slate-700 opacity-100 lg:opacity-0 lg:group-hover/gb:opacity-100 transition-opacity hover:bg-slate-50 min-w-[36px] min-h-[36px] flex items-center justify-center"
             title="Edit Group Buying"
           >
             <Edit2 className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" />

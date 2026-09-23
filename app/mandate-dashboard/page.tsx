@@ -19,6 +19,7 @@ import { BillsView } from "@/components/builder/bills/bills-view"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import PropertyHierarchyModal, { HierarchyPropertyInfo } from "@/components/PropertyHierarchyModal"
 import GroupBuyingQuickEdit from "@/components/builder/group-buying-quick-edit"
+import { MobileBottomNav } from "@/components/builder/shared/MobileBottomNav"
 
 interface MandateProfile {
   companyName: string
@@ -801,18 +802,9 @@ function DashboardContent() {
 
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 dark:text-slate-100 overflow-hidden transition-colors duration-300">
-      {/* Mobile Sidebar Overlay */}
-      {isMobileMenuOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-30 md:hidden"
-          onClick={() => setIsMobileMenuOpen(false)}
-        />
-      )}
-
-      {/* Sidebar - RESPONSIVE (Drawer on Mobile, Fixed on Desktop) */}
+      {/* Desktop Sidebar - Strictly locked to lg:flex lg:w-72 lg:static. Hidden on mobile/tablet */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col shadow-xl transition-all duration-300 ease-in-out md:translate-x-0 md:static ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
+        className="hidden lg:flex w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex-col shadow-xl static z-30 shrink-0"
       >
         <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           {/* Branding */}
@@ -952,22 +944,62 @@ function DashboardContent() {
       <main className="flex-1 flex flex-col overflow-hidden bg-slate-50/50 dark:bg-slate-950 relative transition-colors duration-300">
         {/* Top Header - Contextual */}
         {activeTab !== "blog" && (
-          <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 md:px-8 py-4 sticky top-0 z-10">
-            {/* TOP ROW */}
-            <div className="flex items-center justify-between">
+          <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3.5 sm:px-6 lg:px-8 py-3 lg:py-4 sticky top-0 z-10">
+            {/* MOBILE & TABLET APP BAR (<lg) */}
+            <div className="lg:hidden flex items-center justify-between pb-1">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-[#050b18] border border-slate-700/50 flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+                  <img src="/astronix-logo.png" alt="Astronix" className="w-full h-full object-cover" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white truncate leading-tight">
+                    {activeTab === "bills" && "Bills & Brokerage"}
+                    {activeTab === "properties" && "Properties"}
+                    {activeTab === "inventory" && "Inventory"}
+                    {activeTab === "crm" && "Astronix Leads"}
+                    {activeTab === "crm2" && "Our Leads"}
+                    {activeTab === "chat" && "Communications"}
+                    {activeTab === "documents" && "Documents"}
+                    {activeTab === "offers" && "Offers"}
+                    {activeTab === "team" && "Team"}
+                    {activeTab === "settings" && "Settings"}
+                  </h2>
+                  <p className="text-[10px] text-purple-600 dark:text-purple-400 font-semibold uppercase tracking-wider truncate">
+                    {currentUser?.profile?.developerName || currentUser?.profile?.companyName || "Mandate Panel"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Right Mobile Actions */}
+              <div className="flex items-center gap-2 shrink-0">
+                {activeTab === "properties" && (
+                  <button
+                    onClick={() => setShowAddProperty(prev => !prev)}
+                    className="flex items-center justify-center gap-1.5 h-9 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm active:scale-95 transition-all"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>Add</span>
+                  </button>
+                )}
+                {activeTab === "settings" && activeSettingsTab === "profile" && (
+                  <button
+                    onClick={handleSaveProfile}
+                    disabled={isSavingProfile}
+                    className="flex items-center justify-center gap-1.5 h-9 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm disabled:opacity-50 active:scale-95 transition-all"
+                  >
+                    {isSavingProfile ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    <span>Save</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* DESKTOP HEADER (lg+) - 100% UNCHANGED */}
+            <div className="hidden lg:flex items-center justify-between">
               {/* LEFT */}
               <div className="flex items-center gap-4">
-                {/* Mobile Hamburger */}
-                <button
-                  onClick={() => setIsMobileMenuOpen(true)}
-                  className="md:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg"
-                >
-                  <Menu className="h-6 w-6" />
-                </button>
-
-                {/* Title */}
                 <div>
-                  <h2 className="text-xl md:text-2xl font-bold text-slate-800 dark:text-white">
+                  <h2 className="text-2xl font-bold text-slate-800 dark:text-white">
                     {activeTab === "bills" && "Bills & Brokerage Invoices"}
                     {activeTab === "properties" && "Property Details"}
                     {activeTab === "inventory" && "Inventory Management"}
@@ -979,9 +1011,7 @@ function DashboardContent() {
                     {activeTab === "team" && "Team Management"}
                     {activeTab === "settings" && "Profile & Settings"}
                   </h2>
-
-                  {/* Subtitle (Desktop only) */}
-                  <p className="hidden md:block text-sm text-slate-500 dark:text-slate-400">
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
                     {activeTab === "bills" && "Track official brokerage invoices issued by Admin for booked clients"}
                     {activeTab === "properties" && "Manage your real estate inventory"}
                     {activeTab === "inventory" && "Track unit status, sales, and availability"}
@@ -998,7 +1028,7 @@ function DashboardContent() {
 
               {/* CENTER – DESKTOP ONLY */}
               {activeTab === "properties" && (
-                <div className="hidden md:flex items-center gap-6 text-sm font-medium absolute left-1/2 -translate-x-1/2">
+                <div className="flex items-center gap-6 text-sm font-medium absolute left-1/2 -translate-x-1/2">
                   <button
                     onClick={() => handleFilterChange("published")}
                     className={`pb-1 transition-colors ${propertyFilter === "published"
@@ -1008,7 +1038,6 @@ function DashboardContent() {
                   >
                     Published ({properties.filter(p => p.status === "published").length})
                   </button>
-
                   <button
                     onClick={() => handleFilterChange("pending")}
                     className={`pb-1 transition-colors ${propertyFilter === "pending"
@@ -1018,7 +1047,6 @@ function DashboardContent() {
                   >
                     Pending ({properties.filter(p => p.status === "pending").length})
                   </button>
-
                   <button
                     onClick={() => handleFilterChange("draft")}
                     className={`pb-1 transition-colors ${propertyFilter === "draft"
@@ -1028,7 +1056,6 @@ function DashboardContent() {
                   >
                     Drafts ({properties.filter(p => p.status === "draft").length})
                   </button>
-
                   <button
                     onClick={() => handleFilterChange("rejected")}
                     className={`pb-1 transition-colors ${propertyFilter === "rejected"
@@ -1046,20 +1073,17 @@ function DashboardContent() {
                 {activeTab === "properties" && (
                   <button
                     onClick={() => setShowAddProperty(prev => !prev)}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm"
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm transition-all"
                   >
                     <Plus className="h-5 w-5" />
-                    <span className="sm:hidden">Add </span>
-                    <span className="hidden sm:inline">Add Property</span>
+                    <span>Add Property</span>
                   </button>
                 )}
-
-
                 {activeTab === "settings" && activeSettingsTab === "profile" && (
                   <button
                     onClick={handleSaveProfile}
                     disabled={isSavingProfile}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm disabled:opacity-50"
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm disabled:opacity-50 transition-all"
                   >
                     {isSavingProfile ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
                     <span>Save Profile</span>
@@ -1068,45 +1092,56 @@ function DashboardContent() {
               </div>
             </div>
 
-            {/* MOBILE FILTERS (BOTTOM ROW) */}
+            {/* MOBILE FILTER PILLS - Swipeable (<lg) */}
             {activeTab === "properties" && (
-              <div className="md:hidden mt-4 flex gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+              <div className="lg:hidden mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1 -mx-3.5 px-3.5">
                 <button
                   onClick={() => handleFilterChange("published")}
-                  className={`flex-1 py-2 text-sm rounded-md font-medium transition ${propertyFilter === "published"
-                    ? "bg-white dark:bg-slate-900 text-blue-600 shadow"
-                    : "text-slate-600 dark:text-slate-400"
-                    }`}
+                  className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                    propertyFilter === "published"
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                  }`}
                 >
                   Published ({properties.filter(p => p.status === "published").length})
                 </button>
-
                 <button
                   onClick={() => handleFilterChange("pending")}
-                  className={`flex-1 py-2 text-sm rounded-md font-medium transition ${propertyFilter === "pending"
-                    ? "bg-white dark:bg-slate-900 text-blue-600 shadow"
-                    : "text-slate-600 dark:text-slate-400"
-                    }`}
+                  className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                    propertyFilter === "pending"
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                  }`}
                 >
                   Pending ({properties.filter(p => p.status === "pending").length})
                 </button>
-
                 <button
                   onClick={() => handleFilterChange("draft")}
-                  className={`flex-1 py-2 text-sm rounded-md font-medium transition ${propertyFilter === "draft"
-                    ? "bg-white dark:bg-slate-900 text-blue-600 shadow"
-                    : "text-slate-600 dark:text-slate-400"
-                    }`}
+                  className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                    propertyFilter === "draft"
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                  }`}
                 >
                   Drafts ({properties.filter(p => p.status === "draft").length})
+                </button>
+                <button
+                  onClick={() => handleFilterChange("rejected")}
+                  className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                    propertyFilter === "rejected"
+                      ? "bg-rose-600 text-white shadow-sm"
+                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                  }`}
+                >
+                  Rejected ({properties.filter(p => p.status === "rejected").length})
                 </button>
               </div>
             )}
           </header>
         )}
 
-        {/* Content Scroll Area */}
-        <div className={`flex-1 ${(activeTab === "documents" || activeTab === "crm" || activeTab === "crm2") ? "overflow-hidden flex flex-col h-full" : "overflow-y-auto"} ${activeTab === "blog" ? "p-0" : (activeTab === "crm" || activeTab === "crm2") ? "p-4 md:p-6" : "p-4 md:p-8"}`}>
+        {/* Content Scroll Area - with pb-24 on mobile so bottom nav never cuts off content */}
+        <div className={`flex-1 pb-24 lg:pb-0 ${(activeTab === "documents" || activeTab === "crm" || activeTab === "crm2") ? "overflow-hidden flex flex-col h-full" : "overflow-y-auto"} ${activeTab === "blog" ? "p-0" : (activeTab === "crm" || activeTab === "crm2") ? "p-2.5 sm:p-4 lg:p-6" : "p-3 sm:p-5 lg:p-8"}`}>
           {activeTab === "bills" && <BillsView />}
           {activeTab === "inventory" && <InventoryView userRole={currentUser?.role || "mandate"} />}
           {activeTab === "crm" && <CRMView userRole={currentUser?.role || "mandate"} />}
@@ -2000,6 +2035,15 @@ function DashboardContent() {
         isOpen={!!selectedPropertyForHierarchy}
         onClose={() => setSelectedPropertyForHierarchy(null)}
         property={selectedPropertyForHierarchy}
+      />
+
+      {/* Native Mobile Bottom Navigation (lg:hidden) */}
+      <MobileBottomNav
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        currentUser={currentUser}
+        onLogout={handleLogout}
+        userRole="mandate"
       />
     </div>
   )

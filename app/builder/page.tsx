@@ -1567,32 +1567,49 @@ function BuilderContent() {
         </button>
       )}
       
-      {/* Mobile Floating Actions (Visible only on small screens) */}
-      <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-50 sm:hidden">
-        <button
-          onClick={prevStep}
-          disabled={state.currentStep === minStep}
-          className="p-3 rounded-full bg-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-200 text-slate-700 disabled:opacity-0 disabled:pointer-events-none transition-all"
-        >
-          <ChevronLeft className="w-6 h-6" />
-        </button>
-        
-        {!isReviewStep ? (
-          <button
-            onClick={nextStep}
-            className="p-4 rounded-full bg-[#1A3C8C] text-white shadow-[0_8px_30px_rgba(26,60,140,0.4)] transition-all"
-          >
-            <ChevronRight className="w-7 h-7" />
-          </button>
-        ) : (
-          <button
-            onClick={handleCreate}
-            disabled={isCreating}
-            className="p-4 rounded-full bg-[#2BB673] text-white shadow-[0_8px_30px_rgba(43,182,115,0.4)] transition-all disabled:opacity-50"
-          >
-            {isCreating ? <span className="w-7 h-7 flex items-center justify-center text-xs">...</span> : <Check className="w-7 h-7" />}
-          </button>
-        )}
+      {/* Mobile Sticky Bottom Action Bar (Native App Style) */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 p-3 sm:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.08)] pb-safe">
+        <div className="flex items-center gap-2 max-w-lg mx-auto">
+          {state.currentStep > minStep && (
+            <button
+              type="button"
+              onClick={prevStep}
+              className="h-12 px-4 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center gap-1 active:scale-95 transition-all"
+            >
+              <ChevronLeft className="w-4 h-4" /> Back
+            </button>
+          )}
+
+          {!isReviewStep ? (
+            <button
+              type="button"
+              onClick={nextStep}
+              className="flex-1 h-12 rounded-xl bg-[#1A3C8C] hover:bg-blue-700 text-white font-bold text-sm shadow-md shadow-blue-900/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+            >
+              <span>Save & Continue</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleCreate}
+              disabled={isCreating}
+              className="flex-1 h-12 rounded-xl bg-[#2BB673] hover:bg-emerald-600 text-white font-bold text-sm shadow-md shadow-emerald-900/20 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {isCreating ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Creating Entities...</span>
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4" />
+                  <span>Submit & Publish All</span>
+                </>
+              )}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )

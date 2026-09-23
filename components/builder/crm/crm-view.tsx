@@ -334,6 +334,8 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
     const [boardPendingFollowUp, setBoardPendingFollowUp] = useState("")
     const [extraFields, setExtraFields] = useState<any>({})
     const [boardExtraFields, setBoardExtraFields] = useState<any>({})
+    const [mobileActiveStage, setMobileActiveStage] = useState<LeadStatus>("Fresh")
+    const [mobileStagePickerLead, setMobileStagePickerLead] = useState<Lead | null>(null)
 
     // Group Actions Dialog States
     const [isSplitGroupOpen, setIsSplitGroupOpen] = useState(false)
@@ -1040,64 +1042,79 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
     // --- PIPELINE VIEW ---
     const PipelineBoard = () => {
         const allColumns: LeadStatus[] = ["Fresh", "Token VIP", "Connected", "Site Visit", "Negotiation", "Final Negotiation", "Booked", "Junk"]
+        const activeStageLeads = filteredLeads.filter(l => l.status === mobileActiveStage)
 
         return (
-            <div className="h-full overflow-x-auto pb-4">
-                <div className="flex gap-4 min-w-[1200px] h-full">
-                    {allColumns.map(col => (
-                        <div
-                            key={col}
-                            className="w-72 flex-shrink-0 flex flex-col bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800"
-                            onDragOver={(e) => e.preventDefault()}
-                            onDrop={(e) => handleDrop(e, col)}
-                        >
-                            {/* Column Header */}
-                            <div className={`p-3 border-b flex justify-between items-center rounded-t-xl
-                                ${col === "Token VIP" ? "bg-amber-100 dark:bg-amber-900/40 border-amber-200" : "bg-white dark:bg-slate-900"}
-                            `}>
-                                <div className="flex items-center gap-2 flex-shrink-0">
-                                    <span className="font-semibold text-sm">{col === 'Junk' ? 'Not Interested' : col}</span>
-                                    <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
-                                        {filteredLeads.filter(l => l.status === col).length}
-                                    </Badge>
+            <div className="h-full flex flex-col">
+                {/* MOBILE VIEW (<lg): Horizontal swipeable stage pills + Stacked native cards */}
+                <div className="lg:hidden flex flex-col h-full overflow-hidden">
+                    {/* Horizontal Swipeable Stage Pills */}
+                    <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-2 px-1 shrink-0 border-b border-slate-200/80 dark:border-slate-800">
+                        {allColumns.map(col => {
+                            const count = filteredLeads.filter(l => l.status === col).length
+                            const isSelected = mobileActiveStage === col
+                            const isTokenVip = col === "Token VIP"
+                            return (
+                                <button
+                                    key={col}
+                                    type="button"
+                                    onClick={() => setMobileActiveStage(col)}
+                                    className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all min-h-[36px] ${
+                                        isSelected
+                                            ? isTokenVip 
+                                                ? "bg-amber-500 text-white shadow-sm"
+                                                : "bg-blue-600 text-white shadow-sm"
+                                            : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                                    }`}
+                                >
+                                    {isTokenVip && <Crown className="h-3.5 w-3.5 text-amber-200 fill-amber-200" />}
+                                    <span>{col === 'Junk' ? 'Not Interested' : col}</span>
+                                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                                        isSelected 
+                                            ? "bg-white/20 text-white" 
+                                            : "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                                    }`}>
+                                        {count}
+                                    </span>
+                                </button>
+                            )
+                        })}
+                    </div>
+
+                    {/* Scrollable list of mobile lead cards for selected stage */}
+                    <div className="flex-1 overflow-y-auto p-2 space-y-2.5 custom-scrollbar pb-24">
+                        {activeStageLeads.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-16 px-4 text-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                                <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-3 text-slate-400">
+                                    <Users className="w-6 h-6" />
                                 </div>
-                                {col === "Token VIP" && <Crown className="h-4 w-4 text-amber-600 animate-pulse" />}
+                                <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">No leads in {mobileActiveStage === 'Junk' ? 'Not Interested' : mobileActiveStage}</h4>
+                                <p className="text-xs text-slate-500 mt-1">Leads moved or registered in this stage will appear here.</p>
                             </div>
+                        ) : (
+                            activeStageLeads.map((lead, idx) => {
+                                const isSpecificDoubt = lead.source?.includes('doubt') || lead.leadType === 'specific-doubt' || lead.requirement?.includes('Specific Doubt');
+                                const isTokenHold = lead.status === 'Token VIP' || lead.isTokenPaid || lead.leadType === 'token-hold' || lead.leadType === 'vip-lead';
+                                const cleanPhone = (lead.phone || '').replace(/[^0-9]/g, '');
 
-                            {/* Cards Area */}
-                            <div className="p-2 flex-1 overflow-y-auto space-y-2 min-h-[100px]">
-                                {filteredLeads.filter(l => l.status === col).map((lead, idx) => {
-                                    const isSpecificDoubt = lead.source?.includes('doubt') || lead.leadType === 'specific-doubt' || lead.requirement?.includes('Specific Doubt');
-                                    const isTokenHold = lead.status === 'Token VIP' || lead.isTokenPaid || lead.leadType === 'token-hold' || lead.leadType === 'vip-lead';
-                                    const isOfferLead = lead.leadType === 'offer-enquiry' || Boolean(lead.claimedOffer);
-
-                                    return (
-                                        <div
-                                            key={lead.id || `lead-${idx}`}
-                                            draggable={lead.status !== "Booked"}
-                                            onDragStart={(e) => {
-                                                if (lead.status === "Booked") {
-                                                    e.preventDefault();
-                                                    return;
-                                                }
-                                                handleDragStart(e, toId(lead.id || lead._id));
-                                            }}
-                                            onClick={() => openProfile(toId(lead.id || lead._id))}
-                                            className={`
-                                                p-3 rounded-lg shadow-sm border cursor-pointer hover:shadow-md transition-all relative group
-                                                ${lead.isGroup 
-                                                    ? "bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800" 
-                                                    : isTokenHold
-                                                    ? "bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-300 dark:from-amber-900/20 dark:to-yellow-900/20 dark:border-amber-700"
-                                                    : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"}
-                                            `}
-                                        >
-                                            <div className="flex justify-between items-start mb-2">
-                                                <h4 className="font-bold text-sm text-slate-900 dark:text-gray-100">{lead.name}</h4>
-                                                <div className="flex items-center gap-1 flex-wrap justify-end">
+                                return (
+                                    <div
+                                        key={lead.id || `m-lead-${idx}`}
+                                        className={`p-3.5 rounded-xl border shadow-sm transition-all ${
+                                            lead.isGroup 
+                                                ? "bg-purple-50/70 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800" 
+                                                : isTokenHold
+                                                ? "bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-300 dark:from-amber-900/20 dark:to-yellow-900/20 dark:border-amber-700"
+                                                : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                                        }`}
+                                    >
+                                        <div className="flex justify-between items-start gap-2 mb-2">
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                    <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate">{lead.name}</h4>
                                                     {isTokenHold && (
-                                                        <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[9px] font-black px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                                                            <Crown className="h-3 w-3 text-amber-600" /> ₹111
+                                                        <span className="bg-amber-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-sm">
+                                                            <Crown className="h-2.5 w-2.5" /> ₹111 VIP
                                                         </span>
                                                     )}
                                                     {lead.isGroup && (
@@ -1105,78 +1122,267 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                                             <Users className="h-2.5 w-2.5"/> GROUP ({lead.groupSize || 1})
                                                         </span>
                                                     )}
-                                                    {isSpecificDoubt && (
-                                                        <span className="bg-blue-100 text-blue-800 text-[9px] font-bold px-1.5 py-0.5 rounded">
-                                                            Specific Doubt
-                                                        </span>
-                                                    )}
-                                                    {isOfferLead && (
-                                                        <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[9px] font-black px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                                                            🎁 Offer
-                                                        </span>
-                                                    )}
                                                 </div>
-                                            </div>
-
-                                            <div className="text-xs text-muted-foreground space-y-1 mb-2">
-                                                {lead.isGroup ? (
-                                                    <p className="flex items-center gap-1 font-medium text-purple-700 dark:text-purple-300 text-[11px]">
-                                                        <Users className="h-3 w-3 shrink-0" />
-                                                        <span>{lead.groupSize || lead.mergedMembers?.length || 1} Registered Buyers in Pool</span>
-                                                    </p>
-                                                ) : (
-                                                    lead.phone && <p className="flex items-center gap-1 font-medium text-slate-600 dark:text-slate-300">{lead.phone}</p>
+                                                {lead.phone && (
+                                                    <p className="font-mono text-xs text-slate-600 dark:text-slate-300 mt-0.5">{lead.phone}</p>
                                                 )}
-                                                {lead.requirement && <p className="flex items-center gap-1 text-[11px]"><User className="h-3 w-3 shrink-0" /> <span className="line-clamp-1">{lead.requirement}</span></p>}
-                                                {lead.isGroup && lead.groupDiscount && (
-                                                    <p className="text-purple-600 dark:text-purple-400 font-semibold text-[10px] flex items-center gap-1">
-                                                        🔥 {lead.groupDiscount}
-                                                    </p>
-                                                )}
-                                                <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                                                    {lead.source && (
-                                                        <span className="inline-block text-[9px] px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-100">
-                                                            {lead.source}
-                                                        </span>
-                                                    )}
-                                                    {lead.loginStatus === 'authenticated' ? (
-                                                        <span className="inline-block text-[9px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                                            ✓ Logged In
-                                                        </span>
-                                                    ) : (
-                                                        <span className="inline-block text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-                                                            Guest
-                                                        </span>
-                                                    )}
-                                                    {lead.holdId && (
-                                                        <span className="inline-block text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
-                                                            {lead.holdId}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                {lead.assignee && <p className="text-slate-400 text-[10px] pt-0.5">👤 {lead.assignee}</p>}
                                             </div>
-
-                                            {/* Hover Actions */}
-                                            <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 flex flex-col items-center gap-1 z-10">
-                                                <GripVertical className="h-4 w-4 text-slate-400" />
+                                            <div className="text-right shrink-0">
+                                                <Badge variant="outline" className="text-[10px] font-semibold">
+                                                    {lead.budget || lead.requirement || "Inquiry"}
+                                                </Badge>
                                             </div>
                                         </div>
-                                    );
-                                })}
-                                {/* Empty State */}
-                                {filteredLeads.filter(l => l.status === col).length === 0 && (
-                                    <div className="flex flex-col items-center justify-center py-8 px-3 text-center">
-                                        <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center mb-2">
-                                            <Users className="h-4 w-4 text-slate-400" />
+
+                                        {/* Requirement & Source Details */}
+                                        <div className="text-xs text-slate-500 dark:text-slate-400 space-y-1 mb-3 bg-slate-50 dark:bg-slate-900/40 p-2 rounded-lg">
+                                            {lead.requirement && (
+                                                <p className="flex items-center gap-1 text-[11px] text-slate-700 dark:text-slate-300">
+                                                    <Home className="h-3 w-3 shrink-0 text-slate-400" />
+                                                    <span className="truncate">{lead.requirement}</span>
+                                                </p>
+                                            )}
+                                            <div className="flex items-center gap-2 flex-wrap pt-0.5">
+                                                {lead.source && (
+                                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium">
+                                                        {lead.source}
+                                                    </span>
+                                                )}
+                                                {lead.assignee && (
+                                                    <span className="text-[9px] text-slate-500">
+                                                        👤 {lead.assignee}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
-                                        <p className="text-[11px] text-slate-400">Drop leads here</p>
+
+                                        {/* Mobile Direct Action Buttons - 44-48px Touch Targets */}
+                                        <div className="grid grid-cols-4 gap-1.5 pt-1">
+                                            {lead.phone ? (
+                                                <a
+                                                    href={`tel:${cleanPhone}`}
+                                                    className="flex flex-col items-center justify-center gap-1 py-2 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60 rounded-lg text-[10px] font-bold min-h-[44px] active:scale-95 transition-all"
+                                                >
+                                                    <Phone className="h-3.5 w-3.5" />
+                                                    <span>Call</span>
+                                                </a>
+                                            ) : (
+                                                <div className="flex flex-col items-center justify-center py-2 bg-slate-100 text-slate-400 rounded-lg text-[10px] font-semibold min-h-[44px] opacity-50">
+                                                    <Phone className="h-3.5 w-3.5" />
+                                                    <span>Call</span>
+                                                </div>
+                                            )}
+
+                                            {lead.phone ? (
+                                                <a
+                                                    href={`https://wa.me/${cleanPhone.startsWith('91') ? cleanPhone : '91' + cleanPhone}?text=Hello%20${encodeURIComponent(lead.name)},%20thank%20you%20for%20your%20interest.`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="flex flex-col items-center justify-center gap-1 py-2 bg-green-50 hover:bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800/60 rounded-lg text-[10px] font-bold min-h-[44px] active:scale-95 transition-all"
+                                                >
+                                                    <MessageSquare className="h-3.5 w-3.5" />
+                                                    <span>WhatsApp</span>
+                                                </a>
+                                            ) : (
+                                                <div className="flex flex-col items-center justify-center py-2 bg-slate-100 text-slate-400 rounded-lg text-[10px] font-semibold min-h-[44px] opacity-50">
+                                                    <MessageSquare className="h-3.5 w-3.5" />
+                                                    <span>Chat</span>
+                                                </div>
+                                            )}
+
+                                            <button
+                                                type="button"
+                                                onClick={() => setMobileStagePickerLead(lead)}
+                                                className="flex flex-col items-center justify-center gap-1 py-2 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800/60 rounded-lg text-[10px] font-bold min-h-[44px] active:scale-95 transition-all"
+                                            >
+                                                <RefreshCw className="h-3.5 w-3.5" />
+                                                <span>Stage</span>
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => openProfile(toId(lead.id || lead._id))}
+                                                className="flex flex-col items-center justify-center gap-1 py-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800/60 rounded-lg text-[10px] font-bold min-h-[44px] active:scale-95 transition-all"
+                                            >
+                                                <User className="h-3.5 w-3.5" />
+                                                <span>Profile</span>
+                                            </button>
+                                        </div>
                                     </div>
-                                )}
-                            </div>
-                        </div>
-                    ))}
+                                )
+                            })
+                        )}
+                    </div>
                 </div>
+
+                {/* DESKTOP VIEW (lg+): Full 8-column Drag-and-drop Kanban Board (100% UNCHANGED) */}
+                <div className="hidden lg:block h-full overflow-x-auto pb-4">
+                    <div className="flex gap-4 min-w-[1200px] h-full">
+                        {allColumns.map(col => (
+                            <div
+                                key={col}
+                                className="w-72 flex-shrink-0 flex flex-col bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800"
+                                onDragOver={(e) => e.preventDefault()}
+                                onDrop={(e) => handleDrop(e, col)}
+                            >
+                                {/* Column Header */}
+                                <div className={`p-3 border-b flex justify-between items-center rounded-t-xl
+                                    ${col === "Token VIP" ? "bg-amber-100 dark:bg-amber-900/40 border-amber-200" : "bg-white dark:bg-slate-900"}
+                                `}>
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                        <span className="font-semibold text-sm">{col === 'Junk' ? 'Not Interested' : col}</span>
+                                        <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
+                                            {filteredLeads.filter(l => l.status === col).length}
+                                        </Badge>
+                                    </div>
+                                    {col === "Token VIP" && <Crown className="h-4 w-4 text-amber-600 animate-pulse" />}
+                                </div>
+
+                                {/* Cards Area */}
+                                <div className="p-2 flex-1 overflow-y-auto space-y-2 min-h-[100px]">
+                                    {filteredLeads.filter(l => l.status === col).map((lead, idx) => {
+                                        const isSpecificDoubt = lead.source?.includes('doubt') || lead.leadType === 'specific-doubt' || lead.requirement?.includes('Specific Doubt');
+                                        const isTokenHold = lead.status === 'Token VIP' || lead.isTokenPaid || lead.leadType === 'token-hold' || lead.leadType === 'vip-lead';
+                                        const isOfferLead = lead.leadType === 'offer-enquiry' || Boolean(lead.claimedOffer);
+
+                                        return (
+                                            <div
+                                                key={lead.id || `lead-${idx}`}
+                                                draggable={lead.status !== "Booked"}
+                                                onDragStart={(e) => {
+                                                    if (lead.status === "Booked") {
+                                                        e.preventDefault();
+                                                        return;
+                                                    }
+                                                    handleDragStart(e, toId(lead.id || lead._id));
+                                                }}
+                                                onClick={() => openProfile(toId(lead.id || lead._id))}
+                                                className={`
+                                                    p-3 rounded-lg shadow-sm border cursor-pointer hover:shadow-md transition-all relative group
+                                                    ${lead.isGroup 
+                                                        ? "bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800" 
+                                                        : isTokenHold
+                                                        ? "bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-300 dark:from-amber-900/20 dark:to-yellow-900/20 dark:border-amber-700"
+                                                        : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"}
+                                                `}
+                                            >
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <h4 className="font-bold text-sm text-slate-900 dark:text-gray-100">{lead.name}</h4>
+                                                    <div className="flex items-center gap-1 flex-wrap justify-end">
+                                                        {isTokenHold && (
+                                                            <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[9px] font-black px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                                                                <Crown className="h-3 w-3 text-amber-600" /> ₹111
+                                                            </span>
+                                                        )}
+                                                        {lead.isGroup && (
+                                                            <span className="bg-purple-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                                                                <Users className="h-2.5 w-2.5"/> GROUP ({lead.groupSize || 1})
+                                                            </span>
+                                                        )}
+                                                        {isSpecificDoubt && (
+                                                            <span className="bg-blue-100 text-blue-800 text-[9px] font-bold px-1.5 py-0.5 rounded">
+                                                                Specific Doubt
+                                                            </span>
+                                                        )}
+                                                        {isOfferLead && (
+                                                            <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[9px] font-black px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                                                                🎁 Offer
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <div className="text-xs text-muted-foreground space-y-1 mb-2">
+                                                    {lead.isGroup ? (
+                                                        <p className="flex items-center gap-1 font-medium text-purple-700 dark:text-purple-300 text-[11px]">
+                                                            <Users className="h-3 w-3 shrink-0" />
+                                                            <span>{lead.groupSize || lead.mergedMembers?.length || 1} Registered Buyers in Pool</span>
+                                                        </p>
+                                                    ) : (
+                                                        lead.phone && <p className="flex items-center gap-1 font-medium text-slate-600 dark:text-slate-300">{lead.phone}</p>
+                                                    )}
+                                                    {lead.requirement && <p className="flex items-center gap-1 text-[11px]"><User className="h-3 w-3 shrink-0" /> <span className="line-clamp-1">{lead.requirement}</span></p>}
+                                                    {lead.isGroup && lead.groupDiscount && (
+                                                        <p className="text-purple-600 dark:text-purple-400 font-semibold text-[10px] flex items-center gap-1">
+                                                            🔥 {lead.groupDiscount}
+                                                        </p>
+                                                    )}
+                                                    <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                                                        {lead.source && (
+                                                            <span className="inline-block text-[9px] px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-100">
+                                                                {lead.source}
+                                                            </span>
+                                                        )}
+                                                        {lead.loginStatus === 'authenticated' ? (
+                                                            <span className="inline-block text-[9px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                                ✓ Logged In
+                                                            </span>
+                                                        ) : (
+                                                            <span className="inline-block text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                                                                Guest
+                                                            </span>
+                                                        )}
+                                                        {lead.holdId && (
+                                                            <span className="inline-block text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                                                                {lead.holdId}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {lead.assignee && <p className="text-slate-400 text-[10px] pt-0.5">👤 {lead.assignee}</p>}
+                                                </div>
+
+                                                {/* Hover Actions */}
+                                                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 flex flex-col items-center gap-1 z-10">
+                                                    <GripVertical className="h-4 w-4 text-slate-400" />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                    {/* Empty State */}
+                                    {filteredLeads.filter(l => l.status === col).length === 0 && (
+                                        <div className="flex flex-col items-center justify-center py-8 px-3 text-center">
+                                            <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center mb-2">
+                                                <Users className="h-4 w-4 text-slate-400" />
+                                            </div>
+                                            <p className="text-[11px] text-slate-400">Drop leads here</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Mobile Stage Picker Dialog */}
+                {mobileStagePickerLead && (
+                    <Dialog open={!!mobileStagePickerLead} onOpenChange={(open) => { if (!open) setMobileStagePickerLead(null); }}>
+                        <DialogContent className="sm:max-w-[400px]">
+                            <DialogHeader>
+                                <DialogTitle>Move Lead Stage</DialogTitle>
+                                <DialogDescription>
+                                    Select new pipeline stage for <strong>{mobileStagePickerLead.name}</strong>
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="grid grid-cols-2 gap-2 py-3">
+                                {allColumns.map(stage => (
+                                    <Button
+                                        key={stage}
+                                        variant={mobileStagePickerLead.status === stage ? "default" : "outline"}
+                                        className="justify-start text-xs font-semibold h-11"
+                                        onClick={() => {
+                                            const targetLead = mobileStagePickerLead;
+                                            setMobileStagePickerLead(null);
+                                            setDroppedLead(targetLead);
+                                            setPendingBoardStatus(stage);
+                                        }}
+                                    >
+                                        {stage === 'Junk' ? 'Not Interested' : stage}
+                                    </Button>
+                                ))}
+                            </div>
+                        </DialogContent>
+                    </Dialog>
+                )}
 
                 <Dialog open={!!pendingBoardStatus} onOpenChange={(open) => { if (!open) { setPendingBoardStatus(null); setBoardExtraFields({}); } }}>
                     <DialogContent className="sm:max-w-[425px]">
@@ -1306,6 +1512,46 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
+
+                {/* Mobile Stage Picker Dialog */}
+                <Dialog open={!!mobileStagePickerLead} onOpenChange={(open) => { if (!open) setMobileStagePickerLead(null); }}>
+                    <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                            <DialogTitle>Move Lead Stage</DialogTitle>
+                            <DialogDescription>
+                                Select a new pipeline stage for <strong>{mobileStagePickerLead?.name}</strong>:
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid grid-cols-2 gap-2 py-3">
+                            {allColumns.map(stage => {
+                                const isCurrent = mobileStagePickerLead?.status === stage;
+                                return (
+                                    <Button
+                                        key={stage}
+                                        type="button"
+                                        variant={isCurrent ? "secondary" : "outline"}
+                                        disabled={isCurrent}
+                                        onClick={() => {
+                                            if (!mobileStagePickerLead) return;
+                                            setDroppedLead(mobileStagePickerLead);
+                                            setPendingBoardStatus(stage);
+                                            setBoardStatusReason("");
+                                            setBoardPendingFollowUp("");
+                                            setBoardExtraFields({});
+                                            setMobileStagePickerLead(null);
+                                        }}
+                                        className={`justify-start text-xs font-semibold h-11 ${
+                                            isCurrent ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300" : ""
+                                        }`}
+                                    >
+                                        {stage === "Token VIP" && <Crown className="h-3 w-3 text-amber-500 mr-1.5" />}
+                                        <span className="truncate">{stage === 'Junk' ? 'Not Interested' : stage}</span>
+                                    </Button>
+                                );
+                            })}
+                        </div>
+                    </DialogContent>
+                </Dialog>
             </div>
         )
     }
@@ -1322,9 +1568,9 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
         const availableUnits = propertyUnits;
 
         return (
-            <div className="h-full flex flex-col lg:flex-row gap-4 min-h-0 overflow-hidden">
+            <div className="h-full flex flex-col lg:flex-row gap-4 min-h-0 overflow-y-auto lg:overflow-hidden pb-24 lg:pb-0">
                 {/* Left: Customer Bio (Kundali) */}
-                <Card className="w-full lg:w-[320px] xl:w-[340px] shrink-0 h-full border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm bg-white dark:bg-slate-900 flex flex-col overflow-hidden relative">
+                <Card className="w-full lg:w-[320px] xl:w-[340px] shrink-0 h-auto lg:h-full border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm bg-white dark:bg-slate-900 flex flex-col overflow-hidden relative">
                     {/* Top Decorative Banner */}
                     <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 opacity-15"></div>
                     
@@ -1645,7 +1891,7 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                 </Card>
 
                 {/* Center: Activity Timeline */}
-                <Card className="flex-1 h-full min-w-0 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col bg-white dark:bg-slate-900 overflow-hidden">
+                <Card className="w-full lg:flex-1 min-h-[460px] lg:h-full min-w-0 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm flex flex-col bg-white dark:bg-slate-900 overflow-hidden">
                     <CardHeader className="shrink-0 px-5 py-3 border-b bg-slate-50/70 dark:bg-slate-900/70 backdrop-blur-sm">
                         <CardTitle className="text-base font-bold flex justify-between items-center text-slate-800 dark:text-slate-100">
                             <span>Activity Timeline</span>
@@ -1747,7 +1993,7 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                 </Card>
 
                 {/* Right: Action Console */}
-                <Card className="w-full lg:w-[320px] xl:w-[340px] shrink-0 h-full border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm bg-white dark:bg-slate-900 flex flex-col overflow-hidden">
+                <Card className="w-full lg:w-[320px] xl:w-[340px] shrink-0 h-auto lg:h-full border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm bg-white dark:bg-slate-900 flex flex-col overflow-hidden">
                     <CardHeader className="shrink-0 px-3.5 py-2 border-b bg-slate-50/70 dark:bg-slate-900/70 backdrop-blur-sm">
                         <CardTitle className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center justify-between">
                             <span>Action Console</span>
@@ -2415,7 +2661,7 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                     </thead>
                                     <tbody>
                                         {members.map((m, idx) => (
-                                            <tr key={m.id || idx} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors group">
+                                            <tr key={m.id || idx} onClick={() => setSelectedMemberIdx(idx)} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors group cursor-pointer">
                                                 <td className="p-4 pl-6 text-xs text-slate-400 font-bold text-center">{idx + 1}</td>
                                                 <td className="p-4 font-bold text-sm text-slate-800 dark:text-slate-200 flex items-center gap-3">
                                                     <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden border border-purple-200 dark:border-purple-800">
@@ -2486,10 +2732,10 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                 </h3>
                             </div>
                             
-                            <div className="flex-1 flex flex-col md:flex-row gap-6 min-h-0 h-full">
+                            <div className="flex-1 flex flex-col md:flex-row gap-6 min-h-0 h-full overflow-y-auto md:overflow-hidden pb-20 md:pb-0 custom-scrollbar">
                                 {/* 1. Left: Member Bio (Mimics LeadProfile) */}
-                                <Card className="w-full md:w-1/4 shrink-0 h-full border-0 shadow-xl shadow-slate-200/40 dark:shadow-none bg-white dark:bg-slate-900 flex flex-col overflow-y-auto custom-scrollbar relative">
-                                    <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-br from-indigo-500 via-blue-500 to-cyan-400 opacity-10"></div>
+                                <Card className="w-full md:w-1/4 shrink-0 h-auto md:h-full border-0 shadow-xl shadow-slate-200/40 dark:shadow-none bg-white dark:bg-slate-900 flex flex-col relative">
+                                    <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-br from-indigo-500 via-blue-500 to-cyan-400 opacity-10 rounded-t-xl"></div>
                                     <CardHeader className="text-center pb-3 border-b border-slate-100 dark:border-slate-800 relative pt-5">
                                         <div className="relative mx-auto mb-3">
                                             <div className="absolute -inset-1.5 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-full blur opacity-30"></div>
@@ -2565,7 +2811,7 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                 </Card>
                                 
                                 {/* 2. Center: Activity Timeline */}
-                                <Card className="flex-1 h-full border-slate-200 dark:border-slate-800 flex flex-col bg-slate-50/50 dark:bg-slate-900/50">
+                                <Card className="flex-1 h-[400px] md:h-full shrink-0 border-slate-200 dark:border-slate-800 flex flex-col bg-slate-50/50 dark:bg-slate-900/50">
                                     <CardHeader className="pb-2 border-b bg-white dark:bg-slate-900">
                                         <CardTitle className="text-base flex justify-between items-center">
                                             Activity Timeline
@@ -2635,8 +2881,8 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                 </Card>
 
                                 {/* 3. Right: Action Console */}
-                                <Card className="w-full md:w-1/4 shrink-0 h-full border-0 shadow-xl shadow-slate-200/40 dark:shadow-none bg-gradient-to-b from-blue-50/40 to-white dark:from-slate-900 dark:to-slate-950 flex flex-col overflow-y-auto custom-scrollbar relative">
-                                    <CardHeader className="pb-3 border-b border-blue-100/50 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 backdrop-blur-md sticky top-0 z-10">
+                                <Card className="w-full md:w-1/4 shrink-0 h-auto md:h-full border-0 shadow-xl shadow-slate-200/40 dark:shadow-none bg-gradient-to-b from-blue-50/40 to-white dark:from-slate-900 dark:to-slate-950 flex flex-col relative">
+                                    <CardHeader className="pb-3 border-b border-blue-100/50 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 backdrop-blur-md sticky top-0 z-10 rounded-t-xl">
                                         <CardTitle className="text-base font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-indigo-700 dark:from-blue-400 dark:to-indigo-400">Action Console</CardTitle>
                                     </CardHeader>
                                     <CardContent className="grid gap-4 p-4">
@@ -3150,47 +3396,113 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
 
     // --- LIST VIEW ---
     const LeadList = () => (
-        <div className="h-full overflow-y-auto pb-4 pr-1 custom-scrollbar">
-        <Card>
-            <Table>
-                <TableHeader className="bg-white dark:bg-slate-900 sticky top-0 z-10 shadow-sm">
-                    <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Assignee</TableHead>
-                        <TableHead>Last Activity</TableHead>
-                        <TableHead className="text-right">Action</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {filteredLeads.map((lead, idx) => (
-                        <TableRow key={lead.id || lead._id || `lead-row-${idx}`} className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900" onClick={() => openProfile(lead.id || lead._id)}>
-                            <TableCell className="font-medium">
-                                <div className="flex items-center gap-2">
-                                    {lead.name}
-                                    {lead.isGroup ? (
-                                        <Badge className="bg-purple-600 text-[9px] px-1.5 rounded-sm hover:bg-purple-700">GROUP</Badge>
-                                    ) : lead.status === "Token VIP" ? (
-                                        <Badge className="bg-amber-100 text-amber-800 text-[9px] px-1.5 rounded-sm border-amber-200"><Crown className="h-2.5 w-2.5 mr-1 inline" /> VIP</Badge>
-                                    ) : (
-                                        <Badge variant="outline" className="text-[9px] px-1.5 rounded-sm text-slate-500">NORMAL</Badge>
+        <div className="h-full overflow-y-auto pb-24 lg:pb-4 pr-1 custom-scrollbar">
+            {/* MOBILE (<lg) STACKED CARDS */}
+            <div className="lg:hidden space-y-2.5">
+                {filteredLeads.map((lead, idx) => {
+                    const cleanPhone = (lead.phone || '').replace(/[^0-9]/g, '');
+                    return (
+                        <Card key={lead.id || lead._id || `lead-m-row-${idx}`} className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-xl">
+                            <div className="flex justify-between items-start gap-2 mb-2">
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                        <h4 
+                                            className="font-bold text-sm text-slate-900 dark:text-white truncate cursor-pointer"
+                                            onClick={() => openProfile(lead.id || lead._id)}
+                                        >
+                                            {lead.name}
+                                        </h4>
+                                        {lead.isGroup ? (
+                                            <Badge className="bg-purple-600 text-[9px] px-1.5 rounded-sm">GROUP</Badge>
+                                        ) : lead.status === "Token VIP" ? (
+                                            <Badge className="bg-amber-100 text-amber-800 text-[9px] px-1.5 rounded-sm border-amber-200"><Crown className="h-2.5 w-2.5 mr-1 inline" /> VIP</Badge>
+                                        ) : null}
+                                    </div>
+                                    {lead.phone && <p className="font-mono text-xs text-slate-500 mt-0.5">{lead.phone}</p>}
+                                </div>
+                                <Badge variant="outline" className="text-[10px] font-bold shrink-0">
+                                    {lead.status === 'Junk' ? 'Not Interested' : lead.status}
+                                </Badge>
+                            </div>
+                            <div className="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100 dark:border-slate-800">
+                                <span className="text-[11px] truncate">👤 {lead.assignee || 'Unassigned'}</span>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                    {lead.phone && (
+                                        <a
+                                            href={`tel:${cleanPhone}`}
+                                            className="p-2 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 rounded-lg min-w-[36px] min-h-[36px] flex items-center justify-center active:scale-95 transition-all"
+                                        >
+                                            <Phone className="w-3.5 h-3.5" />
+                                        </a>
                                     )}
+                                    {lead.phone && (
+                                        <a
+                                            href={`https://wa.me/${cleanPhone.startsWith('91') ? cleanPhone : '91' + cleanPhone}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="p-2 bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-400 rounded-lg min-w-[36px] min-h-[36px] flex items-center justify-center active:scale-95 transition-all"
+                                        >
+                                            <MessageSquare className="w-3.5 h-3.5" />
+                                        </a>
+                                    )}
+                                    <Button 
+                                        size="sm" 
+                                        variant="outline" 
+                                        className="h-9 text-xs px-3 font-semibold"
+                                        onClick={() => openProfile(lead.id || lead._id)}
+                                    >
+                                        View
+                                    </Button>
                                 </div>
-                                <div className="text-xs text-muted-foreground">{lead.phone}</div>
-                            </TableCell>
-                            <TableCell><Badge variant="outline">{lead.status}</Badge></TableCell>
-                            <TableCell>{lead.assignee || "Unassigned"}</TableCell>
-                            <TableCell>{lead.createdAt ? new Date(lead.createdAt).toLocaleDateString() : "N/A"}</TableCell>
-                            <TableCell className="text-right">
-                                <div className="flex justify-end gap-2">
-                                    <Button size="sm" variant="ghost" onClick={() => openProfile(lead.id || lead._id)}>View</Button>
-                                </div>
-                            </TableCell>
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
-        </Card>
+                            </div>
+                        </Card>
+                    );
+                })}
+            </div>
+
+            {/* DESKTOP (lg+) TABLE VIEW - 100% UNCHANGED */}
+            <div className="hidden lg:block">
+                <Card>
+                    <Table>
+                        <TableHeader className="bg-white dark:bg-slate-900 sticky top-0 z-10 shadow-sm">
+                            <TableRow>
+                                <TableHead>Name</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Assignee</TableHead>
+                                <TableHead>Last Activity</TableHead>
+                                <TableHead className="text-right">Action</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {filteredLeads.map((lead, idx) => (
+                                <TableRow key={lead.id || lead._id || `lead-row-${idx}`} className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900" onClick={() => openProfile(lead.id || lead._id)}>
+                                    <TableCell className="font-medium">
+                                        <div className="flex items-center gap-2">
+                                            {lead.name}
+                                            {lead.isGroup ? (
+                                                <Badge className="bg-purple-600 text-[9px] px-1.5 rounded-sm hover:bg-purple-700">GROUP</Badge>
+                                            ) : lead.status === "Token VIP" ? (
+                                                <Badge className="bg-amber-100 text-amber-800 text-[9px] px-1.5 rounded-sm border-amber-200"><Crown className="h-2.5 w-2.5 mr-1 inline" /> VIP</Badge>
+                                            ) : (
+                                                <Badge variant="outline" className="text-[9px] px-1.5 rounded-sm text-slate-500">NORMAL</Badge>
+                                            )}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">{lead.phone}</div>
+                                    </TableCell>
+                                    <TableCell><Badge variant="outline">{lead.status}</Badge></TableCell>
+                                    <TableCell>{lead.assignee || "Unassigned"}</TableCell>
+                                    <TableCell>{lead.createdAt ? new Date(lead.createdAt).toLocaleDateString() : "N/A"}</TableCell>
+                                    <TableCell className="text-right">
+                                        <div className="flex justify-end gap-2">
+                                            <Button size="sm" variant="ghost" onClick={() => openProfile(lead.id || lead._id)}>View</Button>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </Card>
+            </div>
         </div>
     )
 

@@ -599,7 +599,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
 
     // ─── Unit Card Styles ──────────────────────────────────────────────────
     const getUnitStyle = (status: string, isSelected: boolean) => {
-        const base = "relative aspect-square rounded-xl border-2 flex flex-col items-center justify-center p-1 transition-all duration-200 hover:scale-105 hover:shadow-lg cursor-pointer select-none"
+        const base = "relative aspect-square rounded-xl border-2 flex flex-col items-center justify-center p-1 transition-all duration-200 hover:scale-105 hover:shadow-lg cursor-pointer select-none min-h-[52px]"
         const statusStyles: Record<string, string> = {
             available: "bg-white hover:bg-emerald-50 border-emerald-200 hover:border-emerald-400 dark:bg-slate-900 dark:border-emerald-800",
             sold: "bg-red-50 hover:bg-red-100 border-red-200 dark:bg-red-950/30 dark:border-red-800",
@@ -750,7 +750,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
     const TypeIcon = typeConfig[propertyType]?.icon || Building2
 
     return (
-        <div className="flex flex-col h-full bg-slate-50/50 dark:bg-slate-950 p-6 space-y-5">
+        <div className="flex flex-col h-full bg-slate-50/50 dark:bg-slate-950 p-3 sm:p-4 lg:p-6 space-y-4 lg:space-y-5 pb-28 lg:pb-6 overflow-y-auto">
 
             {/* ── Top Header Bar ── */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
@@ -1309,7 +1309,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                             </div>
 
                                             {/* Units Grid */}
-                                            <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-2.5">
+                                            <div className="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-2 sm:gap-2.5">
                                                 {floorUnits.map((unit: any, idx: number) => {
                                                     const status = unit.status || "available"
                                                     const isSelected = selectedUnitIds.includes(unit._id)
@@ -1419,7 +1419,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                                                             </div>
 
                                                                             {/* Units Grid */}
-                                                                            <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-2.5">
+                                                                            <div className="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-2 sm:gap-2.5">
                                                                                 {floorUnits.map((unit: any, idx: number) => {
                                                                                     const status = unit.status || "available"
                                                                                     const isSelected = selectedUnitIds.includes(unit._id)
@@ -1481,7 +1481,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
 
             {/* ── Unit Edit Dialog ── */}
             <Dialog open={!!editingUnit} onOpenChange={open => !open && setEditingUnit(null)}>
-                <DialogContent className="sm:max-w-2xl max-h-[92vh] flex flex-col p-0 gap-0 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl bg-white dark:bg-slate-900">
+                <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[92vh] flex flex-col p-0 gap-0 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl bg-white dark:bg-slate-900">
                     {/* Header */}
                     {(() => {
                         const rawNum = editingUnit?.unitNumber || "";
