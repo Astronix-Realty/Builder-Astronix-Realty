@@ -444,9 +444,10 @@ function DashboardContent() {
     }
 
     // Group Buying Extraction
-    // Give priority to details.groupBuying since forms save it there, ignoring stale p.groupBuying overrides
-    const groupBuyingRaw = details?.groupBuying || p.groupBuying || details?.township?.groupBuying || undefined;
-    const groupBuying = groupBuyingRaw?.enabled ? { 
+    // Quick Edit saves at p.groupBuying (top-level), forms used to save at details.groupBuying
+    // Priority: top-level p.groupBuying first (Quick Edit), then details fallback
+    const groupBuyingRaw = p.groupBuying || details?.groupBuying || details?.township?.groupBuying || undefined;
+    const groupBuying = groupBuyingRaw ? { 
       ...groupBuyingRaw, 
       targetCount: Number(groupBuyingRaw.targetCount) > 0 ? Number(groupBuyingRaw.targetCount) : undefined 
     } : undefined;
@@ -467,7 +468,7 @@ function DashboardContent() {
       thumbnail: thumbnail,
       searchBlob,
       reraNumber,
-      groupBuying: groupBuying?.enabled ? groupBuying : undefined,
+      groupBuying: groupBuying || undefined,
     }
   }
 

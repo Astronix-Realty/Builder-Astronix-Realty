@@ -321,6 +321,9 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
     const [isUnitDropdownOpen, setIsUnitDropdownOpen] = useState(false)
     const [isHoldUnitEnabled, setIsHoldUnitEnabled] = useState(false)
     const [isBlockingUnit, setIsBlockingUnit] = useState(false)
+    const [inventoryTowers, setInventoryTowers] = useState<any[]>([])
+    const [inventoryUnits, setInventoryUnits] = useState<any[]>([])
+    const [isFetchingInventory, setIsFetchingInventory] = useState(false)
 
     // Status Change Dialog State
     const [pendingStatus, setPendingStatus] = useState<LeadStatus | null>(null)
@@ -556,11 +559,16 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
     const fetchProperties = async () => {
         try {
             const res = await fetch("/api/properties")
+            console.log("[CRM DEBUG] /api/properties status:", res.status)
             if (res.ok) {
                 const data = await res.json()
+                console.log("[CRM DEBUG] properties count:", data.properties?.length, data.properties?.map((p: any) => p.name || p._id))
                 if (data.properties) {
                     setProperties(data.properties)
                 }
+            } else {
+                const err = await res.json().catch(() => ({}))
+                console.error("[CRM DEBUG] /api/properties error:", res.status, err)
             }
         } catch (error) {
             console.error("Error fetching properties:", error)
@@ -708,11 +716,66 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
         }
     }, [selectedLead?.timeline, viewMode])
 
+    const resolvePropertyIdForLead = (lead: any, propsList: any[]) => {
+        if (!lead || !propsList || propsList.length === 0) return "";
+        // 1. Direct match with propertyId
+        if (lead.propertyId && propsList.some(p => (p._id || p.id) === lead.propertyId)) {
+            return lead.propertyId;
+        }
+        // 2. Check candidate IDs: poolRootPropertyId, projectId, towerId, clickedPropertyId
+        const candidateIds = [
+            lead.propertyId,
+            lead.poolRootPropertyId,
+            lead.projectId,
+            lead.towerId,
+            lead.hierarchyContext?.poolRootPropertyId,
+            lead.hierarchyContext?.towerId,
+            lead.hierarchyContext?.projectId
+        ].filter(Boolean);
+        const matchById = propsList.find(p => candidateIds.includes(p._id || p.id));
+        if (matchById) return matchById._id || matchById.id;
+
+        // 3. Match by name: clickedPropertyName, topPropertyName, poolRootPropertyName, lead name
+        const leadNames = [
+            lead.clickedPropertyName,
+            lead.topPropertyName,
+            lead.poolRootPropertyName,
+            lead.hierarchyContext?.clickedPropertyName,
+            lead.hierarchyContext?.topPropertyName,
+            lead.name?.replace(/\s*—\s*Group Buying Pool/i, '')
+        ].filter(Boolean).map((n: string) => n.toLowerCase().trim());
+
+        const matchByName = propsList.find(p => {
+            const pName = (p.name || p.townshipName || p.title || "").toLowerCase().trim();
+            return pName && leadNames.some((ln: string) => ln.includes(pName) || pName.includes(ln));
+        });
+        if (matchByName) return matchByName._id || matchByName.id;
+
+        // 4. Fallback: if only 1 property exists for this builder, default to it
+        if (propsList.length === 1) {
+            return propsList[0]._id || propsList[0].id;
+        }
+
+        return "";
+    };
+
     useEffect(() => {
         if (selectedLead) {
             setIsHoldUnitEnabled(Boolean(selectedLead.isUnitHeld || selectedLead.isUnitSold || selectedLead.status === "Booked"));
         }
     }, [selectedLead?.id, selectedLead?.status, selectedLead?.isUnitSold, selectedLead?.isUnitHeld])
+
+    // Auto-select property when properties finish loading or when a lead is open without a resolved propertyId
+    useEffect(() => {
+        if (selectedLead && properties.length > 0) {
+            if (!selectedPropertyId || !properties.some(p => (p._id || p.id) === selectedPropertyId)) {
+                const matched = resolvePropertyIdForLead(selectedLead, properties);
+                if (matched) {
+                    setSelectedPropertyId(matched);
+                }
+            }
+        }
+    }, [properties, selectedLead, selectedPropertyId]);
 
     const openProfile = (id: string) => {
         const cleanId = toId(id)
@@ -720,7 +783,9 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
         setViewMode("profile")
         const l = leads.find(lead => (lead.id || toId(lead._id)) === cleanId)
         setIsHoldUnitEnabled(Boolean(l?.isUnitHeld || l?.isUnitSold || l?.status === "Booked"))
-        setSelectedPropertyId(l?.propertyId || "")
+        const matchedProp = resolvePropertyIdForLead(l, properties)
+        setSelectedPropertyId(matchedProp)
+        setSelectedTowerId("")  // always reset tower when opening a different lead
         setSelectedUnitId(l?.unitId || "")
     }
 
@@ -822,8 +887,9 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
         try {
             const activeProp = properties.find(p => (p._id || p.id) === selectedPropertyId);
             const propName = activeProp?.name || activeProp?.townshipName || activeProp?.title || "Property";
-            const allUnits = activeProp?.details?.generatedUnits || [];
-            const unitObj = allUnits.find((u: any, idx: number) => (u.id || u._id || `unit-${idx}`) === selectedUnitId);
+            // Use live inventory units (works for both published + draft properties)
+            const unitObj = allPropertyUnits.find((u: any, idx: number) => (u.id || u._id || u._id?.toString() || `unit-${idx}`) === selectedUnitId
+                || (u._id?.toString() === selectedUnitId));
 
             const cleanUnit = unitObj ? getCleanUnitLabel(unitObj.unitNumber, propName) : selectedUnitId;
             const configStr = unitObj?.configuration ? ` (${unitObj.configuration})` : '';
@@ -1556,16 +1622,47 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
         )
     }
 
+    // Fetch inventory (towers + units) from /api/inventory whenever selectedPropertyId changes
+    useEffect(() => {
+        console.log("[CRM DEBUG] selectedPropertyId changed:", selectedPropertyId)
+        if (!selectedPropertyId) {
+            setInventoryTowers([]);
+            setInventoryUnits([]);
+            return;
+        }
+        let cancelled = false;
+        setIsFetchingInventory(true);
+        console.log("[CRM DEBUG] fetching /api/inventory/", selectedPropertyId)
+        fetch(`/api/inventory/${selectedPropertyId}`)
+            .then(r => { console.log("[CRM DEBUG] inventory status:", r.status); return r.ok ? r.json() : null; })
+            .then(data => {
+                if (cancelled || !data) { console.log("[CRM DEBUG] inventory data null or cancelled"); return; }
+                console.log("[CRM DEBUG] inventory towers:", data.towers?.length, "units:", data.units?.length)
+                const towers = data.towers || [];
+                const units = data.units || [];
+                setInventoryTowers(towers);
+                setInventoryUnits(units);
+                if (towers.length === 1) {
+                    setSelectedTowerId(towers[0].id || towers[0]._id || "");
+                }
+            })
+            .catch((e) => { console.error("[CRM DEBUG] inventory fetch error:", e); })
+            .finally(() => { if (!cancelled) setIsFetchingInventory(false); });
+        return () => { cancelled = true; };
+    }, [selectedPropertyId]);
+
+    // Derived unit/tower data — shared by both LeadProfile and GroupLeadProfile
+    const activeProperty = properties.find(p => (p._id || p.id) === selectedPropertyId);
+    const propertyTowers = inventoryTowers.length > 0 ? inventoryTowers : (activeProperty?.details?.towers || []);
+    const allPropertyUnits = inventoryUnits.length > 0 ? inventoryUnits : (activeProperty?.details?.generatedUnits || []);
+    const propertyUnits = selectedTowerId && selectedTowerId !== "all"
+        ? allPropertyUnits.filter((u: any) => (u.towerId || u.parentId)?.toString() === selectedTowerId)
+        : allPropertyUnits;
+
     // --- PROFILE VIEW (KUNDALI) ---
     const LeadProfile = () => {
         if (!selectedLead) return null
 
-        // Get units for selected property (all units accessible for tagging interest)
-        const activeProperty = properties.find(p => (p._id || p.id) === selectedPropertyId);
-        const propertyTowers = activeProperty?.details?.towers || [];
-        const allPropertyUnits = activeProperty?.details?.generatedUnits || [];
-        const propertyUnits = selectedTowerId && selectedTowerId !== "all" ? allPropertyUnits.filter((u:any) => u.towerId === selectedTowerId) : allPropertyUnits;
-        const availableUnits = propertyUnits;
 
         return (
             <div className="h-full flex flex-col lg:flex-row gap-4 min-h-0 overflow-y-auto lg:overflow-hidden pb-24 lg:pb-0">
@@ -2032,6 +2129,54 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                             </Select>
                         </div>
 
+                        {/* 1.5 Assign Executive / RM / Team Leader */}
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex items-center justify-between">
+                                <span className="flex items-center gap-1"><User className="w-3 h-3 text-indigo-600"/> Assign Executive / RM</span>
+                                <span className="text-[8px] text-slate-400 font-bold">{selectedLead.assignee ? "Assigned" : "Developer Desk"}</span>
+                            </label>
+                            <Select
+                                value={selectedLead.assignee || "unassigned"}
+                                onValueChange={async (val) => {
+                                    const newAssignee = val === "unassigned" ? "" : val;
+                                    const id = selectedLead.id || selectedLead._id;
+                                    
+                                    // Optimistic update
+                                    upsertLead({
+                                        ...selectedLead,
+                                        assignee: newAssignee
+                                    });
+
+                                    offlineSafeFetch(`/api/leads/${id}`, {
+                                        method: "PATCH",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ 
+                                            assignee: newAssignee,
+                                            actionType: "Executive Assigned",
+                                            actionDesc: newAssignee ? `Assigned to ${newAssignee}` : "Reverted to Developer Sales Desk"
+                                        })
+                                    }).catch(err => console.error("Error updating assignee:", err));
+                                }}
+                            >
+                                <SelectTrigger className="h-8 font-bold text-xs bg-slate-50/60 dark:bg-slate-800 rounded-lg shadow-none border-slate-200 dark:border-slate-700 ring-offset-0 focus:ring-1 focus:ring-indigo-500 hover:border-indigo-300 transition-colors">
+                                    <SelectValue placeholder="Assign to..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="unassigned" className="font-semibold text-emerald-700 py-1 text-xs">
+                                        🏢 Unassigned (Developer Sales Desk)
+                                    </SelectItem>
+                                    {teamMembers.map((m) => (
+                                        <SelectItem key={m.id} value={m.name} className="font-semibold cursor-pointer py-1 text-xs">
+                                            👤 {m.name}
+                                        </SelectItem>
+                                    ))}
+                                    <SelectItem value="Vikram Malhotra (Relationship Manager)" className="font-semibold cursor-pointer py-1 text-xs">
+                                        👤 Vikram Malhotra (Relationship Manager)
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
                         {/* 2. Preferred Unit Selection with Hold / Reserve / Sold Option */}
                         {(() => {
                             const isLeadBooked = selectedLead.status === "Booked" || Boolean(selectedLead.isUnitSold);
@@ -2105,7 +2250,7 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                         <div className="space-y-1.5">
                                             <div>
                                                 <label className="text-[9px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 block">Property</label>
-                                                <Select value={selectedPropertyId} onValueChange={(val) => { setSelectedPropertyId(val); setSelectedUnitId(""); }}>
+                                                <Select value={selectedPropertyId} onValueChange={(val) => { setSelectedPropertyId(val); setSelectedTowerId(""); setSelectedUnitId(""); }}>
                                                     <SelectTrigger className="h-8 text-xs font-medium bg-white dark:bg-slate-900 rounded-lg border-slate-200">
                                                         <SelectValue placeholder="Choose Property" />
                                                     </SelectTrigger>
@@ -2134,7 +2279,10 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                             )}
 
                                             <div>
-                                                <label className="text-[9px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 block">Unit / Flat</label>
+                                                <label className="text-[9px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 block flex items-center gap-1">
+                                                    Unit / Flat
+                                                    {isFetchingInventory && <span className="inline-block w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin ml-1" />}
+                                                </label>
                                                 <Popover open={isUnitDropdownOpen} onOpenChange={setIsUnitDropdownOpen}>
                                                     <PopoverTrigger asChild>
                                                         <Button
@@ -2370,6 +2518,15 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                     }
                                 }
 
+                                if (pendingStatus === "Site Visit") {
+                                    const svTime = extraFields.siteVisitDateTime || pendingFollowUp;
+                                    if (svTime) {
+                                        updates.siteVisitDateTime = new Date(svTime).toISOString();
+                                        updates.siteVisitStatus = "Scheduled";
+                                        updates.nextActionTime = new Date(svTime).toISOString();
+                                    }
+                                }
+
                                 const isBookedStage = pendingStatus === "Booked";
                                 const targetUnitId = selectedLead.unitId || selectedUnitId;
                                 const targetPropertyId = selectedLead.propertyId || selectedPropertyId;
@@ -2432,6 +2589,11 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                 setStatusReason("");
                                 setPendingFollowUp("");
                                 setExtraFields({});
+
+                                if (isBookedStage) {
+                                    router.push(`/builder-dashboard?tab=documents&customer=${id}&doc=booking-form&unit=${targetUnitId || ''}&property=${targetPropertyId || ''}`);
+                                }
+
                             }}>Confirm & Save Log</Button>
                         </DialogFooter>
                     </DialogContent>
@@ -2905,27 +3067,250 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                             </Select>
                                         </div>
                                         
-                                        <div className="space-y-2.5 p-3 border rounded-xl shadow-sm bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
-                                            <h4 className="font-black text-[10px] uppercase tracking-wider flex items-center gap-1.5 text-slate-500">
-                                                <Bookmark className="h-3.5 w-3.5 text-slate-400" /> Preferred Member Unit
-                                            </h4>
-                                            <Button 
-                                                className="w-full h-10 text-xs font-bold text-white shadow-md rounded-xl bg-blue-600 hover:bg-blue-700 transition-all active:scale-95" 
-                                                disabled={isBlockingUnit || !selectedUnitId}
-                                                onClick={handleSavePreferredUnit}
-                                            >
-                                                {isBlockingUnit ? (
-                                                    <span className="flex items-center gap-1.5">
-                                                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                                        Saving Preference...
-                                                    </span>
-                                                ) : (
-                                                    <>
-                                                        <Bookmark className="h-3.5 w-3.5 mr-1.5" /> Save Member Preferred Unit
-                                                    </>
-                                                )}
-                                            </Button>
-                                        </div>
+                                        {(() => {
+                                            const isLeadBooked = selectedLead.status === "Booked" || Boolean(selectedLead.isUnitSold);
+                                            const isSold = Boolean(selectedLead.isUnitSold || (selectedLead.status === "Booked" && selectedLead.interestedUnit));
+
+                                            return (
+                                                <div className="space-y-2.5 p-3 border rounded-xl shadow-sm bg-slate-50/40 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700">
+                                                    <div className="flex items-center justify-between pb-1 border-b border-slate-200/60 dark:border-slate-700/60">
+                                                        <h4 className="font-black text-[10px] uppercase tracking-wider flex items-center gap-1.5 text-slate-800 dark:text-slate-200">
+                                                            {isSold ? (
+                                                                <CheckCircle2 className="h-3 w-3 text-red-600 dark:text-red-400" />
+                                                            ) : selectedLead.isUnitHeld ? (
+                                                                <Lock className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                                                            ) : (
+                                                                <Bookmark className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+                                                            )}
+                                                            Preferred Member Unit
+                                                        </h4>
+                                                        <span className={`text-[8.5px] font-bold px-1.5 py-0.2 rounded-full border ${
+                                                            isSold
+                                                                ? "text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-950/60 border-red-300 dark:border-red-800 animate-pulse"
+                                                                : selectedLead.isUnitHeld 
+                                                                    ? "text-amber-900 dark:text-amber-200 bg-amber-100 dark:bg-amber-900/60 border-amber-300 dark:border-amber-700" 
+                                                                    : "text-slate-500 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                                                        }`}>
+                                                            {isSold ? "SOLD OUT" : selectedLead.isUnitHeld ? "RESERVED" : "Reference"}
+                                                        </span>
+                                                    </div>
+
+                                                    {selectedLead.interestedUnit && (
+                                                        <div className={`p-1.5 px-2 rounded-lg border flex items-center justify-between gap-1.5 ${
+                                                            isSold
+                                                                ? "bg-red-50/90 dark:bg-red-950/40 border-red-300 dark:border-red-800/70"
+                                                                : selectedLead.isUnitHeld 
+                                                                    ? "bg-amber-50/90 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700/70"
+                                                                    : "bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800/60"
+                                                        }`}>
+                                                            <div className="min-w-0">
+                                                                <div className="flex items-center gap-1">
+                                                                    <p className={`text-[8.5px] font-bold uppercase tracking-wider ${
+                                                                        isSold ? "text-red-700 dark:text-red-400" : selectedLead.isUnitHeld ? "text-amber-700 dark:text-amber-400" : "text-blue-600 dark:text-blue-400"
+                                                                    }`}>
+                                                                        {isSold ? "Sold Unit" : selectedLead.isUnitHeld ? "Reserved Unit" : "Current Tag"}
+                                                                    </p>
+                                                                    {isSold ? (
+                                                                        <span className="text-[7.5px] font-black uppercase px-1 py-0 rounded bg-red-600 text-white animate-pulse">
+                                                                            Sold
+                                                                        </span>
+                                                                    ) : selectedLead.isUnitHeld ? (
+                                                                        <span className="text-[7.5px] font-black uppercase px-1 py-0 rounded bg-amber-500 text-white animate-pulse">
+                                                                            Held
+                                                                        </span>
+                                                                    ) : null}
+                                                                </div>
+                                                                <p className="text-[11px] font-bold truncate text-slate-900 dark:text-slate-100">{selectedLead.interestedUnit}</p>
+                                                            </div>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                className="h-5 px-1.5 text-[9px] font-bold text-red-600 hover:text-red-700 hover:bg-red-100/50 rounded shrink-0"
+                                                                disabled={isBlockingUnit}
+                                                                onClick={handleClearPreferredUnit}
+                                                                title={isSold ? "Release sold unit back to available" : selectedLead.isUnitHeld ? "Release unit hold in inventory" : "Clear unit preference"}
+                                                            >
+                                                                {isSold || selectedLead.isUnitHeld ? "Release" : "Clear"}
+                                                            </Button>
+                                                        </div>
+                                                    )}
+
+                                                    {properties.length > 0 ? (
+                                                        <div className="space-y-1.5">
+                                                            <div>
+                                                                <label className="text-[9px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 block">Property</label>
+                                                                <Select value={selectedPropertyId} onValueChange={(val) => { setSelectedPropertyId(val); setSelectedTowerId(""); setSelectedUnitId(""); }}>
+                                                                    <SelectTrigger className="h-8 text-xs font-medium bg-white dark:bg-slate-900 rounded-lg border-slate-200">
+                                                                        <SelectValue placeholder="Choose Property" />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        {properties.map(p => (
+                                                                            <SelectItem key={p._id || p.id} value={p._id || p.id} className="text-xs py-1 cursor-pointer">{p.name || p.townshipName || p.title || "Property"}</SelectItem>
+                                                                        ))}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </div>
+                                                            {propertyTowers.length > 0 && (
+                                                                <div>
+                                                                    <label className="text-[9px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 block">Tower / Phase</label>
+                                                                    <Select value={selectedTowerId} onValueChange={(val) => { setSelectedTowerId(val === "all" ? "" : val); setSelectedUnitId(""); }} disabled={!selectedPropertyId}>
+                                                                        <SelectTrigger className="h-8 text-xs font-medium bg-white dark:bg-slate-900 rounded-lg border-slate-200">
+                                                                            <SelectValue placeholder="Choose Tower" />
+                                                                        </SelectTrigger>
+                                                                        <SelectContent>
+                                                                            <SelectItem value="all" className="text-xs py-1 cursor-pointer font-bold">All Towers</SelectItem>
+                                                                            {propertyTowers.map((t: any) => (
+                                                                                <SelectItem key={t.id || t._id} value={t.id || t._id} className="text-xs py-1 cursor-pointer">{t.name}</SelectItem>
+                                                                            ))}
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                </div>
+                                                            )}
+
+                                                            <div>
+                                                                <label className="text-[9px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 block flex items-center gap-1">
+                                                                    Unit / Flat
+                                                                    {isFetchingInventory && <span className="inline-block w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin ml-1" />}
+                                                                </label>
+                                                                <Popover open={isUnitDropdownOpen} onOpenChange={setIsUnitDropdownOpen}>
+                                                                    <PopoverTrigger asChild>
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            role="combobox"
+                                                                            aria-expanded={isUnitDropdownOpen}
+                                                                            disabled={!selectedPropertyId}
+                                                                            className="w-full h-8 text-xs font-medium bg-white dark:bg-slate-900 rounded-lg border-slate-200 justify-between px-3"
+                                                                        >
+                                                                            <span className="truncate">
+                                                                                {selectedUnitId
+                                                                                    ? (() => {
+                                                                                        const u = propertyUnits.find((u: any) => (u.id || u._id) === selectedUnitId);
+                                                                                        if (!u) return "Choose Unit";
+                                                                                        const cleanNum = getCleanUnitLabel(u.unitNumber, activeProperty?.name || activeProperty?.title);
+                                                                                        return `Flat ${cleanNum} ${u.configuration ? `(${u.configuration})` : ''}`;
+                                                                                    })()
+                                                                                    : !selectedPropertyId ? "Select property first" : "Choose Unit"}
+                                                                            </span>
+                                                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                                        </Button>
+                                                                    </PopoverTrigger>
+                                                                    <PopoverContent className="w-[300px] p-0" align="start">
+                                                                        <Command>
+                                                                            <CommandInput placeholder="Search unit number..." className="h-9 text-xs" />
+                                                                            <CommandList>
+                                                                                <CommandEmpty>No unit found.</CommandEmpty>
+                                                                                <CommandGroup>
+                                                                                    {propertyUnits.map((u: any, idx: number) => {
+                                                                                        const unitKey = u.id || u._id || `unit-${idx}`;
+                                                                                        const statusSuffix = u.status && u.status !== 'available' ? ` (${u.status})` : '';
+                                                                                        const cleanNum = getCleanUnitLabel(u.unitNumber, activeProperty?.name || activeProperty?.title);
+                                                                                        const label = `Flat ${cleanNum} ${u.configuration ? `(${u.configuration})` : ''}${statusSuffix}`;
+                                                                                        return (
+                                                                                            <CommandItem
+                                                                                                key={unitKey}
+                                                                                                value={label} // used for filtering internally by Command
+                                                                                                onSelect={() => {
+                                                                                                    setSelectedUnitId(unitKey === selectedUnitId ? "" : unitKey);
+                                                                                                    setIsUnitDropdownOpen(false);
+                                                                                                }}
+                                                                                                className="text-xs py-1.5 cursor-pointer"
+                                                                                            >
+                                                                                                <Check
+                                                                                                    className={`mr-2 h-3.5 w-3.5 ${
+                                                                                                        selectedUnitId === unitKey ? "opacity-100" : "opacity-0"
+                                                                                                    }`}
+                                                                                                />
+                                                                                                {label}
+                                                                                            </CommandItem>
+                                                                                        );
+                                                                                    })}
+                                                                                    {propertyUnits.length === 0 && (
+                                                                                        <div className="p-2 text-xs text-center text-slate-500">No Units in this Property</div>
+                                                                                    )}
+                                                                                </CommandGroup>
+                                                                            </CommandList>
+                                                                        </Command>
+                                                                    </PopoverContent>
+                                                                </Popover>
+                                                            </div>
+
+                                                            {/* Hold / Reserve or Sold Toggle (Updates Inventory & Visitor Panel) */}
+                                                            <div className={`flex items-center justify-between p-1.5 px-2 rounded-lg border shadow-xs ${
+                                                                isLeadBooked
+                                                                    ? "bg-red-50/90 dark:bg-red-950/40 border-red-200/80 dark:border-red-800/60"
+                                                                    : "bg-amber-50/90 dark:bg-amber-950/40 border-amber-200/80 dark:border-amber-800/60"
+                                                            }`}>
+                                                                <label htmlFor="group-hold-unit-toggle" className="flex items-center gap-1.5 cursor-pointer select-none">
+                                                                    <input 
+                                                                        id="group-hold-unit-toggle"
+                                                                        type="checkbox"
+                                                                        checked={isHoldUnitEnabled}
+                                                                        onChange={(e) => setIsHoldUnitEnabled(e.target.checked)}
+                                                                        className={`w-3.5 h-3.5 rounded cursor-pointer ${
+                                                                            isLeadBooked
+                                                                                ? "text-red-600 border-red-300 focus:ring-red-500 accent-red-600"
+                                                                                : "text-amber-600 border-amber-300 focus:ring-amber-500 accent-amber-600"
+                                                                        }`}
+                                                                    />
+                                                                    <span className={`text-[10px] font-black ${
+                                                                        isLeadBooked ? "text-red-900 dark:text-red-200" : "text-amber-900 dark:text-amber-200"
+                                                                    }`}>
+                                                                        {isLeadBooked ? "Mark Unit as Sold" : "Hold / Reserve Unit"}
+                                                                    </span>
+                                                                </label>
+                                                                <span className={`text-[8px] font-bold px-1 py-0.2 rounded border uppercase tracking-tight ${
+                                                                    isLeadBooked
+                                                                        ? "text-red-700 dark:text-red-300 bg-red-100/80 dark:bg-red-900/60 border-red-300/50"
+                                                                        : "text-amber-700 dark:text-amber-400 bg-amber-100/80 dark:bg-amber-900/60 border-amber-300/50"
+                                                                }`}>
+                                                                    {isLeadBooked ? "Sold Out • Inventory & Visitor" : "Inventory & Visitor"}
+                                                                </span>
+                                                            </div>
+
+                                                            <Button
+                                                                className={`w-full h-8 text-xs font-bold text-white shadow-none rounded-lg transition-all active:scale-95 flex items-center justify-center gap-1.5 ${
+                                                                    isLeadBooked && isHoldUnitEnabled
+                                                                        ? "bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700"
+                                                                        : isHoldUnitEnabled 
+                                                                            ? "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700" 
+                                                                            : "bg-blue-600 hover:bg-blue-700"
+                                                                }`}
+                                                                disabled={!selectedUnitId || isBlockingUnit}
+                                                                onClick={handleSavePreferredUnit}
+                                                            >
+                                                                {isBlockingUnit ? (
+                                                                    <>
+                                                                        <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                                        <span>{isLeadBooked ? "Marking as Sold..." : isHoldUnitEnabled ? "Reserving Unit..." : "Saving..."}</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        {isLeadBooked && isHoldUnitEnabled ? (
+                                                                            <CheckCircle2 className="h-3 w-3" />
+                                                                        ) : isHoldUnitEnabled ? (
+                                                                            <Lock className="h-3 w-3" />
+                                                                        ) : (
+                                                                            <Bookmark className="h-3 w-3" />
+                                                                        )}
+                                                                        <span>
+                                                                            {isLeadBooked && isHoldUnitEnabled 
+                                                                                ? "Confirm & Mark Unit as Sold" 
+                                                                                : isHoldUnitEnabled 
+                                                                                    ? "Reserve & Tag Unit" 
+                                                                                    : "Save Preferred Unit"}
+                                                                        </span>
+                                                                    </>
+                                                                )}
+                                                            </Button>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="bg-slate-50 dark:bg-slate-900/50 p-2 rounded-lg border border-dashed border-slate-200 dark:border-slate-700 text-center">
+                                                            <p className="text-[9px] font-medium text-slate-500">No inventory found</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
 
                                         <div className="space-y-2 pt-1">
                                             <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Quick Actions</label>
@@ -3081,6 +3466,13 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                 setStatusReason("");
                                 setPendingFollowUp("");
                                 setExtraFields({});
+
+                                if (pendingStatus === "Booked") {
+                                    const tUnitId = selectedLead.unitId || selectedUnitId;
+                                    const tPropId = selectedLead.propertyId || selectedPropertyId;
+                                    router.push(`/builder-dashboard?tab=documents&customer=${id}&doc=booking-form&unit=${tUnitId || ''}&property=${tPropId || ''}`);
+                                }
+
                             }} className="bg-purple-600 hover:bg-purple-700">Confirm & Save Log</Button>
                         </DialogFooter>
                     </DialogContent>

@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 // Optional query param: ?status=draft|active|archived
 export async function GET(req: NextRequest) {
   try {
-    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
+    const { context, errorResponse } = await checkRBAC(req, ['builder', 'mandate', 'teamLeader']);
     if (errorResponse) return errorResponse;
 
     await dbConnect();

@@ -320,6 +320,7 @@ export interface ProjectData {
   priceLabel?: string           // "₹50L – ₹1.5Cr" (custom display)
 
   // ── LEGAL (PROJECT-SPECIFIC) ─────────────
+  hasSingleRera?: boolean       // Whether the entire project has a single RERA or not
   reraNumber: string            // Project-level RERA
   reraCertificateUrl: string    // RERA certificate PDF/image link
   ccNumber: string

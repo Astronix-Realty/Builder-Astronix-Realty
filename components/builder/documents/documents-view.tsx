@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -28,6 +29,7 @@ interface Customer {
     pan?: string
     aadhar?: string
     address?: string
+    documents?: any
 }
 
 interface Unit {
@@ -42,10 +44,97 @@ interface Unit {
     propertyId?: string
 }
 
+const EditableText = ({ defaultText, className, tagName = "span" }: { defaultText: string, className?: string, tagName?: any }) => {
+    const [text, setText] = useState(defaultText)
+    
+    useEffect(() => {
+        setText(defaultText)
+    }, [defaultText])
+
+    const Tag = tagName
+    return (
+        <Tag 
+            className={`cursor-text hover:bg-slate-100 px-1 -ml-1 rounded outline-none focus:bg-white focus:ring-2 ring-blue-400 print:p-0 print:m-0 print:hover:bg-transparent ${className || ''}`}
+            contentEditable
+            suppressContentEditableWarning
+            onBlur={(e: any) => setText(e.currentTarget.textContent || '')}
+            dangerouslySetInnerHTML={{ __html: text }}
+        />
+    )
+}
+
 export function DocumentsView() {
     const [activeDoc, setActiveDoc] = useState<DocType>("cost-sheet")
     const [mobileDocTab, setMobileDocTab] = useState<'editor' | 'preview'>('editor')
     const [loadingData, setLoadingData] = useState(false)
+    const [isAttaching, setIsAttaching] = useState(false)
+    const searchParams = useSearchParams()
+
+    useEffect(() => {
+        const customer = searchParams?.get('customer')
+        const doc = searchParams?.get('doc')
+        if (customer) {
+            setSelectedCustomerId(customer)
+            // Auto-fetch lead details from CRM to populate the document
+            fetch(`/api/leads/${customer}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data && !data.error) {
+                        setCustomers(prev => {
+                            if (prev.find(c => c.id === customer)) return prev
+                            return [...prev, {
+                                id: customer,
+                                name: data.name || "Unknown",
+                                phone: data.phone || "N/A",
+                                email: data.email || "N/A",
+                                pan: "",
+                                aadhar: "",
+                                address: ""
+                            }]
+                        })
+                    }
+                })
+                .catch(console.error)
+        }
+        if (doc) {
+            setActiveDoc(doc as DocType)
+        }
+
+        const unitParam = searchParams?.get('unit')
+        const propertyParam = searchParams?.get('property')
+        if (unitParam && propertyParam) {
+            setSelectedUnitId(unitParam)
+            fetch(`/api/properties/${propertyParam}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.details?.generatedUnits) {
+                        const targetUnit = data.details.generatedUnits.find((u: any) => 
+                            u.id === unitParam || u._id === unitParam || u.originalId === unitParam || String(u.unitNumber) === unitParam
+                        );
+                        if (targetUnit) {
+                            setUnits(prev => {
+                                if (prev.find(u => u.id === unitParam)) return prev;
+                                
+                                let cleanNum = String(targetUnit.unitNumber).replace(new RegExp(`^${data.name || ''}[\\s-]*`, 'i'), '');
+                                
+                                return [...prev, {
+                                    id: unitParam,
+                                    name: `Flat ${cleanNum} ${targetUnit.configuration ? `(${targetUnit.configuration})` : ''}`,
+                                    area: targetUnit.area || targetUnit.carpetArea || targetUnit.builtUpArea || 1000,
+                                    rate: targetUnit.ratePerSqft || (targetUnit.price ? (targetUnit.price / (targetUnit.area || 1000)) : 5000),
+                                    floorRise: 0,
+                                    plc: 0,
+                                    parking: 0,
+                                    clubhouse: 0,
+                                    propertyId: propertyParam
+                                }];
+                            });
+                        }
+                    }
+                })
+                .catch(console.error);
+        }
+    }, [searchParams])
 
     // Current logged-in user & repository states
     const [currentUser, setCurrentUser] = useState<any>(null)
@@ -98,6 +187,56 @@ export function DocumentsView() {
         otherLegalCharges: 150000
     })
 
+    const [costSheetSettings, setCostSheetSettings] = useState({
+        date: new Date().toLocaleDateString(),
+        terms: "* This cost sheet is valid for 7 calendar days from date of generation.\n* Government taxes, levies and duties are subject to change according to statutory revisions without notice.\n* Registration, stamp duty and legal charges are to be paid on actuals at the time of execution.",
+        footer: "Generated by Radhika Construction Document Center",
+        labels: {
+            title: "Cost Sheet",
+            customerDetails: "CUSTOMER DETAILS",
+            unitDetails: "UNIT DETAILS",
+            baseRate: "Base Rate: ₹",
+            description: "Description",
+            amount: "Amount (₹)",
+            baseCost: "Base Cost (Carpet Area × Base Rate)",
+            floorRise: "Floor Rise Charges",
+            plc: "Preferential Location Charges (PLC) & Premium Amenities",
+            parking: "Reserved Car Parking Allocation",
+            clubhouse: "Clubhouse & Recreation Center Membership Fees",
+            agreementValue: "Agreement Value (AV)",
+            gst: "GST on Agreement Value (5%)",
+            stampDuty: "Stamp Duty on Agreement Value (7%)",
+            registration: "Government Registration Fees",
+            legal: "Legal, Society & Infrastructure Development Levies",
+            totalCost: "TOTAL LANDING COST",
+            totalCostDesc: "Inclusive of AV, taxes, stamp duty and possession charges"
+        }
+    })
+
+    const updateCustomer = (field: keyof Customer, value: any) => {
+        setCustomers(customers.map(c => c.id === selectedCustomerId ? { ...c, [field]: value } : c))
+    }
+    const updateUnit = (field: keyof Unit, value: string | number) => {
+        setUnits(units.map(u => u.id === selectedUnitId ? { ...u, [field]: value } : u))
+    }
+    const updateHeader = (field: string, value: string) => {
+        setHeaderInfo(prev => ({ ...prev, [field]: value }))
+    }
+    const updateCostSheetLabel = (key: string, value: string) => {
+        setCostSheetSettings(prev => ({ ...prev, labels: { ...prev.labels, [key as keyof typeof prev.labels]: value } }))
+    }
+
+    const handleAddCost = () => {
+        if (!newCostLabel || !newCostAmount) return
+        setCustomCosts([...customCosts, { id: Math.random().toString(36).substr(2, 9), label: newCostLabel, amount: Number(newCostAmount) }])
+        setNewCostLabel("")
+        setNewCostAmount("")
+    }
+
+    const handleRemoveCost = (id: string) => {
+        setCustomCosts(customCosts.filter(c => c.id !== id))
+    }
+
     // Calculations
     const costSheetCalculations = useMemo(() => {
         const baseCost = selectedUnit.area * selectedUnit.rate
@@ -146,6 +285,17 @@ export function DocumentsView() {
     const [newStagePercent, setNewStagePercent] = useState("")
     const milestoneSum = useMemo(() => milestones.reduce((acc, cur) => acc + cur.percent, 0), [milestones])
 
+    const handleAddMilestone = () => {
+        if (!newStageName || !newStagePercent) return
+        setMilestones([...milestones, { id: `m${Date.now()}`, stage: newStageName, percent: parseFloat(newStagePercent) }])
+        setNewStageName("")
+        setNewStagePercent("")
+    }
+
+    const handleRemoveMilestone = (id: string) => {
+        setMilestones(milestones.filter(m => m.id !== id))
+    }
+
     // Prepopulate payment templates
     const handleTemplateChange = (template: string) => {
         if (template === "clp") {
@@ -193,6 +343,20 @@ export function DocumentsView() {
         branch: "BKC Mumbai Branch",
         date: new Date().toISOString().split("T")[0]
     })
+    const [customBookingFields, setCustomBookingFields] = useState<{id: string, label: string, value: string}[]>([])
+    const [newBookingLabel, setNewBookingLabel] = useState("")
+    const [newBookingValue, setNewBookingValue] = useState("")
+
+    const handleAddBookingField = () => {
+        if (!newBookingLabel || !newBookingValue) return
+        setCustomBookingFields([...customBookingFields, { id: `bf${Date.now()}`, label: newBookingLabel, value: newBookingValue }])
+        setNewBookingLabel("")
+        setNewBookingValue("")
+    }
+
+    const handleRemoveBookingField = (id: string) => {
+        setCustomBookingFields(customBookingFields.filter(f => f.id !== id))
+    }
 
     // ─── 4. Money Receipt Custom States ───────────────────────────────────────
     const [receiptDetails, setReceiptDetails] = useState({
@@ -206,6 +370,18 @@ export function DocumentsView() {
         signatoryName: "Rajesh Shrivastava",
         signatoryTitle: "Senior Account Manager"
     })
+    const [customReceiptLines, setCustomReceiptLines] = useState<{id: string, text: string}[]>([])
+    const [newReceiptLine, setNewReceiptLine] = useState("")
+    
+    const handleAddReceiptLine = () => {
+        if (!newReceiptLine) return
+        setCustomReceiptLines([...customReceiptLines, { id: `rc${Date.now()}`, text: newReceiptLine }])
+        setNewReceiptLine("")
+    }
+    
+    const handleRemoveReceiptLine = (id: string) => {
+        setCustomReceiptLines(customReceiptLines.filter(l => l.id !== id))
+    }
 
     // ─── 5. Demand Letter Custom States ───────────────────────────────────────
     const [demandDetails, setDemandDetails] = useState({
@@ -221,6 +397,20 @@ export function DocumentsView() {
         upiId: "astronix@icici",
         qrText: "upi://pay?pa=astronix@icici&pn=AstronixRealty&am=100000&cu=INR"
     })
+    const [customDemandLines, setCustomDemandLines] = useState<{id: string, desc: string, amount: number}[]>([])
+    const [newDemandDesc, setNewDemandDesc] = useState("")
+    const [newDemandAmount, setNewDemandAmount] = useState("")
+
+    const handleAddDemandLine = () => {
+        if (!newDemandDesc || !newDemandAmount) return
+        setCustomDemandLines([...customDemandLines, { id: `dl${Date.now()}`, desc: newDemandDesc, amount: parseFloat(newDemandAmount) }])
+        setNewDemandDesc("")
+        setNewDemandAmount("")
+    }
+
+    const handleRemoveDemandLine = (id: string) => {
+        setCustomDemandLines(customDemandLines.filter(l => l.id !== id))
+    }
 
     // Fetch dynamic database context
     useEffect(() => {
@@ -242,7 +432,8 @@ export function DocumentsView() {
                             email: l.email || "N/A",
                             pan: l.pan || "______________",
                             aadhar: l.aadhar || "______________",
-                            address: l.address || "________________________________"
+                            address: l.address || "________________________________",
+                            documents: l.documents || {}
                         }))
                         
                         if (mappedLeads.length > 0) {
@@ -467,6 +658,7 @@ export function DocumentsView() {
             notesText = `Demand Details:\n- Stage: ${demandDetails.stageTrigger}\n- Demand Amount (including GST): ₹ ${(Math.round(costSheetCalculations.agreementValue * (demandDetails.duePercent / 100) * 1.05)).toLocaleString()}\n- Due Date: ${demandDetails.dueDate}`
         }
 
+        setIsAttaching(true)
         const toastId = toast.loading("Saving document log to CRM Lead timeline...")
         try {
             const res = await fetch(`/api/leads/${customer.id}`, {
@@ -476,8 +668,15 @@ export function DocumentsView() {
                 },
                 body: JSON.stringify({
                     actionType: "Document Generated",
-                    actionDesc: `${docTypeName} created: ${detailsSummary}`,
-                    notes: `[DOCUMENT LOG] ${notesText}`
+                    actionDesc: `${docTypeName} created: ${detailsSummary}\n\n[DOCUMENT LOG]\n${notesText}`,
+
+                    documents: {
+                        ...(customer.documents || {}),
+                        milestones,
+                        customBookingFields,
+                        customDemandLines,
+                        customReceiptLines
+                    }
                 })
             })
 
@@ -486,10 +685,22 @@ export function DocumentsView() {
                 throw new Error(err.error || "Failed to update lead timeline")
             }
 
+            // Update local customer state with new documents
+            const updatedDocs = {
+                ...(customer.documents || {}),
+                milestones,
+                customBookingFields,
+                customDemandLines,
+                customReceiptLines
+            }
+            updateCustomer('documents', updatedDocs)
+
             toast.success(`Attached to ${customer.name}'s CRM Timeline successfully!`, { id: toastId })
         } catch (err: any) {
             console.error(err)
             toast.error(err.message || "Failed to attach document to CRM", { id: toastId })
+        } finally {
+            setIsAttaching(false)
         }
     }
 
@@ -546,6 +757,24 @@ export function DocumentsView() {
             toast.error(err.message || "Failed to mark unit as booked", { id: toastId })
         }
     }
+
+    // Sync document states from selected customer
+    useEffect(() => {
+        if (selectedCustomer?.documents) {
+            if (selectedCustomer.documents.milestones && selectedCustomer.documents.milestones.length > 0) {
+                setMilestones(selectedCustomer.documents.milestones);
+            }
+            if (selectedCustomer.documents.customBookingFields && selectedCustomer.documents.customBookingFields.length > 0) {
+                setCustomBookingFields(selectedCustomer.documents.customBookingFields);
+            }
+            if (selectedCustomer.documents.customDemandLines && selectedCustomer.documents.customDemandLines.length > 0) {
+                setCustomDemandLines(selectedCustomer.documents.customDemandLines);
+            }
+            if (selectedCustomer.documents.customReceiptLines && selectedCustomer.documents.customReceiptLines.length > 0) {
+                setCustomReceiptLines(selectedCustomer.documents.customReceiptLines);
+            }
+        }
+    }, [selectedCustomerId, selectedCustomer]);
 
     const filteredFiles = useMemo(() => {
         return repositoryFiles.filter(file => 
@@ -645,538 +874,175 @@ export function DocumentsView() {
                     </CardContent>
                 </Card>
 
-                {/* Left Editor Controls */}
-                <div className="flex flex-col shrink-0 gap-4">
-                    {activeDoc === "cost-sheet" && (
-                        <Card className="border-slate-200 dark:border-slate-800 shadow-sm space-y-4 p-4">
-                            <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2 border-b pb-2">
-                                <Settings className="h-4 w-4 text-emerald-500" /> Cost Sheet Adjustments
-                            </h3>
+                {activeDoc === "cost-sheet" && (
+                    <Card className="border-0 shadow-sm sm:border sm:shadow-md bg-white dark:bg-slate-900 overflow-visible mt-6">
+                        <CardHeader className="bg-slate-50 dark:bg-slate-900 border-b pb-4 pt-4 sm:pt-6 rounded-t-xl sticky top-0 z-10">
+                            <CardTitle className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                                <Settings className="h-4 w-4 text-blue-500" /> Cost Sheet Adjustments (Advanced)
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-4 space-y-6">
                             
-                            {/* Base Pricing Adjustments */}
-                            <div className="space-y-3">
-                                <h4 className="text-xs font-bold uppercase text-slate-500">Base Calculations</h4>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label className="text-xs text-slate-500">Area (Sqft)</label>
-                                        <Input type="number" value={selectedUnit.area} 
-                                            onChange={(e) => {
-                                                const val = parseFloat(e.target.value) || 0;
-                                                setUnits(units.map(u => u.id === selectedUnit.id ? { ...u, area: val } : u))
-                                            }} 
-                                        />
+                            {/* Header Info */}
+                            <div className="space-y-4">
+                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Company / Header</h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[11px] font-semibold text-slate-500">Company Name</label>
+                                        <Input className="h-8 text-xs" value={headerInfo.companyName} onChange={e => updateHeader('companyName', e.target.value)} />
                                     </div>
-                                    <div>
-                                        <label className="text-xs text-slate-500">Base Rate (₹/sqft)</label>
-                                        <Input type="number" value={selectedUnit.rate} 
-                                            onChange={(e) => {
-                                                const val = parseFloat(e.target.value) || 0;
-                                                setUnits(units.map(u => u.id === selectedUnit.id ? { ...u, rate: val } : u))
-                                            }} 
-                                        />
+                                    <div className="space-y-1">
+                                        <label className="text-[11px] font-semibold text-slate-500">Address</label>
+                                        <Input className="h-8 text-xs" value={headerInfo.address} onChange={e => updateHeader('address', e.target.value)} />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[11px] font-semibold text-slate-500">Date</label>
+                                        <Input className="h-8 text-xs" value={costSheetSettings.date} onChange={e => setCostSheetSettings(prev => ({ ...prev, date: e.target.value }))} />
                                     </div>
                                 </div>
+                            </div>
+                            
+                            <Separator />
+
+                            {/* Customer & Unit Info */}
+                            <div className="space-y-4">
+                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Customer & Unit Overrides</h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[11px] font-semibold text-slate-500">Customer PAN</label>
+                                        <Input className="h-8 text-xs" value={selectedCustomer.pan || ""} onChange={e => updateCustomer('pan', e.target.value)} />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[11px] font-semibold text-slate-500">Customer Email</label>
+                                        <Input className="h-8 text-xs" value={selectedCustomer.email || ""} onChange={e => updateCustomer('email', e.target.value)} />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[11px] font-semibold text-slate-500">Carpet Area (sqft)</label>
+                                        <Input className="h-8 text-xs" type="number" value={selectedUnit.area} onChange={e => updateUnit('area', Number(e.target.value))} />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[11px] font-semibold text-slate-500">Base Rate (₹/sqft)</label>
+                                        <Input className="h-8 text-xs" type="number" value={selectedUnit.rate} onChange={e => updateUnit('rate', Number(e.target.value))} />
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <Separator />
+
+                            {/* Table Line Items (Amounts) */}
+                            <div className="space-y-4">
+                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Adjust Line Item Amounts</h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="space-y-1">
+                                        <label className="text-[11px] font-semibold text-slate-500">Floor Rise (₹/sqft)</label>
+                                        <Input className="h-8 text-xs" type="number" value={selectedUnit.floorRise} onChange={e => updateUnit('floorRise', Number(e.target.value))} />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[11px] font-semibold text-slate-500">PLC (₹)</label>
+                                        <Input className="h-8 text-xs" type="number" value={selectedUnit.plc} onChange={e => updateUnit('plc', Number(e.target.value))} />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[11px] font-semibold text-slate-500">Car Parking (₹)</label>
+                                        <Input className="h-8 text-xs" type="number" value={selectedUnit.parking} onChange={e => updateUnit('parking', Number(e.target.value))} />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[11px] font-semibold text-slate-500">Clubhouse (₹)</label>
+                                        <Input className="h-8 text-xs" type="number" value={selectedUnit.clubhouse} onChange={e => updateUnit('clubhouse', Number(e.target.value))} />
+                                    </div>
+                                </div>
+                            </div>
+                            <Separator />
+
+                            {/* Custom Line Items & Discounts */}
+                            <div className="space-y-4">
+                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Custom Additions & Discounts</h4>
                                 
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label className="text-xs text-slate-500">Floor Rise (₹/sqft)</label>
-                                        <Input type="number" value={selectedUnit.floorRise} 
-                                            onChange={(e) => {
-                                                const val = parseFloat(e.target.value) || 0;
-                                                setUnits(units.map(u => u.id === selectedUnit.id ? { ...u, floorRise: val } : u))
-                                            }} 
-                                        />
+                                <div className="space-y-2">
+                                    <label className="text-[11px] font-semibold text-slate-500">Add New Cost Line Item</label>
+                                    <div className="flex gap-2">
+                                        <Input className="h-8 text-xs flex-1" placeholder="Ex: Corner Premium" value={newCostLabel} onChange={(e) => setNewCostLabel(e.target.value)} />
+                                        <Input className="h-8 text-xs w-24" placeholder="₹ Amount" type="number" value={newCostAmount} onChange={(e) => setNewCostAmount(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddCost()} />
+                                        <Button size="sm" variant="secondary" className="h-8 px-2" onClick={handleAddCost}><Plus className="h-4 w-4" /></Button>
                                     </div>
-                                    <div>
-                                        <label className="text-xs text-slate-500">PLC Charges (₹)</label>
-                                        <Input type="number" value={selectedUnit.plc} 
-                                            onChange={(e) => {
-                                                const val = parseFloat(e.target.value) || 0;
-                                                setUnits(units.map(u => u.id === selectedUnit.id ? { ...u, plc: val } : u))
-                                            }} 
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label className="text-xs text-slate-500">Car Parking (₹)</label>
-                                        <Input type="number" value={selectedUnit.parking} 
-                                            onChange={(e) => {
-                                                const val = parseFloat(e.target.value) || 0;
-                                                setUnits(units.map(u => u.id === selectedUnit.id ? { ...u, parking: val } : u))
-                                            }} 
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-slate-500">Clubhouse (₹)</label>
-                                        <Input type="number" value={selectedUnit.clubhouse} 
-                                            onChange={(e) => {
-                                                const val = parseFloat(e.target.value) || 0;
-                                                setUnits(units.map(u => u.id === selectedUnit.id ? { ...u, clubhouse: val } : u))
-                                            }} 
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Taxes & Levies Adjustments */}
-                            <div className="space-y-3 pt-2 border-t">
-                                <h4 className="text-xs font-bold uppercase text-slate-500">Taxes & Admin Fees</h4>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label className="text-xs text-slate-500">GST Rate (%)</label>
-                                        <Input type="number" value={taxRates.gstPercent} 
-                                            onChange={(e) => setTaxRates({ ...taxRates, gstPercent: parseFloat(e.target.value) || 0 })} 
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-slate-500">Stamp Duty (%)</label>
-                                        <Input type="number" value={taxRates.stampDutyPercent} 
-                                            onChange={(e) => setTaxRates({ ...taxRates, stampDutyPercent: parseFloat(e.target.value) || 0 })} 
-                                        />
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label className="text-xs text-slate-500">Registration Fee (₹)</label>
-                                        <Input type="number" value={taxRates.registrationFee} 
-                                            onChange={(e) => setTaxRates({ ...taxRates, registrationFee: parseFloat(e.target.value) || 0 })} 
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-slate-500">Legal/Other (₹)</label>
-                                        <Input type="number" value={taxRates.otherLegalCharges} 
-                                            onChange={(e) => setTaxRates({ ...taxRates, otherLegalCharges: parseFloat(e.target.value) || 0 })} 
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Custom Items Builder */}
-                            <div className="space-y-3 pt-2 border-t">
-                                <h4 className="text-xs font-bold uppercase text-slate-500">Custom Line Charges</h4>
-                                <div className="flex gap-2">
-                                    <Input placeholder="E.g., Solar/Gas Pipe" value={newCostLabel} onChange={(e) => setNewCostLabel(e.target.value)} className="text-xs" />
-                                    <Input type="number" placeholder="Amount" value={newCostAmount} onChange={(e) => setNewCostAmount(e.target.value)} className="w-[100px] text-xs" />
-                                    <Button size="icon" className="bg-emerald-600 hover:bg-emerald-700 shrink-0" 
-                                        onClick={() => {
-                                            if (!newCostLabel || !newCostAmount) return;
-                                            setCustomCosts([...customCosts, { id: Math.random().toString(), label: newCostLabel, amount: parseFloat(newCostAmount) || 0 }]);
-                                            setNewCostLabel("");
-                                            setNewCostAmount("");
-                                        }}
-                                    >
-                                        <Plus className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                                {customCosts.length > 0 && (
-                                    <div className="space-y-1 mt-2">
-                                        {customCosts.map(cc => (
-                                            <div key={cc.id} className="flex justify-between items-center text-xs p-1.5 bg-slate-50 dark:bg-slate-900 rounded border">
-                                                <span className="truncate">{cc.label}</span>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-mono">₹ {cc.amount.toLocaleString()}</span>
-                                                    <Button size="icon" variant="ghost" className="h-5 w-5 text-red-500 hover:text-red-700 p-0" 
-                                                        onClick={() => setCustomCosts(customCosts.filter(c => c.id !== cc.id))}
-                                                    >
+                                    
+                                    {customCosts.length > 0 && (
+                                        <div className="mt-3 space-y-2">
+                                            {customCosts.map(cc => (
+                                                <div key={cc.id} className="flex justify-between items-center text-xs p-2 bg-slate-50 border rounded">
+                                                    <span className="truncate flex-1">{cc.label}</span>
+                                                    <span className="font-mono font-medium mx-2 w-24 text-right">₹ {cc.amount.toLocaleString()}</span>
+                                                    <Button variant="ghost" size="icon" className="h-5 w-5 text-red-500 hover:bg-red-50" onClick={() => handleRemoveCost(cc.id)}>
                                                         <Trash2 className="h-3 w-3" />
                                                     </Button>
                                                 </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Lumpsum Discount */}
-                            <div className="pt-2 border-t space-y-2">
-                                <label className="text-xs font-semibold text-green-600 block">Lumpsum Special Discount (₹)</label>
-                                <Input
-                                    type="number"
-                                    value={discount}
-                                    onChange={(e) => setDiscount(Number(e.target.value))}
-                                    className="border-green-200 dark:border-green-800 focus:border-green-500 text-green-600 font-bold"
-                                />
-                            </div>
-                        </Card>
-                    )}
-
-                    {activeDoc === "payment-plan" && (
-                        <Card className="border-slate-200 dark:border-slate-800 shadow-sm space-y-4 p-4">
-                            <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2 border-b pb-2">
-                                <CreditCard className="h-4 w-4 text-indigo-500" /> Milestone & Schedule Builder
-                            </h3>
-
-                            {/* Quick Presets */}
-                            <div className="space-y-1">
-                                <label className="text-xs text-slate-500">Apply Template Plan</label>
-                                <Select onValueChange={handleTemplateChange}>
-                                    <SelectTrigger className="text-xs">
-                                        <SelectValue placeholder="Choose Preset" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="clp">Construction Linked Plan (CLP)</SelectItem>
-                                        <SelectItem value="dp">Down Payment Plan (DP)</SelectItem>
-                                        <SelectItem value="flexi">Flexi Payment Plan (40-60)</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            {/* Add Milestone Form */}
-                            <div className="space-y-3 pt-2 border-t">
-                                <h4 className="text-xs font-bold uppercase text-slate-500">Add New Milestone</h4>
-                                <div className="flex gap-2">
-                                    <Input placeholder="Milestone / Slab Name" value={newStageName} onChange={(e) => setNewStageName(e.target.value)} className="text-xs" />
-                                    <Input type="number" placeholder="%" value={newStagePercent} onChange={(e) => setNewStagePercent(e.target.value)} className="w-[70px] text-xs" />
-                                    <Button size="icon" className="bg-indigo-600 hover:bg-indigo-700 shrink-0" 
-                                        onClick={() => {
-                                            if (!newStageName || !newStagePercent) return;
-                                            const pct = parseFloat(newStagePercent) || 0;
-                                            setMilestones([...milestones, { id: Math.random().toString(), stage: newStageName, percent: pct }]);
-                                            setNewStageName("");
-                                            setNewStagePercent("");
-                                        }}
-                                    >
-                                        <Plus className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            </div>
-
-                            {/* List Milestones */}
-                            <div className="space-y-2 pt-2 border-t">
-                                <div className="flex justify-between items-center mb-1">
-                                    <h4 className="text-xs font-bold uppercase text-slate-500">Milestone Breakdowns</h4>
-                                    <Badge className={milestoneSum === 100 ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300" : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"}>
-                                        Total: {milestoneSum}%
-                                    </Badge>
-                                </div>
-
-                                <div className="space-y-1.5 max-h-[300px] overflow-y-auto pr-1">
-                                    {milestones.map((ms, idx) => (
-                                        <div key={ms.id} className="flex gap-2 items-center bg-slate-50 dark:bg-slate-900 p-1.5 rounded border">
-                                            <Input 
-                                                value={ms.stage} 
-                                                className="h-7 text-xs flex-1 bg-transparent border-none p-0 focus-visible:ring-0" 
-                                                onChange={(e) => {
-                                                    const updated = [...milestones];
-                                                    updated[idx].stage = e.target.value;
-                                                    setMilestones(updated);
-                                                }}
-                                            />
-                                            <div className="flex items-center gap-1">
-                                                <Input 
-                                                    type="number" 
-                                                    value={ms.percent} 
-                                                    className="h-7 w-12 text-xs text-right bg-transparent border-none p-0 focus-visible:ring-0 font-mono" 
-                                                    onChange={(e) => {
-                                                        const updated = [...milestones];
-                                                        updated[idx].percent = parseFloat(e.target.value) || 0;
-                                                        setMilestones(updated);
-                                                    }}
-                                                />
-                                                <span className="text-xs text-slate-400 mr-2">%</span>
-                                                <Button size="icon" variant="ghost" className="h-6 w-6 text-red-500 hover:text-red-700 p-0" 
-                                                    onClick={() => setMilestones(milestones.filter(m => m.id !== ms.id))}
-                                                >
-                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                </Button>
-                                            </div>
+                                            ))}
                                         </div>
-                                    ))}
+                                    )}
                                 </div>
-                                {milestoneSum !== 100 && (
-                                    <p className="text-[10px] text-red-500 italic mt-1 flex items-center gap-1">
-                                        <Info className="h-3 w-3 shrink-0" /> Schedule percentages must sum up to exactly 100%.
-                                    </p>
-                                )}
-                            </div>
-                        </Card>
-                    )}
 
-                    {activeDoc === "booking-form" && (
-                        <Card className="border-slate-200 dark:border-slate-800 shadow-sm space-y-4 p-4">
-                            <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2 border-b pb-2">
-                                <FileCheck className="h-4 w-4 text-teal-500" /> Booking Details & Terms
-                            </h3>
-
-                            {/* Client Personal Info Overrides */}
-                            <div className="space-y-3">
-                                <h4 className="text-xs font-bold uppercase text-slate-500">Applicant Details</h4>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label className="text-xs text-slate-400">Applicant Name</label>
-                                        <Input value={selectedCustomer.name} 
-                                            onChange={(e) => setCustomers(customers.map(c => c.id === selectedCustomer.id ? { ...c, name: e.target.value } : c))} 
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-slate-400">Co-Applicant Name</label>
-                                        <Input value={applicantDetails.coApplicantName} 
-                                            onChange={(e) => setApplicantDetails({ ...applicantDetails, coApplicantName: e.target.value })} 
-                                        />
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label className="text-xs text-slate-400">PAN Number</label>
-                                        <Input value={selectedCustomer.pan || ""} 
-                                            onChange={(e) => setCustomers(customers.map(c => c.id === selectedCustomer.id ? { ...c, pan: e.target.value } : c))} 
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-slate-400">Co-App Relation</label>
-                                        <Input value={applicantDetails.coApplicantRelation} 
-                                            onChange={(e) => setApplicantDetails({ ...applicantDetails, coApplicantRelation: e.target.value })} 
-                                        />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="text-xs text-slate-400">Full Address</label>
-                                    <Input value={selectedCustomer.address || ""} 
-                                        onChange={(e) => setCustomers(customers.map(c => c.id === selectedCustomer.id ? { ...c, address: e.target.value } : c))} 
-                                    />
+                                <div className="space-y-1 mt-4">
+                                    <label className="text-[11px] font-semibold text-slate-500 flex items-center justify-between">
+                                        Special Discount (₹)
+                                        <Badge variant="outline" className="text-[9px] bg-green-50 text-green-700 border-green-200">Optional</Badge>
+                                    </label>
+                                    <Input className="h-8 text-xs" type="number" placeholder="0" value={discount || ""} onChange={(e) => setDiscount(Number(e.target.value))} />
                                 </div>
                             </div>
+                            
+                            <Separator />
 
-                            {/* Token Details */}
-                            <div className="space-y-3 pt-2 border-t">
-                                <h4 className="text-xs font-bold uppercase text-slate-500">Booking Token Remittance</h4>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label className="text-xs text-slate-400">Token Amount (₹)</label>
-                                        <Input type="number" value={bookingPayment.bookingAmount} 
-                                            onChange={(e) => setBookingPayment({ ...bookingPayment, bookingAmount: parseFloat(e.target.value) || 0 })} 
-                                        />
+                            {/* Table Labels */}
+                            <div className="space-y-4">
+                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Customize Labels</h4>
+                                <div className="grid grid-cols-1 gap-3">
+                                    <div className="flex gap-2 items-center">
+                                        <div className="w-1/3 text-[11px] text-slate-500 font-semibold truncate">Base Cost</div>
+                                        <Input className="h-8 text-xs flex-1" value={costSheetSettings.labels.baseCost} onChange={e => updateCostSheetLabel('baseCost', e.target.value)} />
                                     </div>
-                                    <div>
-                                        <label className="text-xs text-slate-400">Payment Mode</label>
-                                        <Select value={bookingPayment.paymentMode} onValueChange={(val) => setBookingPayment({ ...bookingPayment, paymentMode: val })}>
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="Cheque">Cheque</SelectItem>
-                                                <SelectItem value="NEFT/RTGS">NEFT / RTGS</SelectItem>
-                                                <SelectItem value="UPI Transfer">UPI Transfer</SelectItem>
-                                                <SelectItem value="Cash">Cash Receipt</SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                    <div className="flex gap-2 items-center">
+                                        <div className="w-1/3 text-[11px] text-slate-500 font-semibold truncate">Floor Rise</div>
+                                        <Input className="h-8 text-xs flex-1" value={costSheetSettings.labels.floorRise} onChange={e => updateCostSheetLabel('floorRise', e.target.value)} />
+                                    </div>
+                                    <div className="flex gap-2 items-center">
+                                        <div className="w-1/3 text-[11px] text-slate-500 font-semibold truncate">PLC</div>
+                                        <Input className="h-8 text-xs flex-1" value={costSheetSettings.labels.plc} onChange={e => updateCostSheetLabel('plc', e.target.value)} />
+                                    </div>
+                                    <div className="flex gap-2 items-center">
+                                        <div className="w-1/3 text-[11px] text-slate-500 font-semibold truncate">Parking</div>
+                                        <Input className="h-8 text-xs flex-1" value={costSheetSettings.labels.parking} onChange={e => updateCostSheetLabel('parking', e.target.value)} />
+                                    </div>
+                                    <div className="flex gap-2 items-center">
+                                        <div className="w-1/3 text-[11px] text-slate-500 font-semibold truncate">Clubhouse</div>
+                                        <Input className="h-8 text-xs flex-1" value={costSheetSettings.labels.clubhouse} onChange={e => updateCostSheetLabel('clubhouse', e.target.value)} />
+                                    </div>
+                                    <div className="flex gap-2 items-center">
+                                        <div className="w-1/3 text-[11px] text-slate-500 font-semibold truncate">Total Cost</div>
+                                        <Input className="h-8 text-xs flex-1" value={costSheetSettings.labels.totalCost} onChange={e => updateCostSheetLabel('totalCost', e.target.value)} />
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label className="text-xs text-slate-400">Instrument / Ref No</label>
-                                        <Input value={bookingPayment.instrumentNo} 
-                                            onChange={(e) => setBookingPayment({ ...bookingPayment, instrumentNo: e.target.value })} 
-                                        />
+                            </div>
+                            
+                            <Separator />
+
+                            {/* Terms and Footer */}
+                            <div className="space-y-4">
+                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Terms & Footer</h4>
+                                <div className="space-y-3">
+                                    <div className="space-y-1">
+                                        <label className="text-[11px] font-semibold text-slate-500">Terms & Conditions</label>
+                                        <Textarea className="text-xs min-h-[80px]" value={costSheetSettings.terms} onChange={e => setCostSheetSettings(prev => ({ ...prev, terms: e.target.value }))} />
                                     </div>
-                                    <div>
-                                        <label className="text-xs text-slate-400">Bank Name</label>
-                                        <Input value={bookingPayment.bankName} 
-                                            onChange={(e) => setBookingPayment({ ...bookingPayment, bankName: e.target.value })} 
-                                        />
+                                    <div className="space-y-1">
+                                        <label className="text-[11px] font-semibold text-slate-500">Footer Text</label>
+                                        <Input className="h-8 text-xs" value={costSheetSettings.footer} onChange={e => setCostSheetSettings(prev => ({ ...prev, footer: e.target.value }))} />
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Terms & Conditions Declarations */}
-                            <div className="space-y-2 pt-2 border-t">
-                                <label className="text-xs font-semibold text-slate-500">Legal Declaration / Terms</label>
-                                <Textarea 
-                                    className="text-xs h-24"
-                                    value={applicantDetails.declarations} 
-                                    onChange={(e) => setApplicantDetails({ ...applicantDetails, declarations: e.target.value })}
-                                />
-                            </div>
-                        </Card>
-                    )}
-
-                    {activeDoc === "receipt" && (
-                        <Card className="border-slate-200 dark:border-slate-800 shadow-sm space-y-4 p-4">
-                            <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2 border-b pb-2">
-                                <Receipt className="h-4 w-4 text-purple-500" /> Receipt Customizer
-                            </h3>
-
-                            <div className="space-y-3">
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label className="text-xs text-slate-400">Receipt No</label>
-                                        <Input value={receiptDetails.receiptNo} 
-                                            onChange={(e) => setReceiptDetails({ ...receiptDetails, receiptNo: e.target.value })} 
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-slate-400">Receipt Date</label>
-                                        <Input type="date" value={receiptDetails.date} 
-                                            onChange={(e) => setReceiptDetails({ ...receiptDetails, date: e.target.value })} 
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label className="text-xs text-slate-400">Amount Received (₹)</label>
-                                        <Input type="number" value={receiptDetails.receivedAmount} 
-                                            onChange={(e) => setReceiptDetails({ ...receiptDetails, receivedAmount: parseFloat(e.target.value) || 0 })} 
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-slate-400">Payment Method</label>
-                                        <Input value={receiptDetails.paymentMode} 
-                                            onChange={(e) => setReceiptDetails({ ...receiptDetails, paymentMode: e.target.value })} 
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label className="text-xs text-slate-400">Reference/UTR No</label>
-                                        <Input value={receiptDetails.instrumentNo} 
-                                            onChange={(e) => setReceiptDetails({ ...receiptDetails, instrumentNo: e.target.value })} 
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-slate-400">Bank Name</label>
-                                        <Input value={receiptDetails.bankName} 
-                                            onChange={(e) => setReceiptDetails({ ...receiptDetails, bankName: e.target.value })} 
-                                        />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="text-xs text-slate-400">Payment Purpose</label>
-                                    <Input value={receiptDetails.towards} 
-                                        onChange={(e) => setReceiptDetails({ ...receiptDetails, towards: e.target.value })} 
-                                    />
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-2 pt-2 border-t">
-                                    <div>
-                                        <label className="text-xs text-slate-400">Signatory Person</label>
-                                        <Input value={receiptDetails.signatoryName} 
-                                            onChange={(e) => setReceiptDetails({ ...receiptDetails, signatoryName: e.target.value })} 
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-slate-400">Signatory Title</label>
-                                        <Input value={receiptDetails.signatoryTitle} 
-                                            onChange={(e) => setReceiptDetails({ ...receiptDetails, signatoryTitle: e.target.value })} 
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        </Card>
-                    )}
-
-                    {activeDoc === "demand-letter" && (
-                        <Card className="border-slate-200 dark:border-slate-800 shadow-sm space-y-4 p-4">
-                            <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2 border-b pb-2">
-                                <Send className="h-4 w-4 text-red-500" /> Payment Demand Setup
-                            </h3>
-
-                            <div className="space-y-3">
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label className="text-xs text-slate-400">Letter Reference No</label>
-                                        <Input value={demandDetails.refNo} 
-                                            onChange={(e) => setDemandDetails({ ...demandDetails, refNo: e.target.value })} 
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-slate-400">Letter Date</label>
-                                        <Input type="date" value={demandDetails.date} 
-                                            onChange={(e) => setDemandDetails({ ...demandDetails, date: e.target.value })} 
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label className="text-xs text-slate-400">Trigger Stage / Milestone</label>
-                                        <Input value={demandDetails.stageTrigger} 
-                                            onChange={(e) => setDemandDetails({ ...demandDetails, stageTrigger: e.target.value })} 
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-slate-400">Payment % Due</label>
-                                        <Input type="number" value={demandDetails.duePercent} 
-                                            onChange={(e) => setDemandDetails({ ...demandDetails, duePercent: parseFloat(e.target.value) || 0 })} 
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <label className="text-xs text-slate-400">Payment Due Date</label>
-                                        <Input type="date" value={demandDetails.dueDate} 
-                                            onChange={(e) => setDemandDetails({ ...demandDetails, dueDate: e.target.value })} 
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-slate-400">UPI ID for payments</label>
-                                        <Input value={demandDetails.upiId} 
-                                            onChange={(e) => setDemandDetails({ ...demandDetails, upiId: e.target.value })} 
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2 pt-2 border-t">
-                                    <h4 className="text-xs font-bold uppercase text-slate-500">Escrow Bank Details</h4>
-                                    <div>
-                                        <label className="text-xs text-slate-400">Account Beneficiary Name</label>
-                                        <Input value={demandDetails.accName} 
-                                            onChange={(e) => setDemandDetails({ ...demandDetails, accName: e.target.value })} 
-                                        />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div>
-                                            <label className="text-xs text-slate-400">Account Number</label>
-                                            <Input value={demandDetails.accNo} 
-                                                onChange={(e) => setDemandDetails({ ...demandDetails, accNo: e.target.value })} 
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="text-xs text-slate-400">IFSC Code</label>
-                                            <Input value={demandDetails.ifscCode} 
-                                                onChange={(e) => setDemandDetails({ ...demandDetails, ifscCode: e.target.value })} 
-                                            />
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-slate-400">Bank & Branch Name</label>
-                                        <Input value={demandDetails.bankName} 
-                                            onChange={(e) => setDemandDetails({ ...demandDetails, bankName: e.target.value })} 
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        </Card>
-                    )}
-                </div>
-
-                {/* Company Global Header Customizer */}
-                {activeDoc !== "repository" && (
-                    <Card className="border-slate-200 dark:border-slate-800 shadow-sm p-4 pt-3">
-                        <h3 className="font-bold text-xs text-slate-900 dark:text-white uppercase tracking-wider mb-2 flex items-center gap-1.5 border-b pb-1">
-                            <Building2 className="h-3.5 w-3.5 text-slate-500" /> Letterhead Settings
-                        </h3>
-                        <div className="grid grid-cols-2 gap-2">
-                            <div>
-                                <label className="text-[10px] text-slate-400">Company Legal Name</label>
-                                <Input value={headerInfo.companyName} className="h-7 text-xs" 
-                                    onChange={(e) => setHeaderInfo({ ...headerInfo, companyName: e.target.value })} 
-                                />
-                            </div>
-                            <div>
-                                <label className="text-[10px] text-slate-400">RERA License Number</label>
-                                <Input value={headerInfo.reraNo} className="h-7 text-xs" 
-                                    onChange={(e) => setHeaderInfo({ ...headerInfo, reraNo: e.target.value })} 
-                                />
-                            </div>
-                        </div>
+                        </CardContent>
                     </Card>
                 )}
+
             </div>
 
             {/* Right Live Document Preview Container */}
@@ -1267,34 +1133,44 @@ export function DocumentsView() {
                             }
                         `}} />
 
-                        <div className="print-content flex-1 flex flex-col h-full">
+                        <div className="print-content flex-1 flex flex-col h-full relative z-0">
                             
+                            {/* Watermark Background */}
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none -z-10">
+                                <img 
+                                    src="/logo.png" 
+                                    alt="Watermark" 
+                                    className="w-[95%] max-w-[800px] h-auto object-contain print:block opacity-[0.04] mix-blend-multiply invert grayscale contrast-150" 
+                                />
+                            </div>
+
                             {/* Standard Letterhead */}
                             <div className="flex justify-between items-start border-b-2 border-slate-800 pb-4 mb-6">
                                 <div>
                                     <div className="flex items-center gap-2">
                                         <div className="h-8 w-8 bg-slate-900 text-white rounded flex items-center justify-center font-bold tracking-tighter text-xs">
-                                            {headerInfo.logoText.slice(0,2)}
+                                            <EditableText defaultText={headerInfo.logoText.slice(0,2)} />
                                         </div>
-                                        <h1 className="text-xl font-bold uppercase tracking-wider">{headerInfo.companyName}</h1>
+                                        <EditableText defaultText={headerInfo.companyName} tagName="h1" className="text-xl font-bold uppercase tracking-wider" />
                                     </div>
-                                    <p className="text-[10px] text-slate-500 mt-1">{headerInfo.address}</p>
-                                    <p className="text-[10px] text-slate-500">{headerInfo.phone} | {headerInfo.email}</p>
+                                    <EditableText defaultText={headerInfo.address} tagName="p" className="text-[10px] text-slate-500 mt-1" />
+                                    <EditableText defaultText={`${headerInfo.phone} | ${headerInfo.email}`} tagName="p" className="text-[10px] text-slate-500" />
                                 </div>
                                 <div className="text-right">
                                     <h2 className="text-sm font-bold text-slate-400 tracking-widest uppercase">
-                                        {activeDoc === "cost-sheet" && "Cost Sheet"}
-                                        {activeDoc === "payment-plan" && "Payment Schedule"}
-                                        {activeDoc === "booking-form" && "Allotment App"}
-                                        {activeDoc === "receipt" && "Money Receipt"}
-                                        {activeDoc === "demand-letter" && "Demand Note"}
+                                        {activeDoc === "cost-sheet" && <EditableText defaultText={costSheetSettings.labels.title} />}
+                                        {activeDoc === "payment-plan" && <EditableText defaultText="Payment Schedule" />}
+                                        {activeDoc === "booking-form" && <EditableText defaultText="Allotment App" />}
+                                        {activeDoc === "receipt" && <EditableText defaultText="Money Receipt" />}
+                                        {activeDoc === "demand-letter" && <EditableText defaultText="Demand Note" />}
                                     </h2>
-                                    <p className="text-xs font-semibold text-slate-500 mt-1">RERA: {headerInfo.reraNo}</p>
-                                    <p className="text-[10px] text-slate-400 mt-0.5">Date: {
+                                    <p className="text-xs font-semibold text-slate-500 mt-1">RERA: <EditableText defaultText={headerInfo.reraNo} /></p>
+                                    <p className="text-[10px] text-slate-400 mt-0.5"><EditableText defaultText="Date:" /> <EditableText defaultText={
+                                        activeDoc === "cost-sheet" ? costSheetSettings.date : 
                                         activeDoc === "receipt" ? receiptDetails.date : 
                                         activeDoc === "demand-letter" ? demandDetails.date : 
                                         new Date().toLocaleDateString()
-                                    }</p>
+                                    } /></p>
                                 </div>
                             </div>
 
@@ -1304,16 +1180,16 @@ export function DocumentsView() {
                                     {/* Client & Unit Panel */}
                                     <div className="grid grid-cols-2 gap-4 mb-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
                                         <div>
-                                            <p className="text-[10px] text-slate-500 uppercase font-semibold">Customer Details</p>
+                                            <EditableText defaultText={costSheetSettings.labels.customerDetails} tagName="p" className="text-[10px] text-slate-500 uppercase font-semibold" />
                                             <p className="font-bold text-base mt-0.5">{selectedCustomer.name}</p>
                                             <p className="text-xs text-slate-600 mt-0.5">{selectedCustomer.phone} | {selectedCustomer.email}</p>
-                                            <p className="text-xs text-slate-500 mt-0.5">PAN: {selectedCustomer.pan || "N/A"}</p>
+                                            <p className="text-xs text-slate-500 mt-0.5"><EditableText defaultText="PAN:" /> {selectedCustomer.pan || "N/A"}</p>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-[10px] text-slate-500 uppercase font-semibold">Unit Details</p>
+                                            <EditableText defaultText={costSheetSettings.labels.unitDetails} tagName="p" className="text-[10px] text-slate-500 uppercase font-semibold" />
                                             <p className="font-bold text-base mt-0.5">{selectedUnit.name}</p>
                                             <p className="text-xs text-slate-600 mt-0.5">{selectedUnit.area} sq.ft Carpet Area</p>
-                                            <p className="text-xs text-slate-500 mt-0.5">Base Rate: ₹ {selectedUnit.rate.toLocaleString()}/sqft</p>
+                                            <p className="text-xs text-slate-500 mt-0.5"><EditableText defaultText={costSheetSettings.labels.baseRate} /> {selectedUnit.rate.toLocaleString()}/sqft</p>
                                         </div>
                                     </div>
 
@@ -1322,36 +1198,36 @@ export function DocumentsView() {
                                         <table className="w-full text-xs">
                                             <thead className="bg-slate-800 text-white">
                                                 <tr>
-                                                    <th className="text-left p-2.5 font-semibold">Description</th>
-                                                    <th className="text-right p-2.5 font-semibold">Amount (₹)</th>
+                                                    <th className="text-left p-2.5 font-semibold"><EditableText defaultText={costSheetSettings.labels.description} /></th>
+                                                    <th className="text-right p-2.5 font-semibold"><EditableText defaultText={costSheetSettings.labels.amount} /></th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y border-b border-slate-200">
                                                 <tr>
-                                                    <td className="p-2.5">Base Cost (Carpet Area × Base Rate)</td>
+                                                    <td className="p-2.5"><EditableText defaultText={costSheetSettings.labels.baseCost} /></td>
                                                     <td className="text-right p-2.5 font-mono">{(costSheetCalculations.baseCost).toLocaleString()}</td>
                                                 </tr>
                                                 {selectedUnit.floorRise > 0 && (
                                                     <tr>
-                                                        <td className="p-2.5">Floor Rise Charges (₹ {selectedUnit.floorRise}/sqft)</td>
+                                                        <td className="p-2.5"><EditableText defaultText={`${costSheetSettings.labels.floorRise} (₹ ${selectedUnit.floorRise}/sqft)`} /></td>
                                                         <td className="text-right p-2.5 font-mono">{(costSheetCalculations.floorRiseCost).toLocaleString()}</td>
                                                     </tr>
                                                 )}
                                                 {selectedUnit.plc > 0 && (
                                                     <tr>
-                                                        <td className="p-2.5">Preferential Location Charges (PLC) & Premium Amenities</td>
+                                                        <td className="p-2.5"><EditableText defaultText={costSheetSettings.labels.plc} /></td>
                                                         <td className="text-right p-2.5 font-mono">{(costSheetCalculations.plc).toLocaleString()}</td>
                                                     </tr>
                                                 )}
                                                 {selectedUnit.parking > 0 && (
                                                     <tr>
-                                                        <td className="p-2.5">Reserved Car Parking Allocation</td>
+                                                        <td className="p-2.5"><EditableText defaultText={costSheetSettings.labels.parking} /></td>
                                                         <td className="text-right p-2.5 font-mono">{(costSheetCalculations.parking).toLocaleString()}</td>
                                                     </tr>
                                                 )}
                                                 {selectedUnit.clubhouse > 0 && (
                                                     <tr>
-                                                        <td className="p-2.5">Clubhouse & Recreation Center Membership Membership Fees</td>
+                                                        <td className="p-2.5"><EditableText defaultText={costSheetSettings.labels.clubhouse} /></td>
                                                         <td className="text-right p-2.5 font-mono">{(costSheetCalculations.clubhouse).toLocaleString()}</td>
                                                     </tr>
                                                 )}
@@ -1359,38 +1235,38 @@ export function DocumentsView() {
                                                 {/* Custom Costs */}
                                                 {customCosts.map(cc => (
                                                     <tr key={cc.id}>
-                                                        <td className="p-2.5">{cc.label}</td>
+                                                        <td className="p-2.5"><EditableText defaultText={cc.label} /></td>
                                                         <td className="text-right p-2.5 font-mono">{cc.amount.toLocaleString()}</td>
                                                     </tr>
                                                 ))}
 
                                                 {discount > 0 && (
                                                     <tr className="bg-green-50 text-green-700 font-semibold">
-                                                        <td className="p-2.5">Less: Special Authorized Discount</td>
+                                                        <td className="p-2.5"><EditableText defaultText="Less: Special Authorized Discount" /></td>
                                                         <td className="text-right p-2.5 font-mono">- {discount.toLocaleString()}</td>
                                                     </tr>
                                                 )}
 
                                                 <tr className="bg-slate-100 font-bold text-slate-900">
-                                                    <td className="p-2.5">Agreement Value (AV)</td>
+                                                    <td className="p-2.5"><EditableText defaultText={costSheetSettings.labels.agreementValue} /></td>
                                                     <td className="text-right p-2.5 font-mono">₹ {costSheetCalculations.agreementValue.toLocaleString()}</td>
                                                 </tr>
 
                                                 {/* Tax rows */}
                                                 <tr>
-                                                    <td className="p-2.5 text-slate-500">GST on Agreement Value ({taxRates.gstPercent}%)</td>
+                                                    <td className="p-2.5 text-slate-500"><EditableText defaultText={costSheetSettings.labels.gst} /></td>
                                                     <td className="text-right p-2.5 font-mono text-slate-500">{costSheetCalculations.gst.toLocaleString()}</td>
                                                 </tr>
                                                 <tr>
-                                                    <td className="p-2.5 text-slate-500">Stamp Duty on Agreement Value ({taxRates.stampDutyPercent}%)</td>
+                                                    <td className="p-2.5 text-slate-500"><EditableText defaultText={costSheetSettings.labels.stampDuty} /></td>
                                                     <td className="text-right p-2.5 font-mono text-slate-500">{costSheetCalculations.stampDuty.toLocaleString()}</td>
                                                 </tr>
                                                 <tr>
-                                                    <td className="p-2.5 text-slate-500">Government Registration Fees</td>
+                                                    <td className="p-2.5 text-slate-500"><EditableText defaultText={costSheetSettings.labels.registration} /></td>
                                                     <td className="text-right p-2.5 font-mono text-slate-500">{costSheetCalculations.registration.toLocaleString()}</td>
                                                 </tr>
                                                 <tr>
-                                                    <td className="p-2.5 text-slate-500">Legal, Society & Infrastructure Development Levies</td>
+                                                    <td className="p-2.5 text-slate-500"><EditableText defaultText={costSheetSettings.labels.legal} /></td>
                                                     <td className="text-right p-2.5 font-mono text-slate-500">{costSheetCalculations.otherCharges.toLocaleString()}</td>
                                                 </tr>
                                             </tbody>
@@ -1400,17 +1276,15 @@ export function DocumentsView() {
                                     {/* Final Price Block */}
                                     <div className="bg-slate-900 text-white p-5 rounded-xl mt-6 flex justify-between items-center">
                                         <div>
-                                            <span className="text-xs uppercase tracking-wider text-slate-400 font-medium">TOTAL LANDING COST</span>
-                                            <p className="text-[10px] text-slate-400 mt-0.5">Inclusive of AV, taxes, stamp duty and possession charges</p>
+                                            <EditableText defaultText={costSheetSettings.labels.totalCost} tagName="span" className="text-xs uppercase tracking-wider text-slate-400 font-medium block" />
+                                            <EditableText defaultText={costSheetSettings.labels.totalCostDesc} tagName="p" className="text-[10px] text-slate-400 mt-0.5" />
                                         </div>
                                         <span className="text-2xl font-bold font-mono">₹ {costSheetCalculations.total.toLocaleString()}</span>
                                     </div>
 
                                     {/* Disclaimers */}
-                                    <div className="mt-8 text-[10px] text-slate-400 border-t pt-4 space-y-1">
-                                        <p>* This cost sheet is valid for 7 calendar days from date of generation.</p>
-                                        <p>* Government taxes, levies and duties are subject to change according to statutory revisions without notice.</p>
-                                        <p>* Registration, stamp duty and legal charges are to be paid on actuals at the time of execution.</p>
+                                    <div className="mt-8 text-[10px] text-slate-400 border-t pt-4 space-y-1 whitespace-pre-wrap">
+                                        <EditableText defaultText={costSheetSettings.terms} />
                                     </div>
                                 </div>
                             )}
@@ -1420,14 +1294,14 @@ export function DocumentsView() {
                                     {/* Basic Info */}
                                     <div className="grid grid-cols-2 gap-4 mb-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
                                         <div>
-                                            <p className="text-[10px] text-slate-500 uppercase font-semibold">Customer</p>
-                                            <p className="font-bold text-sm mt-0.5">{selectedCustomer.name}</p>
-                                            <p className="text-xs text-slate-600 mt-0.5">{selectedCustomer.phone}</p>
+                                            <EditableText defaultText="Customer" tagName="p" className="text-[10px] text-slate-500 uppercase font-semibold" />
+                                            <EditableText defaultText={selectedCustomer.name} tagName="p" className="font-bold text-sm mt-0.5" />
+                                            <EditableText defaultText={selectedCustomer.phone} tagName="p" className="text-xs text-slate-600 mt-0.5" />
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-[10px] text-slate-500 uppercase font-semibold">Calculated Against AV</p>
-                                            <p className="font-bold text-sm mt-0.5">₹ {costSheetCalculations.agreementValue.toLocaleString()}</p>
-                                            <p className="text-xs text-slate-600 mt-0.5">Unit: {selectedUnit.name}</p>
+                                            <EditableText defaultText="Calculated Against AV" tagName="p" className="text-[10px] text-slate-500 uppercase font-semibold" />
+                                            <EditableText defaultText={`₹ ${costSheetCalculations.agreementValue.toLocaleString()}`} tagName="p" className="font-bold text-sm mt-0.5" />
+                                            <p className="text-xs text-slate-600 mt-0.5"><EditableText defaultText="Unit:" /> <EditableText defaultText={selectedUnit.name} /></p>
                                         </div>
                                     </div>
 
@@ -1436,26 +1310,44 @@ export function DocumentsView() {
                                         <table className="w-full text-xs">
                                             <thead className="bg-slate-800 text-white">
                                                 <tr>
-                                                    <th className="text-left p-2.5 font-semibold">Milestone / Stage Of Construction</th>
-                                                    <th className="text-center p-2.5 font-semibold">% Due</th>
-                                                    <th className="text-right p-2.5 font-semibold">Milestone Amount (₹)</th>
+                                                    <th className="text-left p-2.5 font-semibold"><EditableText defaultText="Milestone / Stage Of Construction" /></th>
+                                                    <th className="text-center p-2.5 font-semibold"><EditableText defaultText="% Due" /></th>
+                                                    <th className="text-right p-2.5 font-semibold"><EditableText defaultText="Milestone Amount (₹)" /></th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y border-b border-slate-200">
                                                 {milestones.map((m, idx) => {
                                                     const amt = Math.round(costSheetCalculations.agreementValue * (m.percent / 100))
                                                     return (
-                                                        <tr key={m.id}>
-                                                            <td className="p-2.5 font-medium">{idx + 1}. {m.stage}</td>
-                                                            <td className="text-center p-2.5 font-mono">{m.percent}%</td>
-                                                            <td className="text-right p-2.5 font-mono">₹ {amt.toLocaleString()}</td>
+                                                        <tr key={m.id} className="group">
+                                                            <td className="p-2.5 font-medium relative">
+                                                                <button onClick={() => handleRemoveMilestone(m.id)} className="absolute -left-5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 print:hidden transition-opacity bg-white dark:bg-slate-900 rounded-full p-1 shadow-sm border border-red-100">
+                                                                    <Trash2 className="h-3 w-3" />
+                                                                </button>
+                                                                {idx + 1}. <EditableText defaultText={m.stage} />
+                                                            </td>
+                                                            <td className="text-center p-2.5 font-mono"><EditableText defaultText={`${m.percent}%`} /></td>
+                                                            <td className="text-right p-2.5 font-mono">₹ <EditableText defaultText={amt.toLocaleString()} /></td>
                                                         </tr>
                                                     )
                                                 })}
+                                                <tr className="print:hidden border-t-2 border-dashed border-slate-200 hover:bg-slate-50 transition-colors">
+                                                    <td className="p-2">
+                                                        <Input placeholder="New Milestone Stage..." className="h-7 text-xs border-slate-300 w-full" value={newStageName} onChange={e => setNewStageName(e.target.value)} />
+                                                    </td>
+                                                    <td className="p-2 text-center">
+                                                        <Input placeholder="%" type="number" className="h-7 text-xs border-slate-300 w-16 mx-auto text-center" value={newStagePercent} onChange={e => setNewStagePercent(e.target.value)} />
+                                                    </td>
+                                                    <td className="p-2 text-right">
+                                                        <Button size="sm" variant="outline" className="h-7 text-xs text-blue-600 border-blue-200 hover:bg-blue-50" onClick={handleAddMilestone} disabled={!newStageName || !newStagePercent}>
+                                                            <Plus className="h-3 w-3 mr-1" /> Add
+                                                        </Button>
+                                                    </td>
+                                                </tr>
                                                 <tr className="font-bold bg-slate-50 text-slate-900">
-                                                    <td className="p-2.5 text-right">TOTAL</td>
-                                                    <td className="text-center p-2.5 font-mono">{milestoneSum}%</td>
-                                                    <td className="text-right p-2.5 font-mono">₹ {costSheetCalculations.agreementValue.toLocaleString()}</td>
+                                                    <td className="p-2.5 text-right"><EditableText defaultText="TOTAL" /></td>
+                                                    <td className="text-center p-2.5 font-mono"><EditableText defaultText={`${milestoneSum}%`} /></td>
+                                                    <td className="text-right p-2.5 font-mono">₹ <EditableText defaultText={costSheetCalculations.agreementValue.toLocaleString()} /></td>
                                                 </tr>
                                             </tbody>
                                         </table>
@@ -1463,11 +1355,11 @@ export function DocumentsView() {
 
                                     {/* Instructions */}
                                     <div className="mt-8 text-[11px] text-slate-500 border-t pt-4 space-y-2 bg-slate-50 p-3 rounded border">
-                                        <p className="font-bold text-slate-700">Payment Guidelines & Guidelines:</p>
+                                        <EditableText defaultText="Payment Guidelines & Guidelines:" tagName="p" className="font-bold text-slate-700" />
                                         <ul className="list-disc pl-4 space-y-1">
-                                            <li>Dues must be cleared within 15 days of demand letter dispatch.</li>
-                                            <li>Payments to be made electronically or via cheque in favor of: <strong>"{headerInfo.companyName}"</strong>.</li>
-                                            <li>GST is additional and will be levied at the actual rate on each slab invoice date.</li>
+                                            <li><EditableText defaultText="Dues must be cleared within 15 days of demand letter dispatch." /></li>
+                                            <li><EditableText defaultText="Payments to be made electronically or via cheque in favor of:" /> <strong>"{headerInfo.companyName}"</strong>.</li>
+                                            <li><EditableText defaultText="GST is additional and will be levied at the actual rate on each slab invoice date." /></li>
                                         </ul>
                                     </div>
                                 </div>
@@ -1477,44 +1369,59 @@ export function DocumentsView() {
                                 <div className="flex-1 flex flex-col space-y-5">
                                     {/* Title details */}
                                     <div className="border-b border-slate-200 pb-2">
-                                        <h3 className="font-bold text-sm bg-slate-100 p-2 text-slate-800 tracking-wide uppercase">1. Applicant Details</h3>
+                                        <EditableText defaultText="1. Applicant Details" tagName="h3" className="font-bold text-sm bg-slate-100 p-2 text-slate-800 tracking-wide uppercase" />
                                         <div className="grid grid-cols-2 gap-x-8 gap-y-2 p-2 text-xs">
-                                            <div><span className="text-slate-400">Primary Applicant:</span> <strong className="ml-1 text-slate-800">{selectedCustomer.name}</strong></div>
-                                            <div><span className="text-slate-400">Co-Applicant:</span> <strong className="ml-1 text-slate-800">{applicantDetails.coApplicantName || "N/A"}</strong></div>
-                                            <div><span className="text-slate-400">Primary PAN No:</span> <strong className="ml-1 text-slate-800">{selectedCustomer.pan || "N/A"}</strong></div>
-                                            <div><span className="text-slate-400">Co-App relation:</span> <strong className="ml-1 text-slate-800">{applicantDetails.coApplicantRelation || "N/A"}</strong></div>
-                                            <div><span className="text-slate-400">Mobile No:</span> <strong className="ml-1 text-slate-800">{selectedCustomer.phone}</strong></div>
-                                            <div><span className="text-slate-400">Email Address:</span> <strong className="ml-1 text-slate-800">{selectedCustomer.email}</strong></div>
-                                            <div className="col-span-2"><span className="text-slate-400">Contact Address:</span> <strong className="ml-1 text-slate-800">{selectedCustomer.address}</strong></div>
+                                            <div><span className="text-slate-400"><EditableText defaultText="Primary Applicant:" /></span> <strong className="ml-1 text-slate-800"><EditableText defaultText={selectedCustomer.name} /></strong></div>
+                                            <div><span className="text-slate-400"><EditableText defaultText="Co-Applicant:" /></span> <strong className="ml-1 text-slate-800"><EditableText defaultText={applicantDetails.coApplicantName || "N/A"} /></strong></div>
+                                            <div><span className="text-slate-400"><EditableText defaultText="Primary PAN No:" /></span> <strong className="ml-1 text-slate-800"><EditableText defaultText={selectedCustomer.pan || "N/A"} /></strong></div>
+                                            <div><span className="text-slate-400"><EditableText defaultText="Co-App relation:" /></span> <strong className="ml-1 text-slate-800"><EditableText defaultText={applicantDetails.coApplicantRelation || "N/A"} /></strong></div>
+                                            <div><span className="text-slate-400"><EditableText defaultText="Mobile No:" /></span> <strong className="ml-1 text-slate-800"><EditableText defaultText={selectedCustomer.phone} /></strong></div>
+                                            <div><span className="text-slate-400"><EditableText defaultText="Email Address:" /></span> <strong className="ml-1 text-slate-800"><EditableText defaultText={selectedCustomer.email} /></strong></div>
+                                            <div className="col-span-2"><span className="text-slate-400"><EditableText defaultText="Contact Address:" /></span> <strong className="ml-1 text-slate-800"><EditableText defaultText={selectedCustomer.address || "N/A"} /></strong></div>
+                                            {customBookingFields.map(field => (
+                                                <div key={field.id} className="group relative col-span-2 md:col-span-1">
+                                                    <button onClick={() => handleRemoveBookingField(field.id)} className="absolute -left-5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 print:hidden transition-opacity bg-white dark:bg-slate-900 rounded-full p-1 shadow-sm border border-red-100">
+                                                        <Trash2 className="h-3 w-3" />
+                                                    </button>
+                                                    <span className="text-slate-400"><EditableText defaultText={field.label} />:</span> <strong className="ml-1 text-slate-800"><EditableText defaultText={field.value} /></strong>
+                                                </div>
+                                            ))}
+                                            <div className="col-span-2 print:hidden mt-2 pt-2 border-t border-dashed border-slate-200 flex flex-wrap items-center gap-2">
+                                                <Input placeholder="Field Label..." className="h-7 text-xs border-slate-300 w-40" value={newBookingLabel} onChange={e => setNewBookingLabel(e.target.value)} />
+                                                <Input placeholder="Field Value..." className="h-7 text-xs border-slate-300 flex-1 min-w-[200px]" value={newBookingValue} onChange={e => setNewBookingValue(e.target.value)} />
+                                                <Button size="sm" variant="outline" className="h-7 text-xs text-blue-600 border-blue-200 hover:bg-blue-50" onClick={handleAddBookingField} disabled={!newBookingLabel || !newBookingValue}>
+                                                    <Plus className="h-3 w-3 mr-1" /> Add Field
+                                                </Button>
+                                            </div>
                                         </div>
                                     </div>
 
                                     <div>
-                                        <h3 className="font-bold text-sm bg-slate-100 p-2 text-slate-800 tracking-wide uppercase">2. Apartment Details</h3>
+                                        <EditableText defaultText="2. Apartment Details" tagName="h3" className="font-bold text-sm bg-slate-100 p-2 text-slate-800 tracking-wide uppercase" />
                                         <div className="grid grid-cols-2 gap-x-8 gap-y-2 p-2 text-xs">
-                                            <div><span className="text-slate-400">Unit Identification:</span> <strong className="ml-1 text-slate-800">{selectedUnit.name}</strong></div>
-                                            <div><span className="text-slate-400">Carpet Area:</span> <strong className="ml-1 text-slate-800">{selectedUnit.area} Sq.Ft</strong></div>
-                                            <div><span className="text-slate-400">Agreement Value:</span> <strong className="ml-1 text-slate-800">₹ {costSheetCalculations.agreementValue.toLocaleString()}</strong></div>
-                                            <div><span className="text-slate-400">Parking Space:</span> <strong className="ml-1 text-slate-800">{applicantDetails.parkingAssigned}</strong></div>
+                                            <div><span className="text-slate-400"><EditableText defaultText="Unit Identification:" /></span> <strong className="ml-1 text-slate-800"><EditableText defaultText={selectedUnit.name} /></strong></div>
+                                            <div><span className="text-slate-400"><EditableText defaultText="Carpet Area:" /></span> <strong className="ml-1 text-slate-800"><EditableText defaultText={`${selectedUnit.area} Sq.Ft`} /></strong></div>
+                                            <div><span className="text-slate-400"><EditableText defaultText="Agreement Value:" /></span> <strong className="ml-1 text-slate-800">₹ <EditableText defaultText={costSheetCalculations.agreementValue.toLocaleString()} /></strong></div>
+                                            <div><span className="text-slate-400"><EditableText defaultText="Parking Space:" /></span> <strong className="ml-1 text-slate-800"><EditableText defaultText={applicantDetails.parkingAssigned} /></strong></div>
                                         </div>
                                     </div>
 
                                     <div>
-                                        <h3 className="font-bold text-sm bg-slate-100 p-2 text-slate-800 tracking-wide uppercase">3. Token Remittance details</h3>
+                                        <EditableText defaultText="3. Token Remittance details" tagName="h3" className="font-bold text-sm bg-slate-100 p-2 text-slate-800 tracking-wide uppercase" />
                                         <div className="grid grid-cols-2 gap-x-8 gap-y-2 p-2 text-xs">
-                                            <div><span className="text-slate-400">Booking Amount Paid:</span> <strong className="ml-1 text-slate-800">₹ {bookingPayment.bookingAmount.toLocaleString()}</strong></div>
-                                            <div><span className="text-slate-400">Payment mode:</span> <strong className="ml-1 text-slate-800">{bookingPayment.paymentMode}</strong></div>
-                                            <div><span className="text-slate-400">Ref/UTR/Instrument No:</span> <strong className="ml-1 text-slate-800">{bookingPayment.instrumentNo}</strong></div>
-                                            <div><span className="text-slate-400">Bank & Branch:</span> <strong className="ml-1 text-slate-800">{bookingPayment.bankName} - {bookingPayment.branch}</strong></div>
-                                            <div><span className="text-slate-400">Remittance Date:</span> <strong className="ml-1 text-slate-800">{new Date(bookingPayment.date).toLocaleDateString()}</strong></div>
+                                            <div><span className="text-slate-400"><EditableText defaultText="Booking Amount Paid:" /></span> <strong className="ml-1 text-slate-800">₹ <EditableText defaultText={bookingPayment.bookingAmount.toLocaleString()} /></strong></div>
+                                            <div><span className="text-slate-400"><EditableText defaultText="Payment mode:" /></span> <strong className="ml-1 text-slate-800"><EditableText defaultText={bookingPayment.paymentMode} /></strong></div>
+                                            <div><span className="text-slate-400"><EditableText defaultText="Ref/UTR/Instrument No:" /></span> <strong className="ml-1 text-slate-800"><EditableText defaultText={bookingPayment.instrumentNo} /></strong></div>
+                                            <div><span className="text-slate-400"><EditableText defaultText="Bank & Branch:" /></span> <strong className="ml-1 text-slate-800"><EditableText defaultText={`${bookingPayment.bankName} - ${bookingPayment.branch}`} /></strong></div>
+                                            <div><span className="text-slate-400"><EditableText defaultText="Remittance Date:" /></span> <strong className="ml-1 text-slate-800"><EditableText defaultText={new Date(bookingPayment.date).toLocaleDateString()} /></strong></div>
                                         </div>
                                     </div>
 
                                     {/* Declaration Text Block */}
                                     <div className="pt-2">
-                                        <h3 className="font-bold text-xs text-slate-700 uppercase">Declaration Note:</h3>
+                                        <EditableText defaultText="Declaration Note:" tagName="h3" className="font-bold text-xs text-slate-700 uppercase" />
                                         <p className="text-[10px] text-slate-500 leading-relaxed text-justify mt-1">
-                                            {applicantDetails.declarations}
+                                            <EditableText defaultText={applicantDetails.declarations} />
                                         </p>
                                     </div>
 
@@ -1522,11 +1429,11 @@ export function DocumentsView() {
                                     <div className="pt-12 flex justify-between px-6 text-xs">
                                         <div className="text-center">
                                             <div className="border-b border-slate-400 w-44 mb-1.5 h-6"></div>
-                                            <p className="font-semibold text-slate-600">Primary Applicant Signature</p>
+                                            <EditableText defaultText="Primary Applicant Signature" tagName="p" className="font-semibold text-slate-600" />
                                         </div>
                                         <div className="text-center">
                                             <div className="border-b border-slate-400 w-44 mb-1.5 h-6"></div>
-                                            <p className="font-semibold text-slate-600">Co-Applicant Signature</p>
+                                            <EditableText defaultText="Co-Applicant Signature" tagName="p" className="font-semibold text-slate-600" />
                                         </div>
                                     </div>
                                 </div>
@@ -1540,45 +1447,59 @@ export function DocumentsView() {
                                     </div>
 
                                     <div className="text-center mb-6">
-                                        <h3 className="text-xl font-bold font-serif text-slate-800 uppercase tracking-widest border-b pb-1.5">Official Money Receipt</h3>
+                                        <EditableText defaultText="Official Money Receipt" tagName="h3" className="text-xl font-bold font-serif text-slate-800 uppercase tracking-widest border-b pb-1.5" />
                                     </div>
 
                                     <div className="flex justify-between text-xs mb-8">
-                                        <div>Receipt No: <span className="font-bold font-mono text-slate-800">{receiptDetails.receiptNo}</span></div>
-                                        <div>Date: <span className="font-bold font-mono text-slate-800">{new Date(receiptDetails.date).toLocaleDateString()}</span></div>
+                                        <div><EditableText defaultText="Receipt No:" /> <span className="font-bold font-mono text-slate-800"><EditableText defaultText={receiptDetails.receiptNo} /></span></div>
+                                        <div><EditableText defaultText="Date:" /> <span className="font-bold font-mono text-slate-800"><EditableText defaultText={new Date(receiptDetails.date).toLocaleDateString()} /></span></div>
                                     </div>
 
                                     {/* Receipt Statement details */}
                                     <div className="space-y-6 text-sm font-serif leading-loose text-slate-700 flex-1">
                                         <p>
-                                            Received with thanks from Mr./Mrs./Ms. <span className="font-bold border-b border-slate-400 px-3 py-0.5 inline-block min-w-[200px] text-slate-900 font-sans">{selectedCustomer.name}</span>
+                                            <EditableText defaultText="Received with thanks from Mr./Mrs./Ms." /> <span className="font-bold border-b border-slate-400 px-3 py-0.5 inline-block min-w-[200px] text-slate-900 font-sans"><EditableText defaultText={selectedCustomer.name} /></span>
                                         </p>
                                         <p>
-                                            A sum of Rupees <span className="font-bold border-b border-slate-400 px-3 py-0.5 inline-block min-w-[180px] text-slate-900 font-sans">₹ {receiptDetails.receivedAmount.toLocaleString()}/-</span>
+                                            <EditableText defaultText="A sum of Rupees" /> <span className="font-bold border-b border-slate-400 px-3 py-0.5 inline-block min-w-[180px] text-slate-900 font-sans">₹ <EditableText defaultText={`${receiptDetails.receivedAmount.toLocaleString()}/-`} /></span>
                                         </p>
                                         <p>
-                                            Via payment mode <span className="font-bold border-b border-slate-400 px-3 py-0.5 inline-block text-slate-900 font-sans">{receiptDetails.paymentMode}</span> Reference No: <span className="font-bold border-b border-slate-400 px-3 py-0.5 inline-block text-slate-900 font-sans">{receiptDetails.instrumentNo}</span>
+                                            <EditableText defaultText="Via payment mode" /> <span className="font-bold border-b border-slate-400 px-3 py-0.5 inline-block text-slate-900 font-sans"><EditableText defaultText={receiptDetails.paymentMode} /></span> <EditableText defaultText="Reference No:" /> <span className="font-bold border-b border-slate-400 px-3 py-0.5 inline-block text-slate-900 font-sans"><EditableText defaultText={receiptDetails.instrumentNo} /></span>
                                         </p>
                                         <p>
-                                            Drawn on bank <span className="font-bold border-b border-slate-400 px-3 py-0.5 inline-block min-w-[150px] text-slate-900 font-sans">{receiptDetails.bankName || "N/A"}</span>
+                                            <EditableText defaultText="Drawn on bank" /> <span className="font-bold border-b border-slate-400 px-3 py-0.5 inline-block min-w-[150px] text-slate-900 font-sans"><EditableText defaultText={receiptDetails.bankName || "N/A"} /></span>
                                         </p>
                                         <p>
-                                            Towards booking/allotment of Flat <span className="font-bold border-b border-slate-400 px-3 py-0.5 inline-block text-slate-900 font-sans">{selectedUnit.name}</span>
+                                            <EditableText defaultText="Towards booking/allotment of Flat" /> <span className="font-bold border-b border-slate-400 px-3 py-0.5 inline-block text-slate-900 font-sans"><EditableText defaultText={selectedUnit.name} /></span>
                                         </p>
+                                        {customReceiptLines.map(line => (
+                                            <div key={line.id} className="group relative">
+                                                <button onClick={() => handleRemoveReceiptLine(line.id)} className="absolute -left-6 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 print:hidden transition-opacity bg-white dark:bg-slate-900 rounded-full p-1 shadow-sm border border-red-100 z-10">
+                                                    <Trash2 className="h-3 w-3" />
+                                                </button>
+                                                <p><EditableText defaultText={line.text} /></p>
+                                            </div>
+                                        ))}
+                                        <div className="print:hidden mt-4 pt-2 border-t border-dashed border-slate-200 flex items-center gap-2 font-sans">
+                                            <Input placeholder="Additional receipt note/line..." className="h-7 text-xs border-slate-300 flex-1 font-sans" value={newReceiptLine} onChange={e => setNewReceiptLine(e.target.value)} />
+                                            <Button size="sm" variant="outline" className="h-7 text-xs text-blue-600 border-blue-200 hover:bg-blue-50 font-sans" onClick={handleAddReceiptLine} disabled={!newReceiptLine}>
+                                                <Plus className="h-3 w-3 mr-1" /> Add Note
+                                            </Button>
+                                        </div>
                                     </div>
 
                                     {/* Signatory footer */}
                                     <div className="mt-12 flex justify-between items-end border-t border-slate-100 pt-6">
                                         <div className="text-[10px] text-slate-400 max-w-xs leading-relaxed">
-                                            * Receipt is valid subject to realization of cheque / online fund transfer clearance.<br />
-                                            * This is a computerized RERA-compliant receipt.
+                                            <EditableText defaultText="* Receipt is valid subject to realization of cheque / online fund transfer clearance." /><br />
+                                            <EditableText defaultText="* This is a computerized RERA-compliant receipt." />
                                         </div>
                                         <div className="text-center mr-4">
                                             <div className="h-10 w-36 mb-1 border border-dashed border-slate-200 rounded flex items-center justify-center text-[10px] text-slate-300 italic select-none">
                                                 [Sign Document]
                                             </div>
-                                            <p className="font-bold text-xs text-slate-800">{receiptDetails.signatoryName}</p>
-                                            <p className="text-[10px] text-slate-400">{receiptDetails.signatoryTitle}</p>
+                                            <EditableText defaultText={receiptDetails.signatoryName} tagName="p" className="font-bold text-xs text-slate-800" />
+                                            <EditableText defaultText={receiptDetails.signatoryTitle} tagName="p" className="text-[10px] text-slate-400" />
                                         </div>
                                     </div>
                                 </div>
@@ -1588,53 +1509,79 @@ export function DocumentsView() {
                                 <div className="flex-1 flex flex-col text-xs leading-relaxed">
                                     <div className="flex justify-between items-start mb-6">
                                         <div>
-                                            <p className="font-semibold">To,</p>
-                                            <p className="font-bold text-sm text-slate-800">{selectedCustomer.name}</p>
-                                            <p className="text-slate-500">Contact: {selectedCustomer.phone}</p>
-                                            <p className="text-slate-500">Address: {selectedCustomer.address}</p>
+                                            <EditableText defaultText="To," tagName="p" className="font-semibold" />
+                                            <EditableText defaultText={selectedCustomer.name} tagName="p" className="font-bold text-sm text-slate-800" />
+                                            <p className="text-slate-500"><EditableText defaultText="Contact:" /> <EditableText defaultText={selectedCustomer.phone} /></p>
+                                            <p className="text-slate-500"><EditableText defaultText="Address:" /> <EditableText defaultText={selectedCustomer.address || "N/A"} /></p>
                                         </div>
                                         <div className="text-right">
-                                            <p className="font-mono font-bold">Ref No: {demandDetails.refNo}</p>
-                                            <p>Date: {new Date(demandDetails.date).toLocaleDateString()}</p>
+                                            <p className="font-mono font-bold"><EditableText defaultText="Ref No:" /> <EditableText defaultText={demandDetails.refNo} /></p>
+                                            <p><EditableText defaultText="Date:" /> <EditableText defaultText={new Date(demandDetails.date).toLocaleDateString()} /></p>
                                         </div>
                                     </div>
 
                                     <div className="bg-red-50 text-red-900 font-bold p-2.5 rounded border border-red-200 uppercase tracking-wide mb-5 text-center">
-                                        Payment Demand Note: {demandDetails.stageTrigger}
+                                        <EditableText defaultText="Payment Demand Note:" /> <EditableText defaultText={demandDetails.stageTrigger} />
                                     </div>
 
-                                    <p className="mb-4">Dear Sir/Madam,</p>
+                                    <EditableText defaultText="Dear Sir/Madam," tagName="p" className="mb-4" />
                                     <p className="mb-4 leading-loose">
-                                        We are pleased to share that construction is moving rapidly at the site. The milestone stage <strong>"{demandDetails.stageTrigger}"</strong> for your unit <strong>{selectedUnit.name}</strong> has been achieved. As per the linked payment plan terms, the current installment demand is now due for remittance:
+                                        <EditableText defaultText="We are pleased to share that construction is moving rapidly at the site. The milestone stage" /> <strong className="mx-1">"<EditableText defaultText={demandDetails.stageTrigger} />"</strong> <EditableText defaultText="for your unit" /> <strong className="mx-1"><EditableText defaultText={selectedUnit.name} /></strong> <EditableText defaultText="has been achieved. As per the linked payment plan terms, the current installment demand is now due for remittance:" />
                                     </p>
 
                                     {/* Calculations detail */}
                                     <table className="w-full text-xs mb-6 border-collapse border border-slate-200">
                                         <thead className="bg-slate-100 text-slate-800">
                                             <tr>
-                                                <th className="border border-slate-200 p-2.5 text-left font-semibold">Description</th>
-                                                <th className="border border-slate-200 p-2.5 text-right font-semibold">Amount (₹)</th>
+                                                <th className="border border-slate-200 p-2.5 text-left font-semibold"><EditableText defaultText="Description" /></th>
+                                                <th className="border border-slate-200 p-2.5 text-right font-semibold"><EditableText defaultText="Amount (₹)" /></th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y border-b">
                                             <tr>
                                                 <td className="border border-slate-200 p-2.5">
-                                                    Stage Demand Installment ({demandDetails.duePercent}% of AV: ₹ {costSheetCalculations.agreementValue.toLocaleString()})
+                                                    <EditableText defaultText={`Stage Demand Installment (${demandDetails.duePercent}% of AV: ₹ ${costSheetCalculations.agreementValue.toLocaleString()})`} />
                                                 </td>
                                                 <td className="border border-slate-200 p-2.5 text-right font-mono">
-                                                    {Math.round(costSheetCalculations.agreementValue * (demandDetails.duePercent / 100)).toLocaleString()}
+                                                    <EditableText defaultText={Math.round(costSheetCalculations.agreementValue * (demandDetails.duePercent / 100)).toLocaleString()} />
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td className="border border-slate-200 p-2.5 text-slate-500">GST on installment amount (5% actuals)</td>
+                                                <td className="border border-slate-200 p-2.5 text-slate-500"><EditableText defaultText="GST on installment amount (5% actuals)" /></td>
                                                 <td className="border border-slate-200 p-2.5 text-right font-mono text-slate-500">
-                                                    {Math.round(costSheetCalculations.agreementValue * (demandDetails.duePercent / 100) * 0.05).toLocaleString()}
+                                                    <EditableText defaultText={Math.round(costSheetCalculations.agreementValue * (demandDetails.duePercent / 100) * 0.05).toLocaleString()} />
+                                                </td>
+                                            </tr>
+                                            {customDemandLines.map(line => (
+                                                <tr key={line.id} className="group relative">
+                                                    <td className="border border-slate-200 p-2.5">
+                                                        <button onClick={() => handleRemoveDemandLine(line.id)} className="absolute -left-5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 print:hidden transition-opacity bg-white dark:bg-slate-900 rounded-full p-1 shadow-sm border border-red-100">
+                                                            <Trash2 className="h-3 w-3" />
+                                                        </button>
+                                                        <EditableText defaultText={line.desc} />
+                                                    </td>
+                                                    <td className="border border-slate-200 p-2.5 text-right font-mono">
+                                                        <EditableText defaultText={line.amount.toLocaleString()} />
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            <tr className="print:hidden border-t-2 border-dashed border-slate-200 hover:bg-slate-50 transition-colors">
+                                                <td className="border border-slate-200 p-2">
+                                                    <Input placeholder="Extra Description..." className="h-7 text-xs border-slate-300 w-full" value={newDemandDesc} onChange={e => setNewDemandDesc(e.target.value)} />
+                                                </td>
+                                                <td className="border border-slate-200 p-2">
+                                                    <div className="flex items-center gap-2 justify-end">
+                                                        <Input placeholder="Amount" type="number" className="h-7 text-xs border-slate-300 w-24 text-right" value={newDemandAmount} onChange={e => setNewDemandAmount(e.target.value)} />
+                                                        <Button size="sm" variant="outline" className="h-7 text-xs text-blue-600 border-blue-200 hover:bg-blue-50" onClick={handleAddDemandLine} disabled={!newDemandDesc || !newDemandAmount}>
+                                                            <Plus className="h-3 w-3 mr-1" /> Add
+                                                        </Button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                             <tr className="font-bold bg-slate-50">
-                                                <td className="border border-slate-200 p-2.5 text-slate-900">Total Net Amount Payable</td>
+                                                <td className="border border-slate-200 p-2.5 text-slate-900"><EditableText defaultText="Total Net Amount Payable" /></td>
                                                 <td className="border border-slate-200 p-2.5 text-right font-mono text-slate-900 text-sm">
-                                                    ₹ {(Math.round(costSheetCalculations.agreementValue * (demandDetails.duePercent / 100) * 1.05)).toLocaleString()}
+                                                    ₹ <EditableText defaultText={(Math.round(costSheetCalculations.agreementValue * (demandDetails.duePercent / 100) * 1.05) + customDemandLines.reduce((acc, cur) => acc + cur.amount, 0)).toLocaleString()} />
                                                 </td>
                                             </tr>
                                         </tbody>
@@ -1642,26 +1589,26 @@ export function DocumentsView() {
 
                                     {/* Due Warning Banner */}
                                     <div className="p-3 bg-amber-50 border border-amber-200 rounded text-amber-900 font-semibold mb-6 flex justify-between items-center">
-                                        <span>DUE DATE FOR REMITTANCE:</span>
-                                        <span className="font-mono text-sm underline">{new Date(demandDetails.dueDate).toLocaleDateString()}</span>
+                                        <span><EditableText defaultText="DUE DATE FOR REMITTANCE:" /></span>
+                                        <span className="font-mono text-sm underline"><EditableText defaultText={new Date(demandDetails.dueDate).toLocaleDateString()} /></span>
                                     </div>
 
                                     {/* Banking details & QR code */}
                                     <div className="grid grid-cols-3 gap-4 border-t pt-4">
                                         <div className="col-span-2">
-                                            <h4 className="font-bold text-slate-700 uppercase mb-1">Escrow Bank Details:</h4>
+                                            <EditableText defaultText="Escrow Bank Details:" tagName="h4" className="font-bold text-slate-700 uppercase mb-1" />
                                             <p className="font-mono text-[11px] leading-relaxed">
-                                                Beneficiary: {demandDetails.accName}<br />
-                                                Account No: {demandDetails.accNo}<br />
-                                                IFSC Code: {demandDetails.ifscCode}<br />
-                                                Bank Name: {demandDetails.bankName}
+                                                <EditableText defaultText="Beneficiary:" /> <EditableText defaultText={demandDetails.accName} /><br />
+                                                <EditableText defaultText="Account No:" /> <EditableText defaultText={demandDetails.accNo} /><br />
+                                                <EditableText defaultText="IFSC Code:" /> <EditableText defaultText={demandDetails.ifscCode} /><br />
+                                                <EditableText defaultText="Bank Name:" /> <EditableText defaultText={demandDetails.bankName} />
                                             </p>
                                         </div>
                                         <div className="flex flex-col items-center justify-center border p-2 rounded bg-slate-50">
                                             <div className="w-16 h-16 bg-slate-200 flex items-center justify-center text-[10px] text-slate-400 font-bold border-2 border-slate-300">
-                                                QR Code
+                                                <EditableText defaultText="QR Code" />
                                             </div>
-                                            <p className="text-[9px] mt-1 font-semibold text-slate-500">Scan to Pay via UPI</p>
+                                            <EditableText defaultText="Scan to Pay via UPI" tagName="p" className="text-[9px] mt-1 font-semibold text-slate-500" />
                                         </div>
                                     </div>
                                 </div>
@@ -1671,8 +1618,8 @@ export function DocumentsView() {
 
                         {/* Document Footer (Print Details) */}
                         <div className="mt-12 text-center text-[9px] text-slate-400 border-t pt-2 w-full flex justify-between items-center print:mt-6">
-                            <span>Generated by {headerInfo.companyName} Document Center</span>
-                            <span>Page 1 of 1</span>
+                            <span><EditableText defaultText={activeDoc === 'cost-sheet' ? costSheetSettings.footer : `Generated by ${headerInfo.companyName} Document Center`} /></span>
+                            <span><EditableText defaultText="Page 1 of 1" /></span>
                         </div>
                     </div>
                 )}
@@ -1686,8 +1633,9 @@ export function DocumentsView() {
                             <CheckCircle2 className="h-4 w-4" /> Mark Unit Booked
                         </Button>
                     )}
-                    <Button size="lg" className="rounded-full shadow-lg bg-amber-600 hover:bg-amber-700 gap-2 text-white font-semibold" onClick={handleAttachToCRM}>
-                        <FileCheck className="h-4 w-4" /> Attach to CRM Timeline
+                    <Button size="lg" className="rounded-full shadow-lg bg-amber-600 hover:bg-amber-700 gap-2 text-white font-semibold disabled:opacity-70" onClick={handleAttachToCRM} disabled={isAttaching}>
+                        {isAttaching ? <RefreshCw className="h-4 w-4 animate-spin" /> : <FileCheck className="h-4 w-4" />} 
+                        {isAttaching ? "Attaching..." : "Attach to CRM Timeline"}
                     </Button>
                     <Button size="lg" className="rounded-full shadow-lg bg-green-600 hover:bg-green-700 gap-2 text-white font-semibold" onClick={handleShare}>
                         <Share2 className="h-4 w-4" /> Share Summary

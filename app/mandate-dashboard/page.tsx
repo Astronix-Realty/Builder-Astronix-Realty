@@ -461,7 +461,7 @@ function DashboardContent() {
       thumbnail: thumbnail,
       searchBlob,
       reraNumber,
-      groupBuying: groupBuying?.enabled ? groupBuying : undefined,
+      groupBuying: groupBuying || undefined,
     }
   }
 

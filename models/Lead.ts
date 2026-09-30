@@ -124,9 +124,13 @@ const LeadSchema = new mongoose.Schema({
         }
     }],
     nextActionTime: { type: Date },
+    siteVisitDateTime: { type: Date, index: true },
+    siteVisitStatus: { type: String, default: "Scheduled" },
+    siteVisitRating: { type: Number, default: 0 },
     revenueStatus: { type: String, default: null, index: true },
     invoiceDetails: { type: mongoose.Schema.Types.Mixed, default: null },
     paymentProof: { type: mongoose.Schema.Types.Mixed, default: null },
+    documents: { type: mongoose.Schema.Types.Mixed, default: {} },
     isArchived: { type: Boolean, default: false }
 }, { 
     timestamps: true 

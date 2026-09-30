@@ -173,7 +173,7 @@ export async function PATCH(
 
     await dbConnect();
     const body = await req.json();
-    const { status, assignee, notes, interestedUnit, actionType, actionDesc, nextActionTime, groupSize, mergedMembers, isUnitHeld, isUnitSold, unitId, propertyId } = body;
+    const { status, assignee, notes, interestedUnit, actionType, actionDesc, nextActionTime, siteVisitDateTime, siteVisitStatus, siteVisitRating, groupSize, mergedMembers, isUnitHeld, isUnitSold, unitId, propertyId, documents } = body;
 
     let lead = await Lead.findOne({ 
       _id: id, 
@@ -267,6 +267,21 @@ export async function PATCH(
       isModified = true;
     }
 
+    if (siteVisitDateTime !== undefined) {
+      (lead as any).siteVisitDateTime = siteVisitDateTime ? new Date(siteVisitDateTime) : null;
+      isModified = true;
+    }
+
+    if (siteVisitStatus !== undefined) {
+      (lead as any).siteVisitStatus = siteVisitStatus;
+      isModified = true;
+    }
+
+    if (siteVisitRating !== undefined) {
+      (lead as any).siteVisitRating = siteVisitRating;
+      isModified = true;
+    }
+
     if (groupSize !== undefined) {
       lead.groupSize = groupSize;
       isModified = true;
@@ -274,6 +289,11 @@ export async function PATCH(
 
     if (mergedMembers !== undefined) {
       lead.mergedMembers = mergedMembers;
+      isModified = true;
+    }
+
+    if (documents !== undefined) {
+      lead.documents = documents;
       isModified = true;
     }
 
@@ -294,8 +314,12 @@ export async function PATCH(
           if (unitId !== undefined) updateDoc.unitId = unitId;
           if (propertyId !== undefined) updateDoc.propertyId = propertyId;
           if (nextActionTime) updateDoc.nextActionTime = new Date(nextActionTime);
+          if (siteVisitDateTime !== undefined) updateDoc.siteVisitDateTime = siteVisitDateTime ? new Date(siteVisitDateTime) : null;
+          if (siteVisitStatus !== undefined) updateDoc.siteVisitStatus = siteVisitStatus;
+          if (siteVisitRating !== undefined) updateDoc.siteVisitRating = siteVisitRating;
           if (groupSize !== undefined) updateDoc.groupSize = groupSize;
           if (mergedMembers !== undefined) updateDoc.mergedMembers = mergedMembers;
+          if (documents !== undefined) updateDoc.documents = documents;
 
           const timelineEntries: any[] = [];
           if (!actionType && status && status !== lead.status) {

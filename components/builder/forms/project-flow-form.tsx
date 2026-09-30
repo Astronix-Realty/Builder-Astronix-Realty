@@ -649,92 +649,118 @@ function ProjectFlowFormBase({ data, onChange, townshipName, townshipData, onTow
 
 
       <Section id="proj-legal" title="Project Legal / RERA" description="RERA, CC, OC — Official documentation" icon={ShieldCheck} openIds={openIds} setOpenIds={setOpenIds}>
-        <SectionTitle title="RERA Details" />
-        <Grid cols={2}>
-          <Field label="RERA Number" required>
-            <Input value={data.reraNumber} onChange={e => update("reraNumber", e.target.value)} placeholder="PRM/KA/RERA/..." />
-          </Field>
-          <Field label="Approvals" hint="Eg: PMRDA / Municipal Corporation Approved">
-            <Input value={data.approvalStatus || ""} onChange={e => update("approvalStatus", e.target.value)} placeholder="Thane Municipal Corporation Approved" />
-          </Field>
-        </Grid>
-        <div className="mt-4 mb-8">
-          <Field label="Description" hint="Eg: Clear Marketable Title with OC Received">
-            <Textarea value={data.legalTrustDescription || ""} onChange={e => update("legalTrustDescription", e.target.value)} rows={2} placeholder="Clear Marketable Title with OC Received" />
-          </Field>
-        </div>
-
-        <SectionTitle title="Legal Documents" />
-        <p className="text-xs text-gray-400 dark:text-slate-500 mb-4 mt-[-8px]">Official certificates and approvals in PDF format.</p>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* 1. RERA Certificate */}
-          <div className="bg-gray-50 dark:bg-slate-800/50/50 rounded-2xl p-5 border border-gray-100 dark:border-slate-800 hover:border-gray-200 dark:border-slate-700 transition-colors shadow-sm flex flex-col h-full">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-7 h-7 bg-blue-100/50 rounded-lg flex items-center justify-center">
-                <ShieldCheck className="w-4 h-4 text-[#1A3C8C] dark:text-blue-400" />
-              </div>
-              <Label className="text-[11px] font-bold uppercase tracking-wider text-[#1A3C8C] dark:text-blue-400">RERA Certificate</Label>
-              <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">Required</span>
-            </div>
-
-            <div className="flex-1">
-              <DocumentUpload
-                value={data.reraCertificateUrl || ""}
-                onChange={v => update("reraCertificateUrl", v)}
-                title="RERA Certificate"
-                description="Official registration document."
-                buttonLabel="View RERA"
-              />
-            </div>
+        <div className="mb-6 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+          <Label className="text-sm font-bold text-blue-900 mb-3 block">Does this entire project (all towers) have a single RERA number?</Label>
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="hasSingleRera" checked={data.hasSingleRera === true} onChange={() => update("hasSingleRera", true)} className="w-4 h-4 text-[#1A3C8C]" />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Yes, single RERA for entire project</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="hasSingleRera" checked={data.hasSingleRera === false} onChange={() => { onChange(prev => ({ ...prev, hasSingleRera: false, reraNumber: "", reraCertificateUrl: "" })); }} className="w-4 h-4 text-[#1A3C8C]" />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">No, different RERA per tower</span>
+            </label>
           </div>
-
-          {/* 2. CC Certificate (Visible for UC) */}
-          {data.constructionStatus === "under-construction" && (
-            <div className="bg-blue-50/20 rounded-2xl p-5 border border-blue-100/50 hover:border-blue-200 transition-colors shadow-sm flex flex-col h-full">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <FileText className="w-4 h-4 text-[#1A3C8C] dark:text-blue-400" />
-                </div>
-                <Label className="text-[11px] font-bold uppercase tracking-wider text-[#1A3C8C] dark:text-blue-400">Commencement (CC)</Label>
-                <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">Required</span>
-              </div>
-
-              <div className="flex-1">
-                <DocumentUpload
-                  value={data.ccCertificateUrl || ""}
-                  onChange={v => update("ccCertificateUrl", v)}
-                  title="CC Certificate"
-                  description="Official Commencement Certificate PDF."
-                  buttonLabel="View CC"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* 3. OC Certificate (Visible if Ready to Move) */}
-          {data.constructionStatus === "ready-to-move" && (
-            <div className="bg-green-50/10 rounded-2xl p-5 border border-green-100/50 hover:border-green-200 transition-colors shadow-sm flex flex-col h-full">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-7 h-7 bg-green-100/50 rounded-lg flex items-center justify-center">
-                  <FileText className="w-4 h-4 text-green-600" />
-                </div>
-                <Label className="text-[11px] font-bold uppercase tracking-wider text-green-700">Occupancy (OC)</Label>
-                <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">Required</span>
-              </div>
-
-              <div className="flex-1">
-                <DocumentUpload
-                  value={data.ocCertificateUrl || ""}
-                  onChange={v => update("ocCertificateUrl", v)}
-                  title="OC Certificate"
-                  description="Official Occupancy Certificate PDF."
-                  buttonLabel="View OC"
-                />
-              </div>
-            </div>
-          )}
         </div>
+
+        {data.hasSingleRera === true && (
+          <>
+            <SectionTitle title="RERA Details" />
+            <Grid cols={2}>
+              <Field label="RERA Number" required>
+                <Input value={data.reraNumber} onChange={e => update("reraNumber", e.target.value)} placeholder="e.g. P521000..." />
+              </Field>
+              <Field label="Approvals" hint="Eg: PMRDA / Municipal Corporation Approved">
+                <Input value={data.approvalStatus || ""} onChange={e => update("approvalStatus", e.target.value)} placeholder="Thane Municipal Corporation Approved" />
+              </Field>
+            </Grid>
+            <div className="mt-4 mb-8">
+              <Field label="Description" hint="Eg: Clear Marketable Title with OC Received">
+                <Textarea value={data.legalTrustDescription || ""} onChange={e => update("legalTrustDescription", e.target.value)} rows={2} placeholder="Clear Marketable Title with OC Received" />
+              </Field>
+            </div>
+
+            <SectionTitle title="Legal Documents" />
+            <p className="text-xs text-gray-400 dark:text-slate-500 mb-4 mt-[-8px]">Official certificates and approvals in PDF format.</p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* 1. RERA Certificate */}
+              <div className="bg-gray-50 dark:bg-slate-800/50/50 rounded-2xl p-5 border border-gray-100 dark:border-slate-800 hover:border-gray-200 dark:border-slate-700 transition-colors shadow-sm flex flex-col h-full">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-7 h-7 bg-blue-100/50 rounded-lg flex items-center justify-center">
+                    <ShieldCheck className="w-4 h-4 text-[#1A3C8C] dark:text-blue-400" />
+                  </div>
+                  <Label className="text-[11px] font-bold uppercase tracking-wider text-[#1A3C8C] dark:text-blue-400">RERA Certificate</Label>
+                  <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">Required</span>
+                </div>
+
+                <div className="flex-1">
+                  <DocumentUpload
+                    value={data.reraCertificateUrl || ""}
+                    onChange={v => update("reraCertificateUrl", v)}
+                    title="RERA Certificate"
+                    description="Official registration document."
+                    buttonLabel="View RERA"
+                  />
+                </div>
+              </div>
+
+              {/* 2. CC Certificate (Visible for UC) */}
+              {data.constructionStatus === "under-construction" && (
+                <div className="bg-blue-50/20 rounded-2xl p-5 border border-blue-100/50 hover:border-blue-200 transition-colors shadow-sm flex flex-col h-full">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <FileText className="w-4 h-4 text-[#1A3C8C] dark:text-blue-400" />
+                    </div>
+                    <Label className="text-[11px] font-bold uppercase tracking-wider text-[#1A3C8C] dark:text-blue-400">Commencement (CC)</Label>
+                    <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">Required</span>
+                  </div>
+
+                  <div className="flex-1">
+                    <DocumentUpload
+                      value={data.ccCertificateUrl || ""}
+                      onChange={v => update("ccCertificateUrl", v)}
+                      title="CC Certificate"
+                      description="Official Commencement Certificate PDF."
+                      buttonLabel="View CC"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* 3. OC Certificate (Visible if Ready to Move) */}
+              {data.constructionStatus === "ready-to-move" && (
+                <div className="bg-green-50/10 rounded-2xl p-5 border border-green-100/50 hover:border-green-200 transition-colors shadow-sm flex flex-col h-full">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-7 h-7 bg-green-100/50 rounded-lg flex items-center justify-center">
+                      <FileText className="w-4 h-4 text-green-600" />
+                    </div>
+                    <Label className="text-[11px] font-bold uppercase tracking-wider text-green-700">Occupancy (OC)</Label>
+                    <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">Required</span>
+                  </div>
+
+                  <div className="flex-1">
+                    <DocumentUpload
+                      value={data.ocCertificateUrl || ""}
+                      onChange={v => update("ocCertificateUrl", v)}
+                      title="OC Certificate"
+                      description="Official Occupancy Certificate PDF."
+                      buttonLabel="View OC"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+        
+        {data.hasSingleRera === false && (
+          <div className="text-center py-8 text-gray-500 dark:text-slate-400">
+            <ShieldCheck className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-slate-600" />
+            <p className="font-semibold text-gray-600 dark:text-slate-300">Tower-Level RERA Selected</p>
+            <p className="text-sm">You can enter the RERA number for each tower individually in the next step.</p>
+          </div>
+        )}
       </Section>
 
       </PartCollapse>
@@ -940,141 +966,8 @@ function ProjectFlowFormBase({ data, onChange, townshipName, townshipData, onTow
             </div>
           </Section>
 
-          <Section id="group-buying-common" title="Group Buying" description="Enable buyers to form teams and unlock tiered group booking discounts based on team size." icon={Users} badge="Active Deal" openIds={openIds} setOpenIds={setOpenIds}>
-            <Grid cols={2}>
-              <Field label="Enable Group Buying">
-                <div className="flex items-center gap-3 mt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const newEnabled = !townshipData.groupBuying?.enabled;
-                      const now = new Date();
-                      const formatDT = (d: Date) => {
-                        const pad = (n: number) => String(n).padStart(2, '0');
-                        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-                      };
-                      updateCommon("groupBuying", { 
-                        ...townshipData.groupBuying, 
-                        enabled: newEnabled,
-                        startDate: townshipData.groupBuying?.startDate || formatDT(now),
-                        endDate: townshipData.groupBuying?.endDate || formatDT(new Date(now.getTime() + 48 * 60 * 60 * 1000)),
-                        discountLabel: townshipData.groupBuying?.discountLabel ?? "Extra 2% off on group booking",
-                        targetCount: Number(townshipData.groupBuying?.targetCount) > 0 ? Number(townshipData.groupBuying?.targetCount) : undefined
-                      });
-                    }}
-                    className={`w-10 h-6 rounded-full transition-colors relative cursor-pointer ${townshipData.groupBuying?.enabled ? "bg-[#10B981]" : "bg-gray-200"}`}
-                  >
-                    <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all ${townshipData.groupBuying?.enabled ? "left-5" : "left-1"}`} />
-                  </button>
-                  <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded ${townshipData.groupBuying?.enabled ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : "bg-gray-100 text-gray-500"}`}>
-                    {townshipData.groupBuying?.enabled ? "ACTIVE" : "INACTIVE"}
-                  </span>
-                </div>
-              </Field>
-              <Field label="Discount Label / Headline on Card" hint="Short headline on unit card & modal">
-                <Input 
-                  value={townshipData.groupBuying?.discountLabel ?? ""} 
-                  onChange={e => updateCommon("groupBuying", { ...townshipData.groupBuying, discountLabel: e.target.value })} 
-                  placeholder="Extra 2% off on group booking" 
-                  className="h-8 text-xs" 
-                />
-              </Field>
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Minimum (To Activate)" hint="Minimum buyers to unlock discount">
-                  <Input 
-                    type="number" 
-                    value={townshipData.groupBuying?.minTarget !== undefined && townshipData.groupBuying?.minTarget !== null && Number(townshipData.groupBuying.minTarget) > 0 ? townshipData.groupBuying.minTarget : ""} 
-                    onChange={e => {
-                      const val = e.target.value.trim()
-                      updateCommon("groupBuying", { 
-                        ...townshipData.groupBuying, 
-                        minTarget: val === "" ? undefined : Number(val) 
-                      })
-                    }} 
-                    className="h-8 text-xs placeholder:text-gray-400 dark:placeholder:text-gray-500" 
-                    placeholder="10"
-                  />
-                </Field>
-                <Field label="Maximum (Pool Limit)" hint="Maximum allowed in this group pool">
-                  <Input 
-                    type="number" 
-                    value={townshipData.groupBuying?.maxTarget !== undefined && townshipData.groupBuying?.maxTarget !== null && Number(townshipData.groupBuying.maxTarget) > 0 ? townshipData.groupBuying.maxTarget : ""} 
-                    onChange={e => {
-                      const val = e.target.value.trim()
-                      const numVal = val === "" ? undefined : Number(val)
-                      updateCommon("groupBuying", { 
-                        ...townshipData.groupBuying, 
-                        maxTarget: numVal,
-                        targetCount: numVal // Kept for backwards compatibility
-                      })
-                    }} 
-                    className="h-8 text-xs placeholder:text-gray-400 dark:placeholder:text-gray-500" 
-                    placeholder="50"
-                  />
-                </Field>
-              </div>
-              <Field label="Deal Expiration / Live Until" hint="Countdown timer shown to buyers on unit card">
-                <Input 
-                  type="datetime-local" 
-                  value={(() => {
-                    const val = townshipData.groupBuying?.endDate;
-                    if (!val) return "";
-                    try {
-                      const d = new Date(val);
-                      if (isNaN(d.getTime())) return typeof val === "string" && val.includes("T") ? val.slice(0, 16) : "";
-                      const pad = (n: number) => String(n).padStart(2, "0");
-                      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-                    } catch { return ""; }
-                  })()} 
-                  onChange={e => {
-                    const now = new Date();
-                    const pad = (n: number) => String(n).padStart(2, '0');
-                    const nowStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
-                    updateCommon("groupBuying", { 
-                      ...townshipData.groupBuying, 
-                      startDate: townshipData.groupBuying?.startDate || nowStr,
-                      endDate: e.target.value 
-                    });
-                  }} 
-                  className="h-8 text-xs"
-                />
-              </Field>
-            </Grid>
+          {/* Group Buying is now managed exclusively from Published property cards via Quick Edit */}
 
-            {/* Quick Expiry Presets */}
-            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-slate-800 flex flex-wrap items-center gap-2">
-              <span className="text-[11px] font-bold text-gray-500">Quick Duration Presets:</span>
-              {[
-                { label: '24 Hours', hours: 24 },
-                { label: '48 Hours', hours: 48 },
-                { label: '7 Days', hours: 24 * 7 },
-                { label: '14 Days', hours: 24 * 14 },
-                { label: '30 Days', hours: 24 * 30 }
-              ].map(preset => (
-                <button
-                  key={preset.label}
-                  type="button"
-                  onClick={() => {
-                    const now = new Date();
-                    const end = new Date(now.getTime() + preset.hours * 60 * 60 * 1000);
-                    const formatDT = (d: Date) => {
-                      const pad = (n: number) => String(n).padStart(2, '0');
-                      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-                    };
-                    updateCommon("groupBuying", {
-                      ...townshipData.groupBuying,
-                      enabled: true,
-                      startDate: townshipData.groupBuying?.startDate || formatDT(now),
-                      endDate: formatDT(end)
-                    });
-                  }}
-                  className="px-2.5 py-1 text-[10px] font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg transition-colors cursor-pointer"
-                >
-                  +{preset.label}
-                </button>
-              ))}
-            </div>
-          </Section>
 
           </PartCollapse>
         </>

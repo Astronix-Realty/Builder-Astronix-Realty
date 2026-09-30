@@ -58,7 +58,7 @@ export function TowersForm({
     }
 
     const isComplete = (t: TowerData) =>
-        !!(t.name && t.totalFloors && t.unitsPerFloor && t.reraNumber)
+        !!(t.name && t.totalFloors && t.unitsPerFloor && (activeProject?.hasSingleRera || t.reraNumber))
 
     const totalTowers = towers.length
     const completedTowers = towers.filter(isComplete).length
@@ -113,7 +113,7 @@ export function TowersForm({
                         key={activeTower.id}
                         data={activeTower}
                         unitConfig={activeTowerConfig}
-          unitTemplate={unitTemplate}
+                        unitTemplate={unitTemplate}
                         onChange={(updaterOrData) => {
                             const next = [...towers]
                             const globalIdx = towers.findIndex(t => t.id === activeTower.id)
@@ -125,6 +125,7 @@ export function TowersForm({
                             }
                         }}
                         projectName={activeProject.name}
+                        parentProjectHasSingleRera={activeProject.hasSingleRera}
                     />
 
                     {/* Navigate prev / next tower */}
