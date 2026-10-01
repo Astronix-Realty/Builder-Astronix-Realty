@@ -53,7 +53,7 @@ export default function GroupBuyingQuickEdit({ propertyId, initialData, onUpdate
   if (!isEditing) {
     return (
       <div className="px-5 pb-1">
-        <div className={`flex items-center gap-2 p-2.5 rounded-lg border relative group/gb ${enabled ? 'bg-purple-50 dark:bg-purple-950/30 border-purple-200/60 dark:border-purple-800/40' : 'bg-slate-50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700'}`}>
+        <div className={`flex items-center gap-2 p-2.5 rounded-lg border relative ${enabled ? 'bg-purple-50 dark:bg-purple-950/30 border-purple-200/60 dark:border-purple-800/40' : 'bg-slate-50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700'}`}>
           <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${enabled ? 'bg-purple-100 dark:bg-purple-900/60 text-purple-600 dark:text-purple-400' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'}`}>
             <Users className="h-3.5 w-3.5" />
           </div>
@@ -76,13 +76,13 @@ export default function GroupBuyingQuickEdit({ propertyId, initialData, onUpdate
             )}
           </div>
           
-          {/* Edit Button (Always visible on mobile/touch, hover on desktop lg+) */}
+          {/* Edit Button (Always visible) */}
           <button 
             onClick={() => setIsEditing(true)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-white dark:bg-slate-800 rounded-lg shadow border border-slate-200 dark:border-slate-700 opacity-100 lg:opacity-0 lg:group-hover/gb:opacity-100 transition-opacity hover:bg-slate-50 min-w-[36px] min-h-[36px] flex items-center justify-center"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 hover:bg-purple-50 dark:hover:bg-purple-950/40 hover:border-purple-300 dark:hover:border-purple-700 text-slate-600 dark:text-slate-300 hover:text-purple-600 dark:hover:text-purple-400 transition-all min-w-[36px] min-h-[36px] flex items-center justify-center"
             title="Edit Group Buying"
           >
-            <Edit2 className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" />
+            <Edit2 className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
