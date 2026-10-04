@@ -8,12 +8,22 @@ import { UserType } from "@/types/auth"
 
 interface LoginFormProps {
   onForgotPassword: () => void;
+  activeUserType?: UserType | "teamLeader";
+  onUserTypeChange?: (type: UserType | "teamLeader") => void;
 }
 
-function LoginFormInner({ onForgotPassword }: LoginFormProps) {
+function LoginFormInner({ onForgotPassword, activeUserType, onUserTypeChange }: LoginFormProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [userType, setUserType] = useState<UserType | "teamLeader">("builder")
+  const [internalUserType, setInternalUserType] = useState<UserType | "teamLeader">("builder")
+  
+  const userType = activeUserType || internalUserType;
+
+  const handleUserTypeChange = (type: UserType | "teamLeader") => {
+    setInternalUserType(type);
+    if (onUserTypeChange) onUserTypeChange(type);
+  }
+
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -23,7 +33,9 @@ function LoginFormInner({ onForgotPassword }: LoginFormProps) {
   // Auto-select teamLeader tab if redirected from /team-panel
   useEffect(() => {
     const type = searchParams.get("type")
-    if (type === "teamLeader") setUserType("teamLeader")
+    if (type === "teamLeader" || type === "builder" || type === "mandate") {
+      handleUserTypeChange(type as UserType | "teamLeader")
+    }
   }, [searchParams])
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -62,7 +74,7 @@ function LoginFormInner({ onForgotPassword }: LoginFormProps) {
       <div className="flex bg-white/10 rounded-xl p-1 mb-6 gap-1">
         <button
           type="button"
-          onClick={() => setUserType("builder")}
+          onClick={() => handleUserTypeChange("builder")}
           className={`flex-1 py-2.5 px-2 rounded-lg font-medium flex items-center justify-center gap-1.5 transition-all text-sm
           ${userType === "builder" ? "bg-gradient-to-r from-[#1A3C8C] to-blue-600 text-white shadow-lg" : "text-slate-400 hover:text-white"}`}
         >
@@ -70,7 +82,7 @@ function LoginFormInner({ onForgotPassword }: LoginFormProps) {
         </button>
         <button
           type="button"
-          onClick={() => setUserType("mandate")}
+          onClick={() => handleUserTypeChange("mandate")}
           className={`flex-1 py-2.5 px-2 rounded-lg font-medium flex items-center justify-center gap-1.5 transition-all text-sm
           ${userType === "mandate" ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg" : "text-slate-400 hover:text-white"}`}
         >
@@ -78,7 +90,7 @@ function LoginFormInner({ onForgotPassword }: LoginFormProps) {
         </button>
         <button
           type="button"
-          onClick={() => setUserType("teamLeader")}
+          onClick={() => handleUserTypeChange("teamLeader")}
           className={`flex-1 py-2.5 px-2 rounded-lg font-medium flex items-center justify-center gap-1.5 transition-all text-sm
           ${userType === "teamLeader" ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg" : "text-slate-400 hover:text-white"}`}
         >
@@ -195,10 +207,10 @@ function LoginFormInner({ onForgotPassword }: LoginFormProps) {
   )
 }
 
-export default function LoginForm({ onForgotPassword }: LoginFormProps) {
+export default function LoginForm({ onForgotPassword, activeUserType, onUserTypeChange }: LoginFormProps) {
   return (
     <Suspense fallback={<div className="text-white text-center">Loading...</div>}>
-      <LoginFormInner onForgotPassword={onForgotPassword} />
+      <LoginFormInner onForgotPassword={onForgotPassword} activeUserType={activeUserType} onUserTypeChange={onUserTypeChange} />
     </Suspense>
   )
 }

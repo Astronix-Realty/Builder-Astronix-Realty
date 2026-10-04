@@ -16,6 +16,7 @@ import { TeamView } from "@/components/builder/team/team-view"
 import { BlogView } from "@/components/builder/blog/blog-view"
 import { OffersView } from "@/components/builder/offers/offers-view"
 import { BillsView } from "@/components/builder/bills/bills-view"
+import { FeedbackView } from "@/components/builder/feedback/feedback-view"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import PropertyHierarchyModal, { HierarchyPropertyInfo } from "@/components/PropertyHierarchyModal"
 import GroupBuyingQuickEdit from "@/components/builder/group-buying-quick-edit"
@@ -912,6 +913,14 @@ function DashboardContent() {
             <Settings className="h-5 w-5 shrink-0" />
             <span className="text-left leading-tight">Profile & Settings</span>
           </button>
+          
+          <button
+            onClick={() => handleTabChange("feedback")}
+            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all mt-4 border border-dashed ${activeTab === "feedback" ? "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400 border-red-200 shadow-sm" : "text-slate-600 dark:text-slate-400 border-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
+          >
+            <Headphones className="h-5 w-5" />
+            Feedback & Support
+          </button>
         </nav>
 
         {/* User Profile - Bottom Sidebar */}
@@ -969,6 +978,7 @@ function DashboardContent() {
                     {activeTab === "documents" && "Documents"}
                     {activeTab === "offers" && "Offers"}
                     {activeTab === "team" && "Team"}
+                    {activeTab === "feedback" && "Support"}
                     {activeTab === "settings" && "Settings"}
                   </h2>
                   <p className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold uppercase tracking-wider truncate">
@@ -1016,6 +1026,7 @@ function DashboardContent() {
                     {activeTab === "documents" && "Document Center"}
                     {activeTab === "offers" && "Offers Management"}
                     {activeTab === "team" && "Team Management"}
+                    {activeTab === "feedback" && "Feedback & Support"}
                     {activeTab === "settings" && "Profile & Settings"}
                   </h2>
                   <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -1028,6 +1039,7 @@ function DashboardContent() {
                     {activeTab === "documents" && "Organize brochures, legal docs, and plans"}
                     {activeTab === "offers" && "Create and track special deals"}
                     {activeTab === "team" && "Manage your team members and roles"}
+                    {activeTab === "feedback" && "Send feedback, report glitches, and get help"}
                     {activeTab === "settings" && "Manage company profile and system preferences"}
                   </p>
                 </div>
@@ -1538,7 +1550,7 @@ function DashboardContent() {
           )}
 
           {activeTab === "offers" && <OffersView userRole={currentUser?.role || "builder"} />}
-
+          {activeTab === "feedback" && <FeedbackView />}
 
           {
             activeTab === "settings" && (
