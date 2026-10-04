@@ -373,7 +373,7 @@ export function BillsView() {
               Bills & Brokerage Invoices
             </h1>
             <p className="text-slate-300 text-xs md:text-sm font-normal max-w-2xl mt-1.5 leading-relaxed">
-              View, verify, and download official brokerage tax invoices issued by Astronix Realty Admin for your booked clients and closed transactions.
+              View, verify, and download official brokerage tax invoices issued by Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ Admin for your booked clients and closed transactions.
             </p>
           </div>
 
@@ -742,7 +742,7 @@ export function BillsView() {
             <div>
               <DialogTitle className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
                 <Receipt className="w-5 h-5 text-blue-600" />
-                Astronix Realty Tax Invoice
+                Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ Tax Invoice
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-500 dark:text-slate-400">
                 Official brokerage invoice issued for {selectedBill?.leadName} ({selectedBill?.property})
@@ -773,7 +773,7 @@ export function BillsView() {
                     <div className="h-14 w-14 rounded-md overflow-hidden shadow-sm border border-slate-200 bg-black flex items-center justify-center p-1">
                       <img
                         src="/astronix-logo.png"
-                        alt="Astronix Realty"
+                        alt="Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ"
                         className="h-full w-full object-contain"
                       />
                     </div>
@@ -987,7 +987,7 @@ export function BillsView() {
                       </span>
                     </div>
                     <p className="text-slate-900 font-black border-t border-slate-300 pt-1 inline-block ml-auto leading-tight text-right text-[11px]">
-                      Astronix Realty
+                      Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ
                       <br />
                       <span className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">
                         Authorized Signatory
@@ -1048,7 +1048,7 @@ export function BillsView() {
               <div className="p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 text-[11px]">
                 <p className="font-bold text-indigo-950 dark:text-indigo-200 mb-1 flex items-center gap-1.5">
                   <Building2 className="w-3.5 h-3.5 text-indigo-600" />
-                  Beneficiary Account (Astronix Realty)
+                  Beneficiary Account (Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ)
                 </p>
                 <p className="text-slate-600 dark:text-slate-400">
                   Bank: <span className="font-bold text-slate-900 dark:text-slate-200">{selectedBillForPayment.bankDetails?.bankName}</span> | 

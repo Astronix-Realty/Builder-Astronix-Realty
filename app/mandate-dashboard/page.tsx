@@ -16,6 +16,7 @@ import { TeamView } from "@/components/builder/team/team-view"
 import { BlogView } from "@/components/builder/blog/blog-view"
 import { OffersView } from "@/components/builder/offers/offers-view"
 import { BillsView } from "@/components/builder/bills/bills-view"
+import { FeedbackView } from "@/components/builder/feedback/feedback-view"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import PropertyHierarchyModal, { HierarchyPropertyInfo } from "@/components/PropertyHierarchyModal"
 import GroupBuyingQuickEdit from "@/components/builder/group-buying-quick-edit"
@@ -75,7 +76,7 @@ interface Property {
 function DashboardContent() {
   const router = useRouter()
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [activeTab, setActiveTab] = useState<"bills" | "properties" | "inventory" | "crm" | "crm2" | "chat" | "documents" | "offers" | "blog" | "settings" | "team">(() => {
+  const [activeTab, setActiveTab] = useState<"bills" | "properties" | "inventory" | "crm" | "crm2" | "chat" | "documents" | "offers" | "blog" | "settings" | "team" | "feedback">(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get("tab");
@@ -84,7 +85,7 @@ function DashboardContent() {
       try {
         const stored = sessionStorage.getItem("mandate_active_tab");
         if (stored && validTabs.includes(stored)) return stored as any;
-      } catch (e) {}
+      } catch (e) { }
     }
     return "properties";
   })
@@ -101,12 +102,12 @@ function DashboardContent() {
       try {
         const stored = sessionStorage.getItem("mandate_property_filter");
         if (stored && ['published', 'pending', 'draft', 'rejected'].includes(stored)) return stored as any;
-      } catch (e) {}
+      } catch (e) { }
     }
     return "published";
   })
 
-  const handleTabChange = (tab: "bills" | "properties" | "inventory" | "crm" | "crm2" | "chat" | "documents" | "offers" | "blog" | "settings" | "team") => {
+  const handleTabChange = (tab: "bills" | "properties" | "inventory" | "crm" | "crm2" | "chat" | "documents" | "offers" | "blog" | "settings" | "team" | "feedback") => {
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
     if (typeof window !== "undefined") {
@@ -115,7 +116,7 @@ function DashboardContent() {
         const url = new URL(window.location.href);
         url.searchParams.set("tab", tab);
         window.history.replaceState({}, "", url.toString());
-      } catch (e) {}
+      } catch (e) { }
     }
   };
 
@@ -127,7 +128,7 @@ function DashboardContent() {
         const url = new URL(window.location.href);
         url.searchParams.set("filter", filter);
         window.history.replaceState({}, "", url.toString());
-      } catch (e) {}
+      } catch (e) { }
     }
   };
   const [isLoading, setIsLoading] = useState(true)
@@ -274,7 +275,7 @@ function DashboardContent() {
     if (tabParam) {
       if (["properties", "inventory", "crm", "crm2", "chat", "documents", "offers", "blog", "team", "profile", "settings"].includes(tabParam)) {
         setActiveTab(tabParam as any)
-        try { sessionStorage.setItem("mandate_active_tab", tabParam) } catch (e) {}
+        try { sessionStorage.setItem("mandate_active_tab", tabParam) } catch (e) { }
       }
     } else {
       try {
@@ -285,22 +286,22 @@ function DashboardContent() {
           url.searchParams.set("tab", storedTab);
           window.history.replaceState({}, "", url.toString());
         }
-      } catch (e) {}
+      } catch (e) { }
     }
 
     if (filterParam) {
       if (filterParam === "drafts" || filterParam === "draft") {
         setPropertyFilter("draft")
-        try { sessionStorage.setItem("mandate_property_filter", "draft") } catch (e) {}
+        try { sessionStorage.setItem("mandate_property_filter", "draft") } catch (e) { }
       } else if (filterParam === "pending") {
         setPropertyFilter("pending")
-        try { sessionStorage.setItem("mandate_property_filter", "pending") } catch (e) {}
+        try { sessionStorage.setItem("mandate_property_filter", "pending") } catch (e) { }
       } else if (filterParam === "published" || filterParam === "active") {
         setPropertyFilter("published")
-        try { sessionStorage.setItem("mandate_property_filter", "published") } catch (e) {}
+        try { sessionStorage.setItem("mandate_property_filter", "published") } catch (e) { }
       } else if (filterParam === "rejected") {
         setPropertyFilter("rejected")
-        try { sessionStorage.setItem("mandate_property_filter", "rejected") } catch (e) {}
+        try { sessionStorage.setItem("mandate_property_filter", "rejected") } catch (e) { }
       }
     } else {
       try {
@@ -308,7 +309,7 @@ function DashboardContent() {
         if (storedFilter && ['published', 'pending', 'draft', 'rejected'].includes(storedFilter)) {
           setPropertyFilter(storedFilter as any);
         }
-      } catch (e) {}
+      } catch (e) { }
     }
   }, [searchParams])
 
@@ -679,7 +680,7 @@ function DashboardContent() {
     return [...matched].sort((a, b) => {
       const aName = (a.townshipName || "").toLowerCase()
       const bName = (b.townshipName || "").toLowerCase()
-      
+
       const aExact = aName === query
       const bExact = bName === query
       if (aExact && !bExact) return -1
@@ -720,9 +721,9 @@ function DashboardContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "draft" }),
       })
-      
+
       if (!res.ok) throw new Error("Failed to move to draft")
-      
+
       toast.success("Property moved to draft successfully")
       setProperties(prev => prev.map(p => p.id === id ? { ...p, status: "draft" } : p))
     } catch (error) {
@@ -783,7 +784,7 @@ function DashboardContent() {
   }
 
   const handleUpdateGroupBuying = (propertyId: string, newGroupBuyingData: any) => {
-    setProperties(prev => prev.map(p => 
+    setProperties(prev => prev.map(p =>
       p.id === propertyId ? { ...p, groupBuying: newGroupBuyingData } : p
     ))
   }
@@ -810,11 +811,11 @@ function DashboardContent() {
           {/* Branding */}
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 flex-shrink-0 flex items-center justify-center relative rounded-full bg-[#050b18] border border-slate-700/50 shadow-xl overflow-hidden group transition-all duration-300 hover:border-blue-500/40">
-              <img src="/astronix-logo.png" alt="Astronix Logo" className="w-full h-full object-cover rounded-full transition-transform duration-500 group-hover:scale-110" />
+              <img src="/astronix-logo.png" alt="Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ Logo" className="w-full h-full object-cover rounded-full transition-transform duration-500 group-hover:scale-110" />
             </div>
             <div>
               <h1 className="text-xl font-bold text-slate-900 dark:text-white leading-tight">
-                {currentUser?.role === 'mandate' ? "Astronix Realty Mandate" : "Builder Astronix Realty"}
+                Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ
               </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium tracking-wide">
                 {currentUser?.role === 'mandate' ? "MANDATE PANEL" : "BUILDER PANEL"}
@@ -903,11 +904,18 @@ function DashboardContent() {
             <Settings className="h-5 w-5" />
             Profile & Settings
           </button>
+          <button
+            onClick={() => handleTabChange("feedback")}
+            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all mt-1 ${activeTab === "feedback" ? "bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400 border border-purple-200 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
+          >
+            <MessageSquare className="h-5 w-5" />
+            Feedback & Support
+          </button>
         </nav>
 
         {/* User Profile - Bottom Sidebar */}
         <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex flex-col gap-2">
-          <button 
+          <button
             onClick={() => handleTabChange("settings")}
             className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-white dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 hover:shadow-sm transition-all text-left group cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500/20"
           >
@@ -929,7 +937,7 @@ function DashboardContent() {
             </div>
             <Settings className="w-4 h-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
           </button>
-          
+
           <button
             onClick={handleLogout}
             className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 hover:border-red-200 dark:hover:border-red-900 text-slate-600 dark:text-slate-300 rounded-lg text-sm font-medium transition-all shadow-sm"
@@ -963,6 +971,7 @@ function DashboardContent() {
                     {activeTab === "offers" && "Offers"}
                     {activeTab === "team" && "Team"}
                     {activeTab === "settings" && "Settings"}
+                    {activeTab === "feedback" && "Feedback & Support"}
                   </h2>
                   <p className="text-[10px] text-purple-600 dark:text-purple-400 font-semibold uppercase tracking-wider truncate">
                     {currentUser?.profile?.developerName || currentUser?.profile?.companyName || "Mandate Panel"}
@@ -1010,9 +1019,10 @@ function DashboardContent() {
                     {activeTab === "offers" && "Offers Management"}
                     {activeTab === "team" && "Team Management"}
                     {activeTab === "settings" && "Profile & Settings"}
+                    {activeTab === "feedback" && "Feedback & Support"}
                   </h2>
                   <p className="text-sm text-slate-500 dark:text-slate-400">
-                    {activeTab === "bills" && "Track official brokerage invoices issued by Admin for booked clients"}
+                    {activeTab === "bills" && "Track official brokerage invoices issued"}
                     {activeTab === "properties" && "Manage your real estate inventory"}
                     {activeTab === "inventory" && "Track unit status, sales, and availability"}
                     {activeTab === "crm" && "Manage leads, site visits, and bookings"}
@@ -1022,6 +1032,7 @@ function DashboardContent() {
                     {activeTab === "offers" && "Create and track special deals"}
                     {activeTab === "team" && "Manage your team members and roles"}
                     {activeTab === "settings" && (currentUser?.role === 'mandate' ? "Manage mandate profile and preferences" : "Manage company profile and preferences")}
+                    {activeTab === "feedback" && "Send feedback, report glitches, and get direct assistance "}
                   </p>
                 </div>
               </div>
@@ -1097,41 +1108,37 @@ function DashboardContent() {
               <div className="lg:hidden mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1 -mx-3.5 px-3.5">
                 <button
                   onClick={() => handleFilterChange("published")}
-                  className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                    propertyFilter === "published"
-                      ? "bg-blue-600 text-white shadow-sm"
-                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
-                  }`}
+                  className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${propertyFilter === "published"
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                    }`}
                 >
                   Published ({properties.filter(p => p.status === "published").length})
                 </button>
                 <button
                   onClick={() => handleFilterChange("pending")}
-                  className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                    propertyFilter === "pending"
-                      ? "bg-blue-600 text-white shadow-sm"
-                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
-                  }`}
+                  className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${propertyFilter === "pending"
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                    }`}
                 >
                   Pending ({properties.filter(p => p.status === "pending").length})
                 </button>
                 <button
                   onClick={() => handleFilterChange("draft")}
-                  className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                    propertyFilter === "draft"
-                      ? "bg-blue-600 text-white shadow-sm"
-                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
-                  }`}
+                  className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${propertyFilter === "draft"
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                    }`}
                 >
                   Drafts ({properties.filter(p => p.status === "draft").length})
                 </button>
                 <button
                   onClick={() => handleFilterChange("rejected")}
-                  className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                    propertyFilter === "rejected"
-                      ? "bg-rose-600 text-white shadow-sm"
-                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
-                  }`}
+                  className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${propertyFilter === "rejected"
+                    ? "bg-rose-600 text-white shadow-sm"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                    }`}
                 >
                   Rejected ({properties.filter(p => p.status === "rejected").length})
                 </button>
@@ -1318,8 +1325,8 @@ function DashboardContent() {
                         ) : (
                           <div className="absolute inset-0 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 flex items-center justify-center">
                             <div className={`p-4 rounded-3xl ${property.flowType === 'township' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/40' :
-                                property.flowType === 'project' ? 'bg-teal-100 text-teal-600 dark:bg-teal-900/40' :
-                                  'bg-orange-100 text-orange-600 dark:bg-orange-900/40'
+                              property.flowType === 'project' ? 'bg-teal-100 text-teal-600 dark:bg-teal-900/40' :
+                                'bg-orange-100 text-orange-600 dark:bg-orange-900/40'
                               }`}>
                               {property.flowType === 'township' ? <Home className="h-10 w-10" /> :
                                 property.flowType === 'project' ? <Layers className="h-10 w-10" /> :
@@ -1346,12 +1353,12 @@ function DashboardContent() {
 
                         <div className="absolute top-4 right-4 z-20">
                           <span className={`px-3 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest shadow-xl border backdrop-blur-sm ${property.status === "published"
-                              ? "bg-emerald-500/80 text-white border-emerald-400/50"
-                              : property.status === "pending"
-                                ? "bg-amber-500/80 text-white border-amber-400/50"
-                                : property.status === "rejected"
-                                  ? "bg-red-500/80 text-white border-red-400/50"
-                                  : "bg-slate-500/80 text-white border-slate-400/50"
+                            ? "bg-emerald-500/80 text-white border-emerald-400/50"
+                            : property.status === "pending"
+                              ? "bg-amber-500/80 text-white border-amber-400/50"
+                              : property.status === "rejected"
+                                ? "bg-red-500/80 text-white border-red-400/50"
+                                : "bg-slate-500/80 text-white border-slate-400/50"
                             }`}>
                             {property.status === "published" ? "Published" : property.status === "pending" ? "Pending" : property.status === "draft" ? "Draft" : property.status}
                           </span>
@@ -1389,16 +1396,16 @@ function DashboardContent() {
                       </div>
 
                       {/* Group Buying Strip */}
-                      <GroupBuyingQuickEdit 
-                        propertyId={property.id} 
+                      <GroupBuyingQuickEdit
+                        propertyId={property.id}
                         initialData={property.groupBuying || { enabled: false }}
                         onUpdate={handleUpdateGroupBuying}
                       />
 
                       <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/40">
                         <div className={`grid gap-4 text-center ${property.flowType === 'township' ? 'grid-cols-3' :
-                            property.flowType === 'project' ? 'grid-cols-2' :
-                              'grid-cols-1'
+                          property.flowType === 'project' ? 'grid-cols-2' :
+                            'grid-cols-1'
                           }`}>
                           {property.flowType === 'township' && (
                             <div className="relative after:absolute after:right-[-8px] after:top-1/2 after:-translate-y-1/2 after:h-8 after:w-[1px] after:bg-slate-200 dark:after:bg-slate-800">
@@ -1523,6 +1530,15 @@ function DashboardContent() {
 
           {/* Offers */}
           {activeTab === "offers" && <OffersView userRole={currentUser?.role || "mandate"} />}
+
+          {/* Feedback & Support */}
+          {activeTab === "feedback" && (
+            <FeedbackView
+              initialName={profile.fullName || profile.companyName || currentUser?.name || ""}
+              initialEmail={profile.email || currentUser?.email || ""}
+              source="mandate"
+            />
+          )}
 
           {activeTab === "settings" && (
             <div className="max-w-6xl mx-auto">
@@ -1869,14 +1885,12 @@ function DashboardContent() {
                                 role="switch"
                                 aria-checked={isOn}
                                 onClick={() => handleNotificationChange(item, !isOn)}
-                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                                  isOn ? 'bg-blue-600' : 'bg-slate-200 dark:bg-slate-700'
-                                }`}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isOn ? 'bg-blue-600' : 'bg-slate-200 dark:bg-slate-700'
+                                  }`}
                               >
                                 <span
-                                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                                    isOn ? 'translate-x-[22px]' : 'translate-x-[2px]'
-                                  }`}
+                                  className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${isOn ? 'translate-x-[22px]' : 'translate-x-[2px]'
+                                    }`}
                                 />
                               </button>
                             </div>
@@ -1908,7 +1922,7 @@ function DashboardContent() {
                             Change
                           </button>
                         </div>
-                        </div>
+                      </div>
                     </div>
                   </div>
                 </TabsContent>
@@ -1936,7 +1950,7 @@ function DashboardContent() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
+
             {!otpSent ? (
               <div className="p-6 text-center space-y-4">
                 <div className="mx-auto w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4">

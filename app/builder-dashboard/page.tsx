@@ -73,7 +73,7 @@ interface Property {
 function DashboardContent() {
   const router = useRouter()
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [activeTab, setActiveTab] = useState<"bills" | "properties" | "inventory" | "crm" | "crm2" | "chat" | "documents" | "offers" | "blog" | "settings" | "team">(() => {
+  const [activeTab, setActiveTab] = useState<"bills" | "properties" | "inventory" | "crm" | "crm2" | "chat" | "documents" | "offers" | "blog" | "settings" | "team" | "feedback">(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get("tab");
@@ -104,7 +104,7 @@ function DashboardContent() {
     return "published";
   })
 
-  const handleTabChange = (tab: "bills" | "properties" | "inventory" | "crm" | "crm2" | "chat" | "documents" | "offers" | "blog" | "settings" | "team") => {
+  const handleTabChange = (tab: "bills" | "properties" | "inventory" | "crm" | "crm2" | "chat" | "documents" | "offers" | "blog" | "settings" | "team" | "feedback") => {
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
     if (typeof window !== "undefined") {
@@ -824,10 +824,10 @@ function DashboardContent() {
           {/* Branding */}
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 flex-shrink-0 flex items-center justify-center relative rounded-full bg-[#050b18] border border-slate-700/50 shadow-xl overflow-hidden group transition-all duration-300 hover:border-blue-500/40">
-              <img src="/astronix-logo.png" alt="Astronix Logo" className="w-full h-full object-cover rounded-full transition-transform duration-500 group-hover:scale-110" />
+              <img src="/astronix-logo.png" alt="Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ Logo" className="w-full h-full object-cover rounded-full transition-transform duration-500 group-hover:scale-110" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-900 dark:text-white leading-tight">Builder Astronix Realty</h1>
+              <h1 className="text-xl font-bold text-slate-900 dark:text-white leading-tight">Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ</h1>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium tracking-wide">BUILDER PANEL</p>
             </div>
           </div>
@@ -1550,7 +1550,13 @@ function DashboardContent() {
           )}
 
           {activeTab === "offers" && <OffersView userRole={currentUser?.role || "builder"} />}
-          {activeTab === "feedback" && <FeedbackView />}
+          {activeTab === "feedback" && (
+            <FeedbackView 
+              initialName={profile?.developerName || profile?.companyName || currentUser?.name || ""} 
+              initialEmail={profile?.email || currentUser?.email || ""} 
+              source="builder" 
+            />
+          )}
 
           {
             activeTab === "settings" && (

@@ -202,7 +202,7 @@ const renderStageExtraFields = (status: string | null, extra: any, setExtra: (va
                     />
                 </div>
                 <div className="space-y-2">
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Amount of Astronix Realty</label>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Amount of Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ</label>
                     <Input 
                         placeholder="e.g. ₹2,40,000"
                         value={extra.brokerageAmount || ""}
@@ -211,7 +211,7 @@ const renderStageExtraFields = (status: string | null, extra: any, setExtra: (va
                     />
                 </div>
                 <div className="space-y-2">
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">% of Astronix Realty</label>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">% of Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ</label>
                     <Input 
                         placeholder="e.g. 2%"
                         value={extra.astronixPercent || ""}
@@ -239,8 +239,8 @@ const buildStageExtraNotes = (status: string | null, extra: any) => {
     if (status === "Booked") {
         if (extra.bookingValue) notes += `\nAgreement Value: ${extra.bookingValue}`;
         if (extra.totalTax) notes += `\nTotal Tax: ${extra.totalTax}`;
-        if (extra.brokerageAmount) notes += `\nAmount of Astronix Realty: ${extra.brokerageAmount}`;
-        if (extra.astronixPercent) notes += `\nAstronix %: ${extra.astronixPercent}`;
+        if (extra.brokerageAmount) notes += `\nAmount of Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ: ${extra.brokerageAmount}`;
+        if (extra.astronixPercent) notes += `\nΛꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ %: ${extra.astronixPercent}`;
     }
     return notes;
 }

@@ -6,8 +6,15 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Builder Astronix Realty | Builder Panel',
-  description: 'Manage your real estate townships, projects, and inventory.',
+  title: 'Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ | Builder & Mandate Panel',
+  description: 'Manage real estate townships, projects, inventory, and leads on Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ.',
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.ico' },
+    ],
+    apple: '/apple-icon.png',
+  },
 }
 
 export default function RootLayout({

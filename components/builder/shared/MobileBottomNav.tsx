@@ -31,6 +31,7 @@ export type BuilderTab =
   | "blog"
   | "settings"
   | "team"
+  | "feedback"
 
 interface MobileBottomNavProps {
   activeTab: BuilderTab
@@ -143,6 +144,13 @@ export function MobileBottomNav({
       description: "Profile, theme & security",
       icon: Settings,
       color: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+    },
+    {
+      id: "feedback" as BuilderTab,
+      label: "Feedback & Support",
+      description: "Direct to Admin team",
+      icon: MessageSquare,
+      color: "bg-red-50 text-red-600 dark:bg-red-950/50 dark:text-red-400",
     },
   ]
 

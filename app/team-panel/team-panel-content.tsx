@@ -185,7 +185,7 @@ export default function TeamPanelContent() {
                   </div>
                   <div>
                     <h2 className="text-xl font-bold">Welcome, {currentUser?.profile?.name || currentUser?.email}!</h2>
-                    <p className="text-emerald-100 text-sm">Team Leader — Builder Astronix Realty</p>
+                    <p className="text-emerald-100 text-sm">Team Leader — Builder Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ</p>
                     {currentUser?.profile?.userId && (
                       <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 bg-white/20 rounded-full text-xs font-mono">
                         🪪 {currentUser.profile.userId}
@@ -426,7 +426,7 @@ export default function TeamPanelContent() {
             </div>
             <div>
               <h1 className="text-xl font-bold text-slate-900 dark:text-white leading-tight">
-                Builder Astronix Realty
+                Builder Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ
               </h1>
               <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium tracking-wide">
                 TEAM PANEL

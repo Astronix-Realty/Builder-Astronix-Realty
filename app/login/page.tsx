@@ -72,10 +72,10 @@ export default function LoginPage() {
             <div>
               <div className="inline-flex items-center gap-3 mb-10">
                 <div className="w-10 h-10 rounded-full bg-[#050b18] border border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.3)] flex items-center justify-center overflow-hidden">
-                  <img src="/astronix-logo.png" alt="Astronix Logo" className="w-full h-full object-cover" />
+                  <img src="/astronix-logo.png" alt="Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ Logo" className="w-full h-full object-cover" />
                 </div>
                 <div>
-                  <h2 className="text-white text-xl font-bold leading-tight">Astronix <span className="font-normal">Realty</span></h2>
+                  <h2 className="text-white text-xl font-bold leading-tight">Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ</h2>
                   <p className="text-blue-400 text-[10px] uppercase tracking-[0.15em] font-bold mt-0.5">{content.subtitle}</p>
                 </div>
               </div>
@@ -120,7 +120,7 @@ export default function LoginPage() {
             </div>
             
             <div className="mt-auto pt-6 border-t border-white/10">
-              <p className="text-slate-500 text-xs font-medium">Secured by Astronix Realty Network</p>
+              <p className="text-slate-500 text-xs font-medium">Secured by Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ Platform</p>
             </div>
           </div>
         </div>
@@ -130,9 +130,9 @@ export default function LoginPage() {
           
           <div className="md:hidden flex flex-col items-center mb-8">
             <div className="w-16 h-16 flex items-center justify-center rounded-full bg-[#050b18] border-2 border-blue-600/30 shadow-[0_0_30px_rgba(37,99,235,0.2)] mb-4">
-              <img src="/astronix-logo.png" alt="Astronix Realty Logo" className="w-full h-full object-cover rounded-full" />
+              <img src="/astronix-logo.png" alt="Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ Logo" className="w-full h-full object-cover rounded-full" />
             </div>
-            <h1 className="text-2xl font-bold text-white">Astronix Realty</h1>
+            <h1 className="text-2xl font-bold text-white">Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ</h1>
             <p className="text-blue-400 text-xs mt-1 uppercase tracking-wider font-bold">{content.subtitle}</p>
           </div>
 
@@ -158,7 +158,7 @@ export default function LoginPage() {
           </div>
           
           <p className="text-center mt-8 text-slate-500 text-xs md:hidden">
-            🔒 Secured by Astronix Realty
+            🔒 Secured by Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ
           </p>
         </div>
       </div>

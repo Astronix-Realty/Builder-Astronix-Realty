@@ -97,4 +97,42 @@ export async function connectVisitorDB() {
   return cachedVisitor.conn;
 }
 
+// Global cached connection for Admin Database
+// @ts-ignore
+let cachedAdmin = global.mongooseAdmin;
+if (!cachedAdmin) {
+  // @ts-ignore
+  cachedAdmin = global.mongooseAdmin = { conn: null, promise: null };
+}
+
+export async function connectAdminDB() {
+  const ADMIN_URI = process.env.ADMIN_MONGODB_URI || "mongodb+srv://admin-astronix-realty:AdminAstronixRealty2026@admin-astronix-realty.joa7qub.mongodb.net/saveAdminData?retryWrites=true&w=majority&appName=admin-astronix-realty";
+
+  if (cachedAdmin.conn) {
+    return cachedAdmin.conn;
+  }
+
+  if (!cachedAdmin.promise) {
+    const opts: mongoose.ConnectOptions = {
+      bufferCommands: false,
+      serverSelectionTimeoutMS: 15000,
+      connectTimeoutMS: 15000,
+      family: 4,
+    };
+
+    cachedAdmin.promise = mongoose.createConnection(ADMIN_URI, opts).asPromise().then((conn) => {
+      return conn;
+    });
+  }
+
+  try {
+    cachedAdmin.conn = await cachedAdmin.promise;
+  } catch (e) {
+    cachedAdmin.promise = null;
+    throw e;
+  }
+
+  return cachedAdmin.conn;
+}
+
 export default dbConnect;
