@@ -397,7 +397,7 @@ function UnitConfigCard({
                                         const gstAmt = price * gst / 100
                                         const stampAmt = price * stamp / 100
                                         const taxes = gstAmt + stampAmt + reg
-                                        const allIn = price + taxes
+                                        const allIn = price + taxes + (config.otherCharges ?? 0)
                                         onChange({ 
                                             carpetArea: area, 
                                             builtUpArea: builtUp, 
@@ -424,7 +424,7 @@ function UnitConfigCard({
                                                     const gstAmt = flatCost * gst / 100
                                                     const stampAmt = flatCost * stamp / 100
                                                     const taxes = gstAmt + stampAmt + reg
-                                                    const allIn = flatCost + taxes
+                                                    const allIn = flatCost + taxes + (config.otherCharges ?? 0)
                                                     onChange({ 
                                                         ratePerSqft: rate, 
                                                         basePrice: flatCost, 
@@ -463,7 +463,7 @@ function UnitConfigCard({
                                                 const gstAmt = price * gst / 100
                                                 const stampAmt = price * stamp / 100
                                                 const taxes = gstAmt + stampAmt + reg
-                                                const allIn = price + taxes
+                                                const allIn = price + taxes + (config.otherCharges ?? 0)
                                                 onChange({ 
                                                     basePrice: price, 
                                                     ratePerSqft: config.builtUpArea > 0 ? Math.round(price / config.builtUpArea) : 0, 
@@ -490,7 +490,7 @@ function UnitConfigCard({
                                         const gstAmt = price * gst / 100
                                         const stampAmt = price * stamp / 100
                                         const taxes = gstAmt + stampAmt + reg
-                                        const allIn = price + taxes
+                                        const allIn = price + taxes + (config.otherCharges ?? 0)
                                         onChange({ 
                                             loadingFactor: loading, 
                                             builtUpArea: builtUp, 
@@ -531,7 +531,7 @@ function UnitConfigCard({
                                                 const park = config.parkingCharges ?? 0
                                                 const other = config.otherCharges ?? 0
                                                 const taxes = gstAmt + stampAmt + reg
-                                                const allIn = flat + taxes
+                                                const allIn = flat + taxes + (config.otherCharges ?? 0)
                                                 onChange({ 
                                                     gstPercentage: gst, 
                                                     gstAmount: Math.round(gstAmt), 
@@ -556,7 +556,7 @@ function UnitConfigCard({
                                                 const park = config.parkingCharges || 0
                                                 const other = config.otherCharges || 0
                                                 const taxes = gstAmt + stampAmt + reg
-                                                const allIn = flat + taxes
+                                                const allIn = flat + taxes + (config.otherCharges ?? 0)
                                                 onChange({ gstPercentage: Number(gst.toFixed(2)), gstAmount: gstAmt, totalTaxes: Math.round(taxes), allInclusivePrice: Math.round(allIn) })
                                             }} 
                                             placeholder="250000" 
@@ -577,7 +577,7 @@ function UnitConfigCard({
                                                 const park = config.parkingCharges ?? 0
                                                 const other = config.otherCharges ?? 0
                                                 const taxes = gstAmt + stampAmt + reg
-                                                const allIn = flat + taxes
+                                                const allIn = flat + taxes + (config.otherCharges ?? 0)
                                                 onChange({ 
                                                     stampDutyPercentage: stamp, 
                                                     gstAmount: Math.round(gstAmt),
@@ -602,7 +602,7 @@ function UnitConfigCard({
                                                 const park = config.parkingCharges || 0
                                                 const other = config.otherCharges || 0
                                                 const taxes = gstAmt + stampAmt + reg
-                                                const allIn = flat + taxes
+                                                const allIn = flat + taxes + (config.otherCharges ?? 0)
                                                 onChange({ stampDutyPercentage: Number(stamp.toFixed(2)), stampDutyAmount: stampAmt, totalTaxes: Math.round(taxes), allInclusivePrice: Math.round(allIn) })
                                             }} 
                                             placeholder="350000" 
@@ -615,7 +615,7 @@ function UnitConfigCard({
                                             onChange={e => {
                                                 const taxes = Number(e.target.value)
                                                 const flat = config.basePrice || 0
-                                                const allIn = flat + taxes
+                                                const allIn = flat + taxes + (config.otherCharges ?? 0)
                                                 onChange({ totalTaxes: taxes, allInclusivePrice: Math.round(allIn) })
                                             }} 
                                             placeholder="250000" 
@@ -635,7 +635,7 @@ function UnitConfigCard({
                                                 const park = config.parkingCharges ?? 0
                                                 const other = config.otherCharges ?? 0
                                                 const taxes = gstAmt + stampAmt + reg
-                                                const allIn = flat + taxes
+                                                const allIn = flat + taxes + (config.otherCharges ?? 0)
                                                 onChange({ 
                                                     registrationCharges: reg, 
                                                     gstAmount: Math.round(gstAmt),
@@ -647,7 +647,7 @@ function UnitConfigCard({
                                             placeholder="30000" 
                                         />
                                     </Field>
-                                    <Field label="Parking (₹)">
+                                    <Field label="Car Parking (₹)">
                                         <Input 
                                             type="number" 
                                             value={config.parkingCharges ?? ""} 
@@ -661,7 +661,7 @@ function UnitConfigCard({
                                                 const reg = config.registrationCharges ?? 30000
                                                 const other = config.otherCharges ?? 0
                                                 const taxes = gstAmt + stampAmt + reg
-                                                const allIn = flat + taxes
+                                                const allIn = flat + taxes + (config.otherCharges ?? 0)
                                                 onChange({ 
                                                     parkingCharges: park, 
                                                     gstAmount: Math.round(gstAmt),
@@ -671,6 +671,31 @@ function UnitConfigCard({
                                                 })
                                             }} 
                                             placeholder="500000" 
+                                        />
+                                    </Field>
+                                    <Field label="Bike Parking (₹)">
+                                        <Input 
+                                            type="number" 
+                                            value={config.bikeParkingCharges ?? ""} 
+                                            onChange={e => {
+                                                const bikePark = Number(e.target.value)
+                                                const flat = config.basePrice || 0
+                                                const gst = config.gstPercentage ?? 5
+                                                const stamp = config.stampDutyPercentage ?? 7
+                                                const gstAmt = (flat * gst / 100)
+                                                const stampAmt = (flat * stamp / 100)
+                                                const reg = config.registrationCharges ?? 30000
+                                                const taxes = gstAmt + stampAmt + reg
+                                                const allIn = flat + taxes + (config.otherCharges ?? 0)
+                                                onChange({ 
+                                                    bikeParkingCharges: bikePark, 
+                                                    gstAmount: Math.round(gstAmt),
+                                                    stampDutyAmount: Math.round(stampAmt),
+                                                    totalTaxes: Math.round(taxes), 
+                                                    allInclusivePrice: Math.round(allIn) 
+                                                })
+                                            }} 
+                                            placeholder="50000" 
                                         />
                                     </Field>
                                     <Field label="Other Charges (₹)">
@@ -687,7 +712,7 @@ function UnitConfigCard({
                                                 const reg = config.registrationCharges ?? 30000
                                                 const park = config.parkingCharges ?? 0
                                                 const taxes = gstAmt + stampAmt + reg
-                                                const allIn = flat + taxes
+                                                const allIn = flat + taxes + other
                                                 onChange({ 
                                                     otherCharges: other, 
                                                     gstAmount: Math.round(gstAmt),
@@ -700,8 +725,23 @@ function UnitConfigCard({
                                         />
                                     </Field>
                                 </Grid>
-                            </Section>
 
+                                <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700">
+                                    <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-2">Calculation Breakdown</div>
+                                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-400 font-mono">
+                                        <span>Base (₹{config.basePrice || 0})</span>
+                                        <span className="text-slate-400">+</span>
+                                        <span title={`GST (₹${config.gstAmount || 0}) + Stamp Duty (₹${config.stampDutyAmount || 0}) + Reg (₹${config.registrationCharges || 30000})`}>Taxes (₹{config.totalTaxes || 0})</span>
+                                        <span className="text-slate-400">+</span>
+                                        <span>Other (₹{config.otherCharges || 0})</span>
+                                        <span className="text-slate-400">=</span>
+                                        <span className="font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 shadow-sm">₹{config.allInclusivePrice || 0}</span>
+                                    </div>
+                                    <div className="mt-2 text-[10px] text-slate-400">
+                                        *Taxes = GST (₹{config.gstAmount || 0}) + Stamp Duty (₹{config.stampDutyAmount || 0}) + Reg (₹{config.registrationCharges || 30000})
+                                    </div>
+                                </div>
+                            </Section>
                             {["shop", "office", "showroom"].includes(config.type) && (
                                 <Section id="comm_areas" title="Commercial Specs" description="Frontage and depth details" icon={Building2} openIds={openIds} setOpenIds={setOpenIds}>
                                     <Grid cols={3}>
@@ -904,15 +944,7 @@ function UnitConfigCard({
                                 </Grid>
                             </Section>
 
-                            <Section id="media_gallery" title="Interior Gallery" description="Multi-shot room views" icon={LayoutGrid} openIds={openIds} setOpenIds={setOpenIds}>
-                                <div className="mt-4">
-                                    <GalleryUpload
-                                        images={config.galleryImages || []}
-                                        onChange={urls => onChange({ galleryImages: urls })}
-                                        max={20}
-                                    />
-                                </div>
-                            </Section>
+
                         </TabsContent>
                     </Tabs>
                 </CardContent>
@@ -947,6 +979,7 @@ data, onChange, towerName, projectName, townshipName,
         const pricingFields = [
             'baseRatePerSqft', 
             'parkingCharges', 
+            'bikeParkingCharges',
             'gstPercentage', 
             'stampDutyPercentage', 
             'registrationCharges', 
@@ -979,7 +1012,16 @@ data, onChange, towerName, projectName, townshipName,
                 const gstAmt = Math.round(basePrice * gst / 100)
                 const stampAmt = Math.round(basePrice * stamp / 100)
                 const taxes = gstAmt + stampAmt + reg
-                const allInclusive = basePrice + taxes
+                
+                const parkAmt = parseFloat(newData.parkingCharges || "0") || 0
+                const bikeAmt = parseFloat(newData.bikeParkingCharges || "0") || 0
+                const otherAmt = newData.otherChargesType === "rs" 
+                    ? parseFloat(newData.otherChargesAmount || "0")
+                    : newData.otherChargesType === "stamp_duty_percentage"
+                        ? Math.round(basePrice * (parseFloat(newData.otherChargesAmount || "0") / 100))
+                        : 0
+                
+                const allInclusive = basePrice + taxes + otherAmt
                 
                 return {
                     ...config,
@@ -989,6 +1031,7 @@ data, onChange, towerName, projectName, townshipName,
                     ratePerSqft: rate,
                     basePrice: basePrice,
                     parkingCharges: parseFloat(newData.parkingCharges || "0"),
+                    bikeParkingCharges: parseFloat(newData.bikeParkingCharges || "0"),
                     gstPercentage: gst,
                     gstAmount: gstAmt,
                     stampDutyPercentage: stamp,
@@ -1071,10 +1114,31 @@ data, onChange, towerName, projectName, townshipName,
 
     const updateConfig = (id: string, patch: Partial<UnitConfiguration>) => {
         const prevConfig = (data.configurations || []).find(c => c.id === id);
-        const updatedConfigs = (data.configurations || []).map(c => c.id === id ? { ...c, ...patch } : c);
+        
+        const globalPatch: any = {};
+        let updatedConfigs = (data.configurations || []).map(c => c.id === id ? { ...c, ...patch } : c);
+
+        if (patch.parkingCharges !== undefined) {
+            globalPatch.parkingCharges = patch.parkingCharges.toString();
+        }
+        if (patch.bikeParkingCharges !== undefined) {
+            globalPatch.bikeParkingCharges = patch.bikeParkingCharges.toString();
+        }
+
+        let updatedFloorGroups = data.floorGroups || [];
+        let shouldUpdateFloorGroups = false;
+
+        if (patch.parkingCharges !== undefined || patch.bikeParkingCharges !== undefined) {
+            updatedFloorGroups = updatedFloorGroups.map(g => ({
+                ...g,
+                ...(patch.parkingCharges !== undefined && { carParkingPrice: patch.parkingCharges.toString() }),
+                ...(patch.bikeParkingCharges !== undefined && { bikeParkingPrice: patch.bikeParkingCharges.toString() })
+            }));
+            shouldUpdateFloorGroups = true;
+        }
 
         if (patch.facing || patch.carpetArea) {
-            const updatedFloorGroups = (data.floorGroups || []).map(group => ({
+            updatedFloorGroups = updatedFloorGroups.map(group => ({
                 ...group,
                 layout: group.layout.map(slot => {
                     if (slot.configId === id) {
@@ -1090,10 +1154,15 @@ data, onChange, towerName, projectName, townshipName,
                     return slot;
                 })
             }));
-            updateData({ configurations: updatedConfigs, floorGroups: updatedFloorGroups });
-        } else {
-            updateData({ configurations: updatedConfigs });
+            shouldUpdateFloorGroups = true;
         }
+
+        if (shouldUpdateFloorGroups) {
+            globalPatch.floorGroups = updatedFloorGroups;
+        }
+
+        globalPatch.configurations = updatedConfigs;
+        updateData(globalPatch);
     }
 
     const removeConfig = (id: string) => {
@@ -1239,7 +1308,25 @@ data, onChange, towerName, projectName, townshipName,
     }
 
     const updateGroup = (id: string, patch: Partial<FloorGroup>) => {
-        updateData({ floorGroups: (data.floorGroups || []).map(g => g.id === id ? { ...g, ...patch } : g) })
+        let newGroups = (data.floorGroups || []).map(g => g.id === id ? { ...g, ...patch } : g)
+        
+        // Synchronize parking rates across all floor groups
+        if (patch.carParkingPrice !== undefined || patch.bikeParkingPrice !== undefined) {
+            newGroups = newGroups.map(g => ({
+                ...g,
+                ...(patch.carParkingPrice !== undefined && { carParkingPrice: patch.carParkingPrice }),
+                ...(patch.bikeParkingPrice !== undefined && { bikeParkingPrice: patch.bikeParkingPrice })
+            }))
+            
+            if (patch.carParkingPrice !== undefined || patch.bikeParkingPrice !== undefined) {
+                const globalPatch: Partial<UnitTemplate> = { floorGroups: newGroups }
+                if (patch.carParkingPrice !== undefined) globalPatch.parkingCharges = patch.carParkingPrice.replace(/,/g, '')
+                if (patch.bikeParkingPrice !== undefined) globalPatch.bikeParkingCharges = patch.bikeParkingPrice.replace(/,/g, '')
+                updateData(globalPatch)
+                return
+            }
+        }
+        updateData({ floorGroups: newGroups })
     }
 
     const removeGroup = (id: string) => {
@@ -1279,7 +1366,6 @@ data, onChange, towerName, projectName, townshipName,
                     <Section id="pricing-rules" title="Pricing & Tax Logic" description="Global rules inherited by all units in this tower" icon={DollarSign} openIds={openIds} setOpenIds={setOpenIds}>
                         <Grid cols={3}>
                             <Field label="Base Rate (₹/sqft)"><Input type="number" value={data.baseRatePerSqft ?? ""} onChange={e => updateData({ baseRatePerSqft: e.target.value })} placeholder="5500" /></Field>
-                            <Field label="Parking Charges (₹)"><Input type="number" value={data.parkingCharges ?? ""} onChange={e => updateData({ parkingCharges: e.target.value })} placeholder="500000" /></Field>
                             <Field label="GST (%)"><Input type="number" value={data.gstPercentage ?? ""} onChange={e => updateData({ gstPercentage: e.target.value })} placeholder="5" /></Field>
                             <Field label="Stamp Duty (%)"><Input type="number" value={data.stampDutyPercentage ?? ""} onChange={e => updateData({ stampDutyPercentage: e.target.value })} placeholder="7" /></Field>
                             <Field label="Registration (₹)"><Input type="number" value={data.registrationCharges ?? ""} onChange={e => updateData({ registrationCharges: e.target.value })} placeholder="30000" /></Field>
@@ -1379,6 +1465,16 @@ data, onChange, towerName, projectName, townshipName,
                             <Field label="Fire Safety"><Input value={data.defaultFireSafety || ''} onChange={e => updateData({ defaultFireSafety: e.target.value })} placeholder="Fire sprinklers, Smoke detectors" /></Field>
                             <Field label="Vastu Compliance"><Input value={data.defaultVastuCompliance || ''} onChange={e => updateData({ defaultVastuCompliance: e.target.value })} placeholder="Entrance direction" /></Field>
                         </Grid>
+                    </Section>
+
+                    <Section id="tower-media-gallery" title="Tower Interior Gallery" description="Multi-shot common room views for all units in this tower" icon={LayoutGrid} openIds={openIds} setOpenIds={setOpenIds}>
+                        <div className="mt-4">
+                            <GalleryUpload
+                                images={data.galleryImages || []}
+                                onChange={urls => updateData({ galleryImages: urls })}
+                                max={20}
+                            />
+                        </div>
                     </Section>
                 </TabsContent>
 
@@ -2087,38 +2183,8 @@ data, onChange, towerName, projectName, townshipName,
                                         </div>
                                     )
                                 })}
-
-                                {(() => {
-                                    const allUsedConfigIds = new Set((data.floorGroups || []).flatMap(g => (g.layout || []).map(s => s.configId)))
-                                    const unassignedConfigs = (data.configurations || []).filter(c => !allUsedConfigIds.has(c.id))
-
-                                    if (unassignedConfigs.length === 0) return null
-
-                                    return (
-                                        <div className="space-y-12 mt-24">
-                                            <div
-                                                className="flex items-center gap-3 border-b border-gray-100 dark:border-slate-800 pb-3 cursor-pointer hover:bg-slate-50/50 transition-colors p-2 rounded-xl"
-                                                onClick={() => toggleConfigGroupCollapse("unassigned")}
-                                            >
-                                                {collapsedConfigGroups.includes("unassigned") ? (
-                                                    <ChevronRight className="w-5 h-5 text-gray-400 dark:text-slate-500" />
-                                                ) : (
-                                                    <ChevronDown className="w-5 h-5 text-gray-400 dark:text-slate-500" />
-                                                )}
-                                                <h4 className="text-xl font-black text-gray-400 dark:text-slate-500">Unassigned Units</h4>
-                                            </div>
-                                            {!collapsedConfigGroups.includes("unassigned") && (
-                                                <div className="grid gap-6 pl-2 md:pl-4 border-l-2 border-dashed border-gray-100 dark:border-slate-800/60 opacity-80 hover:opacity-100 transition-opacity animate-in fade-in slide-in-from-top-2 duration-300">
-                                                    {unassignedConfigs.map((config, i) => (
-                                                        <UnitConfigCard key={config.id} index={i} config={config} onChange={patch => updateConfig(config.id, patch)} onRemove={() => removeConfig(config.id)} globalLoadingFactor={data.loadingFactor} />
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )
-                                })()}
-                            </>
-                        )}
+                                </>
+                            )}
                     </div>
 
 

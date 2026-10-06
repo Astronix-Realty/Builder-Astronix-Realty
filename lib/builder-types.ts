@@ -440,6 +440,7 @@ export interface UnitConfiguration {
   basePrice: number             // 7500000
   ratePerSqft: number           // auto: basePrice / carpetArea
   parkingCharges: number        // 500000
+  bikeParkingCharges?: number
   gstPercentage: number         // 5
   gstAmount: number             // GST in ₹
   stampDutyPercentage: number   // 5
@@ -571,6 +572,7 @@ export interface UnitTemplate {
   stampDutyPercentage: string   // "5"
   registrationCharges: string   // "30000"
   parkingCharges: string        // "500000"
+  bikeParkingCharges?: string
   maintenancePerSqft: string    // "3.5"
   maintenanceType: "monthly" | "quarterly" | "annually"
   loadingFactor: string         // "40" (%)
@@ -600,6 +602,7 @@ export interface UnitTemplate {
   defaultWindows?: string
   defaultMainDoor?: string
   defaultInternalDoors?: string
+  galleryImages?: string[]
 
   // ── BATHROOM & KITCHEN ──────────────────
   defaultKitchenPlatform?: string
@@ -1106,6 +1109,7 @@ export const createDefaultUnitConfig = (type: UnitConfiguration["type"], carpetA
   basePrice,
   ratePerSqft: Math.round(basePrice / carpetArea),
   parkingCharges: 500000,
+  bikeParkingCharges: 0,
   gstPercentage: 5,
   gstAmount: Math.round(basePrice * 0.05),
   stampDutyPercentage: 7,
@@ -1148,6 +1152,7 @@ export const createInitialUnitTemplate = (towerId: string): UnitTemplate => ({
   stampDutyPercentage: "",
   registrationCharges: "",
   parkingCharges: "",
+  bikeParkingCharges: "",
   maintenancePerSqft: "",
   maintenanceType: "monthly",
   loadingFactor: "",

@@ -737,6 +737,7 @@ function BuilderContent() {
     JSON.stringify(state.projects), 
     JSON.stringify(state.towers), 
     JSON.stringify(state.towerUnitConfigs), 
+    JSON.stringify(state.unitTemplate), 
     state.township.name, 
     // Use the live count of generatedUnits so the UI updates instantly
     generatedUnits.length

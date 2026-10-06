@@ -92,9 +92,9 @@ function Section({
   )
 }
 
-function Field({ label, required, hint, children }: { label: string; required?: boolean; hint?: string; children: React.ReactNode }) {
+function Field({ label, required, hint, className, children }: { label: string; required?: boolean; hint?: string; className?: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className={`flex flex-col gap-1.5 ${className || ""}`}>
       <Label className="text-xs font-semibold text-gray-700 dark:text-slate-300 uppercase tracking-wide">
         {label}{required && <span className="text-red-500 ml-0.5">*</span>}
       </Label>
@@ -325,6 +325,13 @@ function TowerFlowFormBase({ data, unitConfig, unitTemplate, onChange, projectNa
   const calculatedMax = configPrices.length > 0 ? Math.max(...configPrices) : 0
 
   const hasDiff = calculatedMin > 0 && (data.priceRangeMin !== calculatedMin || data.priceRangeMax !== calculatedMax)
+
+  useEffect(() => {
+    if (hasDiff) {
+      handleSyncPrices()
+    }
+  }, [hasDiff])
+
 
   const isBuilder = user?.role === "builder" || user?.userType === "builder"
 
