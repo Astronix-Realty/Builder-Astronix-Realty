@@ -7,7 +7,7 @@ import { Upload, X, Plus, Film, AlertCircle, FileText, Map as MapIcon, Eye, Down
 import { compressImage } from "@/lib/utils/compressor"
 
 // ── Shared upload helper ─────────────────────────────────────
-async function uploadFileToServer(file: File): Promise<string> {
+export async function uploadFileToServer(file: File): Promise<string> {
   const compressedFile = await compressImage(file)
   const formData = new FormData()
   formData.append("file", compressedFile)
@@ -735,21 +735,17 @@ export function MasterPlanMapUpload({
   return (
     <div className="space-y-2">
       <div
-        className={`relative w-full h-[200px] border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group ${value ? "border-transparent bg-gray-50 dark:bg-slate-800" : "border-blue-200 dark:border-blue-900/50 bg-blue-50/20 dark:bg-blue-900/10 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 hover:border-blue-400"}`}
+        className={`relative w-full border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group ${value ? "border-transparent bg-gray-50 dark:bg-slate-800" : "h-[200px] border-blue-200 dark:border-blue-900/50 bg-blue-50/20 dark:bg-blue-900/10 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 hover:border-blue-400"}`}
         onClick={() => !isUploading && fileRef.current?.click()}
       >
         {isUploading ? (
-          <div className="flex flex-col items-center gap-2">
+          <div className="flex flex-col items-center gap-2 py-10">
             <div className="w-8 h-8 border-[3px] border-blue-500 border-t-transparent rounded-full animate-spin" />
             <span className="text-xs font-semibold text-blue-600">Uploading...</span>
           </div>
         ) : value ? (
           <>
-            <div className="absolute inset-0 p-1.5">
-              <div className="relative w-full h-full rounded-lg overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-                <Image src={value} alt="Master Plan Map" fill className="object-contain" unoptimized />
-              </div>
-            </div>
+            <img src={value} alt="Master Plan Map" className="w-full h-auto max-h-[400px] object-contain rounded-lg p-1.5" />
             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-2 transition-opacity backdrop-blur-[2px]">
               <button
                 type="button"
@@ -852,17 +848,18 @@ export function AboutImageUpload({
   return (
     <div className="space-y-2">
       <div
-        className={`relative w-full h-[200px] border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group ${displayUrl ? "border-transparent bg-gray-50 dark:bg-slate-800" : "border-gray-200 dark:border-slate-800 bg-gray-50/30 dark:bg-slate-800/30 hover:bg-gray-50/80 dark:hover:bg-slate-800 hover:border-gray-400 dark:hover:border-slate-600"}`}
+        className={`relative w-full border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden group ${displayUrl ? "border-transparent bg-gray-50 dark:bg-slate-800" : "h-[200px] border-gray-200 dark:border-slate-800 bg-gray-50/30 dark:bg-slate-800/30 hover:bg-gray-50/80 dark:hover:bg-slate-800 hover:border-gray-400 dark:hover:border-slate-600"}`}
         onClick={() => !isUploading && fileRef.current?.click()}
       >
         {isUploading ? (
-          <div className="flex flex-col items-center gap-2">
+          <div className="flex flex-col items-center gap-2 py-10">
             <div className="w-8 h-8 border-[3px] border-[#1A3C8C] dark:border-blue-500 border-t-transparent rounded-full animate-spin" />
             <span className="text-xs font-semibold text-[#1A3C8C] dark:text-blue-400">Uploading...</span>
           </div>
         ) : displayUrl ? (
           <>
-            <Image src={displayUrl} alt="Uploaded" fill className="object-cover" unoptimized />
+            {/* Show image with its natural aspect ratio, max height to prevent it from being too huge */}
+            <img src={displayUrl} alt="Uploaded" className="w-full h-auto max-h-[400px] object-contain" />
             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-2 transition-opacity backdrop-blur-[2px]">
               <button
                 type="button"
@@ -900,6 +897,52 @@ export function AboutImageUpload({
           <span>{error}</span>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Generic URL Input with Upload Button ──────────────────────────────────────
+export function UrlUploadInput({ value, onChange, placeholder = "https://...", accept = "*/*" }: { value: string, onChange: (url: string) => void, placeholder?: string, accept?: string }) {
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const url = await uploadFileToServer(file)
+      onChange(url)
+    } catch (error) {
+      console.error("Upload failed", error)
+      alert("Failed to upload file")
+    } finally {
+      setUploading(false)
+      if (fileRef.current) fileRef.current.value = ""
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type="text"
+        value={value || ""}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="flex-1 h-9 rounded-md border border-slate-200 dark:border-slate-800 bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+      />
+      <input type="file" ref={fileRef} className="hidden" accept={accept} onChange={handleFileChange} />
+      <button
+        type="button"
+        
+
+        disabled={uploading}
+        onClick={() => fileRef.current?.click()}
+        className="shrink-0 h-9 px-3 inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-50 disabled:pointer-events-none disabled:opacity-50"
+        title="Upload File"
+      >
+        {uploading ? "..." : <Upload className="w-4 h-4" />}
+      </button>
     </div>
   )
 }

@@ -41,7 +41,16 @@ export default function GooglePlacesSearch({
   const autocompleteRef = useRef<any>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [loadingError, setLoadingError] = useState<string | null>(null);
-  const [selectedPlaceName, setSelectedPlaceName] = useState<string>("");
+  const [selectedPlaceName, setSelectedPlaceName] = useState<string>(initialSearchText);
+  
+  useEffect(() => {
+    if (initialSearchText && !selectedPlaceName) {
+      setSelectedPlaceName(initialSearchText);
+      if (inputRef.current && !inputRef.current.value) {
+        inputRef.current.value = initialSearchText;
+      }
+    }
+  }, [initialSearchText]);
 
   const apiKey =
     process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ||

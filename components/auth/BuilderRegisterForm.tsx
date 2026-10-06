@@ -27,7 +27,7 @@ export default function BuilderRegisterForm() {
 
   const [builderForm, setBuilderForm] = useState({
     companyName: "", developerName: "", email: "", phone: "",
-    password: "", confirmPassword: "", reraNumber: "",
+    password: "", confirmPassword: "",
     address: "", city: "", state: "", website: "", experience: "", logo: ""
   })
 
@@ -120,7 +120,7 @@ export default function BuilderRegisterForm() {
       }
     }
     if (step === 2) {
-      if (!builderForm.reraNumber || !builderForm.password || !builderForm.confirmPassword) {
+      if (!builderForm.password || !builderForm.confirmPassword) {
         return setError("Please fill all required fields in Step 2")
       }
       if (builderForm.password !== builderForm.confirmPassword) {
@@ -355,19 +355,6 @@ export default function BuilderRegisterForm() {
         {step === 2 && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
             <h3 className="text-xl font-semibold text-white border-b border-white/10 pb-3">Security & Verification</h3>
-            <div>
-              <label className={labelClass}>RERA Registration Number *</label>
-              <div className="relative">
-                <FileText className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                <input
-                  type="text" required
-                  value={builderForm.reraNumber}
-                  onChange={e => setBuilderForm({ ...builderForm, reraNumber: e.target.value.toUpperCase() })}
-                  placeholder="e.g., P52000001234"
-                  className={inputWithIconClass}
-                />
-              </div>
-            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>

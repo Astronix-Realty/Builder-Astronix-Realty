@@ -19,6 +19,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const body = await req.json();
 
+    await dbConnect();
+
     // Check existing property status first
     const existingProp = await Property.findOne({
       _id: id,

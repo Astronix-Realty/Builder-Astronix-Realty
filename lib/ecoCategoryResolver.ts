@@ -380,6 +380,16 @@ export const ECO_CATEGORY_IMAGE_MAP: Record<string, EcoImageMapping> = {
     defaultDescription: "Certified IGBC / LEED Green Building rated for high environmental performance & efficiency.",
     iconKey: "badge",
     color: "text-orange-600 bg-orange-50 dark:bg-orange-950/40 border-orange-200 dark:border-orange-800"
+  },
+  custom: {
+    id: "custom",
+    label: "Custom / Other Feature",
+    keywords: ["custom", "other"],
+    exactPhrases: ["custom feature", "other feature"],
+    image: "https://images.unsplash.com/photo-1497435334941-8c899ee9e8e9?w=800",
+    defaultDescription: "Custom sustainable feature added specifically for this project.",
+    iconKey: "check",
+    color: "text-slate-600 bg-slate-50 dark:bg-slate-950/40 border-slate-200 dark:border-slate-800"
   }
 }
 

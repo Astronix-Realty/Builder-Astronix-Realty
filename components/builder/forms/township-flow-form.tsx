@@ -21,7 +21,7 @@ import type {
   VideoGalleryItem, ReraPhase, MasterPlanHighlight, DevelopmentPhase,
   FaqItem, TestimonialItem, ApfDetail,
 } from "@/lib/builder-types"
-import { BannerUpload, GalleryUpload, VideoUpload, MasterPlanMapUpload, DocumentUpload, AboutImageUpload } from "@/components/ui/media-uploads"
+import { BannerUpload, GalleryUpload, VideoUpload, MasterPlanMapUpload, DocumentUpload, AboutImageUpload, UrlUploadInput } from "@/components/ui/media-uploads"
 import { ImageUpload } from "@/components/ui/image-upload"
 import { MiniImageUpload } from "@/components/builder/shared/MiniImageUpload"
 import { ConnectivityManager } from "@/components/builder/shared/ConnectivityManager"
@@ -668,6 +668,7 @@ function TownshipFlowFormBase({ data, onChange, user }: TownshipFlowFormProps) {
       <Section id="location" title="Location & Google Maps Details" description="City, district, pincode & Google Maps Integration — Auto-filled from Google Places" icon={MapPin} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
         <div className="mb-5">
           <GooglePlacesSearch
+            initialSearchText={data.nearbyLandmark || ""}
             onLocationSelected={(loc) => {
               onChange((prev) => {
                 const next = { ...prev };
@@ -729,6 +730,12 @@ function TownshipFlowFormBase({ data, onChange, user }: TownshipFlowFormProps) {
           </Field>
           <Field label="Google Plus Code" hint='Eg: "+QR5, Thane, Maharashtra"'>
             <Input value={data.googlePlusCode ?? ""} onChange={e => update("googlePlusCode", e.target.value)} placeholder="+QR5, Thane, Maharashtra" />
+          </Field>
+          <Field label="Latitude" hint="Auto-filled from map search">
+            <Input value={data.coordinates?.lat ?? ""} onChange={e => update("coordinates", { ...(data.coordinates || {lat: "", lng: ""}), lat: e.target.value })} placeholder="19.2183" />
+          </Field>
+          <Field label="Longitude" hint="Auto-filled from map search">
+            <Input value={data.coordinates?.lng ?? ""} onChange={e => update("coordinates", { ...(data.coordinates || {lat: "", lng: ""}), lng: e.target.value })} placeholder="73.0867" />
           </Field>
         </Grid>
 
@@ -805,7 +812,7 @@ function TownshipFlowFormBase({ data, onChange, user }: TownshipFlowFormProps) {
                   <Input value={item.apfNumber ?? ""} onChange={e => updateApf(item.id, { apfNumber: e.target.value })} placeholder="APF/HDFC/2023/001" />
                 </Field>
                 <Field label="Certificate URL">
-                  <Input value={item.certificateUrl ?? ""} onChange={e => updateApf(item.id, { certificateUrl: e.target.value })} placeholder="https://..." />
+                  <UrlUploadInput value={item.certificateUrl ?? ""} onChange={(url) => updateApf(item.id, { certificateUrl: url })} placeholder="Upload or paste URL" />
                 </Field>
               </Grid>
             </CardContent>

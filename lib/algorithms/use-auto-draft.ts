@@ -455,7 +455,9 @@ export function useAutoDraft({
         // the next save cycle will re-evaluate and POST a fresh draft if truly needed.
         if (
           err.message === "Draft not found or already published" ||
-          err.message === "Auto-save patch failed"
+          err.message === "Auto-save patch failed" ||
+          err.message === "Draft not found or unauthorized" ||
+          err.message?.includes("not found")
         ) {
           console.warn("[useAutoDraft] PATCH failed with stale ID. Clearing to avoid duplicate POST.", err.message)
           clearDraftIdsFromStorage(flowType)

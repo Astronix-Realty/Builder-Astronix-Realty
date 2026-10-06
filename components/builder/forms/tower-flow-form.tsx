@@ -19,7 +19,7 @@ import type {
   TowerData, FloorBreakdown, TownshipData, ConnectivityItem,
   EcoFeature, ApfDetail, VideoGalleryItem, MasterPlanHighlight
 } from "@/lib/builder-types"
-import { BannerUpload, GalleryUpload, VideoUpload, DocumentUpload, MasterPlanMapUpload, AboutImageUpload } from "@/components/ui/media-uploads"
+import { BannerUpload, GalleryUpload, VideoUpload, DocumentUpload, MasterPlanMapUpload, AboutImageUpload, UrlUploadInput } from "@/components/ui/media-uploads"
 import { ImageUpload } from "@/components/ui/image-upload"
 import { MiniImageUpload } from "@/components/builder/shared/MiniImageUpload"
 import { ConnectivityManager } from "@/components/builder/shared/ConnectivityManager"
@@ -498,6 +498,15 @@ function TowerFlowFormBase({ data, unitConfig, unitTemplate, onChange, projectNa
               />
             </Field>
 
+            <Field label="Tower Number">
+              <Input
+                value={data.towerNumber || ""}
+                onChange={e => update("towerNumber", e.target.value)}
+                placeholder="e.g. Tower 1, T1"
+                className="h-11 bg-white dark:bg-slate-900/50"
+              />
+            </Field>
+
             <Field label="Tower Type">
               <Select value={data.towerType || "residential"} onValueChange={v => update("towerType", v as TowerData["towerType"])}>
                 <SelectTrigger className="h-11 bg-white dark:bg-slate-900/50"><SelectValue /></SelectTrigger>
@@ -857,6 +866,7 @@ function TowerFlowFormBase({ data, unitConfig, unitTemplate, onChange, projectNa
           <Section id="location" title="Location & Google Maps Details" description="City, district, pincode & Google Maps Integration — Auto-filled from Google Places" icon={MapPin} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
             <div className="mb-5">
               <GooglePlacesSearch
+                initialSearchText={data.nearbyLandmark || ""}
                 onLocationSelected={(loc) => {
                   if (onTownshipChange) {
                     onTownshipChange((prev) => {
@@ -921,6 +931,12 @@ function TowerFlowFormBase({ data, unitConfig, unitTemplate, onChange, projectNa
               </Field>
               <Field label="Google Plus Code" hint='Eg: "+QR5, Thane, Maharashtra"'>
                 <Input value={townshipData.googlePlusCode ?? ""} onChange={e => updateCommon("googlePlusCode", e.target.value)} placeholder="+QR5, Thane, Maharashtra" />
+              </Field>
+              <Field label="Latitude" hint="Auto-filled from map search">
+                <Input value={townshipData.coordinates?.lat ?? ""} onChange={e => updateCommon("coordinates", { ...(townshipData.coordinates || {lat: "", lng: ""}), lat: e.target.value })} placeholder="19.2183" />
+              </Field>
+              <Field label="Longitude" hint="Auto-filled from map search">
+                <Input value={townshipData.coordinates?.lng ?? ""} onChange={e => updateCommon("coordinates", { ...(townshipData.coordinates || {lat: "", lng: ""}), lng: e.target.value })} placeholder="73.0867" />
               </Field>
             </Grid>
 
@@ -1013,6 +1029,9 @@ function TowerFlowFormBase({ data, unitConfig, unitTemplate, onChange, projectNa
                   </Field>
                   <Field label="APF Number">
                     <Input value={apf.apfNumber} onChange={e => updateApfCommon(apf.id, { apfNumber: e.target.value })} placeholder="APF-123456" className="h-8 text-xs bg-white" />
+                  </Field>
+                  <Field label="Certificate URL" className="col-span-2">
+                    <UrlUploadInput value={apf.certificateUrl ?? ""} onChange={(url) => updateApfCommon(apf.id, { certificateUrl: url })} placeholder="Upload or paste URL" />
                   </Field>
                   <button onClick={() => removeApfCommon(apf.id)} className="absolute -top-1 -right-1 bg-white border shadow-sm p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
                     <X className="w-3 h-3 text-red-500" />

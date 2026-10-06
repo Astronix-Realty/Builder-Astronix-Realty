@@ -28,6 +28,45 @@ import {
   validateImageAgainstProfile
 } from "@/lib/eco-categories"
 import { ECO_CATEGORY_IMAGE_MAP, resolveEcoCategoryMapping } from "@/lib/ecoCategoryResolver"
+import { uploadFileToServer } from "@/components/ui/media-uploads"
+
+function FeatureImageUpload({ image, onUpdate }: { image: string, onUpdate: (url: string) => void }) {
+  const [uploading, setUploading] = useState(false)
+  const fileRef = React.useRef<HTMLInputElement>(null)
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const url = await uploadFileToServer(file)
+      onUpdate(url)
+    } catch (error) {
+      console.error("Upload failed", error)
+      alert("Failed to upload image")
+    } finally {
+      setUploading(false)
+      if (fileRef.current) fileRef.current.value = ""
+    }
+  }
+
+  return (
+    <div className="mt-2">
+      <input type="file" ref={fileRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={uploading}
+        onClick={() => fileRef.current?.click()}
+        className="w-full h-9 whitespace-nowrap bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs"
+      >
+        <ImageIcon className="w-3 h-3 mr-2 text-slate-500" />
+        {uploading ? "Uploading..." : "Click to Upload Custom Photo"}
+      </Button>
+    </div>
+  )
+}
 
 export { PRESET_ECO_CATEGORIES, resolveCategoryKey, getEcoCategoryDefaultImage, isCustomEcoImage, ECO_IMAGE_PROFILES, validateImageAgainstProfile }
 
@@ -358,46 +397,39 @@ export function EcoFeaturesManager({
                   </div>
 
                   {/* 📸 EXACT INFRASTRUCTURE PHOTOGRAPHY CANVAS */}
-                  <div className="relative h-36 w-full bg-slate-900 overflow-hidden group/photo border-b border-slate-100 dark:border-slate-800">
-                    <img
-                      src={currentImg}
-                      alt={displayTitle}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover/photo:scale-105"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = defaultCatImg
-                      }}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/30 pointer-events-none" />
-
-                    {/* Image Status Badges */}
-                    <div className="absolute top-2 left-2 flex items-center gap-1.5">
-                      <span className={`px-2 py-0.5 rounded-md text-[9.5px] font-bold flex items-center gap-1 backdrop-blur-md border shadow-xs ${
-                        isCustomImage
-                          ? "bg-purple-600/90 text-white border-purple-400/40"
-                          : "bg-emerald-600/90 text-white border-emerald-400/40"
-                      }`}>
-                        {isCustomImage ? <Camera className="w-2.5 h-2.5" /> : <Sparkles className="w-2.5 h-2.5" />}
-                        {isCustomImage ? "Custom Uploaded Photo" : "Category Infrastructure Photo"}
-                      </span>
-                    </div>
-
-                    {/* Reset Button (If Custom Image) */}
-                    {isCustomImage && (
+                  {item.image && (
+                    <div className="relative h-36 w-full bg-slate-900 overflow-hidden group/photo border-b border-slate-100 dark:border-slate-800">
+                      <img
+                        src={item.image}
+                        alt={displayTitle}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover/photo:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/30 pointer-events-none" />
+  
+                      {/* Image Status Badges */}
+                      <div className="absolute top-2 left-2 flex items-center gap-1.5">
+                        <span className="px-2 py-0.5 rounded-md text-[9.5px] font-bold flex items-center gap-1 backdrop-blur-md border shadow-xs bg-purple-600/90 text-white border-purple-400/40">
+                          <Camera className="w-2.5 h-2.5" />
+                          Custom Uploaded Photo
+                        </span>
+                      </div>
+  
+                      {/* Remove Image Button */}
                       <button
                         type="button"
                         onClick={() => handleResetImage(item)}
                         className="absolute top-2 right-2 px-2 py-0.5 bg-black/70 hover:bg-black/90 text-white text-[9.5px] font-bold rounded-md backdrop-blur-md flex items-center gap-1 border border-white/20 transition-all active:scale-95"
-                        title="Reset to category infrastructure photo"
+                        title="Remove photo"
                       >
-                        <RotateCcw className="w-2.5 h-2.5" />
-                        <span>Reset Photo</span>
+                        <Trash2 className="w-2.5 h-2.5 text-red-400" />
+                        <span>Remove Photo</span>
                       </button>
-                    )}
-
-                    <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between text-white text-[11px] font-bold drop-shadow-md">
-                      <span className="truncate">{displayTitle}</span>
+  
+                      <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between text-white text-[11px] font-bold drop-shadow-md">
+                        <span className="truncate">{displayTitle}</span>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   <CardContent className="p-3.5 space-y-3">
                     {/* Primary Icon Category Selection Dropdown (All 24 Categories) */}
@@ -445,6 +477,24 @@ export function EcoFeaturesManager({
                         className="h-9 text-xs bg-slate-50/80 dark:bg-slate-950/50 font-medium border-slate-300 dark:border-slate-700"
                       />
                     </div>
+                    
+                    {/* Custom Title Input for Custom Categories */}
+                    {catKey === "custom" && (
+                      <div>
+                        <Label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 block">
+                          Custom Feature Title
+                        </Label>
+                        <Input
+                          value={item.title ?? ""}
+                          onChange={(e) => {
+                            const newTitle = e.target.value
+                            onUpdate(item.id, { title: newTitle })
+                          }}
+                          placeholder="e.g. My Custom Eco Feature"
+                          className="h-9 text-xs bg-slate-50/80 dark:bg-slate-950/50 font-medium border-slate-300 dark:border-slate-700"
+                        />
+                      </div>
+                    )}
 
                     {/* Photo URL / Custom Override Input Field */}
                     <div>
@@ -463,11 +513,9 @@ export function EcoFeaturesManager({
                           </button>
                         )}
                       </div>
-                      <Input
-                        value={item.image ?? ""}
-                        onChange={(e) => onUpdate(item.id, { image: e.target.value })}
-                        placeholder="Paste custom photograph URL..."
-                        className="h-9 text-xs bg-slate-50/80 dark:bg-slate-950/50 font-medium border-slate-300 dark:border-slate-700 font-mono text-[11px]"
+                      <FeatureImageUpload 
+                        image={item.image ?? ""} 
+                        onUpdate={(url) => onUpdate(item.id, { image: url })} 
                       />
                     </div>
                   </CardContent>

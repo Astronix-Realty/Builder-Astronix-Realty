@@ -293,6 +293,7 @@ export interface ProjectData {
 
   // ── HERO ─────────────────────────────────
   name: string                  // "Skyline Residences"
+  phaseName?: string            // e.g. "Phase 1"
   tagType: string               // "Premium Residential"
   heroImage: string
   heroLocation: string          // "Tower A, B & C"
@@ -368,6 +369,7 @@ export interface TowerData {
 
   // ── HERO ─────────────────────────────────
   name: string                  // "Tower A – Skyline"
+  towerNumber?: string          // "Tower 1"
   heroImage: string
   galleryImages: string[]
   description: string
