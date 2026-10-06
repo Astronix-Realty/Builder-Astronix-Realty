@@ -104,10 +104,15 @@ export async function POST(req: NextRequest) {
     }, { status: 200 })
 
   } catch (error: any) {
-    console.error("[Upload] Cloudinary upload error:", error?.message || error)
-    const userMessage = error?.http_code === 499 || error?.name === 'TimeoutError'
+    const actualError = error?.error || error;
+    console.error("[Upload] Cloudinary upload error:", actualError?.message || actualError)
+    
+    const isTimeout = actualError?.http_code === 499 || actualError?.name === 'TimeoutError' || actualError?.message === 'Request Timeout';
+    
+    const userMessage = isTimeout
       ? "Upload timed out. Please try a smaller image or check your internet connection."
-      : `Upload failed: ${error?.message || "Unknown error"}`
+      : `Upload failed: ${actualError?.message || "Unknown error"}`
+      
     return NextResponse.json(
       { error: userMessage },
       { status: 500 }

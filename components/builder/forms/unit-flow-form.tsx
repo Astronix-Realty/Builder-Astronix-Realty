@@ -449,7 +449,7 @@ function UnitConfigCard({
                                             )}
                                         </div>
                                     </Field>
-                                    <Field label="Flat Cost (₹)">
+                                    <Field label="Flat Cost (₹)" hint="Built-Up Area × Base Rate">
                                         <Input 
                                             type="number" 
                                             value={config.basePrice || ""} 
@@ -477,7 +477,7 @@ function UnitConfigCard({
                                         />
                                     </Field>
 
-                                    <Field label="Built-Up Area" hint="Total slab area"><Input type="number" value={config.builtUpArea ?? ""} onChange={e => onChange({ builtUpArea: Number(e.target.value) })} placeholder="1020" /></Field>
+                                    <Field label="Built-Up Area" hint="Carpet Area + Loading Factor (%)"><Input type="number" value={config.builtUpArea ?? ""} onChange={e => onChange({ builtUpArea: Number(e.target.value) })} placeholder="1020" /></Field>
                                     <Field label="Loading Factor %"><Input type="number" value={config.loadingFactor ?? ""} onChange={e => {
                                         const loading = Number(e.target.value) || parseFloat(globalLoadingFactor || "40") || 40
                                         const builtUp = Math.round(config.carpetArea * (1 + loading / 100))
@@ -503,7 +503,7 @@ function UnitConfigCard({
                                         })
                                     }} placeholder="40" /></Field>
 
-                                    <Field label="All Inclusive Price (₹)">
+                                    <Field label="All Inclusive Price (₹)" hint="Flat Cost + All Taxes + Parking + Other Charges">
                                         <Input 
                                             type="number" 
                                             value={config.allInclusivePrice || ""} 
@@ -608,7 +608,7 @@ function UnitConfigCard({
                                             placeholder="350000" 
                                         />
                                     </Field>
-                                    <Field label="All Taxes (₹)">
+                                    <Field label="All Taxes (₹)" hint="GST Amount + Stamp Duty Amount + Registration">
                                         <Input 
                                             type="number" 
                                             value={config.totalTaxes || ""} 
