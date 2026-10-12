@@ -27,6 +27,7 @@ import { ConnectivityManager } from "@/components/builder/shared/ConnectivityMan
 import { EcoFeaturesManager } from "@/components/builder/shared/EcoFeaturesManager"
 import { AmenitiesManager } from "@/components/builder/shared/AmenitiesManager"
 import GooglePlacesSearch from "@/components/builder/forms/GooglePlacesSearch"
+import AreaSelectInput from "@/components/builder/forms/AreaSelectInput"
 import { GmbReviewsSelector } from "@/components/builder/shared/GmbReviewsSelector"
 import { GmbMapPreview } from "@/components/builder/shared/GmbMapPreview"
 
@@ -89,9 +90,9 @@ function Section({
   )
 }
 
-function Field({ label, required, hint, children }: { label: string; required?: boolean; hint?: string; children: React.ReactNode }) {
+function Field({ label, required, hint, className, children }: { label: string; required?: boolean; hint?: string; className?: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className={`flex flex-col gap-1.5 ${className || ""}`}>
       <Label className="text-xs font-semibold text-gray-700 dark:text-slate-300 uppercase tracking-wide">
         {label}{required && <span className="text-red-500 ml-0.5">*</span>}
       </Label>
@@ -267,6 +268,7 @@ function BulkImageInput({ onAdd }: { onAdd: (urls: string[]) => void }) {
 function ProjectFlowFormBase({ data, onChange, townshipName, townshipData, onTownshipChange, showCommonData, user }: ProjectFlowFormProps) {
   const [openIds, setOpenIds] = useState<string[]>(["builder", "proj-identity", "location"])
   const [openParts, setOpenParts] = useState<string[]>(["part-a", "part-b"])
+  const [detectedAreas, setDetectedAreas] = useState<string[]>(townshipData?.village ? [townshipData.village] : [])
 
   const isBuilder = user?.role === "builder" || user?.userType === "builder"
 
@@ -720,6 +722,10 @@ function ProjectFlowFormBase({ data, onChange, townshipName, townshipData, onTow
                     <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">Required</span>
                   </div>
 
+                  <div className="mb-4">
+                    <Input value={data.ccNumber || ""} onChange={e => update("ccNumber", e.target.value)} placeholder="CC Number (e.g. CC/2023/102)" className="text-xs bg-white dark:bg-slate-900/50" />
+                  </div>
+
                   <div className="flex-1">
                     <DocumentUpload
                       value={data.ccCertificateUrl || ""}
@@ -741,6 +747,10 @@ function ProjectFlowFormBase({ data, onChange, townshipName, townshipData, onTow
                     </div>
                     <Label className="text-[11px] font-bold uppercase tracking-wider text-green-700">Occupancy (OC)</Label>
                     <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">Required</span>
+                  </div>
+
+                  <div className="mb-4">
+                    <Input value={data.ocNumber || ""} onChange={e => update("ocNumber", e.target.value)} placeholder="OC Number (e.g. OC/2024/099)" className="text-xs bg-white dark:bg-slate-900/50" />
                   </div>
 
                   <div className="flex-1">
@@ -802,8 +812,11 @@ function ProjectFlowFormBase({ data, onChange, townshipName, townshipData, onTow
           <Section id="location" title="Location & Google Maps Details" description="City, district, pincode & Google Maps Integration — Auto-filled from Google Places" icon={MapPin} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
             <div className="mb-5">
               <GooglePlacesSearch
-                initialSearchText={data.nearbyLandmark || ""}
+                initialSearchText={townshipData?.nearbyLandmark || ""}
                 onLocationSelected={(loc) => {
+                  if (loc.areaOptions && loc.areaOptions.length > 0) {
+                    setDetectedAreas(loc.areaOptions);
+                  }
                   if (onTownshipChange) {
                     onTownshipChange((prev) => {
                       const next = { ...prev };
@@ -841,8 +854,15 @@ function ProjectFlowFormBase({ data, onChange, townshipName, townshipData, onTow
               <Field label="Sub City" required>
                 <Input value={townshipData.subCity ?? ""} onChange={e => updateCommon("subCity", e.target.value)} placeholder="Dombivali East" />
               </Field>
-              <Field label="Area" required>
-                <Input value={townshipData.village ?? ""} onChange={e => updateCommon("village", e.target.value)} placeholder="Sonarpada" />
+              <Field label="Area" required hint="Choose from map suggestions / gaon list or type custom">
+                <AreaSelectInput
+                  value={townshipData.village ?? ""}
+                  onChange={val => updateCommon("village", val)}
+                  subCity={townshipData.subCity ?? ""}
+                  city={townshipData.city ?? ""}
+                  detectedOptions={detectedAreas}
+                  placeholder="Select or type area/gaon (e.g. MIDC, Sonarpada)"
+                />
               </Field>
               <Field label="State" required>
                 <Input value={townshipData.state ?? ""} onChange={e => updateCommon("state", e.target.value)} placeholder="Maharashtra" />

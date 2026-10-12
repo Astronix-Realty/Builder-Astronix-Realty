@@ -97,6 +97,21 @@ interface Lead {
     photo?: string
     profilePhoto?: string
     username?: string
+    attemptsCount?: number
+    hasRepeatedEnquiry?: boolean
+    lastEnquiryAt?: string
+    leadTypes?: string[]
+    interactions?: {
+        id?: string
+        type?: string
+        title?: string
+        desc?: string
+        date?: string
+        details?: string
+        source?: string
+        propertyTitle?: string
+        unitNumber?: string
+    }[]
 }
 
 // --- Mock Sentry Logger ---
@@ -1151,8 +1166,9 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
                             </div>
                         ) : (
                             activeStageLeads.map((lead, idx) => {
-                                const isSpecificDoubt = lead.source?.includes('doubt') || lead.leadType === 'specific-doubt' || lead.requirement?.includes('Specific Doubt');
-                                const isTokenHold = lead.status === 'Token VIP' || lead.isTokenPaid || lead.leadType === 'token-hold' || lead.leadType === 'vip-lead';
+                                const hasRepeated = Boolean(lead.hasRepeatedEnquiry || (lead.attemptsCount && lead.attemptsCount > 1));
+                                const isSpecificDoubt = lead.source?.includes('doubt') || lead.leadType === 'specific-doubt' || lead.requirement?.includes('Specific Doubt') || (Array.isArray(lead.leadTypes) && lead.leadTypes.some(t => t.includes('doubt')));
+                                const isTokenHold = lead.status === 'Token VIP' || lead.isTokenPaid || lead.leadType === 'token-hold' || lead.leadType === 'vip-lead' || (Array.isArray(lead.leadTypes) && lead.leadTypes.some(t => t.includes('token') || t.includes('vip')));
                                 const cleanPhone = (lead.phone || '').replace(/[^0-9]/g, '');
 
                                 return (
@@ -1170,6 +1186,11 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
                                             <div className="min-w-0 flex-1">
                                                 <div className="flex items-center gap-1.5 flex-wrap">
                                                     <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate">{lead.name}</h4>
+                                                    {hasRepeated && (
+                                                        <span className="bg-orange-100 text-orange-800 border border-orange-300 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800 text-[9px] font-black px-1.5 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
+                                                            🔁 Re-Enquiry ({lead.attemptsCount || 2}x)
+                                                        </span>
+                                                    )}
                                                     {isTokenHold && (
                                                         <span className="bg-amber-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-sm">
                                                             <Crown className="h-2.5 w-2.5" /> ₹111 VIP
@@ -1178,6 +1199,11 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
                                                     {lead.isGroup && (
                                                         <span className="bg-purple-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1">
                                                             <Users className="h-2.5 w-2.5"/> GROUP ({lead.groupSize || 1})
+                                                        </span>
+                                                    )}
+                                                    {isSpecificDoubt && (
+                                                        <span className="bg-blue-100 text-blue-800 text-[9px] font-bold px-1.5 py-0.5 rounded">
+                                                            Specific Doubt
                                                         </span>
                                                     )}
                                                 </div>
@@ -1299,8 +1325,9 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
                             {/* Cards Area */}
                             <div className="p-2 flex-1 overflow-y-auto space-y-2 min-h-[100px]">
                                 {filteredLeads.filter(l => l.status === col).map((lead, idx) => {
-                                    const isSpecificDoubt = lead.source?.includes('doubt') || lead.leadType === 'specific-doubt' || lead.requirement?.includes('Specific Doubt');
-                                    const isTokenHold = lead.status === 'Token VIP' || lead.isTokenPaid || lead.leadType === 'token-hold';
+                                    const hasRepeated = Boolean(lead.hasRepeatedEnquiry || (lead.attemptsCount && lead.attemptsCount > 1));
+                                    const isSpecificDoubt = lead.source?.includes('doubt') || lead.leadType === 'specific-doubt' || lead.requirement?.includes('Specific Doubt') || (Array.isArray(lead.leadTypes) && lead.leadTypes.some(t => t.includes('doubt')));
+                                    const isTokenHold = lead.status === 'Token VIP' || lead.isTokenPaid || lead.leadType === 'token-hold' || (Array.isArray(lead.leadTypes) && lead.leadTypes.some(t => t.includes('token') || t.includes('vip')));
 
                                     return (
                                         <div
@@ -1326,6 +1353,11 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
                                             <div className="flex justify-between items-start mb-2">
                                                 <h4 className="font-bold text-sm text-slate-900 dark:text-gray-100">{lead.name}</h4>
                                                 <div className="flex items-center gap-1 flex-wrap justify-end">
+                                                    {hasRepeated && (
+                                                        <span className="bg-orange-100 text-orange-800 border border-orange-300 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800 text-[9px] font-black px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-sm animate-pulse">
+                                                            🔁 Re-Enquiry ({lead.attemptsCount || 2}x)
+                                                        </span>
+                                                    )}
                                                     {isTokenHold && (
                                                         <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[9px] font-black px-1.5 py-0.5 rounded flex items-center gap-0.5">
                                                             <Crown className="h-3 w-3 text-amber-600" /> ₹111

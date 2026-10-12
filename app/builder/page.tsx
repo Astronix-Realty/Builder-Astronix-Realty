@@ -19,6 +19,7 @@ import {
   type ProjectData,
   type TowerData,
   type UnitConfiguration,
+  type FloorGroup,
   initialTownshipData,
   initialProjectTemplate,
   initialTowerTemplate,
@@ -427,6 +428,8 @@ function BuilderContent() {
               carpetArea,
               area: carpetArea,
               price: Math.round(finalPrice),
+              basePrice: config?.basePrice || Math.round(finalPrice),
+              allInclusivePrice: config?.allInclusivePrice || Math.round(finalPrice),
               ratePerSqft: effectiveRate > 0 ? effectiveRate : (finalPrice > 0 && carpetArea > 0 ? Math.round(finalPrice / carpetArea) : 0),
               facing,
               status: slot.status || "available",
@@ -494,6 +497,8 @@ function BuilderContent() {
                 carpetArea,
                 area: carpetArea,
                 price: Math.round(finalPrice),
+                basePrice: config?.basePrice || Math.round(finalPrice),
+                allInclusivePrice: config?.allInclusivePrice || Math.round(finalPrice),
                 ratePerSqft: effectiveRate > 0 ? effectiveRate : (finalPrice > 0 && carpetArea > 0 ? Math.round(finalPrice / carpetArea) : 0),
                 facing,
                 status: "available",
@@ -601,8 +606,8 @@ function BuilderContent() {
 
     // Helper to format price in L/Cr
     const formatPrice = (p: number) => {
-      if (p >= 10000000) return `₹${(p / 10000000).toFixed(2).replace(/\.00$/, "")} Cr`
-      if (p >= 100000) return `₹${(p / 100000).toFixed(0)} L`
+      if (p >= 10000000) return `₹${(p / 10000000).toFixed(2)} Cr`
+      if (p >= 100000) return `₹${(p / 100000).toFixed(2)} L`
       return `₹${p.toLocaleString()}`
     }
 
@@ -1502,13 +1507,31 @@ function BuilderContent() {
                       }
                     })
 
+                    const syncedFloorGroups: FloorGroup[] = []
+                    const globalGroups = newTemplate.floorGroups || []
+                    globalGroups.forEach(globalGroup => {
+                      const localGroups = towerConfig.floorGroups || []
+                      const localGroup = localGroups.find((g: any) => g.id === globalGroup.id)
+                      if (localGroup) {
+                        const hasCustomFloors = localGroup.floors && localGroup.floors.length > 0
+                        syncedFloorGroups.push({
+                          ...globalGroup,
+                          ...localGroup,
+                          floors: hasCustomFloors ? localGroup.floors : globalGroup.floors,
+                          floorRange: hasCustomFloors ? localGroup.floorRange : globalGroup.floorRange,
+                        })
+                      } else {
+                        syncedFloorGroups.push({ ...globalGroup })
+                      }
+                    })
+
                     return {
                       ...towerConfig,
                       basePrice: towerConfig.basePrice ?? newTemplate.basePrice,
                       ratePerSqft: towerConfig.ratePerSqft ?? newTemplate.ratePerSqft,
                       facingPremiums: { ...newTemplate.facingPremiums },
                       configurations: syncedConfigurations,
-                      floorGroups: (towerConfig.floorGroups || []).length === 0 ? (newTemplate.floorGroups || []).map(fg => ({ ...fg })) : towerConfig.floorGroups
+                      floorGroups: syncedFloorGroups
                     }
                   })
 

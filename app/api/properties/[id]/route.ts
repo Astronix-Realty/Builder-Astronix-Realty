@@ -292,6 +292,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             configuration: u.configuration,
             area: u.area,
             price: u.price || 0,
+            basePrice: u.basePrice || u.price || 0,
+            allInclusivePrice: u.allInclusivePrice || u.price || 0,
             status: u.status || 'available',
           }));
         }

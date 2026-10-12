@@ -602,7 +602,7 @@ export interface UnitTemplate {
   defaultWindows?: string
   defaultMainDoor?: string
   defaultInternalDoors?: string
-  galleryImages?: string[]
+
 
   // ── BATHROOM & KITCHEN ──────────────────
   defaultKitchenPlatform?: string
@@ -661,15 +661,9 @@ export const defaultEcoFeatures: EcoFeature[] = [
   { id: "eco-3", title: "Waste Management", description: "In-house organic waste composting", icon: "recycle", image: "https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?w=800" },
 ]
 
-export const defaultFaqs: FaqItem[] = [
-  { id: "faq-1", question: "When is the expected possession?", answer: "The project is expected to be delivered by December 2026." },
-  { id: "faq-2", question: "Are there any hidden charges?", answer: "No, all pricing is transparent. Maintenance and parking charges are upfront." },
-]
+export const defaultFaqs: FaqItem[] = []
 
-export const defaultApfDetails: ApfDetail[] = [
-  { id: "apf-1", bankName: "SBI", apfNumber: "SBI/APF/1029", certificateUrl: "" },
-  { id: "apf-2", bankName: "HDFC", apfNumber: "HDFC/APF/2290", certificateUrl: "" },
-]
+export const defaultApfDetails: ApfDetail[] = []
 
 export const defaultMasterPlan: MasterPlanHighlight[] = [
   { id: "mp-1", label: "Grand Entrance", color: "#F5A623" },
@@ -757,9 +751,9 @@ export const initialCommonData: CommonInheritedData = {
   ccNumber: "",
   ccStatus: "",
   ccCertificateUrl: "",
-  apfDetails: defaultApfDetails.map(c => ({ ...c })),
+  apfDetails: [],
   approvals: "",
-  approvedBanks: ["SBI", "HDFC", "ICICI"],
+  approvedBanks: [],
   groupBuying: {
     enabled: false,
     currentCount: 0,
@@ -1158,7 +1152,7 @@ export const createInitialUnitTemplate = (towerId: string): UnitTemplate => ({
   loadingFactor: "",
   facingPremiums: { ...defaultFacingPremiums },
   configurations: [],
-  approvedBanks: ["HDFC Bank", "SBI", "ICICI Bank", "Axis Bank"],
+  approvedBanks: [],
   floorPlan2DUrl: "",
   floorPlan3DUrl: "",
   galleryImages: [],

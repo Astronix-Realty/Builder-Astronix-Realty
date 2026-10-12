@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { v4 as uuidv4 } from "uuid"
 import Image from "next/image"
+import { toast } from "sonner"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -335,9 +336,23 @@ function UnitConfigCard({
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
-                        <div className="text-right">
-                            <p className="text-xs font-bold text-emerald-600">₹{((config.basePrice || 0) / 100000).toFixed(1)}L</p>
-                            <p className="text-[9px] text-gray-400 dark:text-slate-500 uppercase tracking-wider">Flat Cost</p>
+                        <div 
+                            className="text-right"
+                            title={`All Inclusive: ₹${(config.allInclusivePrice || 0).toLocaleString('en-IN')}${config.basePrice ? ` (Flat Cost: ₹${config.basePrice.toLocaleString('en-IN')})` : ''}`}
+                        >
+                            <p className="text-xs font-bold text-emerald-600">
+                                {(() => {
+                                    const allInPrice = config.allInclusivePrice || config.basePrice || 0;
+                                    if (allInPrice >= 10000000) {
+                                        return `₹${(allInPrice / 10000000).toFixed(2).replace(/\.00$/, "")}Cr`;
+                                    }
+                                    if (allInPrice >= 100000) {
+                                        return `₹${(allInPrice / 100000).toFixed(1)}L`;
+                                    }
+                                    return `₹${allInPrice.toLocaleString('en-IN')}`;
+                                })()}
+                            </p>
+                            <p className="text-[9px] text-gray-400 dark:text-slate-500 uppercase tracking-wider">All Inclusive</p>
                         </div>
                         <button type="button" onClick={(e) => { e.stopPropagation(); onRemove(); }} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-red-400 hover:text-red-600 transition-all active:scale-90">
                             <Trash2 className="w-4 h-4" />
@@ -958,6 +973,310 @@ function UnitConfigCard({
 // ─────────────────────────────────────────
 const BHK_OPTIONS: UnitConfiguration["type"][] = ["1BHK", "2BHK", "3BHK", "4BHK", "5BHK", "studio", "penthouse", "duplex", "shop", "office", "showroom"]
 
+const STANDARD_BHK_TYPES = [
+    "1RK",
+    "1BHK",
+    "1.5BHK",
+    "2BHK",
+    "2.5BHK",
+    "3BHK",
+    "3.5BHK",
+    "4BHK",
+    "4.5BHK",
+    "5BHK",
+    "6BHK",
+    "STUDIO",
+    "DUPLEX",
+    "PENTHOUSE",
+    "VILLA",
+    "PLOT",
+    "SHOPS",
+    "OFFICE",
+    "SHOWROOM"
+]
+
+interface UnitSlotCardItemProps {
+    slot: UnitLayoutSlot
+    sIdx: number
+    configurations: UnitConfiguration[]
+    updateSlot: (patch: Partial<UnitLayoutSlot>) => void
+    removeSlot: () => void
+    onOpenVastu: () => void
+}
+
+function UnitSlotCardItem({
+    slot,
+    sIdx,
+    configurations,
+    updateSlot,
+    removeSlot,
+    onOpenVastu
+}: UnitSlotCardItemProps) {
+    const config = configurations.find(c => c.id === slot.configId) ||
+        configurations.find(c => c.type.toUpperCase().replace(/\s/g, "") === (slot.unitTypeOverride || "").toUpperCase().replace(/\s/g, ""))
+
+    const currentType: string = (slot.configId
+        ? configurations.find(c => c.id === slot.configId)?.type
+        : slot.unitTypeOverride) || ""
+
+    const isStandardOrConfig = configurations.some(c => c.type === currentType) || (currentType ? STANDARD_BHK_TYPES.includes(currentType) : false)
+    const [isCustomMode, setIsCustomMode] = useState(!isStandardOrConfig && !!currentType && !slot.configId)
+
+    const initialCarpet = slot.carpetAreaOverride !== undefined && slot.carpetAreaOverride !== 0
+        ? slot.carpetAreaOverride.toString()
+        : (slot.carpetAreaOverride === 0 ? "" : (config?.carpetArea !== undefined ? config.carpetArea.toString() : ""))
+
+    const [carpetText, setCarpetText] = useState(initialCarpet)
+
+    useEffect(() => {
+        if (slot.carpetAreaOverride !== undefined && slot.carpetAreaOverride !== 0) {
+            setCarpetText(slot.carpetAreaOverride.toString())
+        } else if (slot.carpetAreaOverride === 0) {
+            setCarpetText("")
+        } else if (config?.carpetArea !== undefined) {
+            setCarpetText(config.carpetArea.toString())
+        }
+    }, [slot.carpetAreaOverride, config?.carpetArea])
+
+    return (
+        <div key={slot.id} className="p-4 rounded-2xl border-2 border-slate-100 bg-white dark:bg-slate-900 shadow-sm hover:shadow-2xl hover:border-blue-400/40 transition-all duration-300 relative group/unit">
+            <div className="absolute top-0 left-0 w-1.5 h-full bg-[#1A3C8C] dark:bg-blue-600 opacity-0 group-hover:opacity-100 transition-opacity rounded-l-full" />
+
+            <div className="flex flex-col gap-3">
+                {/* Header Row: Slot and Delete */}
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <div className="flex items-center gap-3">
+                        <div className="h-8 px-3 rounded-xl bg-slate-50 flex items-center justify-center">
+                            <span className="text-[10px] font-black text-slate-400 uppercase mr-1.5 tracking-tighter">Slot</span>
+                            <span className="text-lg font-black text-[#1A3C8C] dark:text-blue-400">#{sIdx + 1}</span>
+                        </div>
+
+                        {/* BHK Selector: Configured Units + Standard Types + Custom Option */}
+                        {isCustomMode ? (
+                            <div className="flex items-center gap-1.5">
+                                <Input
+                                    value={slot.unitTypeOverride ?? currentType ?? ""}
+                                    onChange={e => updateSlot({ configId: "", unitTypeOverride: e.target.value })}
+                                    placeholder="Type BHK (e.g. 2.5BHK)..."
+                                    className="h-9 w-36 border-2 border-blue-400 bg-blue-50/40 text-xs font-black text-slate-900 rounded-xl px-2.5 focus:ring-2 focus:ring-blue-400"
+                                    autoFocus
+                                />
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setIsCustomMode(false)}
+                                    className="h-8 w-8 p-0 text-slate-400 hover:text-slate-600 rounded-lg"
+                                    title="Switch to Dropdown"
+                                >
+                                    <X className="w-4 h-4" />
+                                </Button>
+                            </div>
+                        ) : (
+                            <Select
+                                value={slot.configId ? `cfg:${slot.configId}` : (slot.unitTypeOverride || "")}
+                                onValueChange={v => {
+                                    if (v === "__custom__") {
+                                        setIsCustomMode(true);
+                                        updateSlot({ configId: "", unitTypeOverride: slot.unitTypeOverride || currentType || "" });
+                                        return;
+                                    }
+                                    if (v.startsWith("cfg:")) {
+                                        const cfgId = v.slice(4);
+                                        const matching = configurations.find(c => c.id === cfgId);
+                                        if (matching) {
+                                            updateSlot({
+                                                configId: matching.id,
+                                                unitTypeOverride: undefined,
+                                                carpetAreaOverride: matching.carpetArea
+                                            });
+                                        }
+                                        return;
+                                    }
+                                    // Standard type selected
+                                    const matchingConfig = configurations.find(c => c.type.toUpperCase().replace(/\s/g, "") === v.toUpperCase().replace(/\s/g, ""));
+                                    if (matchingConfig) {
+                                        updateSlot({
+                                            configId: matchingConfig.id,
+                                            unitTypeOverride: undefined,
+                                            carpetAreaOverride: matchingConfig.carpetArea
+                                        });
+                                    } else {
+                                        updateSlot({
+                                            configId: "",
+                                            unitTypeOverride: v,
+                                            carpetAreaOverride: slot.carpetAreaOverride ?? (v === "1BHK" ? 450 : v === "2BHK" ? 650 : v === "3BHK" ? 950 : 850)
+                                        });
+                                    }
+                                }}
+                            >
+                                <SelectTrigger className="h-9 min-w-32 max-w-[170px] border-2 border-slate-200 bg-white dark:bg-slate-800 text-xs font-black text-slate-900 dark:text-white rounded-xl shadow-sm px-2.5">
+                                    <SelectValue placeholder="Select BHK">
+                                        {currentType || "Select BHK"}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent className="rounded-xl shadow-2xl border-slate-200 z-[9999] max-h-72">
+                                    {configurations.length > 0 && (
+                                        <>
+                                            <div className="px-2 py-1 text-[10px] font-black uppercase text-blue-600 tracking-wider bg-blue-50/50">
+                                                Configured Units
+                                            </div>
+                                            {configurations.map(c => (
+                                                <SelectItem key={`cfg-${c.id}`} value={`cfg:${c.id}`} className="text-xs font-bold py-1.5">
+                                                    <div className="flex items-center justify-between w-full gap-2">
+                                                        <span>{c.type}</span>
+                                                        <span className="text-[10px] text-slate-400 font-medium">({c.carpetArea || 0} sqft)</span>
+                                                    </div>
+                                                </SelectItem>
+                                            ))}
+                                            <div className="h-px bg-slate-100 my-1" />
+                                        </>
+                                    )}
+
+                                    <div className="px-2 py-1 text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                                        Standard BHKs
+                                    </div>
+                                    {STANDARD_BHK_TYPES.map(type => (
+                                        <SelectItem key={type} value={type} className="text-xs font-black uppercase py-1.5">
+                                            {type}
+                                        </SelectItem>
+                                    ))}
+
+                                    <div className="h-px bg-slate-100 my-1" />
+                                    <SelectItem value="__custom__" className="text-xs font-black text-blue-600 hover:text-blue-700 py-2 bg-blue-50/40">
+                                        ✏️ + Custom BHK / Other...
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        )}
+
+                        {config && (
+                            <div className="flex flex-col items-end leading-none">
+                                <span className="text-[10px] font-bold text-emerald-600">
+                                    ₹{(((config.allInclusivePrice || config.basePrice || 0)) / 100000).toFixed(1)}L
+                                </span>
+                                <span className="text-[8px] text-gray-400 uppercase tracking-tighter">All In</span>
+                            </div>
+                        )}
+                    </div>
+
+                    <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={removeSlot} 
+                        className="h-8 w-8 text-red-200 hover:text-red-500 hover:bg-red-50 rounded-lg"
+                        title="Delete Slot"
+                    >
+                        <Trash2 className="w-4 h-4" />
+                    </Button>
+                </div>
+
+                {/* Data Row: Inputs */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black text-[#1A3C8C] dark:text-blue-400 uppercase tracking-widest pl-1">Carpet Area (SQFT)</Label>
+                        <div className="relative">
+                            <Input
+                                type="text"
+                                inputMode="numeric"
+                                value={carpetText}
+                                onChange={e => {
+                                    const val = e.target.value;
+                                    if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                                        setCarpetText(val);
+                                        const num = parseFloat(val);
+                                        updateSlot({ carpetAreaOverride: isNaN(num) ? 0 : num });
+                                    }
+                                }}
+                                onBlur={() => {
+                                    if (!carpetText || carpetText === "0") {
+                                        if (config?.carpetArea) {
+                                            setCarpetText(config.carpetArea.toString());
+                                            updateSlot({ carpetAreaOverride: config.carpetArea });
+                                        }
+                                    }
+                                }}
+                                placeholder={config?.carpetArea?.toString() || "e.g. 850"}
+                                className="h-10 w-full border-2 border-slate-200 bg-white dark:bg-slate-900 text-base font-black text-slate-900 dark:text-white focus:ring-4 focus:ring-blue-100 px-3 rounded-xl shadow-sm"
+                            />
+                            <Maximize className="absolute right-3 top-3 w-4 h-4 text-slate-400" />
+                        </div>
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label className="text-[10px] font-black text-[#1A3C8C] dark:text-blue-400 uppercase tracking-widest pl-1">Unit Identity (NO.)</Label>
+                        <div className="relative">
+                            <Input
+                                value={slot.slotNumber ?? ""}
+                                onChange={e => updateSlot({ slotNumber: e.target.value })}
+                                placeholder="101"
+                                className="h-10 w-full border-2 border-slate-200 bg-white dark:bg-slate-900 text-base font-black text-slate-900 dark:text-white focus:ring-4 focus:ring-blue-100 px-3 rounded-xl shadow-sm"
+                            />
+                            <LayoutGrid className="absolute right-3 top-3 w-4 h-4 text-slate-400" />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Row 2: Facing & View */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1 bg-gradient-to-r from-blue-50 to-white p-3 rounded-xl border-2 border-blue-100/50">
+                        <Label className="text-[10px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-2">
+                            <Compass className="w-4 h-4" /> Facing
+                        </Label>
+                        <Select
+                            value={slot.facingOverride || config?.facing || ""}
+                            onValueChange={v => updateSlot({ facingOverride: v })}
+                        >
+                            <SelectTrigger className="h-10 w-full border-slate-200 bg-white dark:bg-slate-900 text-base font-black text-[#1A3C8C] dark:text-blue-400 focus:ring-4 focus:ring-blue-100 px-3 rounded-xl shadow-sm">
+                                <SelectValue placeholder={config?.facing ? `Default (${config.facing})` : "Select Facing"} />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl shadow-2xl border-slate-100">
+                                {FACINGS.map(f => (
+                                    <SelectItem key={f} value={f} className="text-[10px] font-black uppercase py-2">{f}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-1 bg-gradient-to-r from-indigo-50 to-white p-3 rounded-xl border-2 border-indigo-100/50">
+                        <Label className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2">
+                            <Eye className="w-4 h-4" /> View Type
+                        </Label>
+                        <Select
+                            value={slot.viewOverride || ""}
+                            onValueChange={v => updateSlot({ viewOverride: v })}
+                        >
+                            <SelectTrigger className="h-10 w-full border-slate-200 bg-white dark:bg-slate-900 text-base font-black text-[#1A3C8C] dark:text-blue-400 focus:ring-4 focus:ring-indigo-100 px-3 rounded-xl shadow-sm">
+                                <SelectValue placeholder="Select View" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl shadow-2xl border-slate-100">
+                                {VIEW_TYPES.map(vt => (
+                                    <SelectItem key={vt} value={vt} className="text-[10px] font-black uppercase py-2">{vt}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+
+                {/* Row 3: Vastu Status */}
+                <div className="space-y-1 bg-gradient-to-r from-emerald-50 to-white p-3 rounded-xl border-2 border-emerald-100/50">
+                    <Label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4" /> Vastu Status
+                    </Label>
+                    <Button 
+                        type="button" 
+                        variant="outline" 
+                        className="w-full h-10 border-slate-200 bg-white dark:bg-slate-900 text-[#1A3C8C] dark:text-blue-400 font-bold rounded-xl justify-between px-3 shadow-sm"
+                        onClick={onOpenVastu}
+                    >
+                        {slot.vastuDetails && Object.keys(slot.vastuDetails).length > 0 ? "Vastu Configured" : "Configure Vastu"}
+                        <ChevronRight className="w-4 h-4 opacity-50" />
+                    </Button>
+                </div>
+            </div>
+        </div>
+    )
+}
+
 // ─────────────────────────────────────────
 // MAIN FORM
 // ─────────────────────────────────────────
@@ -1330,7 +1649,10 @@ data, onChange, towerName, projectName, townshipName,
     }
 
     const removeGroup = (id: string) => {
-        updateData({ floorGroups: (data.floorGroups || []).filter(g => g.id !== id) })
+        setCollapsedGroups(prev => prev.filter(x => x !== id))
+        const remaining = (data.floorGroups || []).filter(g => g.id !== id)
+        updateData({ floorGroups: remaining })
+        toast.success("Floor group deleted successfully")
     }
 
 
@@ -1512,7 +1834,20 @@ data, onChange, towerName, projectName, townshipName,
                                                     <Badge key={t} variant="secondary" className="capitalize text-[8px] h-4 px-1">{t}</Badge>
                                                 ))}
                                             </div>
-                                            <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); removeGroup(group.id); }} className="h-8 w-8 p-0 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all active:scale-90"><Trash2 className="w-4.5 h-4.5" /></Button>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                title="Delete Floor Group"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    removeGroup(group.id);
+                                                }}
+                                                className="h-8 w-8 p-0 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all active:scale-90"
+                                            >
+                                                <Trash2 className="w-4.5 h-4.5" />
+                                            </Button>
                                         </div>
                                     </div>
                                     {!collapsedGroups.includes(group.id) && (
@@ -1632,7 +1967,6 @@ data, onChange, towerName, projectName, townshipName,
                                                     <div className="text-[10px] font-black text-gray-400 dark:text-slate-500 uppercase tracking-widest pt-4">Unit / Parking Slot Mapping</div>
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                         {(group.layout || []).map((slot, sIdx) => {
-                                                            const config = (data.configurations || []).find(c => c.id === slot.configId)
                                                             const updateSlot = (patch: Partial<UnitLayoutSlot>) => {
                                                                 const newLayout = [...(group.layout || [])]
                                                                 newLayout[sIdx] = { ...slot, ...patch }
@@ -1643,141 +1977,27 @@ data, onChange, towerName, projectName, townshipName,
                                                                 updateGroup(group.id, { layout: newLayout })
                                                             }
                                                             return (
-                                                                <div key={slot.id} className="p-4 rounded-2xl border-2 border-slate-100 bg-white dark:bg-slate-900 shadow-sm hover:shadow-2xl hover:border-blue-400/40 transition-all duration-300 relative group/unit">
-                                                                    <div className="absolute top-0 left-0 w-1.5 h-full bg-[#1A3C8C] dark:bg-blue-600 opacity-0 group-hover:opacity-100 transition-opacity rounded-l-full" />
-
-                                                                    <div className="flex flex-col gap-3">
-                                                                        {/* Header Row: Slot and Delete */}
-                                                                        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                                                                            <div className="flex items-center gap-3">
-                                                                                <div className="h-8 px-3 rounded-xl bg-slate-50 flex items-center justify-center">
-                                                                                    <span className="text-[10px] font-black text-slate-400 uppercase mr-1.5 tracking-tighter">Slot</span>
-                                                                                    <span className="text-lg font-black text-[#1A3C8C] dark:text-blue-400">#{sIdx + 1}</span>
-                                                                                </div>
-                                                                                <Select
-                                                                                    value={slot.configId ? (data.configurations || []).find(c => c.id === slot.configId)?.type : slot.unitTypeOverride}
-                                                                                    onValueChange={v => {
-                                                                                        const matchingConfig = (data.configurations || []).find(c => c.type.toUpperCase().replace(/\s/g, "") === v.toUpperCase().replace(/\s/g, ""))
-                                                                                        if (matchingConfig) {
-                                                                                            updateSlot({ configId: matchingConfig.id, unitTypeOverride: undefined })
-                                                                                        } else {
-                                                                                            updateSlot({ configId: "", unitTypeOverride: v })
-                                                                                        }
-                                                                                    }}
-                                                                                >
-                                                                                    <SelectTrigger className="h-9 w-32 border-2 border-slate-100 bg-slate-50 text-sm font-black text-slate-900 rounded-xl">
-                                                                                        <SelectValue placeholder="BHK" />
-                                                                                    </SelectTrigger>
-                                                                                    <SelectContent className="rounded-xl shadow-2xl border-slate-100 z-[9999]">
-                                                                                        {["1BHK", "2BHK", "3BHK", "4BHK", "5BHK", "STUDIO", "SHOPS", "OFFICE", "PENTHOUSE"].map(type => (
-                                                                                            <SelectItem key={type} value={type} className="text-xs font-black uppercase py-2">{type}</SelectItem>
-                                                                                        ))}
-                                                                                    </SelectContent>
-                                                                                </Select>
-                                                                                {config && (
-                                                                                    <div className="flex flex-col items-end leading-none">
-                                                                                        <span className="text-[10px] font-bold text-emerald-600">₹{((config.allInclusivePrice || 0) / 100000).toFixed(1)}L</span>
-                                                                                        <span className="text-[8px] text-gray-400 uppercase tracking-tighter">All In</span>
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                            <Button variant="ghost" size="sm" onClick={removeSlot} className="h-8 w-8 text-red-200 hover:text-red-500 hover:bg-red-50 rounded-lg">
-                                                                                <Trash2 className="w-4 h-4" />
-                                                                            </Button>
-                                                                        </div>
-
-                                                                        {/* Data Row: Large Inputs */}
-                                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                                            <div className="space-y-1.5">
-                                                                                <Label className="text-[10px] font-black text-[#1A3C8C] dark:text-blue-400 uppercase tracking-widest pl-1">Carpet Area (SQFT)</Label>
-                                                                                <div className="relative">
-                                                                                    <Input
-                                                                                        type="number"
-                                                                                        value={slot.carpetAreaOverride ?? ""}
-                                                                                        onChange={e => updateSlot({ carpetAreaOverride: e.target.value === "" ? undefined : parseFloat(e.target.value) })}
-                                                                                        placeholder={config?.carpetArea?.toString() || "0"}
-                                                                                        className="h-10 w-full border-2 border-slate-200 bg-slate-50 text-base font-black text-slate-900 focus:ring-4 focus:ring-blue-100 px-3 rounded-xl placeholder:text-slate-400 placeholder:font-semibold"
-                                                                                    />
-                                                                                    <Maximize className="absolute right-3 top-3 w-4 h-4 text-slate-300" />
-                                                                                </div>
-                                                                            </div>
-                                                                            <div className="space-y-1.5">
-                                                                                <Label className="text-[10px] font-black text-[#1A3C8C] dark:text-blue-400 uppercase tracking-widest pl-1">Unit Identity (NO.)</Label>
-                                                                                <div className="relative">
-                                                                                    <Input
-                                                                                        value={slot.slotNumber ?? ""}
-                                                                                        onChange={e => updateSlot({ slotNumber: e.target.value })}
-                                                                                        placeholder="101"
-                                                                                        className="h-10 w-full border-2 border-slate-200 bg-slate-50 text-base font-black text-slate-900 focus:ring-4 focus:ring-blue-100 px-3 rounded-xl"
-                                                                                    />
-                                                                                    <LayoutGrid className="absolute right-3 top-3 w-4 h-4 text-slate-300" />
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-
-                                                                        {/* Row 2: Facing & View */}
-                                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                                            <div className="space-y-1 bg-gradient-to-r from-blue-50 to-white p-3 rounded-xl border-2 border-blue-100/50">
-                                                                                <Label className="text-[10px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-2">
-                                                                                    <Compass className="w-4 h-4" /> Facing
-                                                                                </Label>
-                                                                                <Select
-                                                                                    value={slot.facingOverride || config?.facing || ""}
-                                                                                    onValueChange={v => updateSlot({ facingOverride: v })}
-                                                                                >
-                                                                                    <SelectTrigger className="h-10 w-full border-slate-200 bg-white dark:bg-slate-900 text-base font-black text-[#1A3C8C] dark:text-blue-400 focus:ring-4 focus:ring-blue-100 px-3 rounded-xl">
-                                                                                        <SelectValue placeholder={config?.facing ? `Default (${config.facing})` : "Select Facing"} />
-                                                                                    </SelectTrigger>
-                                                                                    <SelectContent className="rounded-xl shadow-2xl border-slate-100">
-                                                                                        {FACINGS.map(f => (
-                                                                                            <SelectItem key={f} value={f} className="text-[10px] font-black uppercase py-2">{f}</SelectItem>
-                                                                                        ))}
-                                                                                    </SelectContent>
-                                                                                </Select>
-                                                                            </div>
-                                                                            <div className="space-y-1 bg-gradient-to-r from-indigo-50 to-white p-3 rounded-xl border-2 border-indigo-100/50">
-                                                                                <Label className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2">
-                                                                                    <Eye className="w-4 h-4" /> View Type
-                                                                                </Label>
-                                                                                <Select
-                                                                                    value={slot.viewOverride || ""}
-                                                                                    onValueChange={v => updateSlot({ viewOverride: v })}
-                                                                                >
-                                                                                    <SelectTrigger className="h-10 w-full border-slate-200 bg-white dark:bg-slate-900 text-base font-black text-[#1A3C8C] dark:text-blue-400 focus:ring-4 focus:ring-indigo-100 px-3 rounded-xl">
-                                                                                        <SelectValue placeholder="Select View" />
-                                                                                    </SelectTrigger>
-                                                                                    <SelectContent className="rounded-xl shadow-2xl border-slate-100">
-                                                                                        {VIEW_TYPES.map(vt => (
-                                                                                            <SelectItem key={vt} value={vt} className="text-[10px] font-black uppercase py-2">{vt}</SelectItem>
-                                                                                        ))}
-                                                                                    </SelectContent>
-                                                                                </Select>
-                                                                            </div>
-                                                                        </div>
-
-                                                                        {/* Row 3: Vastu Status */}
-                                                                        <div className="space-y-1 bg-gradient-to-r from-emerald-50 to-white p-3 rounded-xl border-2 border-emerald-100/50">
-                                                                            <Label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest flex items-center gap-2">
-                                                                                <ShieldCheck className="w-4 h-4" /> Vastu Status
-                                                                            </Label>
-                                                                            <Button 
-                                                                                variant="outline" 
-                                                                                className="w-full h-10 border-slate-200 bg-white dark:bg-slate-900 text-[#1A3C8C] dark:text-blue-400 font-bold rounded-xl justify-between px-3"
-                                                                                onClick={() => setVastuSlotId({ groupId: group.id, slotId: slot.id })}
-                                                                            >
-                                                                                {slot.vastuDetails && Object.keys(slot.vastuDetails).length > 0 ? "Vastu Configured" : "Configure Vastu"}
-                                                                                <ChevronRight className="w-4 h-4 opacity-50" />
-                                                                            </Button>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
+                                                                <UnitSlotCardItem
+                                                                    key={slot.id}
+                                                                    slot={slot}
+                                                                    sIdx={sIdx}
+                                                                    configurations={data.configurations || []}
+                                                                    updateSlot={updateSlot}
+                                                                    removeSlot={removeSlot}
+                                                                    onOpenVastu={() => setVastuSlotId({ groupId: group.id, slotId: slot.id })}
+                                                                />
                                                             )
                                                         })}
                                                         <Button
                                                             variant="ghost"
                                                             onClick={() => {
                                                                 const configs = data.configurations || []
-                                                                const newSlot: UnitLayoutSlot = { id: `slot-${Date.now()}`, slotNumber: ((group.layout?.length || 0) + 1).toString(), configId: configs[0]?.id || "" }
+                                                                const newSlot: UnitLayoutSlot = { 
+                                                                    id: `slot-${Date.now()}`, 
+                                                                    slotNumber: ((group.layout?.length || 0) + 1).toString(), 
+                                                                    configId: configs[0]?.id || "",
+                                                                    carpetAreaOverride: configs[0]?.carpetArea || 850
+                                                                }
                                                                 updateGroup(group.id, { layout: [...(group.layout || []), newSlot] })
                                                             }}
                                                             className="h-auto min-h-[280px] border-2 border-dashed border-blue-100 dark:border-blue-900/30 bg-blue-50/10 dark:bg-blue-900/5 rounded-[24px] hover:border-blue-300 hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-all flex flex-col gap-3 group/add shadow-sm"

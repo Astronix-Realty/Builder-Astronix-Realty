@@ -423,8 +423,14 @@ export function DocumentsView() {
                 if (leadsRes.ok && isMounted) {
                     const data = await leadsRes.json()
                     if (data.success && data.leads && data.leads.length > 0) {
-                        // Filter to only include booked leads (purchased customers)
-                        const bookedLeads = data.leads.filter((l: any) => l.status === "Booked")
+                        // Include booked, token VIP, and unit hold leads (active customers)
+                        const bookedLeads = data.leads.filter((l: any) => 
+                            l.status === "Booked" || 
+                            l.status === "Token VIP" || 
+                            l.isUnitHeld || 
+                            l.isTokenPaid || 
+                            Boolean(l.holdId)
+                        )
                         const mappedLeads: Customer[] = bookedLeads.map((l: any) => ({
                             id: l._id || l.id,
                             name: l.name,

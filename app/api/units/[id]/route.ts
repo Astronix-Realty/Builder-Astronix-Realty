@@ -15,7 +15,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (errorResponse) return errorResponse;
 
     const body = await req.json();
-    const { status, customerName, customerPhone, bookingAmount, bookingDate, price, ratePerSqft, area, carpetArea, builtUpArea } = body;
+    const { status, customerName, customerPhone, bookingAmount, bookingDate, price, basePrice, allInclusivePrice, ratePerSqft, area, carpetArea, builtUpArea } = body;
 
     const { searchParams } = new URL(req.url);
     const propertyId = searchParams.get("propertyId");
@@ -43,6 +43,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       setObj.holdExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     }
     if (price !== undefined) setObj.price = price;
+    if (basePrice !== undefined) setObj.basePrice = basePrice;
+    if (allInclusivePrice !== undefined) setObj.allInclusivePrice = allInclusivePrice;
     if (ratePerSqft !== undefined) setObj.ratePerSqft = ratePerSqft;
     if (area !== undefined) setObj.area = area;
     if (carpetArea !== undefined) setObj.carpetArea = carpetArea;
@@ -101,6 +103,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             updatedAt: new Date().toISOString()
           };
           if (price !== undefined) units[unitIndex].price = price;
+          if (basePrice !== undefined) units[unitIndex].basePrice = basePrice;
+          if (allInclusivePrice !== undefined) units[unitIndex].allInclusivePrice = allInclusivePrice;
           if (ratePerSqft !== undefined) units[unitIndex].ratePerSqft = ratePerSqft;
           if (area !== undefined) units[unitIndex].area = area;
           if (carpetArea !== undefined) units[unitIndex].carpetArea = carpetArea;

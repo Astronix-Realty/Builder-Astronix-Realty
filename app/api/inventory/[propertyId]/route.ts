@@ -165,7 +165,23 @@ async function buildHierarchy(
       }
     }
 
-    // 3. Process each canonical project and its towers
+    // 3. Pre-fetch all towers and units to avoid N+1 queries
+    const allProjDbIds = canonicalProjects.map(p => p.dbDoc?._id).filter(Boolean);
+    const allDbTowerDocs = await Property.find({
+      parentId: { $in: allProjDbIds },
+      isDeleted: { $ne: true },
+      status: { $ne: "rejected" },
+      type: "tower",
+      ...ownershipQuery,
+    }).sort({ updatedAt: -1 }).lean() as any[];
+    
+    const allTowerDbIds = allDbTowerDocs.map(t => t._id);
+    const allTowerUnits = await Unit.find({
+      towerId: { $in: allTowerDbIds },
+      status: { $ne: "rejected" },
+    }).lean() as any[];
+
+    // 4. Process each canonical project and its towers
     for (const proj of canonicalProjects) {
       const projIdStr = proj._id;
       const projUnits: NormalizedUnit[] = [];
@@ -188,13 +204,7 @@ async function buildHierarchy(
 
       let dbTowerDocs: any[] = [];
       if (proj.dbDoc) {
-        dbTowerDocs = await Property.find({
-          parentId: proj.dbDoc._id,
-          isDeleted: { $ne: true },
-          status: { $ne: "rejected" },
-          type: "tower",
-          ...ownershipQuery,
-        }).sort({ updatedAt: -1 }).lean() as any[];
+        dbTowerDocs = allDbTowerDocs.filter((t) => t.parentId.toString() === proj.dbDoc._id.toString());
       }
 
       const canonicalTowers: { _id: string; name: string; frontendId: string | null; details: any; dbDoc: any }[] = [];
@@ -237,10 +247,7 @@ async function buildHierarchy(
         // Try DB units first
         let towerUnits: any[] = [];
         if (tower.dbDoc) {
-          towerUnits = await Unit.find({
-            towerId: tower.dbDoc._id,
-            status: { $ne: "rejected" },
-          }).lean();
+          towerUnits = allTowerUnits.filter((u: any) => u.towerId.toString() === tower.dbDoc._id.toString());
         }
 
         // Fallback to embedded units
@@ -398,6 +405,12 @@ async function buildHierarchy(
       }
     }
 
+    const allTowerDbIds = dbTowerDocs.map(t => t._id);
+    const allTowerUnits = await Unit.find({
+      towerId: { $in: allTowerDbIds },
+      status: { $ne: "rejected" },
+    }).lean() as any[];
+
     const projUnits: NormalizedUnit[] = [];
     for (const tower of canonicalTowers) {
       const towerIdStr = tower._id;
@@ -405,10 +418,7 @@ async function buildHierarchy(
 
       let towerUnits: any[] = [];
       if (tower.dbDoc) {
-        towerUnits = await Unit.find({
-          towerId: tower.dbDoc._id,
-          status: { $ne: "rejected" },
-        }).lean();
+        towerUnits = allTowerUnits.filter((u: any) => u.towerId.toString() === tower.dbDoc._id.toString());
       }
 
       if (towerUnits.length === 0 && rootEmbeddedUnits.length > 0) {

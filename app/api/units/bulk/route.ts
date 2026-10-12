@@ -34,6 +34,8 @@ export async function POST(req: NextRequest) {
       configuration: u.configuration || u.type,
       area: u.area || u.carpetArea,
       price: u.price,
+      basePrice: u.basePrice || u.price,
+      allInclusivePrice: u.allInclusivePrice || u.price,
       facing: u.facing,
       location: u.location || {},
       status: u.status || "available",
@@ -77,7 +79,7 @@ export async function PATCH(req: NextRequest) {
     const propertyId = searchParams.get("propertyId");
 
     const body = await req.json();
-    const { unitIds, status, price, ratePerSqft } = body;
+    const { unitIds, status, price, basePrice, allInclusivePrice, ratePerSqft } = body;
 
     if (!unitIds || !Array.isArray(unitIds) || unitIds.length === 0) {
       return NextResponse.json({ error: "No unit IDs provided for bulk update" }, { status: 400 });
@@ -119,6 +121,8 @@ export async function PATCH(req: NextRequest) {
       const setObj: any = { updatedBy: context!.userId };
       if (status !== undefined) setObj.status = status;
       if (price !== undefined) setObj.price = price;
+      if (basePrice !== undefined) setObj.basePrice = basePrice;
+      if (allInclusivePrice !== undefined) setObj.allInclusivePrice = allInclusivePrice;
       if (ratePerSqft !== undefined) setObj.ratePerSqft = ratePerSqft;
 
       const result = await Unit.updateMany(query, { $set: setObj });
@@ -161,6 +165,8 @@ export async function PATCH(req: NextRequest) {
               };
               if (status !== undefined) updatedU.status = status;
               if (price !== undefined) updatedU.price = price;
+              if (basePrice !== undefined) updatedU.basePrice = basePrice;
+              if (allInclusivePrice !== undefined) updatedU.allInclusivePrice = allInclusivePrice;
               if (ratePerSqft !== undefined) updatedU.ratePerSqft = ratePerSqft;
               return updatedU;
             }

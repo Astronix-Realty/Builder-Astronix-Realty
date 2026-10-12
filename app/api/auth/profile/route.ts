@@ -34,7 +34,7 @@ export async function PUT(req: NextRequest) {
       "city", "state", "experience", "panNumber", "aadharNumber",
       "specialization", "preferredAreas", "establishedYear", "tagline", 
       "reraCertificate", "operatingCities", "aboutCompany", "theme", "notifications",
-      "repository"
+      "repository", "visionHighlights", "awards", "overviewImage", "coverImage"
     ]
 
     const profileUpdate: Record<string, any> = {}

@@ -270,7 +270,9 @@ export async function POST(req: NextRequest) {
     if (existingLead) {
       // Classification: Logged-in user + Specific Doubt = Connected Lead. Never regress to Fresh.
       let targetStatus = existingLead.status || 'Fresh';
-      if (isUserAuthenticated && isSpecificDoubtLead) {
+      if (existingLead.status === 'Token VIP' || isTokenPaid) {
+        targetStatus = 'Token VIP';
+      } else if (isUserAuthenticated && isSpecificDoubtLead) {
         if (targetStatus === 'Fresh') {
           targetStatus = 'Connected';
         }
@@ -280,6 +282,16 @@ export async function POST(req: NextRequest) {
         ? ` [Status updated from ${existingLead.status} to ${targetStatus}]`
         : '';
 
+      const newAttemptsCount = ((existingLead as any).attemptsCount || 1) + 1;
+      const currentLeadTypes = Array.isArray((existingLead as any).leadTypes) && (existingLead as any).leadTypes.length > 0
+        ? (existingLead as any).leadTypes
+        : [existingLead.leadType || 'normal'];
+      const updatedLeadTypes = Array.from(new Set([...currentLeadTypes, resolvedLeadType || 'normal']));
+
+      (existingLead as any).attemptsCount = newAttemptsCount;
+      (existingLead as any).hasRepeatedEnquiry = true;
+      (existingLead as any).lastEnquiryAt = new Date();
+      (existingLead as any).leadTypes = updatedLeadTypes;
       existingLead.status = targetStatus;
       existingLead.source = resolvedSource;
       existingLead.leadType = resolvedLeadType;
@@ -287,17 +299,38 @@ export async function POST(req: NextRequest) {
       if (body.userId) (existingLead as any).userId = body.userId;
       if (body.visitorId) (existingLead as any).visitorId = body.visitorId;
       if (requirement) existingLead.requirement = requirement;
+      if (isTokenPaid) {
+        existingLead.isTokenPaid = true;
+        (existingLead as any).tokenAmount = Number(body.tokenAmount) || (existingLead as any).tokenAmount || 0;
+      }
+
+      const interactionEntry = {
+        id: `act_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        type: resolvedLeadType || 'normal',
+        title: `Re-Enquiry Attempt #${newAttemptsCount}: ${isSpecificDoubtLead ? 'Specific Doubt Submitted' : `Repeat inquiry from ${resolvedSource}`}`,
+        desc: `${body.question || requirement || `Property: ${propertyTitle || 'Unknown'}`}${statusTransitionNote}`,
+        date: new Date(),
+        details: body.question || requirement || '',
+        source: resolvedSource,
+        propertyTitle: propertyTitle || '',
+        unitNumber: body.hierarchyContext?.unitNumber || (existingLead as any).unitNumber || ''
+      };
+
+      if (!Array.isArray((existingLead as any).interactions)) {
+        (existingLead as any).interactions = [];
+      }
+      (existingLead as any).interactions.unshift(interactionEntry);
 
       existingLead.timeline.unshift({
-        title: isSpecificDoubtLead ? 'Specific Doubt Submitted' : `Repeat inquiry from ${resolvedSource}`,
-        desc: `${body.question || requirement || `Property: ${propertyTitle || 'Unknown'}`}${statusTransitionNote}`,
+        title: `🔁 Re-Enquiry (#${newAttemptsCount}) - ${isSpecificDoubtLead ? 'Specific Doubt Submitted' : `Repeat inquiry from ${resolvedSource}`}`,
+        desc: `${body.question || requirement || `Property: ${propertyTitle || 'Unknown'}`}${statusTransitionNote} [Total attempts: ${newAttemptsCount}]`,
         type: 'system',
         date: new Date(),
       });
 
       if (body.question) {
         if (!Array.isArray(existingLead.notes)) existingLead.notes = [];
-        existingLead.notes.unshift(`Visitor Query: "${body.question}"`);
+        existingLead.notes.unshift(`🔁 [Attempt #${newAttemptsCount}] Visitor Query: "${body.question}"`);
       }
 
       if (body.hierarchyContext) {
@@ -319,7 +352,7 @@ export async function POST(req: NextRequest) {
         timestamp: Date.now()
       });
 
-      console.log(`[Internal] Duplicate lead updated for ${phone} (builder: ${builderId}) to status: ${targetStatus}`);
+      console.log(`[Internal] Consolidated lead for ${phone} (builder: ${builderId}). Attempts: ${newAttemptsCount}, status: ${targetStatus}`);
       return NextResponse.json({ success: true, duplicate: true, leadId: existingLead._id.toString(), status: targetStatus });
     }
 
@@ -340,6 +373,21 @@ export async function POST(req: NextRequest) {
       isTokenPaid: isTokenPaid || false,
       isGroup: false,
       leadType: resolvedLeadType,
+      attemptsCount: 1,
+      hasRepeatedEnquiry: false,
+      lastEnquiryAt: new Date(),
+      leadTypes: [resolvedLeadType || 'normal'],
+      interactions: [{
+        id: `act_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        type: resolvedLeadType || 'normal',
+        title: isSpecificDoubtLead ? 'Specific Doubt Submitted' : `Lead received from ${resolvedSource}`,
+        desc: body.question || requirement || `Property: ${propertyTitle || 'Unknown'}. Type: ${resolvedLeadType}`,
+        date: new Date(),
+        details: body.question || requirement || '',
+        source: resolvedSource,
+        propertyTitle: propertyTitle || '',
+        unitNumber: body.hierarchyContext?.unitNumber || ''
+      }],
       loginStatus: isUserAuthenticated ? 'authenticated' : (body.loginStatus || 'guest'),
       userId: body.userId || undefined,
       visitorId: body.visitorId || undefined,

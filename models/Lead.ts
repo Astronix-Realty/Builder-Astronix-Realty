@@ -87,6 +87,8 @@ const LeadSchema = new mongoose.Schema({
     unitNumber: { type: String },
     holdId: { type: String, index: true },
     holdExpiresAt: { type: Date },
+    holdDuration: { type: String },
+    paymentVerifiedAt: { type: Date },
     interestedUnit: { type: String },
     isUnitHeld: { type: Boolean, default: false },
     isUnitSold: { type: Boolean, default: false },
@@ -131,6 +133,22 @@ const LeadSchema = new mongoose.Schema({
     invoiceDetails: { type: mongoose.Schema.Types.Mixed, default: null },
     paymentProof: { type: mongoose.Schema.Types.Mixed, default: null },
     documents: { type: mongoose.Schema.Types.Mixed, default: {} },
+    // Multi-touch Lead Deduplication & Re-Enquiry Tracking
+    attemptsCount: { type: Number, default: 1 },
+    hasRepeatedEnquiry: { type: Boolean, default: false },
+    lastEnquiryAt: { type: Date },
+    leadTypes: [{ type: String }],
+    interactions: [{
+        id: { type: String },
+        type: { type: String },
+        title: { type: String },
+        desc: { type: String },
+        date: { type: Date, default: Date.now },
+        details: { type: String },
+        source: { type: String },
+        propertyTitle: { type: String },
+        unitNumber: { type: String }
+    }],
     isArchived: { type: Boolean, default: false }
 }, { 
     timestamps: true 

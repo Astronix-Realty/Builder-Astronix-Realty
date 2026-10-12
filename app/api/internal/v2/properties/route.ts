@@ -41,38 +41,141 @@ export async function GET(req: NextRequest) {
     const childProjects = allProperties.filter((p: any) => p.parentId && p.type === 'project');
     const childTowers = allProperties.filter((p: any) => p.parentId && p.type === 'tower');
 
-    const getUnitsForTower = (towerId: string) => {
-      return allUnits.filter((u: any) => u.towerId?.toString() === towerId || u.parentId?.toString() === towerId).map((u: any) => ({
-        id: u._id.toString(),
-        unitNumber: u.unitNumber,
-        floorNum: u.floorNumber || 1,
+    // ─── Price helpers (mirror the Builder form's "Display Price Range" logic) ───
+    type PriceRange = { min: number; max: number } | null;
+
+    const num = (v: any): number => {
+      const n = typeof v === 'string' ? parseFloat(v.replace(/[^\d.]/g, '')) : Number(v);
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    };
+
+    const fmtPrice = (p: number) => {
+      if (p >= 10000000) return `₹${(p / 10000000).toFixed(2).replace(/\.00$/, '')} Cr`;
+      if (p >= 100000) return `₹${(p / 100000).toFixed(0)} L`;
+      return `₹${p.toLocaleString('en-IN')}`;
+    };
+
+    const mkRange = (min: any, max: any): PriceRange => {
+      const a = num(min);
+      const b = num(max);
+      if (!a && !b) return null;
+      return { min: a || b, max: Math.max(a, b) };
+    };
+
+    const rangeFromPrices = (prices: number[]): PriceRange => {
+      const valid = prices.filter((p) => p > 0);
+      return valid.length ? { min: Math.min(...valid), max: Math.max(...valid) } : null;
+    };
+
+    const mergeRanges = (items: { priceMin?: number; priceMax?: number }[]): PriceRange =>
+      rangeFromPrices(items.flatMap((i) => [num(i.priceMin), num(i.priceMax)]));
+
+    const withLabel = (r: PriceRange) =>
+      r
+        ? { priceMin: r.min, priceMax: r.max, priceLabel: r.min === r.max ? fmtPrice(r.min) : `${fmtPrice(r.min)} – ${fmtPrice(r.max)}` }
+        : { priceMin: 0, priceMax: 0, priceLabel: '' };
+
+    const configPrices = (cfgs: any[] | undefined) =>
+      (Array.isArray(cfgs) ? cfgs : []).map((c: any) => num(c?.allInclusivePrice));
+
+    const unitPriceOf = (u: any): number => {
+      if (num(u.allInclusivePrice)) return num(u.allInclusivePrice);
+      if (num(u.price)) return num(u.price);
+      const carpet = num(u.carpetArea || u.area);
+      const builtUp = num(u.builtUpArea) || (carpet ? Math.round(carpet * 1.2) : 0);
+      return builtUp && num(u.ratePerSqft) ? Math.round(builtUp * num(u.ratePerSqft)) : 0;
+    };
+
+    const sameName = (a: any, b: any) =>
+      String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+
+    // Wizard state (projects / towers / towerUnitConfigs) is stored in details of every doc in the hierarchy
+    const pickWizard = (key: 'projects' | 'towers', ...sources: any[]) =>
+      sources.find((s) => s && Array.isArray(s[key]) && s[key].length > 0) || null;
+
+    const mapUnit = (u: any, isEmbedded = false) => {
+      const priceValue = unitPriceOf(u);
+      return {
+        id: isEmbedded ? (u.id || u.unitNumber) : u._id.toString(),
+        unitNumber: u.unitNumber || '',
+        floorNum: u.floorNumber || u.floor || 1,
         status: (u.status || 'available').toLowerCase(),
         config: u.configuration || '',
         price: u.price || 'N/A',
+        priceValue,
+        priceLabel: priceValue ? fmtPrice(priceValue) : '',
         area: u.area || 'N/A',
         carpet: u.carpetArea || 'N/A',
         balcony: u.builtUpArea || 'N/A',
         facing: u.facing || 'N/A',
-      }));
+      };
     };
 
-    const formatTower = (t: any) => ({
-      id: t._id.toString(),
-      name: t.name,
-      desc: t.details?.description || 'Tower details',
-      status: t.status,
-      propertyUnits: getUnitsForTower(t._id.toString()), // the admin UI sometimes looks for units on towers
-      units: getUnitsForTower(t._id.toString())
-    });
+    const getUnitsForTower = (towerId: string) => {
+      return allUnits
+        .filter((u: any) => u.towerId?.toString() === towerId || u.parentId?.toString() === towerId)
+        .map((u: any) => mapUnit(u));
+    };
 
-    const formatProject = (p: any) => {
+    const getEmbeddedUnits = (embeddedTowerId: string | undefined, ...sources: any[]) => {
+      if (!embeddedTowerId) return [];
+      const src = sources.find((s) => Array.isArray(s?.generatedUnits) && s.generatedUnits.length > 0);
+      return (src?.generatedUnits || [])
+        .filter((u: any) => String(u.towerId || '') === embeddedTowerId)
+        .map((u: any) => mapUnit(u, true));
+    };
+
+    const formatTower = (t: any, rootDetails: any = null, embeddedProjectId?: string) => {
+      const own = t.details || {};
+      const wiz = pickWizard('towers', rootDetails, own);
+      const towerList: any[] = wiz?.towers || [];
+      const emb =
+        (embeddedProjectId && towerList.find((x: any) => sameName(x.name || x.towerName, t.name) && x.projectId === embeddedProjectId)) ||
+        towerList.find((x: any) => sameName(x.name || x.towerName, t.name)) ||
+        null;
+      const embId: string | undefined = emb?.id;
+
+      let units = getUnitsForTower(t._id.toString());
+      if (units.length === 0) units = getEmbeddedUnits(embId, rootDetails, own);
+
+      const tuc = embId ? (wiz?.towerUnitConfigs || []).find((c: any) => c.towerId === embId) : null;
+
+      const range =
+        mkRange(emb?.priceRangeMin, emb?.priceRangeMax) ||
+        rangeFromPrices(configPrices(tuc?.configurations)) ||
+        mkRange(own.priceRangeMin, own.priceRangeMax) ||
+        rangeFromPrices(units.map((u: any) => u.priceValue));
+
+      return {
+        id: t._id.toString(),
+        name: t.name,
+        desc: own.description || 'Tower details',
+        status: t.status,
+        ...withLabel(range),
+        propertyUnits: units, // the admin UI sometimes looks for units on towers
+        units,
+      };
+    };
+
+    const formatProject = (p: any, rootDetails: any = null) => {
       const pTowers = childTowers.filter((t: any) => t.parentId?.toString() === p._id.toString());
+      const own = p.details || {};
+      const wiz = pickWizard('projects', rootDetails, own);
+      const emb = (wiz?.projects || []).find((x: any) => sameName(x.name || x.projectName, p.name)) || null;
+      const towers = pTowers.map((t: any) => formatTower(t, rootDetails || own, emb?.id));
+
+      const range =
+        mkRange(emb?.priceRangeMin, emb?.priceRangeMax) ||
+        mkRange(own.priceRangeMin, own.priceRangeMax) ||
+        mergeRanges(towers);
+
       return {
         id: p._id.toString(),
         name: p.name,
-        tag: p.details?.tag || 'Phase',
+        tag: own.tag || 'Phase',
         status: p.status,
-        towers: pTowers.map(formatTower)
+        ...withLabel(range),
+        towers,
       };
     };
 
@@ -114,14 +217,36 @@ export async function GET(req: NextRequest) {
       let projects: any[] | undefined = undefined;
       let towers: any[] | undefined = undefined;
       let propertyUnits: any[] | undefined = undefined;
+      let rootRange: PriceRange = null;
 
       if (p.type === 'township') {
-        projects = childProjects.filter((cp: any) => cp.parentId?.toString() === p._id.toString()).map(formatProject);
+        projects = childProjects
+          .filter((cp: any) => cp.parentId?.toString() === p._id.toString())
+          .map((cp: any) => formatProject(cp, docDetails));
+        rootRange =
+          mkRange(docDetails.township?.priceRangeMin, docDetails.township?.priceRangeMax) ||
+          mkRange(docDetails.priceRangeMin, docDetails.priceRangeMax) ||
+          mergeRanges(projects);
       } else if (p.type === 'project') {
-        towers = childTowers.filter((ct: any) => ct.parentId?.toString() === p._id.toString()).map(formatTower);
+        towers = childTowers
+          .filter((ct: any) => ct.parentId?.toString() === p._id.toString())
+          .map((ct: any) => formatTower(ct, docDetails));
+        rootRange =
+          mkRange(docDetails.project?.priceRangeMin, docDetails.project?.priceRangeMax) ||
+          mkRange(docDetails.priceRangeMin, docDetails.priceRangeMax) ||
+          mergeRanges(towers);
       } else if (p.type === 'tower') {
         propertyUnits = getUnitsForTower(p._id.toString());
+        if (propertyUnits.length === 0 && Array.isArray(docDetails.generatedUnits)) {
+          propertyUnits = docDetails.generatedUnits.map((u: any) => mapUnit(u, true));
+        }
+        rootRange =
+          mkRange(docDetails.tower?.priceRangeMin, docDetails.tower?.priceRangeMax) ||
+          mkRange(docDetails.priceRangeMin, docDetails.priceRangeMax) ||
+          rangeFromPrices(configPrices(docDetails.unitConfig?.configurations || docDetails.unitTemplate?.configurations)) ||
+          rangeFromPrices((propertyUnits || []).map((u: any) => u.priceValue));
       }
+      const rootPrice = withLabel(rootRange);
 
       return {
         id: p._id.toString(),
@@ -147,7 +272,10 @@ export async function GET(req: NextRequest) {
         location: locStr || p.location?.city || '',
         city: p.location?.city || '',
         state: p.location?.state || '',
-        price: p.details?.priceRange || p.details?.startingPrice || 'Price on Request',
+        price: rootPrice.priceLabel || p.details?.priceRange || p.details?.startingPrice || 'Price on Request',
+        priceMin: rootPrice.priceMin,
+        priceMax: rootPrice.priceMax,
+        priceLabel: rootPrice.priceLabel,
         units: p.details?.generatedUnits?.length || p.details?.inventoryCount || 0,
         area: p.details?.totalArea || p.details?.plotArea || '0',
         snapshot: p.details || {},

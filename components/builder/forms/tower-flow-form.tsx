@@ -26,6 +26,7 @@ import { ConnectivityManager } from "@/components/builder/shared/ConnectivityMan
 import { EcoFeaturesManager } from "@/components/builder/shared/EcoFeaturesManager"
 import { AmenitiesManager } from "@/components/builder/shared/AmenitiesManager"
 import GooglePlacesSearch from "@/components/builder/forms/GooglePlacesSearch"
+import AreaSelectInput from "@/components/builder/forms/AreaSelectInput"
 import { GmbReviewsSelector } from "@/components/builder/shared/GmbReviewsSelector"
 import { GmbMapPreview } from "@/components/builder/shared/GmbMapPreview"
 
@@ -280,6 +281,7 @@ function BulkImageInput({ onAdd }: { onAdd: (urls: string[]) => void }) {
 function TowerFlowFormBase({ data, unitConfig, unitTemplate, onChange, projectName, parentProjectHasSingleRera, townshipName, townshipData, onTownshipChange, showCommonData, user }: TowerFlowFormProps) {
   const [openIds, setOpenIds] = useState<string[]>(["builder", "tower-identity", "location"])
   const [openParts, setOpenParts] = useState<string[]>(["part-a", "part-b"])
+  const [detectedAreas, setDetectedAreas] = useState<string[]>(townshipData?.village ? [townshipData.village] : [])
 
   const handleSyncPrices = () => {
     let configs = unitConfig?.configurations || []
@@ -873,8 +875,11 @@ function TowerFlowFormBase({ data, unitConfig, unitTemplate, onChange, projectNa
           <Section id="location" title="Location & Google Maps Details" description="City, district, pincode & Google Maps Integration — Auto-filled from Google Places" icon={MapPin} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
             <div className="mb-5">
               <GooglePlacesSearch
-                initialSearchText={data.nearbyLandmark || ""}
+                initialSearchText={townshipData?.nearbyLandmark || ""}
                 onLocationSelected={(loc) => {
+                  if (loc.areaOptions && loc.areaOptions.length > 0) {
+                    setDetectedAreas(loc.areaOptions);
+                  }
                   if (onTownshipChange) {
                     onTownshipChange((prev) => {
                       const next = { ...prev };
@@ -912,8 +917,15 @@ function TowerFlowFormBase({ data, unitConfig, unitTemplate, onChange, projectNa
               <Field label="Sub City" required>
                 <Input value={townshipData.subCity ?? ""} onChange={e => updateCommon("subCity", e.target.value)} placeholder="Dombivali East" />
               </Field>
-              <Field label="Area" required>
-                <Input value={townshipData.village ?? ""} onChange={e => updateCommon("village", e.target.value)} placeholder="Sonarpada" />
+              <Field label="Area" required hint="Choose from map suggestions / gaon list or type custom">
+                <AreaSelectInput
+                  value={townshipData.village ?? ""}
+                  onChange={val => updateCommon("village", val)}
+                  subCity={townshipData.subCity ?? ""}
+                  city={townshipData.city ?? ""}
+                  detectedOptions={detectedAreas}
+                  placeholder="Select or type area/gaon (e.g. MIDC, Sonarpada)"
+                />
               </Field>
               <Field label="State" required>
                 <Input value={townshipData.state ?? ""} onChange={e => updateCommon("state", e.target.value)} placeholder="Maharashtra" />

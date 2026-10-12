@@ -77,6 +77,7 @@ interface Lead {
     isUnitSold?: boolean
     propertyId?: string
     unitId?: string
+    towerId?: string
     builderId?: string
     projectId?: string
     createdAt?: string
@@ -99,6 +100,26 @@ interface Lead {
     username?: string
     claimedOffer?: any
     offerDetails?: string
+    attemptsCount?: number
+    hasRepeatedEnquiry?: boolean
+    lastEnquiryAt?: string
+    leadTypes?: string[]
+    interactions?: {
+        id?: string
+        type?: string
+        title?: string
+        desc?: string
+        date?: string
+        details?: string
+        source?: string
+        propertyTitle?: string
+        unitNumber?: string
+    }[]
+    unitNumber?: string
+    holdDuration?: string
+    holdDurationDays?: number
+    paymentVerifiedAt?: string
+    hierarchyContext?: any
 }
 
 // --- Mock Sentry Logger ---
@@ -113,6 +134,104 @@ const logger = {
 
 // --- Mock Data ---
 const INITIAL_LEADS: Lead[] = []
+
+export function calculateRemainingHoldTime(expiresAt?: string | Date, fallbackCreatedAt?: string | Date): {
+    isExpired: boolean;
+    remainingText: string;
+    expiresText: string;
+    lockedOnText: string;
+    durationText: string;
+} {
+    let expDate: Date;
+    const createDate: Date = fallbackCreatedAt ? new Date(fallbackCreatedAt) : new Date();
+
+    if (expiresAt) {
+        expDate = new Date(expiresAt);
+    } else {
+        expDate = new Date(createDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+    }
+
+    const now = new Date();
+    const diffMs = expDate.getTime() - now.getTime();
+
+    const lockedOnText = !isNaN(createDate.getTime()) 
+        ? createDate.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+        : 'Recently';
+
+    const expiresText = !isNaN(expDate.getTime())
+        ? expDate.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+        : 'In 7 Days';
+
+    if (diffMs <= 0) {
+        return {
+            isExpired: true,
+            remainingText: "Hold Expired",
+            expiresText,
+            lockedOnText,
+            durationText: "7 Days (Expired)"
+        };
+    }
+
+    const totalHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const days = Math.floor(totalHours / 24);
+    const hours = totalHours % 24;
+    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+    let remainingText = "";
+    if (days > 0) {
+        remainingText = `${days} Days, ${hours} Hours Remaining`;
+    } else if (hours > 0) {
+        remainingText = `${hours} Hours, ${minutes} Mins Remaining`;
+    } else {
+        remainingText = `${minutes} Mins Remaining`;
+    }
+
+    return {
+        isExpired: false,
+        remainingText,
+        expiresText,
+        lockedOnText,
+        durationText: "7 Days (168 Hours)"
+    };
+}
+
+function sanitizeLeadRecord(lead: any): Lead {
+    const isHold = Boolean(
+        lead.isUnitHeld ||
+        lead.status === "Token VIP" ||
+        lead.leadType === "token-hold" ||
+        lead.leadType === "vip-lead" ||
+        lead.source === "visitor-unit-hold" ||
+        lead.isTokenPaid ||
+        lead.holdExpiresAt ||
+        lead.holdId
+    );
+    const resolvedUnit = String(
+        lead.interestedUnit ||
+        lead.unitNumber ||
+        lead.hierarchyContext?.unitNumber ||
+        ""
+    ).trim();
+
+    return {
+        ...lead,
+        id: toId(lead._id || lead.id),
+        _id: toId(lead._id || lead.id),
+        isUnitHeld: isHold ? true : Boolean(lead.isUnitHeld),
+        interestedUnit: resolvedUnit,
+        unitNumber: resolvedUnit,
+        holdId: lead.holdId || lead.hierarchyContext?.holdId || "",
+        holdExpiresAt: lead.holdExpiresAt || lead.hierarchyContext?.holdExpiresAt || "",
+        holdDuration: lead.holdDuration || "7 Days (168 Hours)",
+        holdDurationDays: lead.holdDurationDays || 7,
+        paymentVerifiedAt: lead.paymentVerifiedAt || lead.createdAt || "",
+        topPropertyName: lead.topPropertyName || lead.clickedPropertyName || lead.hierarchyContext?.propertyName || lead.hierarchyContext?.propertyTitle || "",
+        timeline: Array.isArray(lead.timeline) ? lead.timeline.map((t: any) => ({
+            ...t,
+            desc: t.desc || "No description provided"
+        })) : []
+    };
+}
 
 // --- Utility: always get a clean string ID from any lead/ObjectId ---
 function toId(val: any): string {
@@ -258,24 +377,12 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
     const allLeadIds = store.allLeadIds[crmRole] || []
 
     const setInitialLeads = (leads: any[]) => {
-        const sanitizedLeads = leads.map(lead => ({
-            ...lead,
-            timeline: Array.isArray(lead.timeline) ? lead.timeline.map((t: any) => ({
-                ...t,
-                desc: t.desc || "No description provided"
-            })) : []
-        }))
+        const sanitizedLeads = leads.map(lead => sanitizeLeadRecord(lead))
         store.setInitialLeads(crmRole, sanitizedLeads)
     }
 
     const upsertLead = (lead: any) => {
-        const sanitizedLead = {
-            ...lead,
-            timeline: Array.isArray(lead.timeline) ? lead.timeline.map((t: any) => ({
-                ...t,
-                desc: t.desc || "No description provided"
-            })) : []
-        }
+        const sanitizedLead = sanitizeLeadRecord(lead)
         store.upsertLead(crmRole, sanitizedLead)
     }
 
@@ -497,12 +604,7 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
             if (res.ok) {
                 const data = await res.json()
                 if (data.leads) {
-                    const mappedLeads = data.leads.map((l: any) => ({
-                        ...l,
-                        id: toId(l._id || l.id),
-                        _id: toId(l._id || l.id),
-                        timeline: l.timeline || []
-                    }))
+                    const mappedLeads = data.leads.map((l: any) => sanitizeLeadRecord(l))
                     setInitialLeads(mappedLeads)
                     setTotalLeads(data.total || mappedLeads.length)
                 }
@@ -782,10 +884,19 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
         setSelectedLeadId(cleanId)
         setViewMode("profile")
         const l = leads.find(lead => (lead.id || toId(lead._id)) === cleanId)
-        setIsHoldUnitEnabled(Boolean(l?.isUnitHeld || l?.isUnitSold || l?.status === "Booked"))
+        const isHoldOrBooked = Boolean(
+            l?.isUnitHeld ||
+            l?.isUnitSold ||
+            l?.status === "Booked" ||
+            l?.status === "Token VIP" ||
+            l?.leadType === "token-hold" ||
+            l?.source === "visitor-unit-hold" ||
+            l?.isTokenPaid
+        );
+        setIsHoldUnitEnabled(isHoldOrBooked)
         const matchedProp = resolvePropertyIdForLead(l, properties)
         setSelectedPropertyId(matchedProp)
-        setSelectedTowerId("")  // always reset tower when opening a different lead
+        setSelectedTowerId(l?.hierarchyContext?.towerId || l?.towerId || "")
         setSelectedUnitId(l?.unitId || "")
     }
 
@@ -1159,8 +1270,9 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                             </div>
                         ) : (
                             activeStageLeads.map((lead, idx) => {
-                                const isSpecificDoubt = lead.source?.includes('doubt') || lead.leadType === 'specific-doubt' || lead.requirement?.includes('Specific Doubt');
-                                const isTokenHold = lead.status === 'Token VIP' || lead.isTokenPaid || lead.leadType === 'token-hold' || lead.leadType === 'vip-lead';
+                                const hasRepeated = Boolean(lead.hasRepeatedEnquiry || (lead.attemptsCount && lead.attemptsCount > 1));
+                                const isSpecificDoubt = lead.source?.includes('doubt') || lead.leadType === 'specific-doubt' || lead.requirement?.includes('Specific Doubt') || (Array.isArray(lead.leadTypes) && lead.leadTypes.some(t => t.includes('doubt')));
+                                const isTokenHold = lead.status === 'Token VIP' || lead.isTokenPaid || lead.leadType === 'token-hold' || lead.leadType === 'vip-lead' || (Array.isArray(lead.leadTypes) && lead.leadTypes.some(t => t.includes('token') || t.includes('vip')));
                                 const cleanPhone = (lead.phone || '').replace(/[^0-9]/g, '');
 
                                 return (
@@ -1178,6 +1290,11 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                             <div className="min-w-0 flex-1">
                                                 <div className="flex items-center gap-1.5 flex-wrap">
                                                     <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate">{lead.name}</h4>
+                                                    {hasRepeated && (
+                                                        <span className="bg-orange-100 text-orange-800 border border-orange-300 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800 text-[9px] font-black px-1.5 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
+                                                            🔁 Re-Enquiry ({lead.attemptsCount || 2}x)
+                                                        </span>
+                                                    )}
                                                     {isTokenHold && (
                                                         <span className="bg-amber-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-sm">
                                                             <Crown className="h-2.5 w-2.5" /> ₹111 VIP
@@ -1186,6 +1303,11 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                                     {lead.isGroup && (
                                                         <span className="bg-purple-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1">
                                                             <Users className="h-2.5 w-2.5"/> GROUP ({lead.groupSize || 1})
+                                                        </span>
+                                                    )}
+                                                    {isSpecificDoubt && (
+                                                        <span className="bg-blue-100 text-blue-800 text-[9px] font-bold px-1.5 py-0.5 rounded">
+                                                            Specific Doubt
                                                         </span>
                                                     )}
                                                 </div>
@@ -1207,6 +1329,17 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                                     <Home className="h-3 w-3 shrink-0 text-slate-400" />
                                                     <span className="truncate">{lead.requirement}</span>
                                                 </p>
+                                            )}
+                                            {(Boolean(lead.interestedUnit || lead.unitNumber || lead.isUnitHeld || lead.status === 'Token VIP')) && (
+                                                <div className="flex items-center justify-between text-[10.5px] font-bold px-2 py-1 rounded bg-amber-100/90 dark:bg-amber-900/40 text-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-700 shadow-2xs">
+                                                    <span className="flex items-center gap-1 truncate">
+                                                        <Lock className="h-3 w-3 text-amber-600 shrink-0" />
+                                                        <span className="font-extrabold">{lead.interestedUnit || lead.unitNumber || "VIP Held"}</span>
+                                                    </span>
+                                                    <span className="text-[9px] font-mono text-amber-800 dark:text-amber-300 shrink-0">
+                                                        ⏳ {calculateRemainingHoldTime(lead.holdExpiresAt, lead.createdAt).remainingText.split(',')[0]}
+                                                    </span>
+                                                </div>
                                             )}
                                             <div className="flex items-center gap-2 flex-wrap pt-0.5">
                                                 {lead.source && (
@@ -1307,9 +1440,10 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                 {/* Cards Area */}
                                 <div className="p-2 flex-1 overflow-y-auto space-y-2 min-h-[100px]">
                                     {filteredLeads.filter(l => l.status === col).map((lead, idx) => {
-                                        const isSpecificDoubt = lead.source?.includes('doubt') || lead.leadType === 'specific-doubt' || lead.requirement?.includes('Specific Doubt');
-                                        const isTokenHold = lead.status === 'Token VIP' || lead.isTokenPaid || lead.leadType === 'token-hold' || lead.leadType === 'vip-lead';
-                                        const isOfferLead = lead.leadType === 'offer-enquiry' || Boolean(lead.claimedOffer);
+                                        const hasRepeated = Boolean(lead.hasRepeatedEnquiry || (lead.attemptsCount && lead.attemptsCount > 1));
+                                        const isSpecificDoubt = lead.source?.includes('doubt') || lead.leadType === 'specific-doubt' || lead.requirement?.includes('Specific Doubt') || (Array.isArray(lead.leadTypes) && lead.leadTypes.some(t => t.includes('doubt')));
+                                        const isTokenHold = lead.status === 'Token VIP' || lead.isTokenPaid || lead.leadType === 'token-hold' || lead.leadType === 'vip-lead' || (Array.isArray(lead.leadTypes) && lead.leadTypes.some(t => t.includes('token') || t.includes('vip')));
+                                        const isOfferLead = lead.leadType === 'offer-enquiry' || Boolean(lead.claimedOffer) || (Array.isArray(lead.leadTypes) && lead.leadTypes.some(t => t.includes('offer')));
 
                                         return (
                                             <div
@@ -1335,6 +1469,11 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                                 <div className="flex justify-between items-start mb-2">
                                                     <h4 className="font-bold text-sm text-slate-900 dark:text-gray-100">{lead.name}</h4>
                                                     <div className="flex items-center gap-1 flex-wrap justify-end">
+                                                        {hasRepeated && (
+                                                            <span className="bg-orange-100 text-orange-800 border border-orange-300 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800 text-[9px] font-black px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-sm animate-pulse">
+                                                                🔁 Re-Enquiry ({lead.attemptsCount || 2}x)
+                                                            </span>
+                                                        )}
                                                         {isTokenHold && (
                                                             <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[9px] font-black px-1.5 py-0.5 rounded flex items-center gap-0.5">
                                                                 <Crown className="h-3 w-3 text-amber-600" /> ₹111
@@ -1394,6 +1533,17 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                                             </span>
                                                         )}
                                                     </div>
+                                                    {(Boolean(lead.interestedUnit || lead.unitNumber || lead.isUnitHeld || lead.status === 'Token VIP')) && (
+                                                        <div className="flex items-center justify-between text-[11px] font-bold px-2 py-1 rounded bg-amber-100/90 dark:bg-amber-900/40 text-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-700 shadow-2xs">
+                                                            <span className="flex items-center gap-1 truncate">
+                                                                <Lock className="h-3 w-3 text-amber-600 shrink-0" />
+                                                                <span className="font-extrabold">{lead.interestedUnit || lead.unitNumber || "VIP Held"}</span>
+                                                            </span>
+                                                            <span className="text-[9px] font-mono text-amber-800 dark:text-amber-300 shrink-0">
+                                                                ⏳ {calculateRemainingHoldTime(lead.holdExpiresAt, lead.createdAt).remainingText.split(',')[0]}
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                     {lead.assignee && <p className="text-slate-400 text-[10px] pt-0.5">👤 {lead.assignee}</p>}
                                                 </div>
 
@@ -1642,14 +1792,45 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                 const units = data.units || [];
                 setInventoryTowers(towers);
                 setInventoryUnits(units);
-                if (towers.length === 1) {
-                    setSelectedTowerId(towers[0].id || towers[0]._id || "");
+
+                // Auto-match tower and unit for selectedLead
+                const leadUnitName = (selectedLead?.interestedUnit || selectedLead?.unitNumber || selectedLead?.hierarchyContext?.unitNumber || "").trim().toLowerCase();
+                const leadTowerName = (selectedLead?.hierarchyContext?.towerName || "").trim().toLowerCase();
+                const leadTowerId = selectedLead?.hierarchyContext?.towerId || selectedLead?.towerId;
+
+                let matchedTowerId = "";
+                if (leadTowerId && towers.some((t: any) => (t.id || t._id) === leadTowerId)) {
+                    matchedTowerId = leadTowerId;
+                } else if (leadTowerName) {
+                    const t = towers.find((t: any) => (t.name || "").toLowerCase().includes(leadTowerName) || leadTowerName.includes((t.name || "").toLowerCase()));
+                    if (t) matchedTowerId = t.id || t._id;
+                } else if (leadUnitName) {
+                    const t = towers.find((t: any) => leadUnitName.startsWith((t.name || "").toLowerCase()) || (t.name && leadUnitName.includes((t.name || "").toLowerCase())));
+                    if (t) matchedTowerId = t.id || t._id;
+                } else if (towers.length === 1) {
+                    matchedTowerId = towers[0].id || towers[0]._id || "";
+                }
+                if (matchedTowerId) {
+                    setSelectedTowerId(matchedTowerId);
+                }
+
+                if (leadUnitName) {
+                    const u = units.find((u: any) => {
+                        const uNum = (u.unitNumber || "").toLowerCase();
+                        return uNum === leadUnitName || uNum.includes(leadUnitName) || leadUnitName.includes(uNum);
+                    });
+                    if (u) {
+                        setSelectedUnitId(u.id || u._id);
+                        if (!matchedTowerId && (u.towerId || u.parentId)) {
+                            setSelectedTowerId(u.towerId || u.parentId);
+                        }
+                    }
                 }
             })
             .catch((e) => { console.error("[CRM DEBUG] inventory fetch error:", e); })
             .finally(() => { if (!cancelled) setIsFetchingInventory(false); });
         return () => { cancelled = true; };
-    }, [selectedPropertyId]);
+    }, [selectedPropertyId, selectedLead?.id]);
 
     // Derived unit/tower data — shared by both LeadProfile and GroupLeadProfile
     const activeProperty = properties.find(p => (p._id || p.id) === selectedPropertyId);
@@ -1726,34 +1907,123 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                             </div>
                         </div>
 
-                        {selectedLead.interestedUnit && (() => {
-                            const isSoldLead = Boolean(selectedLead.isUnitSold || (selectedLead.status === "Booked" && selectedLead.interestedUnit));
+                        {/* 👑 VIP UNIT HOLD CONFIRMED & TIMING CARD */}
+                        {(() => {
+                            const effectiveUnit = selectedLead.interestedUnit || selectedLead.unitNumber || selectedLead.hierarchyContext?.unitNumber || "";
+                            const isVipHold = Boolean(
+                                selectedLead.isUnitHeld || 
+                                selectedLead.status === "Token VIP" || 
+                                selectedLead.leadType === "token-hold" || 
+                                selectedLead.source === "visitor-unit-hold" || 
+                                selectedLead.isTokenPaid || 
+                                selectedLead.holdId || 
+                                selectedLead.holdExpiresAt
+                            );
+                            const isSoldLead = Boolean(selectedLead.isUnitSold || (selectedLead.status === "Booked" && effectiveUnit));
+
+                            if (!effectiveUnit && !isVipHold) return null;
+
+                            const timing = calculateRemainingHoldTime(selectedLead.holdExpiresAt, selectedLead.createdAt);
+                            const propertyTitle = selectedLead.topPropertyName || selectedLead.clickedPropertyName || selectedLead.hierarchyContext?.propertyName || activeProperty?.name || "Green Valley";
+                            const towerTitle = selectedLead.hierarchyContext?.towerName || (effectiveUnit.includes("-") ? effectiveUnit.split("-")[0] : "");
+
+                            if (isVipHold) {
+                                return (
+                                    <div className="p-3 rounded-xl border border-amber-300 dark:border-amber-700/80 bg-gradient-to-br from-amber-50 via-orange-50/60 to-yellow-50 dark:from-amber-950/40 dark:via-orange-950/30 dark:to-yellow-950/20 shadow-sm space-y-2.5">
+                                        {/* Header */}
+                                        <div className="flex items-center justify-between gap-1 pb-1.5 border-b border-amber-200/80 dark:border-amber-800/60">
+                                            <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                                                <Lock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                                                VIP Unit Hold Confirmed
+                                            </span>
+                                            <span className="text-[8.5px] font-black px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xs animate-pulse">
+                                                🔒 LOCKED 7 DAYS
+                                            </span>
+                                        </div>
+
+                                        {/* Unit & Tower Highlight */}
+                                        <div className="bg-white/90 dark:bg-slate-900/80 p-2 rounded-lg border border-amber-200/60 dark:border-amber-800/40">
+                                            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5">
+                                                Reserved Unit & Tower
+                                            </p>
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <p className="text-sm font-black text-amber-950 dark:text-amber-100 flex items-center gap-1.5">
+                                                        <span>{effectiveUnit ? `Flat ${effectiveUnit}` : "Unit Reserved"}</span>
+                                                    </p>
+                                                    <p className="text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+                                                        {towerTitle ? `Tower ${towerTitle} • ` : ""}{propertyTitle}
+                                                    </p>
+                                                </div>
+                                                {selectedLead.holdId && (
+                                                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 dark:bg-amber-900/60 dark:text-amber-200 border border-amber-200">
+                                                        {selectedLead.holdId}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Hold Timing & Countdown */}
+                                        <div className="space-y-1.5 bg-amber-100/60 dark:bg-amber-900/30 p-2 rounded-lg border border-amber-200/70 dark:border-amber-800/50">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[9px] font-black uppercase tracking-wider text-amber-900 dark:text-amber-200 flex items-center gap-1">
+                                                    <Clock className="h-3 w-3 text-amber-700 dark:text-amber-400" />
+                                                    Hold Expiry Countdown
+                                                </span>
+                                                <span className={`text-[9px] font-black font-mono px-2 py-0.5 rounded-full ${timing.isExpired ? "bg-red-200 text-red-900" : "bg-amber-200 text-amber-950 dark:bg-amber-800 dark:text-amber-100 shadow-xs"}`}>
+                                                    ⏳ {timing.remainingText}
+                                                </span>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-1.5 pt-1 text-[9.5px]">
+                                                <div>
+                                                    <p className="text-slate-500 dark:text-slate-400 font-medium text-[8.5px]">Locked On:</p>
+                                                    <p className="font-bold text-slate-800 dark:text-slate-200">{timing.lockedOnText}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-slate-500 dark:text-slate-400 font-medium text-[8.5px]">Hold Expires On:</p>
+                                                    <p className="font-bold text-amber-900 dark:text-amber-300">{timing.expiresText}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Payment & Verification status */}
+                                        <div className="flex items-center justify-between text-[9.5px] px-2 py-1 rounded bg-white/70 dark:bg-slate-900/60 border border-amber-100 dark:border-slate-800">
+                                            <span className="font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                                                <CheckCircle2 className="h-3 w-3" />
+                                                ₹{selectedLead.tokenAmount || 111} Token Verified
+                                            </span>
+                                            {selectedLead.paymentId && (
+                                                <span className="font-mono text-[8.5px] text-slate-500">
+                                                    {selectedLead.paymentId}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            }
+
                             return (
                                 <div className={`p-2 rounded-lg border shadow-sm ${
                                     isSoldLead
                                         ? "bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 border-red-300 dark:border-red-700"
-                                        : selectedLead.isUnitHeld
-                                            ? "bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-amber-300 dark:border-amber-700"
-                                            : "bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800"
+                                        : "bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800"
                                 }`}>
                                     <div className="flex items-center justify-between gap-1 mb-0.5">
                                         <p className={`text-[9px] font-black uppercase tracking-wider flex items-center gap-1 ${
-                                            isSoldLead ? "text-red-800 dark:text-red-300" : selectedLead.isUnitHeld ? "text-amber-800 dark:text-amber-300" : "text-blue-800 dark:text-blue-300"
+                                            isSoldLead ? "text-red-800 dark:text-red-300" : "text-blue-800 dark:text-blue-300"
                                         }`}>
-                                            {isSoldLead ? <CheckCircle2 className="h-3 w-3 text-red-600" /> : selectedLead.isUnitHeld ? <Lock className="h-3 w-3 text-amber-600" /> : <Bookmark className="h-3 w-3 text-blue-600 dark:text-blue-400" />}
-                                            {isSoldLead ? "Sold / Booked Unit" : selectedLead.isUnitHeld ? "Reserved / Held Unit" : "Preferred Unit"}
+                                            {isSoldLead ? <CheckCircle2 className="h-3 w-3 text-red-600" /> : <Bookmark className="h-3 w-3 text-blue-600 dark:text-blue-400" />}
+                                            {isSoldLead ? "Sold / Booked Unit" : "Preferred Unit"}
                                         </p>
                                         <span className={`text-[8px] font-bold px-1.5 py-0.2 rounded ${
                                             isSoldLead
                                                 ? "bg-red-200 dark:bg-red-900 text-red-950 dark:text-red-200 font-black animate-pulse"
-                                                : selectedLead.isUnitHeld
-                                                    ? "bg-amber-200 dark:bg-amber-900 text-amber-950 dark:text-amber-200 animate-pulse"
-                                                    : "bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300"
+                                                : "bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300"
                                         }`}>
-                                            {isSoldLead ? "SOLD OUT" : selectedLead.isUnitHeld ? "HOLD" : "Marked"}
+                                            {isSoldLead ? "SOLD OUT" : "Marked"}
                                         </span>
                                     </div>
-                                    <p className="font-black text-xs text-slate-900 dark:text-slate-100 truncate">{selectedLead.interestedUnit}</p>
+                                    <p className="font-black text-xs text-slate-900 dark:text-slate-100 truncate">{effectiveUnit}</p>
                                 </div>
                             );
                         })()}
@@ -1776,6 +2046,33 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                 </p>
                             </div>
                         )}
+
+                        {/* REPEATED ENQUIRY & MULTI-TOUCH TRACKING */}
+                        {(selectedLead.hasRepeatedEnquiry || (selectedLead.attemptsCount && selectedLead.attemptsCount > 1) || (Array.isArray(selectedLead.interactions) && selectedLead.interactions.length > 1)) && (
+                            <div className="p-2.5 bg-orange-50/80 dark:bg-orange-950/30 border border-orange-300/80 dark:border-orange-800 rounded-xl space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[9px] font-black uppercase tracking-wider text-orange-900 dark:text-orange-300 flex items-center gap-1">
+                                        🔁 Repeated Inquiries
+                                    </span>
+                                    <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-orange-200 dark:bg-orange-900 text-orange-950 dark:text-orange-200">
+                                        {selectedLead.attemptsCount || selectedLead.interactions?.length || 2} Attempts
+                                    </span>
+                                </div>
+                                <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-snug">
+                                    Customer submitted repeated inquiries for this property without creating duplicate CRM cards.
+                                </p>
+                                {Array.isArray(selectedLead.leadTypes) && selectedLead.leadTypes.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 pt-1 border-t border-orange-200/60 dark:border-orange-800/60">
+                                        {selectedLead.leadTypes.map((t, idx) => (
+                                            <span key={idx} className="text-[8.5px] font-bold px-1.5 py-0.5 rounded bg-white dark:bg-slate-800 text-orange-800 dark:text-orange-200 border border-orange-300 dark:border-orange-700">
+                                                {t === 'token-hold' ? '₹111 Token VIP' : t === 'specific-doubt' ? 'Specific Doubt' : t === 'offer-enquiry' ? 'Offer Enquiry' : t}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800">
                             <p className="text-muted-foreground text-[9px] font-bold uppercase tracking-wider mb-1">Assigned Executive</p>
                             <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 p-1.5 px-2 rounded-lg border border-slate-200/70 shadow-none">
@@ -2206,45 +2503,48 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                         </span>
                                     </div>
 
-                                    {selectedLead.interestedUnit && (
-                                        <div className={`p-1.5 px-2 rounded-lg border flex items-center justify-between gap-1.5 ${
-                                            isSold
-                                                ? "bg-red-50/90 dark:bg-red-950/40 border-red-300 dark:border-red-800/70"
-                                                : selectedLead.isUnitHeld 
-                                                    ? "bg-amber-50/90 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700/70"
-                                                    : "bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800/60"
-                                        }`}>
-                                            <div className="min-w-0">
-                                                <div className="flex items-center gap-1">
-                                                    <p className={`text-[8.5px] font-bold uppercase tracking-wider ${
-                                                        isSold ? "text-red-700 dark:text-red-400" : selectedLead.isUnitHeld ? "text-amber-700 dark:text-amber-400" : "text-blue-600 dark:text-blue-400"
-                                                    }`}>
-                                                        {isSold ? "Sold Unit" : selectedLead.isUnitHeld ? "Reserved Unit" : "Current Tag"}
-                                                    </p>
-                                                    {isSold ? (
-                                                        <span className="text-[7.5px] font-black uppercase px-1 py-0 rounded bg-red-600 text-white animate-pulse">
-                                                            Sold
-                                                        </span>
-                                                    ) : selectedLead.isUnitHeld ? (
-                                                        <span className="text-[7.5px] font-black uppercase px-1 py-0 rounded bg-amber-500 text-white animate-pulse">
-                                                            Held
-                                                        </span>
-                                                    ) : null}
+                                    {Boolean(selectedLead.interestedUnit || selectedLead.unitNumber || selectedLead.hierarchyContext?.unitNumber) && (() => {
+                                        const effectiveUnit = selectedLead.interestedUnit || selectedLead.unitNumber || selectedLead.hierarchyContext?.unitNumber || "";
+                                        return (
+                                            <div className={`p-1.5 px-2 rounded-lg border flex items-center justify-between gap-1.5 ${
+                                                isSold
+                                                    ? "bg-red-50/90 dark:bg-red-950/40 border-red-300 dark:border-red-800/70"
+                                                    : selectedLead.isUnitHeld 
+                                                        ? "bg-amber-50/90 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700/70"
+                                                        : "bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800/60"
+                                            }`}>
+                                                <div className="min-w-0">
+                                                    <div className="flex items-center gap-1">
+                                                        <p className={`text-[8.5px] font-bold uppercase tracking-wider ${
+                                                            isSold ? "text-red-700 dark:text-red-400" : selectedLead.isUnitHeld ? "text-amber-700 dark:text-amber-400" : "text-blue-600 dark:text-blue-400"
+                                                        }`}>
+                                                            {isSold ? "Sold Unit" : selectedLead.isUnitHeld ? "Reserved Unit" : "Current Tag"}
+                                                        </p>
+                                                        {isSold ? (
+                                                            <span className="text-[7.5px] font-black uppercase px-1 py-0 rounded bg-red-600 text-white animate-pulse">
+                                                                Sold
+                                                            </span>
+                                                        ) : selectedLead.isUnitHeld ? (
+                                                            <span className="text-[7.5px] font-black uppercase px-1 py-0 rounded bg-amber-500 text-white animate-pulse">
+                                                                Held
+                                                            </span>
+                                                        ) : null}
+                                                    </div>
+                                                    <p className="text-[11px] font-bold truncate text-slate-900 dark:text-slate-100">{effectiveUnit}</p>
                                                 </div>
-                                                <p className="text-[11px] font-bold truncate text-slate-900 dark:text-slate-100">{selectedLead.interestedUnit}</p>
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="h-5 px-1.5 text-[9px] font-bold text-red-600 hover:text-red-700 hover:bg-red-100/50 rounded shrink-0"
+                                                    disabled={isBlockingUnit}
+                                                    onClick={handleClearPreferredUnit}
+                                                    title={isSold ? "Release sold unit back to available" : selectedLead.isUnitHeld ? "Release unit hold in inventory" : "Clear unit preference"}
+                                                >
+                                                    {isSold || selectedLead.isUnitHeld ? "Release" : "Clear"}
+                                                </Button>
                                             </div>
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                className="h-5 px-1.5 text-[9px] font-bold text-red-600 hover:text-red-700 hover:bg-red-100/50 rounded shrink-0"
-                                                disabled={isBlockingUnit}
-                                                onClick={handleClearPreferredUnit}
-                                                title={isSold ? "Release sold unit back to available" : selectedLead.isUnitHeld ? "Release unit hold in inventory" : "Clear unit preference"}
-                                            >
-                                                {isSold || selectedLead.isUnitHeld ? "Release" : "Clear"}
-                                            </Button>
-                                        </div>
-                                    )}
+                                        );
+                                    })()}
 
                                     {properties.length > 0 ? (
                                         <div className="space-y-1.5">
@@ -2355,7 +2655,7 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                                     <input 
                                                         id="hold-unit-toggle"
                                                         type="checkbox"
-                                                        checked={isHoldUnitEnabled}
+                                                        checked={Boolean(isHoldUnitEnabled || selectedLead.isUnitHeld || selectedLead.status === "Token VIP")}
                                                         onChange={(e) => setIsHoldUnitEnabled(e.target.checked)}
                                                         className={`w-3.5 h-3.5 rounded cursor-pointer ${
                                                             isLeadBooked
@@ -3095,45 +3395,48 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                                         </span>
                                                     </div>
 
-                                                    {selectedLead.interestedUnit && (
-                                                        <div className={`p-1.5 px-2 rounded-lg border flex items-center justify-between gap-1.5 ${
-                                                            isSold
-                                                                ? "bg-red-50/90 dark:bg-red-950/40 border-red-300 dark:border-red-800/70"
-                                                                : selectedLead.isUnitHeld 
-                                                                    ? "bg-amber-50/90 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700/70"
-                                                                    : "bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800/60"
-                                                        }`}>
-                                                            <div className="min-w-0">
-                                                                <div className="flex items-center gap-1">
-                                                                    <p className={`text-[8.5px] font-bold uppercase tracking-wider ${
-                                                                        isSold ? "text-red-700 dark:text-red-400" : selectedLead.isUnitHeld ? "text-amber-700 dark:text-amber-400" : "text-blue-600 dark:text-blue-400"
-                                                                    }`}>
-                                                                        {isSold ? "Sold Unit" : selectedLead.isUnitHeld ? "Reserved Unit" : "Current Tag"}
-                                                                    </p>
-                                                                    {isSold ? (
-                                                                        <span className="text-[7.5px] font-black uppercase px-1 py-0 rounded bg-red-600 text-white animate-pulse">
-                                                                            Sold
-                                                                        </span>
-                                                                    ) : selectedLead.isUnitHeld ? (
-                                                                        <span className="text-[7.5px] font-black uppercase px-1 py-0 rounded bg-amber-500 text-white animate-pulse">
-                                                                            Held
-                                                                        </span>
-                                                                    ) : null}
+                                                    {Boolean(selectedLead.interestedUnit || selectedLead.unitNumber || selectedLead.hierarchyContext?.unitNumber) && (() => {
+                                                        const effectiveUnit = selectedLead.interestedUnit || selectedLead.unitNumber || selectedLead.hierarchyContext?.unitNumber || "";
+                                                        return (
+                                                            <div className={`p-1.5 px-2 rounded-lg border flex items-center justify-between gap-1.5 ${
+                                                                isSold
+                                                                    ? "bg-red-50/90 dark:bg-red-950/40 border-red-300 dark:border-red-800/70"
+                                                                    : selectedLead.isUnitHeld 
+                                                                        ? "bg-amber-50/90 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700/70"
+                                                                        : "bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800/60"
+                                                            }`}>
+                                                                <div className="min-w-0">
+                                                                    <div className="flex items-center gap-1">
+                                                                        <p className={`text-[8.5px] font-bold uppercase tracking-wider ${
+                                                                            isSold ? "text-red-700 dark:text-red-400" : selectedLead.isUnitHeld ? "text-amber-700 dark:text-amber-400" : "text-blue-600 dark:text-blue-400"
+                                                                        }`}>
+                                                                            {isSold ? "Sold Unit" : selectedLead.isUnitHeld ? "Reserved Unit" : "Current Tag"}
+                                                                        </p>
+                                                                        {isSold ? (
+                                                                            <span className="text-[7.5px] font-black uppercase px-1 py-0 rounded bg-red-600 text-white animate-pulse">
+                                                                                Sold
+                                                                            </span>
+                                                                        ) : selectedLead.isUnitHeld ? (
+                                                                            <span className="text-[7.5px] font-black uppercase px-1 py-0 rounded bg-amber-500 text-white animate-pulse">
+                                                                                Held
+                                                                            </span>
+                                                                        ) : null}
+                                                                    </div>
+                                                                    <p className="text-[11px] font-bold truncate text-slate-900 dark:text-slate-100">{effectiveUnit}</p>
                                                                 </div>
-                                                                <p className="text-[11px] font-bold truncate text-slate-900 dark:text-slate-100">{selectedLead.interestedUnit}</p>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    className="h-5 px-1.5 text-[9px] font-bold text-red-600 hover:text-red-700 hover:bg-red-100/50 rounded shrink-0"
+                                                                    disabled={isBlockingUnit}
+                                                                    onClick={handleClearPreferredUnit}
+                                                                    title={isSold ? "Release sold unit back to available" : selectedLead.isUnitHeld ? "Release unit hold in inventory" : "Clear unit preference"}
+                                                                >
+                                                                    {isSold || selectedLead.isUnitHeld ? "Release" : "Clear"}
+                                                                </Button>
                                                             </div>
-                                                            <Button
-                                                                size="sm"
-                                                                variant="ghost"
-                                                                className="h-5 px-1.5 text-[9px] font-bold text-red-600 hover:text-red-700 hover:bg-red-100/50 rounded shrink-0"
-                                                                disabled={isBlockingUnit}
-                                                                onClick={handleClearPreferredUnit}
-                                                                title={isSold ? "Release sold unit back to available" : selectedLead.isUnitHeld ? "Release unit hold in inventory" : "Clear unit preference"}
-                                                            >
-                                                                {isSold || selectedLead.isUnitHeld ? "Release" : "Clear"}
-                                                            </Button>
-                                                        </div>
-                                                    )}
+                                                        );
+                                                    })()}
 
                                                     {properties.length > 0 ? (
                                                         <div className="space-y-1.5">
@@ -3244,7 +3547,7 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                                                     <input 
                                                                         id="group-hold-unit-toggle"
                                                                         type="checkbox"
-                                                                        checked={isHoldUnitEnabled}
+                                                                        checked={Boolean(isHoldUnitEnabled || selectedLead.isUnitHeld || selectedLead.status === "Token VIP")}
                                                                         onChange={(e) => setIsHoldUnitEnabled(e.target.checked)}
                                                                         className={`w-3.5 h-3.5 rounded cursor-pointer ${
                                                                             isLeadBooked

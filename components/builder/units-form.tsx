@@ -35,49 +35,35 @@ export function UnitsForm({
         const reraNumber = tower?.reraNumber || data.reraNumber || ""
 
         if (config) {
-            // MERGE floorGroups (Global defines skeleton structure, Tower can override floor ranges)
-            let mergedGroups = JSON.parse(JSON.stringify(config.floorGroups || []));
-            const towerGroupIds = new Set(mergedGroups.map((g: any) => g.id));
-            const globalGroups = JSON.parse(JSON.stringify(data.floorGroups || []));
-            
-            globalGroups.forEach((gg: any) => {
-                if (!towerGroupIds.has(gg.id)) {
-                    mergedGroups.push({ ...gg });
-                } else {
-                    const existingIdx = mergedGroups.findIndex((g: any) => g.id === gg.id);
-                    if (existingIdx >= 0) {
-                        const existing = mergedGroups[existingIdx];
-                        mergedGroups[existingIdx] = {
-                            ...gg,
-                            ...existing,
-                        };
-                    }
-                }
-            });
-            // Allow towers to define custom floor groups that don't exist in global
-            // (Previously we filtered out tower-specific groups here)
+            const towerGroups = config.floorGroups !== undefined ? config.floorGroups : (data.floorGroups || []);
+            const globalGroups = data.floorGroups || [];
 
-            // MERGE configurations (Units)
-            let mergedConfigs = JSON.parse(JSON.stringify(config.configurations || []));
-            const towerConfigIds = new Set(mergedConfigs.map((c: any) => c.id));
-            const globalConfigs = JSON.parse(JSON.stringify(data.configurations || []));
-            
-            globalConfigs.forEach((gc: any) => {
-                if (!towerConfigIds.has(gc.id)) {
-                    mergedConfigs.push({ ...gc });
-                } else {
-                    const existingIdx = mergedConfigs.findIndex((c: any) => c.id === gc.id);
-                    if (existingIdx >= 0) {
-                        const existing = mergedConfigs[existingIdx];
-                        mergedConfigs[existingIdx] = {
-                            ...gc,
-                            ...existing,
-                        };
-                    }
+            // Update specs from global for groups that exist in this tower without resurrecting deleted groups
+            const mergedGroups = towerGroups.map((tg: any) => {
+                const matchingGlobal = globalGroups.find((gg: any) => gg.id === tg.id);
+                if (matchingGlobal) {
+                    return {
+                        ...matchingGlobal,
+                        ...tg, // Tower overrides take precedence
+                    };
                 }
+                return tg;
             });
-            // Allow towers to define custom configurations that don't exist in global
-            // (Previously we filtered out tower-specific configs here)
+
+            const towerConfigsList = config.configurations !== undefined ? config.configurations : (data.configurations || []);
+            const globalConfigs = data.configurations || [];
+
+            // Update configs from global for unit configs that exist in this tower without resurrecting deleted ones
+            const mergedConfigs = towerConfigsList.map((tc: any) => {
+                const matchingGlobal = globalConfigs.find((gc: any) => gc.id === tc.id);
+                if (matchingGlobal) {
+                    return {
+                        ...matchingGlobal,
+                        ...tc, // Tower overrides take precedence
+                    };
+                }
+                return tc;
+            });
 
             return {
                 ...data, // Include any missing global inherited fields like posessionDate, GST, etc.

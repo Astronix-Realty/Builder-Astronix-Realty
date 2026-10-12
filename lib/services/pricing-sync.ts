@@ -7,8 +7,8 @@ export function formatPriceLabel(min: number, max: number): string {
   if (min === 0 && max === 0) return "N/A";
 
   const format = (p: number) => {
-    if (p >= 10000000) return `${(p / 10000000).toFixed(2).replace(/\.00$/, "")}Cr`;
-    if (p >= 100000) return `${(p / 100000).toFixed(0)}L`;
+    if (p >= 10000000) return `${(p / 10000000).toFixed(2)} Cr`;
+    if (p >= 100000) return `${(p / 100000).toFixed(2)} L`;
     return p.toLocaleString();
   };
 

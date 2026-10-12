@@ -28,6 +28,18 @@ const BuilderSchema = new mongoose.Schema(
     state: { type: String },
     experience: { type: String },
     logo: { type: String },
+    coverImage: { type: String },
+    overviewImage: { type: String },
+    visionHighlights: [{
+      title: { type: String },
+      subtitle: { type: String },
+      icon: { type: String }
+    }],
+    awards: [{
+      year: { type: String },
+      title: { type: String },
+      org: { type: String }
+    }],
   },
   { timestamps: true }
 )

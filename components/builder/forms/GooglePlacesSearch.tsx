@@ -13,6 +13,7 @@ interface GooglePlacesSearchProps {
     district?: string;
     subCity?: string;
     village?: string;
+    areaOptions?: string[];
     state?: string;
     country?: string;
     pincode?: string;
@@ -130,7 +131,9 @@ export default function GooglePlacesSearch({
         let sublocality2 = "";
         let sublocality3 = "";
         let neighborhood = "";
-        let routePremise = "";
+        let route = "";
+        let premise = "";
+        let landmarkComponent = "";
         let state = "";
         let country = "";
         let pincode = "";
@@ -161,26 +164,30 @@ export default function GooglePlacesSearch({
             neighborhood = component.long_name;
           } else if (types.includes("sublocality")) {
             if (!sublocality1) sublocality1 = component.long_name;
-          } else if (
-            types.includes("route") ||
-            types.includes("street_number") ||
-            types.includes("premise")
-          ) {
-            if (!routePremise) routePremise = component.long_name;
+          } else if (types.includes("route")) {
+            route = component.long_name;
+          } else if (types.includes("premise") && !types.includes("landmark")) {
+            if (!premise) premise = component.long_name;
+          } else if (types.includes("landmark")) {
+            if (!landmarkComponent) landmarkComponent = component.long_name;
           }
         }
 
         // Sub City resolution: prefer sublocality1 (e.g. "Dombivli East")
-        subCity = sublocality1 || sublocality2 || city || "";
+        subCity = sublocality1 || sublocality2 || neighborhood || city || "";
 
         // 1. Smart City Resolution:
-        // If subCity is "Dombivli East" / "Dombivli West", the true city is "Dombivli" rather than "Kalyan" (KDMC municipal name)
+        // When Dombivli is detected in subCity or city, resolve to municipal corporation "Kalyan-Dombivli"
+        // so City and Sub City are clearly separated (e.g. City = "Kalyan-Dombivli", Sub City = "Dombivli East")
         let cleanSubCity = subCity.replace(/\s*(east|west|north|south|central)\s*/i, "").trim();
-        if (cleanSubCity && city.toLowerCase() !== cleanSubCity.toLowerCase()) {
-          if (city.toLowerCase().includes("kalyan") && cleanSubCity.toLowerCase().includes("dombivli")) {
-            city = cleanSubCity;
-          }
+        if (
+          (city.toLowerCase().includes("kalyan") && cleanSubCity.toLowerCase().includes("dombivli")) ||
+          (city.toLowerCase().includes("dombivli") && cleanSubCity.toLowerCase().includes("kalyan")) ||
+          (cleanSubCity.toLowerCase().includes("dombivli") && (city.toLowerCase().includes("kalyan") || city.toLowerCase().includes("dombivli")))
+        ) {
+          city = "Kalyan-Dombivli";
         }
+
         if (!city) city = cleanSubCity || level3District || level2District || "";
 
         // 2. Smart District resolution (Filter out revenue division names like "Konkan Division")
@@ -191,24 +198,41 @@ export default function GooglePlacesSearch({
           district = level2District || level3District || city || "";
         }
 
-        // 3. Smart Village/Area Resolution for GMB Profiles & Places:
-        // Extract exact neighborhood/road/area (e.g. "Shankara Nagar Road", "Sonar Pada", "MIDC")
-        let village = neighborhood || sublocality3 || "";
+        // 3. Smart Village / Area Resolution (Jis gaon/pure area me property hai):
+        // PRIORITY:
+        // 1) sublocality2 / sublocality3 (e.g. "MIDC", "Sonar Pada", "Manpada", "Gharipada", "Kolegaon", "Nilje")
+        // 2) neighborhood (if distinct from city/subCity)
+        // 3) route (Road name fallback, e.g. "Shankara Nagar Road")
+        // NEVER use premise / building name (e.g. "Sakharam Ashish") as Area/Gaon!
+        const isCityOrSubCity = (name: string) => {
+          if (!name) return true;
+          const lower = name.toLowerCase().trim();
+          return (
+            lower === city.toLowerCase().trim() ||
+            lower === subCity.toLowerCase().trim() ||
+            lower === "dombivli" ||
+            lower === "kalyan" ||
+            lower === "thane"
+          );
+        };
 
-        if (!village && routePremise && routePremise.toLowerCase() !== city.toLowerCase()) {
-          village = routePremise;
-        }
-
-        if (!village && sublocality2 && sublocality2.toLowerCase() !== city.toLowerCase() && sublocality2.toLowerCase() !== subCity.toLowerCase()) {
+        let village = "";
+        if (sublocality2 && !isCityOrSubCity(sublocality2)) {
           village = sublocality2;
+        } else if (sublocality3 && !isCityOrSubCity(sublocality3)) {
+          village = sublocality3;
+        } else if (neighborhood && !isCityOrSubCity(neighborhood)) {
+          village = neighborhood;
+        } else if (route && !isCityOrSubCity(route)) {
+          village = route;
         }
 
-        // If village is still empty or duplicates city name (e.g. "Dombivli"), extract from formatted_address/place.name
-        if (!village || village.toLowerCase() === city.toLowerCase() || village.toLowerCase() === subCity.toLowerCase()) {
+        // If village is still empty or duplicates city name, extract from formatted_address excluding premise/building names
+        if (!village || isCityOrSubCity(village)) {
           const rawAddress = place.formatted_address || place.name || "";
           if (rawAddress) {
             const addressParts = rawAddress.split(",").map((p: string) => p.trim());
-            // Filter out state, country, pincode, city, subCity, district, and business title
+            // Filter out state, country, pincode, city, subCity, district, building name and business title
             const filtered = addressParts.filter((part: string) => {
               const lower = part.toLowerCase();
               if (pincode && lower.includes(pincode)) return false;
@@ -217,33 +241,33 @@ export default function GooglePlacesSearch({
               if (district && lower.includes(district.toLowerCase())) return false;
               if (city && lower === city.toLowerCase()) return false;
               if (subCity && lower === subCity.toLowerCase()) return false;
-              if (lower.includes("kalyan") && lower.includes("dombivli")) return false;
+              if (lower.includes("kalyan") || lower.includes("dombivli")) return false;
+              if (premise && lower.includes(premise.toLowerCase())) return false;
               if (place.name && lower.includes(place.name.toLowerCase())) return false;
               return true;
             });
 
             if (filtered.length > 0) {
-              // Pick the best area token (e.g. "Shankara Nagar Road", "Sonar Pada", "MIDC")
+              // Pick the best gaon/area token
               village = filtered.find((f: string) =>
-                f.toLowerCase().includes("road") ||
-                f.toLowerCase().includes("nagar") ||
-                f.toLowerCase().includes("pada") ||
-                f.toLowerCase().includes("midc") ||
-                f.toLowerCase().includes("sector") ||
-                f.toLowerCase().includes("colony")
+                /pada|gaon|gram|midc|wadi|sector|colony|phase/i.test(f)
+              ) || filtered.find((f: string) =>
+                /road|rd|marg/i.test(f)
               ) || filtered[0];
             }
           }
         }
 
         if (!village) {
-          village = routePremise || sublocality2 || subCity || city || "";
+          village = route || sublocality2 || subCity || "";
         }
 
         // Universal hierarchy fallbacks
         if (!city) city = subCity || district || state || "";
         if (!district) district = city || state || "";
-        if (!subCity) subCity = village || city || "";
+        if (!subCity || subCity.toLowerCase() === city.toLowerCase()) {
+          subCity = (village && village.toLowerCase() !== city.toLowerCase()) ? village : sublocality1 || sublocality2 || neighborhood || "";
+        }
 
         const lat = place.geometry?.location?.lat
           ? place.geometry.location.lat()
@@ -290,12 +314,22 @@ export default function GooglePlacesSearch({
 
         setSelectedPlaceName(place.name || place.formatted_address || "");
 
+        // Extract all detected area/location options from map result
+        const areaOptions: string[] = [];
+        if (village && !areaOptions.includes(village)) areaOptions.push(village);
+        if (sublocality2 && !isCityOrSubCity(sublocality2) && !areaOptions.includes(sublocality2)) areaOptions.push(sublocality2);
+        if (sublocality3 && !isCityOrSubCity(sublocality3) && !areaOptions.includes(sublocality3)) areaOptions.push(sublocality3);
+        if (neighborhood && !isCityOrSubCity(neighborhood) && !areaOptions.includes(neighborhood)) areaOptions.push(neighborhood);
+        if (route && !isCityOrSubCity(route) && !areaOptions.includes(route)) areaOptions.push(route);
+        if (premise && !areaOptions.includes(premise)) areaOptions.push(premise);
+
         // Auto-fill wizard fields dynamically for ANY place searched
         onLocationSelected({
           city,
           district,
           subCity,
           village,
+          areaOptions,
           state,
           country,
           pincode,

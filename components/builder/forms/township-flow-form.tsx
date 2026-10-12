@@ -28,6 +28,7 @@ import { ConnectivityManager } from "@/components/builder/shared/ConnectivityMan
 import { EcoFeaturesManager } from "@/components/builder/shared/EcoFeaturesManager"
 import { AmenitiesManager } from "@/components/builder/shared/AmenitiesManager"
 import GooglePlacesSearch from "@/components/builder/forms/GooglePlacesSearch"
+import AreaSelectInput from "@/components/builder/forms/AreaSelectInput"
 import { GmbReviewsSelector } from "@/components/builder/shared/GmbReviewsSelector"
 import { GmbMapPreview } from "@/components/builder/shared/GmbMapPreview"
 
@@ -279,6 +280,7 @@ function BulkImageInput({ onAdd }: { onAdd: (urls: string[]) => void }) {
 function TownshipFlowFormBase({ data, onChange, user }: TownshipFlowFormProps) {
   const [openIds, setOpenIds] = useState<SectionId[]>(["identity", "builder", "location"])
   const [openParts, setOpenParts] = useState<string[]>(["part-a", "part-b"])
+  const [detectedAreas, setDetectedAreas] = useState<string[]>(data.village ? [data.village] : [])
 
   const isBuilder = user?.role === "builder" || user?.userType === "builder"
 
@@ -670,6 +672,9 @@ function TownshipFlowFormBase({ data, onChange, user }: TownshipFlowFormProps) {
           <GooglePlacesSearch
             initialSearchText={data.nearbyLandmark || ""}
             onLocationSelected={(loc) => {
+              if (loc.areaOptions && loc.areaOptions.length > 0) {
+                setDetectedAreas(loc.areaOptions);
+              }
               onChange((prev) => {
                 const next = { ...prev };
                 if (loc.city) next.city = loc.city;
@@ -704,8 +709,15 @@ function TownshipFlowFormBase({ data, onChange, user }: TownshipFlowFormProps) {
           <Field label="Sub City" required>
             <Input value={data.subCity ?? ""} onChange={e => update("subCity", e.target.value)} placeholder="Dombivali East" />
           </Field>
-          <Field label="Area" required>
-            <Input value={data.village ?? ""} onChange={e => update("village", e.target.value)} placeholder="Sonarpada" />
+          <Field label="Area" required hint="Choose from map suggestions / gaon list or type custom">
+            <AreaSelectInput
+              value={data.village ?? ""}
+              onChange={val => update("village", val)}
+              subCity={data.subCity ?? ""}
+              city={data.city ?? ""}
+              detectedOptions={detectedAreas}
+              placeholder="Select or type area/gaon (e.g. MIDC, Sonarpada)"
+            />
           </Field>
 
           <Field label="State" required>

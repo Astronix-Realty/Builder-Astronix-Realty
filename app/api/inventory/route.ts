@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
       isDeleted: { $ne: true },
       status: { $in: ["published", "active", "pending"] },
     })
+      .select('-details.generatedUnits -details.units')
       .sort({ updatedAt: -1 })
       .lean();
 

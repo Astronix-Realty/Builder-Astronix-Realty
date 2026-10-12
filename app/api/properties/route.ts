@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
       console.log("[GET /api/properties] query:", JSON.stringify(query));
     }
 
-    const allRawProperties = await Property.find(query).sort({ updatedAt: -1 }).lean();
+    const allRawProperties = await Property.find(query).select('-details.generatedUnits -details.units').sort({ updatedAt: -1 }).lean();
 
     // Deduplicate: If a property has a pending, published, or active version, exclude any duplicate draft version of the same property
     // Also deduplicate multiple properties with the exact same name (keep the most recently updated one).

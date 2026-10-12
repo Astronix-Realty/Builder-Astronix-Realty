@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, Suspense } from "react"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Plus, Building2, MapPin, DollarSign, ChevronRight, Edit2, Trash2, Home, Layers, Building, Eye, User, Save, Globe, Mail, Phone, FileText, Tag, Percent, Calendar, Clock, Gift, Paintbrush, Image as ImageIcon, LogOut, Settings, Menu, X, Palette, Bell, Shield, ShieldCheck, Lock, Headphones, Smartphone, MessageSquare, Users, Briefcase, Loader2, RefreshCw, Search, Receipt } from "lucide-react"
+import { Plus, Building2, MapPin, DollarSign, ChevronRight, Edit2, Trash2, Home, Layers, Building, Eye, User, Save, Globe, Mail, Phone, FileText, Tag, Percent, Calendar, Clock, Gift, Paintbrush, Image as ImageIcon, LogOut, Settings, Menu, X, Palette, Bell, Shield, ShieldCheck, Lock, Headphones, Smartphone, MessageSquare, Users, Briefcase, Loader2, RefreshCw, Search, Receipt, Star, Award, TrendingUp } from "lucide-react"
 import { toast } from "sonner"
 import BannerEditor from "@/components/BannerEditor"
 import { ImageUpload } from "@/components/ui/image-upload"
@@ -40,6 +40,10 @@ interface BuilderProfile {
   experience?: string
   aboutCompany?: string
   specialization?: string
+  visionHighlights?: { title: string; subtitle: string; icon: string }[]
+  awards?: { year: string; title: string; org: string }[]
+  overviewImage?: string
+  coverImage?: string
 }
 
 interface Property {
@@ -529,7 +533,11 @@ function DashboardContent() {
     operatingCities: "",
     experience: "",
     aboutCompany: "",
-    specialization: ""
+    specialization: "",
+    visionHighlights: [],
+    awards: [],
+    overviewImage: "",
+    coverImage: ""
   })
 
   useEffect(() => {
@@ -544,6 +552,17 @@ function DashboardContent() {
       p.city,
       p.state
     ].filter(Boolean).join(", ");
+
+    let computedExperience = p.experience || "";
+    if (p.establishedYear) {
+      const yr = parseInt(p.establishedYear);
+      if (!isNaN(yr) && String(p.establishedYear).length === 4) {
+        const curr = new Date().getFullYear();
+        if (yr <= curr && yr > 1800) {
+          computedExperience = String(curr - yr);
+        }
+      }
+    }
 
     setProfile({
       companyName: p.companyName || "",
@@ -560,9 +579,13 @@ function DashboardContent() {
       state: p.state || "",
       reraCertificate: p.reraCertificate || "",
       operatingCities: p.operatingCities || "",
-      experience: p.experience || "",
+      experience: computedExperience,
       aboutCompany: p.aboutCompany || "",
-      specialization: p.specialization || ""
+      specialization: p.specialization || "",
+      visionHighlights: p.visionHighlights || [],
+      awards: p.awards || [],
+      overviewImage: p.overviewImage || "",
+      coverImage: p.coverImage || ""
     });
   }, [currentUser])
 
@@ -588,7 +611,11 @@ function DashboardContent() {
           operatingCities: profile.operatingCities,
           experience: profile.experience,
           aboutCompany: profile.aboutCompany,
-          specialization: profile.specialization
+          specialization: profile.specialization,
+          visionHighlights: profile.visionHighlights,
+          awards: profile.awards,
+          overviewImage: profile.overviewImage,
+          coverImage: profile.coverImage
         }),
       });
 
@@ -1572,13 +1599,29 @@ function DashboardContent() {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                       {/* Left Col - Avatar & Basic */}
                       <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-8 h-fit">
-                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-6 text-center">
+                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-6 text-center space-y-8">
                           <ImageUpload
                             value={profile.logo}
                             onChange={(val) => setProfile({ ...profile, logo: val })}
                             label="Company Logo"
                             className="w-full"
                           />
+                          <div className="border-t border-slate-100 dark:border-slate-800 pt-6">
+                            <ImageUpload
+                              value={profile.coverImage}
+                              onChange={(val) => setProfile({ ...profile, coverImage: val })}
+                              label="Cover Hero Image"
+                              className="w-full"
+                            />
+                          </div>
+                          <div className="border-t border-slate-100 dark:border-slate-800 pt-6">
+                            <ImageUpload
+                              value={profile.overviewImage}
+                              onChange={(val) => setProfile({ ...profile, overviewImage: val })}
+                              label="Overview Side Image"
+                              className="w-full"
+                            />
+                          </div>
                         </div>
 
 
@@ -1608,6 +1651,7 @@ function DashboardContent() {
                                 <Building2 className="h-5 w-5 text-slate-500 dark:text-slate-400" />
                                 Company Details
                               </h3>
+
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Company Name</label>
@@ -1625,7 +1669,18 @@ function DashboardContent() {
                                   <input
                                     type="text"
                                     value={profile.establishedYear}
-                                    onChange={(e) => setProfile({ ...profile, establishedYear: e.target.value })}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      let experienceStr = profile.experience;
+                                      const year = parseInt(val);
+                                      if (!isNaN(year) && val.length === 4) {
+                                        const currentYear = new Date().getFullYear();
+                                        if (year <= currentYear && year > 1800) {
+                                          experienceStr = String(currentYear - year);
+                                        }
+                                      }
+                                      setProfile({ ...profile, establishedYear: val, experience: experienceStr });
+                                    }}
                                     className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     placeholder="e.g. 1998"
                                   />
@@ -1721,6 +1776,8 @@ function DashboardContent() {
                                     placeholder="Brief overview or bio of the developer..."
                                   />
                                 </div>
+                                
+
                               </div>
                             </div>
 
@@ -1768,6 +1825,180 @@ function DashboardContent() {
                                     className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                   />
                                 </div>
+                              </div>
+                            </div>
+
+                            {/* Vision Highlights */}
+                            <div>
+                              <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                                  <Star className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                                  Vision Highlights
+                                </h3>
+                                <button
+                                  type="button"
+                                  onClick={() => setProfile({
+                                    ...profile,
+                                    visionHighlights: [...(profile.visionHighlights || []), { title: '', subtitle: '', icon: 'Star' }]
+                                  })}
+                                  className="text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded-lg font-medium transition-colors"
+                                >
+                                  + Add Highlight
+                                </button>
+                              </div>
+                              <div className="space-y-4">
+                                {profile.visionHighlights?.map((highlight, index) => (
+                                  <div key={index} className="flex gap-4 items-start bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                                    <div className="flex-1 space-y-3">
+                                      <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                          <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Title</label>
+                                          <input
+                                            type="text"
+                                            value={highlight.title}
+                                            onChange={(e) => {
+                                              const newHighlights = [...(profile.visionHighlights || [])];
+                                              newHighlights[index].title = e.target.value;
+                                              setProfile({ ...profile, visionHighlights: newHighlights });
+                                            }}
+                                            className="w-full px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            placeholder="e.g. Legacy"
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Icon</label>
+                                          <select
+                                            value={highlight.icon}
+                                            onChange={(e) => {
+                                              const newHighlights = [...(profile.visionHighlights || [])];
+                                              newHighlights[index].icon = e.target.value;
+                                              setProfile({ ...profile, visionHighlights: newHighlights });
+                                            }}
+                                            className="w-full px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                          >
+                                            <option value="Star">Star</option>
+                                            <option value="Award">Award</option>
+                                            <option value="TrendingUp">Trending Up</option>
+                                          </select>
+                                        </div>
+                                      </div>
+                                      <div>
+                                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Subtitle</label>
+                                        <input
+                                          type="text"
+                                          value={highlight.subtitle}
+                                          onChange={(e) => {
+                                            const newHighlights = [...(profile.visionHighlights || [])];
+                                            newHighlights[index].subtitle = e.target.value;
+                                            setProfile({ ...profile, visionHighlights: newHighlights });
+                                          }}
+                                          className="w-full px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                          placeholder="e.g. Decades of trust"
+                                        />
+                                      </div>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const newHighlights = [...(profile.visionHighlights || [])];
+                                        newHighlights.splice(index, 1);
+                                        setProfile({ ...profile, visionHighlights: newHighlights });
+                                      }}
+                                      className="mt-6 text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                ))}
+                                {(!profile.visionHighlights || profile.visionHighlights.length === 0) && (
+                                  <p className="text-sm text-slate-500 italic">No highlights added yet.</p>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Awards & Recognition */}
+                            <div className="pt-6 border-t border-slate-200 dark:border-slate-800">
+                              <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                                  <Award className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                                  Awards & Recognition
+                                </h3>
+                                <button
+                                  type="button"
+                                  onClick={() => setProfile({
+                                    ...profile,
+                                    awards: [...(profile.awards || []), { year: '', title: '', org: '' }]
+                                  })}
+                                  className="text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded-lg font-medium transition-colors"
+                                >
+                                  + Add Award
+                                </button>
+                              </div>
+                              <div className="space-y-4">
+                                {profile.awards?.map((award, index) => (
+                                  <div key={index} className="flex gap-4 items-start bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                                    <div className="flex-1 space-y-3">
+                                      <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                          <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Year</label>
+                                          <input
+                                            type="text"
+                                            value={award.year}
+                                            onChange={(e) => {
+                                              const newAwards = [...(profile.awards || [])];
+                                              newAwards[index].year = e.target.value;
+                                              setProfile({ ...profile, awards: newAwards });
+                                            }}
+                                            className="w-full px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            placeholder="e.g. 2023"
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Organization</label>
+                                          <input
+                                            type="text"
+                                            value={award.org}
+                                            onChange={(e) => {
+                                              const newAwards = [...(profile.awards || [])];
+                                              newAwards[index].org = e.target.value;
+                                              setProfile({ ...profile, awards: newAwards });
+                                            }}
+                                            className="w-full px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            placeholder="e.g. Real Estate Awards"
+                                          />
+                                        </div>
+                                      </div>
+                                      <div>
+                                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Title</label>
+                                        <input
+                                          type="text"
+                                          value={award.title}
+                                          onChange={(e) => {
+                                            const newAwards = [...(profile.awards || [])];
+                                            newAwards[index].title = e.target.value;
+                                            setProfile({ ...profile, awards: newAwards });
+                                          }}
+                                          className="w-full px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                          placeholder="e.g. Best Developer of the Year"
+                                        />
+                                      </div>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const newAwards = [...(profile.awards || [])];
+                                        newAwards.splice(index, 1);
+                                        setProfile({ ...profile, awards: newAwards });
+                                      }}
+                                      className="mt-6 text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                ))}
+                                {(!profile.awards || profile.awards.length === 0) && (
+                                  <p className="text-sm text-slate-500 italic">No awards added yet.</p>
+                                )}
                               </div>
                             </div>
 
