@@ -82,6 +82,8 @@ PropertySchema.index({ builderId: 1, publishedId: 1, status: 1 });
 PropertySchema.index({ publishedId: 1 });
 PropertySchema.index({ draftId: 1 });
 PropertySchema.index({ draftSourceId: 1 }); // For idempotent publish lookup
+PropertySchema.index({ createdAt: -1 });
+PropertySchema.index({ isDeleted: 1, createdAt: -1 });
 
 // Pre-save hook for hierarchy validation
 PropertySchema.pre('save', async function (next) {

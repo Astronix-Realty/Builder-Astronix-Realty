@@ -10,7 +10,11 @@ async function verifyJwtEdge(token: string) {
     const [headerB64, payloadB64, signatureB64] = parts;
     const encoder = new TextEncoder();
     
-    const secret = process.env.JWT_SECRET || "astronix-realty-secret-key-change-in-production";
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      console.error("[Builder Middleware Critical]: JWT_SECRET is not configured.");
+      return null;
+    }
     
     const key = await crypto.subtle.importKey(
       'raw',

@@ -29,8 +29,13 @@ export async function GET(req: NextRequest) {
         path: 'builderId',
         populate: [{ path: 'builderId' }, { path: 'mandateId' }],
       })
-      .sort({ createdAt: -1 })
       .lean();
+
+    allProperties.sort((a: any, b: any) => {
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return dateB - dateA;
+    });
       
     const allUnits = await Unit.find({}).lean();
 

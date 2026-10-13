@@ -47,11 +47,14 @@ async function enrichLeadsWithUserProfiles(rawLeads: any[]) {
     }
     if (phones.size > 0) {
         Array.from(phones).forEach(p => {
-            userOrConditions.push({ phone: p });
-            userOrConditions.push({ phone: `+91${p}` });
-            userOrConditions.push({ phone: `+91 ${p}` });
-            userOrConditions.push({ phone: `+91-${p}` });
-            userOrConditions.push({ phone: new RegExp(`${p}$`) });
+            const cleanDigits = p.replace(/\D/g, '').slice(-10);
+            if (cleanDigits) {
+                userOrConditions.push({ phone: cleanDigits });
+                userOrConditions.push({ phone: `+91${cleanDigits}` });
+                userOrConditions.push({ phone: `+91 ${cleanDigits}` });
+                userOrConditions.push({ phone: `+91-${cleanDigits}` });
+                userOrConditions.push({ phone: { $regex: `${cleanDigits}$` } });
+            }
         });
     }
 

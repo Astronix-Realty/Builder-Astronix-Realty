@@ -1,7 +1,10 @@
 import jwt from "jsonwebtoken"
 import { NextRequest } from "next/server"
 
-const JWT_SECRET = process.env.JWT_SECRET || "astronix-realty-secret-key-change-in-production"
+const JWT_SECRET = process.env.JWT_SECRET || "";
+if (!process.env.JWT_SECRET) {
+  console.warn("[Builder Auth Warning]: process.env.JWT_SECRET is not set.");
+}
 export const AUTH_COOKIE = "auth_token"
 export const TOKEN_MAX_AGE = 60 * 60 * 24 * 7 // 7 days
 
@@ -12,11 +15,13 @@ export function signToken(payload: {
   approvalStatus?: string;
   approvalMessage?: string;
 }) {
+  if (!JWT_SECRET) throw new Error("JWT_SECRET is not configured");
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" })
 }
 
 export function verifyToken(token: string) {
   try {
+    if (!JWT_SECRET) return null;
     return jwt.verify(token, JWT_SECRET) as { 
       userId: string; 
       email: string; 

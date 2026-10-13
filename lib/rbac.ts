@@ -151,7 +151,10 @@ export async function checkRBAC(
       
     return { 
       errorResponse: NextResponse.json(
-        { error: errorMsg, details: error.message, stack: error.stack }, 
+        { 
+          error: errorMsg,
+          ...(process.env.NODE_ENV === 'development' ? { details: error.message } : {})
+        }, 
         { status: isDbError ? 503 : 500 } 
       ) 
     };
