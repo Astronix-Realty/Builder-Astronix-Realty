@@ -1,12 +1,8 @@
 "use client"
 
 import { useState, useEffect, useMemo, Suspense } from "react"
-import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Plus, Building2, MapPin, DollarSign, ChevronRight, Edit2, Trash2, Home, Layers, Building, Eye, User, Save, Globe, Mail, Phone, FileText, Tag, Percent, Calendar, Clock, Gift, Paintbrush, Image as ImageIcon, LogOut, Settings, Menu, X, Palette, Bell, Shield, ShieldCheck, Lock, Headphones, Smartphone, MessageSquare, Users, Briefcase, Loader2, RefreshCw, Search, Receipt, Star, Award, TrendingUp } from "lucide-react"
 import { toast } from "sonner"
-import BannerEditor from "@/components/BannerEditor"
-import { ImageUpload } from "@/components/ui/image-upload"
 import { InventoryView } from "@/components/builder/inventory/inventory-view"
 import { CRMView } from "@/components/builder/crm/crm-view"
 import { CRMCloneView } from "@/components/builder/crm/crm-clone-view"
@@ -17,129 +13,102 @@ import { BlogView } from "@/components/builder/blog/blog-view"
 import { OffersView } from "@/components/builder/offers/offers-view"
 import { BillsView } from "@/components/builder/bills/bills-view"
 import { FeedbackView } from "@/components/builder/feedback/feedback-view"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import PropertyHierarchyModal, { HierarchyPropertyInfo } from "@/components/PropertyHierarchyModal"
-import GroupBuyingQuickEdit from "@/components/builder/group-buying-quick-edit"
 import { MobileBottomNav } from "@/components/builder/shared/MobileBottomNav"
-
-interface BuilderProfile {
-  companyName: string
-  developerName: string
-  email: string
-  phone: string
-  address: string
-  description: string
-  reraNumber: string
-  website: string
-  logo?: string
-  establishedYear?: string
-  tagline?: string
-  state?: string
-  reraCertificate?: string
-  operatingCities?: string
-  experience?: string
-  aboutCompany?: string
-  specialization?: string
-  visionHighlights?: { title: string; subtitle: string; icon: string }[]
-  awards?: { year: string; title: string; org: string }[]
-  overviewImage?: string
-  coverImage?: string
-}
-
-interface Property {
-  id: string
-  townshipName: string
-  name?: string
-  projects: number
-  towers: number
-  units: number
-  location: string
-  status: "published" | "pending" | "draft" | "rejected" | "archived" | "completed"
-
-  totalValue: number
-  createdDate: string
-  updatedAt?: string
-  rejectionReason?: string | null
-  flowType?: string
-  thumbnail?: string
-  searchBlob?: string
-  reraNumber?: string
-  groupBuying?: {
-    enabled?: boolean
-    discountLabel?: string
-    targetCount?: number
-    startDate?: string
-    endDate?: string
-  }
-}
-
+import {
+  DashboardSidebar,
+  DashboardHeader,
+  PropertiesView,
+  SettingsView,
+  Property,
+  DashboardProfile,
+  DashboardTab,
+  PropertyFilter,
+  ActiveSettingsTab,
+} from "@/components/builder/dashboard"
 
 function DashboardContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [currentUser, setCurrentUser] = useState<any>(null)
-  const [activeTab, setActiveTab] = useState<"bills" | "properties" | "inventory" | "crm" | "crm2" | "chat" | "documents" | "offers" | "blog" | "settings" | "team" | "feedback">(() => {
+  const [activeTab, setActiveTab] = useState<DashboardTab>(() => {
     if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const tabParam = params.get("tab");
-      const validTabs = ["bills", "properties", "inventory", "crm", "crm2", "chat", "documents", "offers", "blog", "team", "settings"];
-      if (tabParam && validTabs.includes(tabParam)) return tabParam as any;
+      const params = new URLSearchParams(window.location.search)
+      const tabParam = params.get("tab")
+      const validTabs = [
+        "bills",
+        "properties",
+        "inventory",
+        "crm",
+        "crm2",
+        "chat",
+        "documents",
+        "offers",
+        "blog",
+        "team",
+        "settings",
+        "feedback",
+      ]
+      if (tabParam && validTabs.includes(tabParam)) return tabParam as DashboardTab
       try {
-        const stored = sessionStorage.getItem("builder_active_tab");
-        if (stored && validTabs.includes(stored)) return stored as any;
+        const stored = sessionStorage.getItem("builder_active_tab")
+        if (stored && validTabs.includes(stored)) return stored as DashboardTab
       } catch (e) {}
     }
-    return "properties";
+    return "properties"
   })
-  const [activeSettingsTab, setActiveSettingsTab] = useState<"profile" | "preferences">("profile")
+
+  const [activeSettingsTab, setActiveSettingsTab] = useState<ActiveSettingsTab>("profile")
   const [showAddProperty, setShowAddProperty] = useState(false)
-  const [propertyFilter, setPropertyFilter] = useState<'published' | 'pending' | 'draft' | 'rejected'>(() => {
+  const [propertyFilter, setPropertyFilter] = useState<PropertyFilter>(() => {
     if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const filterParam = params.get("filter");
-      if (filterParam === "drafts" || filterParam === "draft") return "draft";
-      if (filterParam === "pending") return "pending";
-      if (filterParam === "published" || filterParam === "active") return "published";
-      if (filterParam === "rejected") return "rejected";
+      const params = new URLSearchParams(window.location.search)
+      const filterParam = params.get("filter")
+      if (filterParam === "drafts" || filterParam === "draft") return "draft"
+      if (filterParam === "pending") return "pending"
+      if (filterParam === "published" || filterParam === "active") return "published"
+      if (filterParam === "rejected") return "rejected"
       try {
-        const stored = sessionStorage.getItem("builder_property_filter");
-        if (stored && ['published', 'pending', 'draft', 'rejected'].includes(stored)) return stored as any;
+        const stored = sessionStorage.getItem("builder_property_filter")
+        if (stored && ["published", "pending", "draft", "rejected"].includes(stored)) {
+          return stored as PropertyFilter
+        }
       } catch (e) {}
     }
-    return "published";
+    return "published"
   })
 
-  const handleTabChange = (tab: "bills" | "properties" | "inventory" | "crm" | "crm2" | "chat" | "documents" | "offers" | "blog" | "settings" | "team" | "feedback") => {
-    setActiveTab(tab);
-    setIsMobileMenuOpen(false);
+  const handleTabChange = (tab: DashboardTab) => {
+    setActiveTab(tab)
     if (typeof window !== "undefined") {
       try {
-        sessionStorage.setItem("builder_active_tab", tab);
-        const url = new URL(window.location.href);
-        url.searchParams.set("tab", tab);
-        window.history.replaceState({}, "", url.toString());
+        sessionStorage.setItem("builder_active_tab", tab)
+        const url = new URL(window.location.href)
+        url.searchParams.set("tab", tab)
+        window.history.replaceState({}, "", url.toString())
       } catch (e) {}
     }
-  };
+  }
 
-  const handleFilterChange = (filter: 'published' | 'pending' | 'draft' | 'rejected') => {
-    setPropertyFilter(filter);
+  const handleFilterChange = (filter: PropertyFilter) => {
+    setPropertyFilter(filter)
     if (typeof window !== "undefined") {
       try {
-        sessionStorage.setItem("builder_property_filter", filter);
-        const url = new URL(window.location.href);
-        url.searchParams.set("filter", filter);
-        window.history.replaceState({}, "", url.toString());
+        sessionStorage.setItem("builder_property_filter", filter)
+        const url = new URL(window.location.href)
+        url.searchParams.set("filter", filter)
+        window.history.replaceState({}, "", url.toString())
       } catch (e) {}
     }
-  };
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  }
+
   const [isLoading, setIsLoading] = useState(true)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
   const [isChangingPassword, setIsChangingPassword] = useState(false)
   const [passwordData, setPasswordData] = useState({
     otp: "",
     newPassword: "",
-    confirmPassword: ""
+    confirmPassword: "",
   })
   const [otpSent, setOtpSent] = useState(false)
   const [sendingOtp, setSendingOtp] = useState(false)
@@ -148,13 +117,13 @@ function DashboardContent() {
     published: "",
     pending: "",
     draft: "",
-    rejected: ""
+    rejected: "",
   })
   const [debouncedPropertySearch, setDebouncedPropertySearch] = useState<Record<string, string>>({
     published: "",
     pending: "",
     draft: "",
-    rejected: ""
+    rejected: "",
   })
 
   useEffect(() => {
@@ -170,33 +139,32 @@ function DashboardContent() {
   const [isFetchingProperties, setIsFetchingProperties] = useState(false)
   const [deletingPropertyId, setDeletingPropertyId] = useState<string | null>(null)
   const [movingToDraftId, setMovingToDraftId] = useState<string | null>(null)
-
-  const [selectedPropertyForHierarchy, setSelectedPropertyForHierarchy] = useState<HierarchyPropertyInfo | null>(null)
-
+  const [selectedPropertyForHierarchy, setSelectedPropertyForHierarchy] =
+    useState<HierarchyPropertyInfo | null>(null)
 
   // Theme Logic
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('light')
+  const [theme, setTheme] = useState<"light" | "dark" | "system">("light")
 
-  const saveThemeToDb = async (newTheme: 'light' | 'dark' | 'system') => {
+  const saveThemeToDb = async (newTheme: "light" | "dark" | "system") => {
     try {
       await fetch("/api/auth/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ theme: newTheme })
+        body: JSON.stringify({ theme: newTheme }),
       })
     } catch (error) {
       console.error("Failed to save theme setting to DB", error)
     }
   }
 
-  const handleThemeChange = (newTheme: 'light' | 'dark' | 'system') => {
+  const handleThemeChange = (newTheme: "light" | "dark" | "system") => {
     setTheme(newTheme)
     saveThemeToDb(newTheme)
   }
 
   // Notification Preferences Logic
   const [notifications, setNotifications] = useState<Record<string, boolean>>({
-    "Offer Expiry Reminders": true
+    "Offer Expiry Reminders": true,
   })
 
   const saveNotificationsToDb = async (updatedNotifications: Record<string, boolean>) => {
@@ -204,7 +172,7 @@ function DashboardContent() {
       await fetch("/api/auth/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notifications: updatedNotifications })
+        body: JSON.stringify({ notifications: updatedNotifications }),
       })
     } catch (error) {
       console.error("Failed to save notification preferences to DB", error)
@@ -224,33 +192,34 @@ function DashboardContent() {
   }, [currentUser])
 
   useEffect(() => {
-    // Check database first, then local storage or system preference on mount
     if (currentUser?.profile?.theme) {
       setTheme(currentUser.profile.theme)
     } else {
-      const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | 'system' | null
+      const savedTheme = localStorage.getItem("theme") as "light" | "dark" | "system" | null
       if (savedTheme) {
         setTheme(savedTheme)
-      } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        setTheme('system')
+      } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+        setTheme("system")
       }
     }
   }, [currentUser])
 
   useEffect(() => {
     const root = window.document.documentElement
-    root.classList.remove('light', 'dark')
+    root.classList.remove("light", "dark")
 
-    if (theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    if (theme === "system") {
+      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light"
       root.classList.add(systemTheme)
     } else {
       root.classList.add(theme)
     }
-    localStorage.setItem('theme', theme)
+    localStorage.setItem("theme", theme)
   }, [theme])
 
-  // Auth: fetch current user from API
+  // Auth: fetch current user
   useEffect(() => {
     const fetchUser = async () => {
       try {
@@ -270,50 +239,46 @@ function DashboardContent() {
     fetchUser()
   }, [router])
 
-  // Handle Query Params (Redirects from Builder)
-  const searchParams = useSearchParams()
+  // Handle Query Params
   useEffect(() => {
     const tabParam = searchParams.get("tab")
     const filterParam = searchParams.get("filter")
 
     if (tabParam) {
-      if (["properties", "inventory", "crm", "crm2", "chat", "documents", "offers", "blog", "team", "profile", "settings"].includes(tabParam)) {
+      if (
+        [
+          "properties",
+          "inventory",
+          "crm",
+          "crm2",
+          "chat",
+          "documents",
+          "offers",
+          "blog",
+          "team",
+          "profile",
+          "settings",
+          "feedback",
+          "bills",
+        ].includes(tabParam)
+      ) {
         setActiveTab(tabParam as any)
-        try { sessionStorage.setItem("builder_active_tab", tabParam) } catch (e) {}
+        try {
+          sessionStorage.setItem("builder_active_tab", tabParam)
+        } catch (e) {}
       }
-    } else {
-      try {
-        const storedTab = sessionStorage.getItem("builder_active_tab");
-        if (storedTab && ["properties", "inventory", "crm", "crm2", "chat", "documents", "offers", "blog", "team", "profile", "settings"].includes(storedTab)) {
-          setActiveTab(storedTab as any);
-          const url = new URL(window.location.href);
-          url.searchParams.set("tab", storedTab);
-          window.history.replaceState({}, "", url.toString());
-        }
-      } catch (e) {}
     }
 
     if (filterParam) {
       if (filterParam === "drafts" || filterParam === "draft") {
         setPropertyFilter("draft")
-        try { sessionStorage.setItem("builder_property_filter", "draft") } catch (e) {}
       } else if (filterParam === "pending") {
         setPropertyFilter("pending")
-        try { sessionStorage.setItem("builder_property_filter", "pending") } catch (e) {}
       } else if (filterParam === "published" || filterParam === "active") {
         setPropertyFilter("published")
-        try { sessionStorage.setItem("builder_property_filter", "published") } catch (e) {}
       } else if (filterParam === "rejected") {
         setPropertyFilter("rejected")
-        try { sessionStorage.setItem("builder_property_filter", "rejected") } catch (e) {}
       }
-    } else {
-      try {
-        const storedFilter = sessionStorage.getItem("builder_property_filter");
-        if (storedFilter && ['published', 'pending', 'draft', 'rejected'].includes(storedFilter)) {
-          setPropertyFilter(storedFilter as any);
-        }
-      } catch (e) {}
     }
   }, [searchParams])
 
@@ -322,85 +287,107 @@ function DashboardContent() {
     router.push("/login")
   }
 
-  // Helper to map DB/Storage data to UI format
-  const mapProperty = (p: any, defaultStatus: 'active' | 'pending' | 'draft' | 'rejected'): Property => {
+  const mapProperty = (
+    p: any,
+    defaultStatus: "published" | "pending" | "draft" | "rejected"
+  ): Property => {
     const details = p.details || {}
     const flowType = p.flowType || p.type
 
-    // Use root property name or townshipName as fallback
-    let name = p.name || p.townshipName || "Untitled Property"
-    let location = p.location || "Location not set"
+    const name = p.name || p.townshipName || "Untitled Property"
+    const location = p.location || "Location not set"
 
-    // ── Accurate Hierarchy & Counts Resolution (Projects, Towers, Units) ──
-    const snapshotProjects = Array.isArray(details?.projects) ? details.projects : (Array.isArray(p.projects) ? p.projects : []);
+    const snapshotProjects = Array.isArray(details?.projects)
+      ? details.projects
+      : Array.isArray(p.projects)
+      ? p.projects
+      : []
     let projectsCount = Math.max(
       p.calculatedCounts?.projectsCount || 0,
       snapshotProjects.length,
-      flowType === 'township' ? 1 : 0
-    );
-    if (flowType === 'project') projectsCount = 1;
-    if (flowType === 'tower') projectsCount = 0;
+      flowType === "township" ? 1 : 0
+    )
+    if (flowType === "project") projectsCount = 1
+    if (flowType === "tower") projectsCount = 0
 
-    const directTowers = Array.isArray(details?.towers) ? details.towers : (Array.isArray(p.towers) ? p.towers : []);
-    const projectEmbeddedTowers = snapshotProjects.reduce((acc: number, proj: any) => acc + (Array.isArray(proj?.towers) ? proj.towers.length : 0), 0);
-    let towersCount = Math.max(
+    const directTowers = Array.isArray(details?.towers)
+      ? details.towers
+      : Array.isArray(p.towers)
+      ? p.towers
+      : []
+    const projectEmbeddedTowers = snapshotProjects.reduce(
+      (acc: number, proj: any) => acc + (Array.isArray(proj?.towers) ? proj.towers.length : 0),
+      0
+    )
+    const towersCount = Math.max(
       p.calculatedCounts?.towersCount || 0,
       directTowers.length + projectEmbeddedTowers,
-      flowType === 'tower' ? 1 : 0
-    );
+      flowType === "tower" ? 1 : 0
+    )
 
-    const snapshotUnits = Array.isArray(details?.generatedUnits) ? details.generatedUnits : (Array.isArray(p.generatedUnits) ? p.generatedUnits : []);
-    const allTowersList = [...directTowers];
+    const snapshotUnits = Array.isArray(details?.generatedUnits)
+      ? details.generatedUnits
+      : Array.isArray(p.generatedUnits)
+      ? p.generatedUnits
+      : []
+    const allTowersList = [...directTowers]
     snapshotProjects.forEach((proj: any) => {
       if (Array.isArray(proj?.towers)) {
         proj.towers.forEach((tow: any) => {
           if (!allTowersList.some((t: any) => t.id === tow.id || t.name === tow.name)) {
-            allTowersList.push(tow);
+            allTowersList.push(tow)
           }
-        });
+        })
       }
-    });
+    })
 
-    let calculatedTowerUnits = 0;
+    let calculatedTowerUnits = 0
     if (allTowersList.length > 0) {
       calculatedTowerUnits = allTowersList.reduce((sum: number, t: any) => {
-        if (Array.isArray(t.units) && t.units.length > 0) return sum + t.units.length;
-        if (typeof t.totalUnits === 'number' && t.totalUnits > 0) return sum + t.totalUnits;
-        if (typeof t.totalUnits === 'string' && parseInt(t.totalUnits) > 0) return sum + parseInt(t.totalUnits);
-        const floors = t.totalFloorsNum || parseInt((String(t.totalFloors || '').match(/\d+/g) || []).at(-1) || '0') || 0;
-        const perFloor = parseInt(t.unitsPerFloor) || 0;
-        return sum + (floors * perFloor);
-      }, 0);
+        if (Array.isArray(t.units) && t.units.length > 0) return sum + t.units.length
+        if (typeof t.totalUnits === "number" && t.totalUnits > 0) return sum + t.totalUnits
+        if (typeof t.totalUnits === "string" && parseInt(t.totalUnits) > 0)
+          return sum + parseInt(t.totalUnits)
+        const floors =
+          t.totalFloorsNum ||
+          parseInt((String(t.totalFloors || "").match(/\d+/g) || []).at(-1) || "0") ||
+          0
+        const perFloor = parseInt(t.unitsPerFloor) || 0
+        return sum + floors * perFloor
+      }, 0)
     }
 
-    let unitsCount = Math.max(
+    const unitsCount = Math.max(
       p.calculatedCounts?.unitsCount || 0,
       snapshotUnits.length,
       calculatedTowerUnits,
-      Number(p.units) || Number(p.totalUnits) || Number(details?.township?.totalUnits) || Number(details?.totalUnits) || 0
-    );
-    let thumbnail = p.thumbnail || undefined;
+      Number(p.units) ||
+        Number(p.totalUnits) ||
+        Number(details?.township?.totalUnits) ||
+        Number(details?.totalUnits) ||
+        0
+    )
+    let thumbnail = p.thumbnail || undefined
 
-    // Hero Image Discovery (Search hierarchy if thumbnail is missing)
     if (!thumbnail) {
       thumbnail =
         details?.township?.heroImage ||
         details?.projects?.find((pr: any) => pr.heroImage)?.heroImage ||
         details?.towers?.find((tw: any) => tw.heroImage)?.heroImage ||
-        details?.heroImage;
+        details?.heroImage
     }
 
-    const totalValue = p.totalValue ||
+    const totalValue =
+      p.totalValue ||
       details.generatedUnits?.reduce((sum: number, u: any) => sum + (Number(u.price) || 0), 0) ||
       (unitsCount > 0 ? unitsCount * 5000000 : 0)
 
-    let finalStatus: Property['status'] = p.status || defaultStatus
-    if (p.status === 'published' || p.status === 'active') finalStatus = 'published'
-    else if (p.status === 'pending') finalStatus = 'pending'
-    else if (p.status === 'rejected') finalStatus = 'rejected'
-    else if (p.status === 'draft') finalStatus = 'draft'
-    else if (p.status === 'archived') finalStatus = 'archived'
-
+    let finalStatus: Property["status"] = p.status || defaultStatus
+    if (p.status === "published" || p.status === "active") finalStatus = "published"
+    else if (p.status === "pending") finalStatus = "pending"
+    else if (p.status === "rejected") finalStatus = "rejected"
+    else if (p.status === "draft") finalStatus = "draft"
+    else if (p.status === "archived") finalStatus = "archived"
 
     const searchTerms: string[] = []
     if (name) searchTerms.push(name)
@@ -432,30 +419,43 @@ function DashboardContent() {
       }
     }
 
-    const searchBlob = searchTerms.filter(Boolean).map(s => s.toLowerCase().trim()).join(" | ")
+    const searchBlob = searchTerms
+      .filter(Boolean)
+      .map((s) => s.toLowerCase().trim())
+      .join(" | ")
 
-    // RERA Number Extraction
-    let reraNumber = '';
-    if (p.reraNumber) reraNumber = p.reraNumber;
-    else if (details.reraNumber) reraNumber = details.reraNumber;
-    else if (details.township?.reraNumber) reraNumber = details.township.reraNumber;
-    else if (Array.isArray(details.projects) && details.projects.length > 0 && details.projects[0]?.reraNumber) reraNumber = details.projects[0].reraNumber;
-    else if (Array.isArray(details.towers) && details.towers.length > 0 && details.towers[0]?.reraNumber) reraNumber = details.towers[0].reraNumber;
-    else if (Array.isArray(p.reraPhases) && p.reraPhases.length > 0 && p.reraPhases[0]?.reraNumber) reraNumber = p.reraPhases[0].reraNumber;
+    let reraNumber = ""
+    if (p.reraNumber) reraNumber = p.reraNumber
+    else if (details.reraNumber) reraNumber = details.reraNumber
+    else if (details.township?.reraNumber) reraNumber = details.township.reraNumber
+    else if (Array.isArray(details.projects) && details.projects[0]?.reraNumber)
+      reraNumber = details.projects[0].reraNumber
+    else if (Array.isArray(details.towers) && details.towers[0]?.reraNumber)
+      reraNumber = details.towers[0].reraNumber
+    else if (Array.isArray(p.reraPhases) && p.reraPhases[0]?.reraNumber)
+      reraNumber = p.reraPhases[0].reraNumber
     else {
-      const rawId = String(p._id || p.id || '').replace(/[^a-zA-Z0-9]/g, '');
-      const numPart = rawId.split('').filter((c: string) => !isNaN(Number(c))).join('').slice(-5) || '12345';
-      reraNumber = `P517000${numPart.padStart(5, '0')}`;
+      const rawId = String(p._id || p.id || "").replace(/[^a-zA-Z0-9]/g, "")
+      const numPart =
+        rawId
+          .split("")
+          .filter((c: string) => !isNaN(Number(c)))
+          .join("")
+          .slice(-5) || "12345"
+      reraNumber = `P517000${numPart.padStart(5, "0")}`
     }
 
-    // Group Buying Extraction
-    // Quick Edit saves at p.groupBuying (top-level), forms used to save at details.groupBuying
-    // Priority: top-level p.groupBuying first (Quick Edit), then details fallback
-    const groupBuyingRaw = p.groupBuying || details?.groupBuying || details?.township?.groupBuying || undefined;
-    const groupBuying = groupBuyingRaw ? { 
-      ...groupBuyingRaw, 
-      targetCount: Number(groupBuyingRaw.targetCount) > 0 ? Number(groupBuyingRaw.targetCount) : undefined 
-    } : undefined;
+    const groupBuyingRaw =
+      p.groupBuying || details?.groupBuying || details?.township?.groupBuying || undefined
+    const groupBuying = groupBuyingRaw
+      ? {
+          ...groupBuyingRaw,
+          targetCount:
+            Number(groupBuyingRaw.targetCount) > 0
+              ? Number(groupBuyingRaw.targetCount)
+              : undefined,
+        }
+      : undefined
 
     return {
       id: p._id || p.id,
@@ -477,7 +477,6 @@ function DashboardContent() {
     }
   }
 
-  // Load properties from MongoDB
   const fetchProperties = async () => {
     setIsFetchingProperties(true)
     try {
@@ -486,9 +485,8 @@ function DashboardContent() {
         const data = await res.json()
         if (data.properties) {
           const mapped = data.properties.map((p: any) =>
-            mapProperty(p, p.status || 'draft')
+            mapProperty(p, p.status || "draft")
           )
-
           setProperties(mapped)
         }
       } else {
@@ -502,13 +500,12 @@ function DashboardContent() {
     }
   }
 
-  // Re-fetch properties when user is available and properties tab is active
   useEffect(() => {
-    const userId = currentUser?._id || currentUser?.id;
+    const userId = currentUser?._id || currentUser?.id
     if (userId && activeTab === "properties") {
-      fetchProperties();
+      fetchProperties()
     }
-  }, [currentUser?._id, currentUser?.id, activeTab]);
+  }, [currentUser?._id, currentUser?.id, activeTab])
 
   const handleRefreshProperties = () => {
     if (isFetchingProperties) return
@@ -516,8 +513,7 @@ function DashboardContent() {
     fetchProperties()
   }
 
-
-  const [profile, setProfile] = useState<BuilderProfile>({
+  const [profile, setProfile] = useState<DashboardProfile>({
     companyName: "",
     developerName: "",
     email: "",
@@ -537,29 +533,21 @@ function DashboardContent() {
     visionHighlights: [],
     awards: [],
     overviewImage: "",
-    coverImage: ""
+    coverImage: "",
   })
 
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser) return
+    const p = currentUser.profile || {}
+    const fullAddress = [p.address, p.city, p.state].filter(Boolean).join(", ")
 
-    // Profile data lives inside currentUser.profile (from User model schema)
-    const p = currentUser.profile || {};
-
-    // Construct address from multiple fields if available
-    const fullAddress = [
-      p.address,
-      p.city,
-      p.state
-    ].filter(Boolean).join(", ");
-
-    let computedExperience = p.experience || "";
+    let computedExperience = p.experience || ""
     if (p.establishedYear) {
-      const yr = parseInt(p.establishedYear);
+      const yr = parseInt(p.establishedYear)
       if (!isNaN(yr) && String(p.establishedYear).length === 4) {
-        const curr = new Date().getFullYear();
+        const curr = new Date().getFullYear()
         if (yr <= curr && yr > 1800) {
-          computedExperience = String(curr - yr);
+          computedExperience = String(curr - yr)
         }
       }
     }
@@ -585,12 +573,12 @@ function DashboardContent() {
       visionHighlights: p.visionHighlights || [],
       awards: p.awards || [],
       overviewImage: p.overviewImage || "",
-      coverImage: p.coverImage || ""
-    });
+      coverImage: p.coverImage || "",
+    })
   }, [currentUser])
 
   const handleSaveProfile = async () => {
-    setIsSavingProfile(true);
+    setIsSavingProfile(true)
     try {
       const res = await fetch("/api/auth/profile", {
         method: "PUT",
@@ -615,54 +603,53 @@ function DashboardContent() {
           visionHighlights: profile.visionHighlights,
           awards: profile.awards,
           overviewImage: profile.overviewImage,
-          coverImage: profile.coverImage
+          coverImage: profile.coverImage,
         }),
-      });
+      })
 
       if (res.ok) {
-        const data = await res.json();
-        // Update local currentUser state with the fresh data from DB
-        setCurrentUser(data.user);
-        toast.success("Profile saved successfully!");
+        const data = await res.json()
+        setCurrentUser(data.user)
+        toast.success("Profile saved successfully!")
       } else {
-        const errData = await res.json().catch(() => ({}));
-        toast.error(errData.error || "Failed to save profile");
+        const errData = await res.json().catch(() => ({}))
+        toast.error(errData.error || "Failed to save profile")
       }
     } catch (error) {
-      console.error("Error saving profile:", error);
-      toast.error("An error occurred while saving profile");
+      console.error("Error saving profile:", error)
+      toast.error("An error occurred while saving profile")
     } finally {
-      setIsSavingProfile(false);
+      setIsSavingProfile(false)
     }
   }
 
   const handleSendOtp = async () => {
-    setSendingOtp(true);
+    setSendingOtp(true)
     try {
-      const res = await fetch("/api/auth/send-otp", { method: "POST" });
+      const res = await fetch("/api/auth/send-otp", { method: "POST" })
       if (res.ok) {
-        toast.success("OTP sent to your email!");
-        setOtpSent(true);
+        toast.success("OTP sent to your email!")
+        setOtpSent(true)
       } else {
-        const errData = await res.json().catch(() => ({}));
-        toast.error(errData.error || "Failed to send OTP");
+        const errData = await res.json().catch(() => ({}))
+        toast.error(errData.error || "Failed to send OTP")
       }
     } catch (error) {
-      console.error("Error sending OTP:", error);
-      toast.error("An error occurred. Please try again.");
+      console.error("Error sending OTP:", error)
+      toast.error("An error occurred. Please try again.")
     } finally {
-      setSendingOtp(false);
+      setSendingOtp(false)
     }
   }
 
   const handlePasswordChange = async (e: React.FormEvent) => {
-    e.preventDefault();
+    e.preventDefault()
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      toast.error("New passwords do not match");
-      return;
+      toast.error("New passwords do not match")
+      return
     }
 
-    setIsSavingProfile(true);
+    setIsSavingProfile(true)
     try {
       const res = await fetch("/api/auth/change-password", {
         method: "POST",
@@ -671,33 +658,28 @@ function DashboardContent() {
           otp: passwordData.otp,
           newPassword: passwordData.newPassword,
         }),
-      });
+      })
 
       if (res.ok) {
-        toast.success("Password changed successfully!");
-        setIsChangingPassword(false);
-        setOtpSent(false);
-        setPasswordData({ otp: "", newPassword: "", confirmPassword: "" });
+        toast.success("Password changed successfully!")
+        setIsChangingPassword(false)
+        setOtpSent(false)
+        setPasswordData({ otp: "", newPassword: "", confirmPassword: "" })
       } else {
-        const errData = await res.json().catch(() => ({}));
-        toast.error(errData.error || "Failed to change password");
+        const errData = await res.json().catch(() => ({}))
+        toast.error(errData.error || "Failed to change password")
       }
     } catch (error) {
-      console.error("Error changing password:", error);
-      toast.error("An error occurred. Please try again.");
+      console.error("Error changing password:", error)
+      toast.error("An error occurred. Please try again.")
     } finally {
-      setIsSavingProfile(false);
+      setIsSavingProfile(false)
     }
   }
 
-
-
-
-
-
   const filteredProperties = useMemo(() => {
     const query = (debouncedPropertySearch[propertyFilter] || "").toLowerCase().trim()
-    const matched = properties.filter(p => {
+    const matched = properties.filter((p) => {
       if (p.status !== propertyFilter) return false
       if (!query) return true
       return p.searchBlob?.includes(query)
@@ -705,11 +687,10 @@ function DashboardContent() {
 
     if (!query) return matched
 
-    // Prioritize exact matches or startsWith matches on the property name
     return [...matched].sort((a, b) => {
       const aName = (a.townshipName || "").toLowerCase()
       const bName = (b.townshipName || "").toLowerCase()
-      
+
       const aExact = aName === query
       const bExact = bName === query
       if (aExact && !bExact) return -1
@@ -724,24 +705,6 @@ function DashboardContent() {
     })
   }, [properties, propertyFilter, debouncedPropertySearch])
 
-  const highlightMatch = (text: string, query: string) => {
-    if (!query || !text) return <span>{text}</span>
-    const index = text.toLowerCase().indexOf(query.toLowerCase())
-    if (index === -1) return <span>{text}</span>
-
-    const before = text.substring(0, index)
-    const match = text.substring(index, index + query.length)
-    const after = text.substring(index + query.length)
-
-    return (
-      <span>
-        {before}
-        <mark className="bg-yellow-100 dark:bg-yellow-500/30 text-yellow-800 dark:text-yellow-250 px-0.5 rounded font-semibold">{match}</mark>
-        {after}
-      </span>
-    )
-  }
-
   const handleMoveToDraft = async (id: string) => {
     try {
       setMovingToDraftId(id)
@@ -750,12 +713,13 @@ function DashboardContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "draft" }),
       })
-      
+
       if (!res.ok) throw new Error("Failed to move to draft")
-      
+
       toast.success("Property moved to draft successfully")
-      // Instantly update UI without reload
-      setProperties(prev => prev.map(p => p.id === id ? { ...p, status: "draft" } : p))
+      setProperties((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, status: "draft" } : p))
+      )
     } catch (error) {
       console.error(error)
       toast.error("Failed to move property to draft")
@@ -764,54 +728,44 @@ function DashboardContent() {
     }
   }
 
-  const handleViewTowers = (propertyId: string, propertyName: string, flowType?: string, status?: string) => {
-    setSelectedPropertyForHierarchy({ id: propertyId, name: propertyName, flowType, status })
-  }
-
-  const formatBaseRate = (rate: number) => {
-    if (!rate) return "N/A"
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 0,
-    }).format(rate) + " / sqft"
-  }
-
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      notation: "compact",
-      maximumFractionDigits: 2,
-    }).format(value)
+  const handleViewTowers = (
+    propertyId: string,
+    propertyName: string,
+    flowType?: string,
+    status?: string
+  ) => {
+    setSelectedPropertyForHierarchy({
+      id: propertyId,
+      name: propertyName,
+      flowType,
+      status,
+    })
   }
 
   const deleteProperty = async (id: string) => {
-    if (!id) {
-      console.error("[deleteProperty] Called with undefined/empty id — check property card data")
-      return
-    }
-    const targetProp = properties.find(p => p.id === id)
-    const isDraft = targetProp?.status === 'draft' || propertyFilter === 'draft'
+    if (!id) return
+    const targetProp = properties.find((p) => p.id === id)
+    const isDraft = targetProp?.status === "draft" || propertyFilter === "draft"
 
-    const confirmMsg = isDraft 
+    const confirmMsg = isDraft
       ? "Are you sure you want to delete this draft? This will only remove your draft copy."
       : "Are you sure you want to delete this property?"
 
     if (confirm(confirmMsg)) {
       setDeletingPropertyId(id)
       try {
-        const endpoint = isDraft ? `/api/properties/${id}/draft` : `/api/properties/${id}`
+        const endpoint = isDraft
+          ? `/api/properties/${id}/draft`
+          : `/api/properties/${id}`
         const res = await fetch(endpoint, { method: "DELETE" })
         if (res.ok) {
-          // Remove from local state immediately for snappy UX
-          setProperties(prev => prev.filter(p => p.id !== id))
-          toast.success(isDraft ? "Draft deleted successfully" : "Property deleted successfully")
+          setProperties((prev) => prev.filter((p) => p.id !== id))
+          toast.success(
+            isDraft ? "Draft deleted successfully" : "Property deleted successfully"
+          )
         } else {
           const errData = await res.json().catch(() => ({}))
           const msg = errData?.error || `HTTP ${res.status}`
-          console.error(`[deleteProperty] API returned error for id='${id}':`, msg)
           toast.error(`Failed to delete: ${msg}`)
         }
       } catch (error) {
@@ -824,12 +778,13 @@ function DashboardContent() {
   }
 
   const handleUpdateGroupBuying = (propertyId: string, newGroupBuyingData: any) => {
-    setProperties(prev => prev.map(p => 
-      p.id === propertyId ? { ...p, groupBuying: newGroupBuyingData } : p
-    ))
+    setProperties((prev) =>
+      prev.map((p) =>
+        p.id === propertyId ? { ...p, groupBuying: newGroupBuyingData } : p
+      )
+    )
   }
 
-  // Show loading while checking auth or if user is missing (during redirect)
   if (isLoading || !currentUser) {
     return (
       <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex items-center justify-center">
@@ -841,1423 +796,126 @@ function DashboardContent() {
     )
   }
 
+  const propertyCounts = {
+    published: properties.filter((p) => p.status === "published").length,
+    pending: properties.filter((p) => p.status === "pending").length,
+    draft: properties.filter((p) => p.status === "draft").length,
+    rejected: properties.filter((p) => p.status === "rejected").length,
+  }
+
   return (
     <div className="flex h-screen bg-slate-50 dark:bg-slate-950 dark:text-slate-100 overflow-hidden transition-colors duration-300">
-      {/* Desktop Sidebar - Strictly locked to lg:flex lg:w-72 lg:static. Hidden on mobile/tablet */}
-      <aside
-        className="hidden lg:flex w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex-col shadow-xl static z-30 shrink-0"
-      >
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-          {/* Branding */}
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 flex-shrink-0 flex items-center justify-center relative rounded-full bg-[#050b18] border border-slate-700/50 shadow-xl overflow-hidden group transition-all duration-300 hover:border-blue-500/40">
-              <img src="/astronix-logo.png" alt="Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ Logo" className="w-full h-full object-cover rounded-full transition-transform duration-500 group-hover:scale-110" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-900 dark:text-white leading-tight">Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ</h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium tracking-wide">BUILDER PANEL</p>
-            </div>
-          </div>
-        </div>
+      <DashboardSidebar
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        onLogout={handleLogout}
+        role="builder"
+        currentUser={currentUser}
+        profile={profile}
+      />
 
-        {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          <button
-            onClick={() => handleTabChange("bills")}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "bills" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 shadow-sm font-bold" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
-          >
-            <Receipt className="h-5 w-5" />
-            Bills
-          </button>
-          <button
-            onClick={() => handleTabChange("properties")}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "properties" ? "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
-          >
-            <Building2 className="h-5 w-5" />
-            Properties
-          </button>
-          <button
-            onClick={() => handleTabChange("inventory")}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "inventory" ? "bg-teal-50 text-teal-700 dark:bg-teal-900/20 dark:teal-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
-          >
-            <Layers className="h-5 w-5" />
-            Inventory
-          </button>
-          <button
-            onClick={() => handleTabChange("crm")}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "crm" ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
-          >
-            <Users className="h-5 w-5 shrink-0" />
-            <span className="text-left leading-tight">Astronix Leads and CRM</span>
-          </button>
-          <button
-            onClick={() => handleTabChange("crm2")}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "crm2" ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
-          >
-            <Users className="h-5 w-5 shrink-0" />
-            <span className="text-left leading-tight">Our Leads and CRM</span>
-          </button>
-          <button
-            onClick={() => handleTabChange("chat")}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "chat" ? "bg-sky-50 text-sky-700 dark:bg-sky-900/20 dark:sky-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
-          >
-            <MessageSquare className="h-5 w-5" />
-            Chat
-          </button>
-          <button
-            onClick={() => handleTabChange("documents")}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "documents" ? "bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:orange-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
-          >
-            <FileText className="h-5 w-5" />
-            Documents
-          </button>
-
-          <button
-            onClick={() => handleTabChange("offers")}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "offers" ? "bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:purple-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
-          >
-            <Gift className="h-5 w-5" />
-            Offers
-          </button>
-          <button
-            onClick={() => handleTabChange("blog")}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "blog" ? "bg-pink-50 text-pink-700 dark:bg-pink-900/20 dark:pink-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
-          >
-            <FileText className="h-5 w-5" />
-            Blog
-          </button>
-          <button
-            onClick={() => handleTabChange("team")}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "team" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
-          >
-            <Users className="h-5 w-5" />
-            Team
-          </button>
-          <button
-            onClick={() => handleTabChange("settings")}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all ${activeTab === "settings" ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white shadow-sm" : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
-          >
-            <Settings className="h-5 w-5 shrink-0" />
-            <span className="text-left leading-tight">Profile & Settings</span>
-          </button>
-          
-          <button
-            onClick={() => handleTabChange("feedback")}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium transition-all mt-4 border border-dashed ${activeTab === "feedback" ? "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400 border-red-200 shadow-sm" : "text-slate-600 dark:text-slate-400 border-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white"}`}
-          >
-            <Headphones className="h-5 w-5" />
-            Feedback & Support
-          </button>
-        </nav>
-
-        {/* User Profile - Bottom Sidebar */}
-        <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex flex-col gap-2">
-          <button 
-            onClick={() => handleTabChange("settings")}
-            className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-white dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 hover:shadow-sm transition-all text-left group cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-          >
-            <div className={`relative w-10 h-10 shrink-0 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center border-2 border-white dark:border-slate-600 shadow-sm overflow-hidden group-hover:border-slate-100 dark:group-hover:border-slate-700 transition-colors`}>
-              {(currentUser?.profile?.logo || profile.logo) ? (
-                <Image src={currentUser?.profile?.logo || profile.logo} alt="Company Logo" fill className="object-cover" unoptimized />
-              ) : (
-                <User className="h-5 w-5 text-slate-500 dark:text-slate-300" />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-slate-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{currentUser?.profile?.companyName || profile.companyName || currentUser?.name || ""}</p>
-              <p className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider mt-0.5 mb-0.5">
-                {currentUser?.profile?.developerName || profile.developerName || "Developer"}
-              </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 truncate group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">{currentUser?.email || ""}</p>
-            </div>
-            <Settings className="w-4 h-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-          </button>
-
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 hover:border-red-200 dark:hover:border-red-900 text-slate-600 dark:text-slate-300 rounded-lg text-sm font-medium transition-all shadow-sm"
-          >
-            <LogOut className="h-4 w-4" />
-            Logout
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content Area */}
       <main className="flex-1 flex flex-col overflow-hidden bg-slate-50/50 dark:bg-slate-950 relative transition-colors duration-300">
-        {/* Top Header - Contextual */}
-        {activeTab !== "blog" && (
-          <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3.5 sm:px-6 lg:px-8 py-3 lg:py-4 sticky top-0 z-10">
-            {/* MOBILE & TABLET APP BAR (<lg) */}
-            <div className="lg:hidden flex items-center justify-between pb-1">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-full bg-[#050b18] border border-slate-700/50 flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
-                  <img src="/astronix-logo.png" alt="Astronix" className="w-full h-full object-cover" />
-                </div>
-                <div className="min-w-0">
-                  <h2 className="text-base font-bold text-slate-900 dark:text-white truncate leading-tight">
-                    {activeTab === "bills" && "Bills & Brokerage"}
-                    {activeTab === "properties" && "Properties"}
-                    {activeTab === "inventory" && "Inventory"}
-                    {activeTab === "crm" && "Astronix Leads"}
-                    {activeTab === "crm2" && "Our Leads"}
-                    {activeTab === "chat" && "Communications"}
-                    {activeTab === "documents" && "Documents"}
-                    {activeTab === "offers" && "Offers"}
-                    {activeTab === "team" && "Team"}
-                    {activeTab === "feedback" && "Support"}
-                    {activeTab === "settings" && "Settings"}
-                  </h2>
-                  <p className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold uppercase tracking-wider truncate">
-                    {currentUser?.profile?.developerName || currentUser?.profile?.companyName || "Builder Panel"}
-                  </p>
-                </div>
-              </div>
+        <DashboardHeader
+          activeTab={activeTab}
+          role="builder"
+          currentUser={currentUser}
+          activeSettingsTab={activeSettingsTab}
+          onSaveProfile={handleSaveProfile}
+          isSavingProfile={isSavingProfile}
+          showAddProperty={showAddProperty}
+          setShowAddProperty={setShowAddProperty}
+          propertyFilter={propertyFilter}
+          onFilterChange={handleFilterChange}
+          propertyCounts={propertyCounts}
+        />
 
-              {/* Right Mobile Actions */}
-              <div className="flex items-center gap-2 shrink-0">
-                {activeTab === "properties" && (
-                  <button
-                    onClick={() => setShowAddProperty(prev => !prev)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold shadow-sm min-h-[36px] active:scale-95 transition-transform"
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span>Add</span>
-                  </button>
-                )}
-                {activeTab === "settings" && activeSettingsTab === "profile" && (
-                  <button
-                    onClick={handleSaveProfile}
-                    disabled={isSavingProfile}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold shadow-sm disabled:opacity-50 min-h-[36px]"
-                  >
-                    {isSavingProfile ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                    <span>Save</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* DESKTOP TOP BAR (lg:flex) — 100% UNCHANGED DESKTOP VIEW */}
-            <div className="hidden lg:flex items-center justify-between">
-              {/* LEFT */}
-              <div className="flex items-center gap-4">
-                <div>
-                  <h2 className="text-2xl font-bold text-slate-800 dark:text-white">
-                    {activeTab === "bills" && "Bills & Brokerage Invoices"}
-                    {activeTab === "properties" && "Property Details"}
-                    {activeTab === "inventory" && "Inventory Management"}
-                    {activeTab === "crm" && "Astronix Leads and CRM"}
-                    {activeTab === "crm2" && "Our Leads and CRM"}
-                    {activeTab === "chat" && "Communications"}
-                    {activeTab === "documents" && "Document Center"}
-                    {activeTab === "offers" && "Offers Management"}
-                    {activeTab === "team" && "Team Management"}
-                    {activeTab === "feedback" && "Feedback & Support"}
-                    {activeTab === "settings" && "Profile & Settings"}
-                  </h2>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    {activeTab === "bills" && "Track official brokerage invoices issued by Admin for booked clients"}
-                    {activeTab === "properties" && "Manage your real estate inventory"}
-                    {activeTab === "inventory" && "Track unit status, sales, and availability"}
-                    {activeTab === "crm" && "Manage leads, site visits, and bookings"}
-                    {activeTab === "crm2" && "Manage leads, site visits, and bookings"}
-                    {activeTab === "chat" && "Chat with potential buyers and agents"}
-                    {activeTab === "documents" && "Organize brochures, legal docs, and plans"}
-                    {activeTab === "offers" && "Create and track special deals"}
-                    {activeTab === "team" && "Manage your team members and roles"}
-                    {activeTab === "feedback" && "Send feedback, report glitches, and get help"}
-                    {activeTab === "settings" && "Manage company profile and system preferences"}
-                  </p>
-                </div>
-              </div>
-
-              {/* CENTER – DESKTOP ONLY */}
-              {activeTab === "properties" && (
-                <div className="flex items-center gap-6 text-sm font-medium absolute left-1/2 -translate-x-1/2">
-                  <button
-                    onClick={() => handleFilterChange("published")}
-                    className={`pb-1 transition-colors ${propertyFilter === "published"
-                      ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
-                      : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
-                      }`}
-                  >
-                    Published ({properties.filter(p => p.status === "published").length})
-                  </button>
-                  <button
-                    onClick={() => handleFilterChange("pending")}
-                    className={`pb-1 transition-colors ${propertyFilter === "pending"
-                      ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
-                      : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
-                      }`}
-                  >
-                    Pending ({properties.filter(p => p.status === "pending").length})
-                  </button>
-                  <button
-                    onClick={() => handleFilterChange("draft")}
-                    className={`pb-1 transition-colors ${propertyFilter === "draft"
-                      ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
-                      : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
-                      }`}
-                  >
-                    Drafts ({properties.filter(p => p.status === "draft").length})
-                  </button>
-                  <button
-                    onClick={() => handleFilterChange("rejected")}
-                    className={`pb-1 transition-colors ${propertyFilter === "rejected"
-                      ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
-                      : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
-                      }`}
-                  >
-                    Rejected ({properties.filter(p => p.status === "rejected").length})
-                  </button>
-                </div>
-              )}
-
-              {/* RIGHT */}
-              <div className="flex items-center gap-3">
-                {activeTab === "properties" && (
-                  <button
-                    onClick={() => setShowAddProperty(prev => !prev)}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm"
-                  >
-                    <Plus className="h-5 w-5" />
-                    <span>Add Property</span>
-                  </button>
-                )}
-                {activeTab === "settings" && activeSettingsTab === "profile" && (
-                  <button
-                    onClick={handleSaveProfile}
-                    disabled={isSavingProfile}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm disabled:opacity-50"
-                  >
-                    {isSavingProfile ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
-                    <span>Save Profile</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* MOBILE HORIZONTAL SWIPEABLE FILTER PILLS */}
-            {activeTab === "properties" && (
-              <div className="lg:hidden mt-2.5 flex items-center gap-2 overflow-x-auto scrollbar-hide py-1">
-                <button
-                  onClick={() => handleFilterChange("published")}
-                  className={`px-3.5 py-1.5 text-xs rounded-full font-bold whitespace-nowrap transition-all flex items-center gap-1.5 min-h-[36px] ${propertyFilter === "published"
-                    ? "bg-blue-600 text-white shadow-sm"
-                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
-                    }`}
-                >
-                  Published ({properties.filter(p => p.status === "published").length})
-                </button>
-                <button
-                  onClick={() => handleFilterChange("pending")}
-                  className={`px-3.5 py-1.5 text-xs rounded-full font-bold whitespace-nowrap transition-all flex items-center gap-1.5 min-h-[36px] ${propertyFilter === "pending"
-                    ? "bg-amber-600 text-white shadow-sm"
-                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
-                    }`}
-                >
-                  Pending ({properties.filter(p => p.status === "pending").length})
-                </button>
-                <button
-                  onClick={() => handleFilterChange("draft")}
-                  className={`px-3.5 py-1.5 text-xs rounded-full font-bold whitespace-nowrap transition-all flex items-center gap-1.5 min-h-[36px] ${propertyFilter === "draft"
-                    ? "bg-slate-700 text-white shadow-sm"
-                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
-                    }`}
-                >
-                  Drafts ({properties.filter(p => p.status === "draft").length})
-                </button>
-                <button
-                  onClick={() => handleFilterChange("rejected")}
-                  className={`px-3.5 py-1.5 text-xs rounded-full font-bold whitespace-nowrap transition-all flex items-center gap-1.5 min-h-[36px] ${propertyFilter === "rejected"
-                    ? "bg-red-600 text-white shadow-sm"
-                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
-                    }`}
-                >
-                  Rejected ({properties.filter(p => p.status === "rejected").length})
-                </button>
-              </div>
-            )}
-          </header>
-        )}
-
-        {/* Content Scroll Area - with safe bottom padding on mobile */}
-        <div className={`flex-1 pb-24 lg:pb-0 ${(activeTab === "documents" || activeTab === "crm" || activeTab === "crm2") ? "overflow-hidden flex flex-col h-full" : "overflow-y-auto"} ${activeTab === "blog" ? "p-0" : (activeTab === "crm" || activeTab === "crm2") ? "p-2.5 sm:p-4 lg:p-6" : "p-3 sm:p-6 lg:p-8"}`}>
+        <div
+          className={`flex-1 pb-24 lg:pb-0 ${
+            activeTab === "documents" || activeTab === "feedback"
+              ? "overflow-hidden p-0"
+              : "overflow-y-auto p-4 sm:p-6 lg:p-8"
+          }`}
+        >
           {activeTab === "bills" && <BillsView />}
-          {activeTab === "inventory" && <InventoryView userRole={currentUser?.role || "builder"} />}
-          {activeTab === "crm" && <CRMView userRole={currentUser?.role || "builder"} />}
-          {activeTab === "crm2" && <CRMCloneView userRole={currentUser?.role || "builder"} />}
+          {activeTab === "inventory" && (
+            <InventoryView userRole={currentUser?.role || "builder"} />
+          )}
+          {activeTab === "crm" && (
+            <CRMView userRole={currentUser?.role || "builder"} />
+          )}
+          {activeTab === "crm2" && (
+            <CRMCloneView userRole={currentUser?.role || "builder"} />
+          )}
           {activeTab === "chat" && <ChatView />}
           {activeTab === "documents" && <DocumentsView />}
           {activeTab === "team" && <TeamView />}
-
-          {activeTab === "blog" && <BlogView onMenuClick={() => setIsMobileMenuOpen(true)} />}
-          {activeTab === "properties" && (
-            <div>
-              {/* Add Property Button */}
-              <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex-shrink-0">
-                  <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Your Properties</h2>
-                  <p className="text-slate-600 dark:text-slate-400">Manage and create new property listings</p>
-                </div>
-
-                {/* Search Bar - Center */}
-                <div className="relative flex-1 max-w-md w-full md:mx-6">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
-                  <input
-                    type="text"
-                    value={propertySearchInput[propertyFilter] || ""}
-                    onChange={(e) => setPropertySearchInput(prev => ({ ...prev, [propertyFilter]: e.target.value }))}
-                    placeholder={`Search ${propertyFilter === 'draft' ? 'Draft' : propertyFilter.charAt(0).toUpperCase() + propertyFilter.slice(1)} Properties...`}
-                    className="w-full pl-10 pr-10 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:focus:ring-blue-600 transition-all shadow-sm text-slate-900 dark:text-white"
-                  />
-                  {propertySearchInput[propertyFilter] && (
-                    <button
-                      onClick={() => setPropertySearchInput(prev => ({ ...prev, [propertyFilter]: "" }))}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors p-0.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-
-                <button
-                  onClick={handleRefreshProperties}
-                  disabled={isFetchingProperties}
-                  className="flex-shrink-0 flex items-center justify-center gap-2 px-4 py-2.5 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 rounded-lg font-medium transition-all shadow-sm disabled:opacity-50"
-                >
-                  <RefreshCw className={`h-4 w-4 ${isFetchingProperties ? 'animate-spin' : ''}`} />
-                  <span className="hidden sm:inline">Refresh</span>
-                </button>
-              </div>
-
-              {/* Add Property Options with 3 flow types */}
-              {showAddProperty && (
-                <div className="mb-8 p-6 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                  <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">Start New Property</h3>
-                  <p className="text-slate-600 dark:text-slate-400 mb-6">Choose what you want to add:</p>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    {/* Add Township - Full Flow */}
-                    <a
-                      href="/builder?flow=township"
-                      className="group p-6 border-2 border-slate-200 dark:border-slate-700 rounded-xl hover:border-blue-500 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-all cursor-pointer"
-                    >
-                      <div className="w-12 h-12 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                        <Home className="h-6 w-6" />
-                      </div>
-                      <h4 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Add Township</h4>
-                      <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-                        Create a complete township with projects, towers, and units
-                      </p>
-                      <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-500">
-                        <span className="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded">Township</span>
-                        <ChevronRight className="h-3 w-3" />
-                        <span className="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded">Project</span>
-                        <ChevronRight className="h-3 w-3" />
-                        <span className="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded">Tower</span>
-                        <ChevronRight className="h-3 w-3" />
-                        <span className="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded">Unit</span>
-                      </div>
-                    </a>
-
-                    {/* Add Project - Skip Township */}
-                    <a
-                      href="/builder?flow=project"
-                      className="group p-6 border-2 border-slate-200 dark:border-slate-700 rounded-xl hover:border-green-500 hover:bg-green-50/50 dark:hover:bg-green-900/10 transition-all cursor-pointer"
-                    >
-                      <div className="w-12 h-12 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 flex items-center justify-center mb-4 group-hover:bg-green-600 group-hover:text-white transition-colors">
-                        <Layers className="h-6 w-6" />
-                      </div>
-                      <h4 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Add Project</h4>
-                      <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">Add a standalone project with towers and units</p>
-                      <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-500">
-                        <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded">Project</span>
-                        <ChevronRight className="h-3 w-3" />
-                        <span className="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded">Tower</span>
-                        <ChevronRight className="h-3 w-3" />
-                        <span className="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded">Unit</span>
-                      </div>
-                    </a>
-
-                    {/* Add Tower - Skip Township & Project */}
-                    <a
-                      href="/builder?flow=tower"
-                      className="group p-6 border-2 border-slate-200 dark:border-slate-700 rounded-xl hover:border-orange-500 hover:bg-orange-50/50 dark:hover:bg-orange-900/10 transition-all cursor-pointer"
-                    >
-                      <div className="w-12 h-12 rounded-lg bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 flex items-center justify-center mb-4 group-hover:bg-orange-600 group-hover:text-white transition-colors">
-                        <Building className="h-6 w-6" />
-                      </div>
-                      <h4 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Add Tower</h4>
-                      <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">Add a standalone tower with unit configurations</p>
-                      <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-500">
-                        <span className="px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded">Tower</span>
-                        <ChevronRight className="h-3 w-3" />
-                        <span className="px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded">Unit</span>
-                      </div>
-                    </a>
-                  </div>
-
-                  <div className="flex justify-end">
-                    <button
-                      onClick={() => setShowAddProperty(false)}
-                      className="px-6 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-              {/* End of Add Property Options */}
-
-              {/* Properties Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {isFetchingProperties && filteredProperties.length === 0 ? (
-                  Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm h-[380px] animate-pulse">
-                      <div className="h-44 bg-slate-200 dark:bg-slate-800 rounded-t-xl" />
-                      <div className="p-5 flex-1">
-                        <div className="h-6 bg-slate-200 dark:bg-slate-800 rounded w-2/3 mb-4" />
-                        <div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-1/3 mb-6" />
-                        <div className="grid grid-cols-3 gap-4 border-t border-slate-100 dark:border-slate-800 pt-4">
-                          <div className="h-10 bg-slate-200 dark:bg-slate-800 rounded" />
-                          <div className="h-10 bg-slate-200 dark:bg-slate-800 rounded" />
-                          <div className="h-10 bg-slate-200 dark:bg-slate-800 rounded" />
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : filteredProperties.length === 0 && properties.filter(p => p.status === propertyFilter).length > 0 ? (
-                  <div className="col-span-full py-16 px-4 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm">
-                    <div className="w-16 h-16 rounded-full bg-slate-50 dark:bg-slate-800/40 flex items-center justify-center mx-auto mb-4">
-                      <Search className="w-8 h-8 text-slate-400 dark:text-slate-500" />
-                    </div>
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">No Properties Found</h3>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-                      We couldn't find any properties matching "{debouncedPropertySearch[propertyFilter]}" in this tab. Try adjusting your search query.
-                    </p>
-                    {propertySearchInput[propertyFilter] && (
-                      <button
-                        onClick={() => setPropertySearchInput(prev => ({ ...prev, [propertyFilter]: "" }))}
-                        className="mt-4 px-4 py-2 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-sm font-semibold rounded-lg transition-colors"
-                      >
-                        Clear Search
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  filteredProperties.map((property) => (
-                    <div
-                      key={property.id}
-                      className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col group"
-                    >
-                      {/* Thumbnail Image Header */}
-                      <div className="h-44 w-full relative bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-800 overflow-hidden">
-                        {property.thumbnail ? (
-                          <Image
-                            src={property.thumbnail}
-                            alt={property.townshipName}
-                            fill
-                            className="object-cover group-hover:scale-105 transition-transform duration-700"
-                            unoptimized
-                          />
-                        ) : (
-                          <div className="absolute inset-0 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 flex items-center justify-center">
-                            <div className={`p-4 rounded-3xl ${property.flowType === 'township' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/40' :
-                                property.flowType === 'project' ? 'bg-teal-100 text-teal-600 dark:bg-teal-900/40' :
-                                  'bg-orange-100 text-orange-600 dark:bg-orange-900/40'
-                              }`}>
-                              {property.flowType === 'township' ? <Home className="h-10 w-10" /> :
-                                property.flowType === 'project' ? <Layers className="h-10 w-10" /> :
-                                  <Building className="h-10 w-10" />}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Gradient Overlay for Text Readability */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-
-                        {/* Hierarchy Badge */}
-                        <div className="absolute top-4 left-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-1.5 z-20">
-                          <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 uppercase tracking-widest">{property.flowType}</span>
-                          {property.flowType === "township" && (
-                            <>
-                              <ChevronRight className="h-3 w-3 text-slate-400" />
-                              <Layers className="h-3 w-3 text-blue-500" />
-                            </>
-                          )}
-                        </div>
-
-                        {/* Status Badge */}
-                        <div className="absolute top-4 right-4 z-20">
-                          <span className={`px-3 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest shadow-xl border backdrop-blur-sm ${property.status === "published"
-                              ? "bg-emerald-500/80 text-white border-emerald-400/50"
-                              : property.status === "pending"
-                                ? "bg-amber-500/80 text-white border-amber-400/50"
-                                : property.status === "rejected"
-                                  ? "bg-red-500/80 text-white border-red-400/50"
-                                  : "bg-slate-500/80 text-white border-slate-400/50"
-                            }`}>
-                            {property.status === "published" ? "Published" : property.status === "pending" ? "Pending" : property.status === "draft" ? "Draft" : property.status}
-                          </span>
-
-                        </div>
-                      </div>
-
-                       {/* Property Header */}
-                      <div className="p-5 flex-1 min-w-0">
-                        <div className="flex justify-between items-start gap-3 mb-3">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight transition-colors group-hover:text-blue-600 dark:group-hover:text-blue-400 truncate" title={property.townshipName || property.name || ""}>
-                              {highlightMatch(property.townshipName || property.name || "", debouncedPropertySearch[propertyFilter] || "")}
-                            </h3>
-                          </div>
-                          <div className="shrink-0 text-right">
-                            <div className="text-lg font-black text-blue-700 dark:text-blue-400 font-mono tracking-tight">
-                              {formatCurrency(property.totalValue || 0)}
-                            </div>
-                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">Total Inv. Value</p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-xs font-medium bg-slate-50 dark:bg-slate-800/40 p-2 rounded-lg">
-                          <MapPin className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                          <span className="truncate">{highlightMatch(property.location || 'Location N/A', debouncedPropertySearch[propertyFilter] || "")}</span>
-                        </div>
-                      </div>
-
-                      {/* RERA Verification Strip */}
-                      <div className="px-5 pb-1">
-                        <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/30 p-2 rounded-lg border border-emerald-200/60 dark:border-emerald-800/40">
-                          <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                          <span className="text-[10px] font-extrabold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">RERA No:</span>
-                          <span className="text-[11px] font-black text-emerald-900 dark:text-emerald-300 font-mono tracking-tight truncate" title={property.reraNumber}>{property.reraNumber || 'P51700012345'}</span>
-                        </div>
-                      </div>
-
-                      {/* Group Buying Strip */}
-                      <GroupBuyingQuickEdit 
-                        propertyId={property.id} 
-                        initialData={property.groupBuying || { enabled: false }}
-                        onUpdate={handleUpdateGroupBuying}
-                      />
-
-                      <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/40">
-                        <div className={`grid gap-4 text-center ${property.flowType === 'township' ? 'grid-cols-3' :
-                            property.flowType === 'project' ? 'grid-cols-2' :
-                              'grid-cols-1'
-                          }`}>
-                          {/* Township always shows Projects */}
-                          {property.flowType === 'township' && (
-                            <div className="relative after:absolute after:right-[-8px] after:top-1/2 after:-translate-y-1/2 after:h-8 after:w-[1px] after:bg-slate-200 dark:after:bg-slate-800">
-                              <div className="text-xl font-black text-slate-800 dark:text-white">{property.projects || 0}</div>
-                              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Projects</div>
-                            </div>
-                          )}
-
-                          {/* Township & Project show Towers */}
-                          {(property.flowType === 'township' || property.flowType === 'project') && (
-                            <div className={property.flowType === 'township' ? "relative after:absolute after:right-[-8px] after:top-1/2 after:-translate-y-1/2 after:h-8 after:w-[1px] after:bg-slate-200 dark:after:bg-slate-800" : ""}>
-                              <div className="text-xl font-black text-slate-800 dark:text-white">{property.towers || 0}</div>
-                              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Towers</div>
-                            </div>
-                          )}
-
-                          {/* Everyone shows Units */}
-                          <div>
-                            <div className="text-xl font-black text-blue-600 dark:text-blue-400">{property.units || 0}</div>
-                            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Total Units</div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Footer Info */}
-                      <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 text-slate-400">
-                          <Clock className="h-3 w-3" />
-                          <span className="text-[10px] font-medium uppercase tracking-tight">
-                            Synced {new Date(property.createdDate).toLocaleDateString()}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase tracking-tight">
-                          ID: <span className="text-slate-300 dark:text-slate-600">{property.id.slice(-6)}</span>
-                        </div>
-                      </div>
-
-                      {/* Rejection Alert */}
-                      {property.status === 'rejected' && property.rejectionReason && (
-                        <div className="px-5 py-3 border-t border-red-100 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/10">
-                          <div className="flex items-start gap-2 group/alert cursor-pointer">
-                            <Shield className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
-                            <div className="flex-1">
-                              <h4 className="text-xs font-bold text-red-800 dark:text-red-300 mb-1">
-                                Rejection Reason
-                              </h4>
-                              <p className="text-xs text-red-600 dark:text-red-400 line-clamp-2 group-hover/alert:line-clamp-none transition-all duration-300 ease-in-out">
-                                {property.rejectionReason}
-                              </p>
-                              {property.updatedAt && (
-                                <p className="text-[10px] text-red-500/70 dark:text-red-500/60 mt-1.5 font-medium uppercase tracking-tighter">
-                                  {new Date(property.updatedAt).toLocaleDateString()} at {new Date(property.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Actions */}
-                      <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 flex gap-2">
-                        <button
-                          onClick={() => handleViewTowers(property.id, property.townshipName, property.flowType, property.status)}
-                          className="flex-1 px-3 py-2.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800/50 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 shadow-sm"
-                        >
-                          <Eye className="h-4 w-4" />
-                          View
-                        </button>
-
-                        {property.status === 'draft' ? (
-                          <a
-                            href={`/builder?flow=${property.flowType || "township"}&edit=${property.id}`}
-                            className="flex-1 px-3 py-2.5 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg font-semibold hover:bg-white dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-300 dark:hover:border-blue-700 transition-all flex items-center justify-center gap-2 shadow-sm"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                            Edit
-                          </a>
-                        ) : (
-                          <button
-                            onClick={() => handleMoveToDraft(property.id)}
-                            disabled={movingToDraftId === property.id}
-                            className="flex-1 px-3 py-2.5 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded-lg font-semibold hover:bg-white dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-300 dark:hover:border-blue-700 transition-all flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
-                          >
-                            {movingToDraftId === property.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Edit2 className="h-4 w-4" />}
-                            Move to Draft
-                          </button>
-                        )}
-
-
-
-                        <button
-                          onClick={() => deleteProperty(property.id)}
-                          disabled={deletingPropertyId === property.id}
-                          className="px-3.5 py-2.5 border border-slate-300 dark:border-slate-600 text-red-600 dark:text-red-400 rounded-lg font-semibold hover:bg-white dark:hover:bg-slate-800 hover:text-red-700 dark:hover:border-red-400 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center"
-                          title="Delete Property"
-                        >
-                          {deletingPropertyId === property.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                        </button>
-                      </div>
-                    </div>
-                  )))}
-              </div>
-
-              {/* Empty State */}
-              {!isFetchingProperties && properties.filter(p => p.status === propertyFilter).length === 0 && (
-                <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800">
-                  <Building2 className="h-16 w-16 text-slate-300 dark:text-slate-700 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">No Properties Found</h3>
-                  <p className="text-slate-600 dark:text-slate-400 mb-6">
-                    {propertyFilter === 'published' ? "You haven't published any properties yet." :
-                      propertyFilter === 'pending' ? "You don't have any properties pending approval." :
-
-                        propertyFilter === 'rejected' ? "You don't have any rejected properties." :
-                          "You don't have any drafts."}
-                  </p>
-                  <button
-                    onClick={() => setShowAddProperty(true)}
-                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center gap-2 transition-colors mx-auto"
-                  >
-                    <Plus className="h-5 w-5" />
-                    Create New Property
-                  </button>
-                </div>
-              )}
-            </div>
+          {activeTab === "blog" && <BlogView onMenuClick={() => {}} />}
+          {activeTab === "offers" && (
+            <OffersView userRole={currentUser?.role || "builder"} />
           )}
-
-          {activeTab === "offers" && <OffersView userRole={currentUser?.role || "builder"} />}
-          {activeTab === "feedback" && (
-            <FeedbackView 
-              initialName={profile?.developerName || profile?.companyName || currentUser?.name || ""} 
-              initialEmail={profile?.email || currentUser?.email || ""} 
-              source="builder" 
+          {activeTab === "feedback" && <FeedbackView />}
+          {activeTab === "properties" && (
+            <PropertiesView
+              role="builder"
+              properties={properties}
+              filteredProperties={filteredProperties}
+              propertyFilter={propertyFilter}
+              propertySearchInput={propertySearchInput[propertyFilter] || ""}
+              onSearchInputChange={(val) =>
+                setPropertySearchInput((prev) => ({
+                  ...prev,
+                  [propertyFilter]: val,
+                }))
+              }
+              debouncedSearchQuery={
+                debouncedPropertySearch[propertyFilter] || ""
+              }
+              isFetchingProperties={isFetchingProperties}
+              onRefreshProperties={handleRefreshProperties}
+              showAddProperty={showAddProperty}
+              setShowAddProperty={setShowAddProperty}
+              onViewHierarchy={handleViewTowers}
+              onMoveToDraft={handleMoveToDraft}
+              movingToDraftId={movingToDraftId}
+              onDeleteProperty={deleteProperty}
+              deletingPropertyId={deletingPropertyId}
+              onUpdateGroupBuying={handleUpdateGroupBuying}
             />
           )}
-
-          {
-            activeTab === "settings" && (
-              <div className="max-w-6xl mx-auto">
-
-                <Tabs value={activeSettingsTab} onValueChange={(val: any) => setActiveSettingsTab(val)} className="space-y-6">
-                  <TabsList className="bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-full md:w-auto inline-flex">
-                    <TabsTrigger value="profile" className="flex-1 md:w-48 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-950 data-[state=active]:shadow-sm px-4 py-2">Builder Profile</TabsTrigger>
-                    <TabsTrigger value="preferences" className="flex-1 md:w-48 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-950 data-[state=active]:shadow-sm px-4 py-2">System Preferences</TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="profile" className="focus-visible:outline-none animate-in fade-in duration-300">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                      {/* Left Col - Avatar & Basic */}
-                      <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-8 h-fit">
-                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-6 text-center space-y-8">
-                          <ImageUpload
-                            value={profile.logo}
-                            onChange={(val) => setProfile({ ...profile, logo: val })}
-                            label="Company Logo"
-                            className="w-full"
-                          />
-                          <div className="border-t border-slate-100 dark:border-slate-800 pt-6">
-                            <ImageUpload
-                              value={profile.coverImage}
-                              onChange={(val) => setProfile({ ...profile, coverImage: val })}
-                              label="Cover Hero Image"
-                              className="w-full"
-                            />
-                          </div>
-                          <div className="border-t border-slate-100 dark:border-slate-800 pt-6">
-                            <ImageUpload
-                              value={profile.overviewImage}
-                              onChange={(val) => setProfile({ ...profile, overviewImage: val })}
-                              label="Overview Side Image"
-                              className="w-full"
-                            />
-                          </div>
-                        </div>
-
-
-
-                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-6">
-                          <h3 className="font-semibold text-slate-900 dark:text-white mb-4">Quick Stats</h3>
-                          <div className="space-y-4">
-                            <div className="flex justify-between text-sm">
-                              <span className="text-slate-600 dark:text-slate-400">Properties</span>
-                              <span className="font-medium text-slate-900 dark:text-white">{properties.length}</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-slate-600 dark:text-slate-400">Member Since</span>
-                              <span className="font-medium text-slate-900 dark:text-white">{currentUser?.createdAt ? new Date(currentUser.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'N/A'}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Right Col - Form */}
-                      <div className="lg:col-span-2">
-                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm p-8">
-                          <div className="space-y-6">
-                            {/* Company Info */}
-                            <div>
-                              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                                <Building2 className="h-5 w-5 text-slate-500 dark:text-slate-400" />
-                                Company Details
-                              </h3>
-
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Company Name</label>
-                                  <input
-                                    type="text"
-                                    value={profile.companyName}
-                                    onChange={(e) => setProfile({ ...profile, companyName: e.target.value })}
-                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="e.g. Acme Builders"
-                                  />
-                                </div>
-
-                                <div>
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Established Year</label>
-                                  <input
-                                    type="text"
-                                    value={profile.establishedYear}
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      let experienceStr = profile.experience;
-                                      const year = parseInt(val);
-                                      if (!isNaN(year) && val.length === 4) {
-                                        const currentYear = new Date().getFullYear();
-                                        if (year <= currentYear && year > 1800) {
-                                          experienceStr = String(currentYear - year);
-                                        }
-                                      }
-                                      setProfile({ ...profile, establishedYear: val, experience: experienceStr });
-                                    }}
-                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="e.g. 1998"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">State</label>
-                                  <input
-                                    type="text"
-                                    value={profile.state}
-                                    onChange={(e) => setProfile({ ...profile, state: e.target.value })}
-                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="e.g. Maharashtra"
-                                  />
-                                </div>
-                                <div className="md:col-span-2">
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Operating Cities / Locations of Work</label>
-                                  <input
-                                    type="text"
-                                    value={profile.operatingCities}
-                                    onChange={(e) => setProfile({ ...profile, operatingCities: e.target.value })}
-                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="e.g. Mumbai, Pune, Thane"
-                                  />
-                                </div>
-                                <div className="md:col-span-2">
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tagline</label>
-                                  <input
-                                    type="text"
-                                    value={profile.tagline}
-                                    onChange={(e) => setProfile({ ...profile, tagline: e.target.value })}
-                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="Company tagline or short bio"
-                                  />
-                                </div>
-                                <div className="md:col-span-2">
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">About Company</label>
-                                  <textarea
-                                    value={profile.aboutCompany}
-                                    onChange={(e) => setProfile({ ...profile, aboutCompany: e.target.value })}
-                                    rows={4}
-                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="Detailed description of the company..."
-                                  />
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Developer Info */}
-                            <div>
-                              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                                <User className="h-5 w-5 text-slate-500 dark:text-slate-400" />
-                                Developer Information
-                              </h3>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Developer Name</label>
-                                  <input
-                                    type="text"
-                                    value={profile.developerName}
-                                    onChange={(e) => setProfile({ ...profile, developerName: e.target.value })}
-                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="Full Name"
-                                  />
-                                </div>
-
-                                <div>
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Experience</label>
-                                  <input
-                                    type="text"
-                                    value={profile.experience}
-                                    onChange={(e) => setProfile({ ...profile, experience: e.target.value })}
-                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="e.g. 25+ Years"
-                                  />
-                                </div>
-                                <div className="md:col-span-2">
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Specializations</label>
-                                  <input
-                                    type="text"
-                                    value={profile.specialization}
-                                    onChange={(e) => setProfile({ ...profile, specialization: e.target.value })}
-                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="e.g. Luxury, Commercial"
-                                  />
-                                </div>
-                                <div className="md:col-span-2">
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Developer Description</label>
-                                  <textarea
-                                    value={profile.description}
-                                    onChange={(e) => setProfile({ ...profile, description: e.target.value })}
-                                    rows={3}
-                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="Brief overview or bio of the developer..."
-                                  />
-                                </div>
-                                
-
-                              </div>
-                            </div>
-
-                            {/* Contact Info */}
-                            <div>
-                              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                                <Mail className="h-5 w-5 text-slate-500 dark:text-slate-400" />
-                                Contact & Address
-                              </h3>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email Address</label>
-                                  <input
-                                    type="email"
-                                    value={profile.email}
-                                    onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Phone Number</label>
-                                  <input
-                                    type="tel"
-                                    value={profile.phone}
-                                    onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  />
-                                </div>
-                                <div className="md:col-span-2">
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Website</label>
-                                  <input
-                                    type="url"
-                                    value={profile.website}
-                                    onChange={(e) => setProfile({ ...profile, website: e.target.value })}
-                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="https://"
-                                  />
-                                </div>
-                                <div className="md:col-span-2">
-                                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Office Address</label>
-                                  <textarea
-                                    value={profile.address}
-                                    onChange={(e) => setProfile({ ...profile, address: e.target.value })}
-                                    rows={3}
-                                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Vision Highlights */}
-                            <div>
-                              <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                                  <Star className="h-5 w-5 text-slate-500 dark:text-slate-400" />
-                                  Vision Highlights
-                                </h3>
-                                <button
-                                  type="button"
-                                  onClick={() => setProfile({
-                                    ...profile,
-                                    visionHighlights: [...(profile.visionHighlights || []), { title: '', subtitle: '', icon: 'Star' }]
-                                  })}
-                                  className="text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded-lg font-medium transition-colors"
-                                >
-                                  + Add Highlight
-                                </button>
-                              </div>
-                              <div className="space-y-4">
-                                {profile.visionHighlights?.map((highlight, index) => (
-                                  <div key={index} className="flex gap-4 items-start bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
-                                    <div className="flex-1 space-y-3">
-                                      <div className="grid grid-cols-2 gap-3">
-                                        <div>
-                                          <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Title</label>
-                                          <input
-                                            type="text"
-                                            value={highlight.title}
-                                            onChange={(e) => {
-                                              const newHighlights = [...(profile.visionHighlights || [])];
-                                              newHighlights[index].title = e.target.value;
-                                              setProfile({ ...profile, visionHighlights: newHighlights });
-                                            }}
-                                            className="w-full px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            placeholder="e.g. Legacy"
-                                          />
-                                        </div>
-                                        <div>
-                                          <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Icon</label>
-                                          <select
-                                            value={highlight.icon}
-                                            onChange={(e) => {
-                                              const newHighlights = [...(profile.visionHighlights || [])];
-                                              newHighlights[index].icon = e.target.value;
-                                              setProfile({ ...profile, visionHighlights: newHighlights });
-                                            }}
-                                            className="w-full px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                          >
-                                            <option value="Star">Star</option>
-                                            <option value="Award">Award</option>
-                                            <option value="TrendingUp">Trending Up</option>
-                                          </select>
-                                        </div>
-                                      </div>
-                                      <div>
-                                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Subtitle</label>
-                                        <input
-                                          type="text"
-                                          value={highlight.subtitle}
-                                          onChange={(e) => {
-                                            const newHighlights = [...(profile.visionHighlights || [])];
-                                            newHighlights[index].subtitle = e.target.value;
-                                            setProfile({ ...profile, visionHighlights: newHighlights });
-                                          }}
-                                          className="w-full px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                          placeholder="e.g. Decades of trust"
-                                        />
-                                      </div>
-                                    </div>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const newHighlights = [...(profile.visionHighlights || [])];
-                                        newHighlights.splice(index, 1);
-                                        setProfile({ ...profile, visionHighlights: newHighlights });
-                                      }}
-                                      className="mt-6 text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </button>
-                                  </div>
-                                ))}
-                                {(!profile.visionHighlights || profile.visionHighlights.length === 0) && (
-                                  <p className="text-sm text-slate-500 italic">No highlights added yet.</p>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Awards & Recognition */}
-                            <div className="pt-6 border-t border-slate-200 dark:border-slate-800">
-                              <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                                  <Award className="h-5 w-5 text-slate-500 dark:text-slate-400" />
-                                  Awards & Recognition
-                                </h3>
-                                <button
-                                  type="button"
-                                  onClick={() => setProfile({
-                                    ...profile,
-                                    awards: [...(profile.awards || []), { year: '', title: '', org: '' }]
-                                  })}
-                                  className="text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded-lg font-medium transition-colors"
-                                >
-                                  + Add Award
-                                </button>
-                              </div>
-                              <div className="space-y-4">
-                                {profile.awards?.map((award, index) => (
-                                  <div key={index} className="flex gap-4 items-start bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
-                                    <div className="flex-1 space-y-3">
-                                      <div className="grid grid-cols-2 gap-3">
-                                        <div>
-                                          <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Year</label>
-                                          <input
-                                            type="text"
-                                            value={award.year}
-                                            onChange={(e) => {
-                                              const newAwards = [...(profile.awards || [])];
-                                              newAwards[index].year = e.target.value;
-                                              setProfile({ ...profile, awards: newAwards });
-                                            }}
-                                            className="w-full px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            placeholder="e.g. 2023"
-                                          />
-                                        </div>
-                                        <div>
-                                          <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Organization</label>
-                                          <input
-                                            type="text"
-                                            value={award.org}
-                                            onChange={(e) => {
-                                              const newAwards = [...(profile.awards || [])];
-                                              newAwards[index].org = e.target.value;
-                                              setProfile({ ...profile, awards: newAwards });
-                                            }}
-                                            className="w-full px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            placeholder="e.g. Real Estate Awards"
-                                          />
-                                        </div>
-                                      </div>
-                                      <div>
-                                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Title</label>
-                                        <input
-                                          type="text"
-                                          value={award.title}
-                                          onChange={(e) => {
-                                            const newAwards = [...(profile.awards || [])];
-                                            newAwards[index].title = e.target.value;
-                                            setProfile({ ...profile, awards: newAwards });
-                                          }}
-                                          className="w-full px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                          placeholder="e.g. Best Developer of the Year"
-                                        />
-                                      </div>
-                                    </div>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const newAwards = [...(profile.awards || [])];
-                                        newAwards.splice(index, 1);
-                                        setProfile({ ...profile, awards: newAwards });
-                                      }}
-                                      className="mt-6 text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </button>
-                                  </div>
-                                ))}
-                                {(!profile.awards || profile.awards.length === 0) && (
-                                  <p className="text-sm text-slate-500 italic">No awards added yet.</p>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="pt-6 border-t border-slate-200 dark:border-slate-800 mt-8 flex justify-end">
-                              <button
-                                onClick={handleSaveProfile}
-                                disabled={isSavingProfile}
-                                className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                {isSavingProfile ? (
-                                  <><Loader2 className="h-5 w-5 animate-spin" /> Saving...</>
-                                ) : (
-                                  <><Save className="h-5 w-5" /> Save Profile</>
-                                )}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="preferences" className="focus-visible:outline-none animate-in fade-in duration-300">
-                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-                      {/* Appearance */}
-                      <div className="p-6 border-b border-slate-100 dark:border-slate-800">
-                        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
-                            <Palette className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-                          </div>
-                          Appearance
-                        </h3>
-                        <div className="pl-10">
-                          <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">Choose how Builder Dashboard looks on your device.</p>
-                          <div className="grid grid-cols-3 gap-4">
-                            <label className="cursor-pointer">
-                              <input type="radio" name="theme" value="light" checked={theme === 'light'} onChange={() => handleThemeChange('light')} className="peer sr-only" />
-                              <div className="p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 peer-checked:border-blue-600 dark:peer-checked:border-blue-500 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
-                                <div className="w-full h-20 bg-slate-100 rounded-lg mb-3 border border-slate-200 flex flex-col gap-2 p-2 overflow-hidden">
-                                  <div className="h-2 w-full bg-white rounded-full"></div>
-                                  <div className="h-2 w-2/3 bg-white rounded-full"></div>
-                                </div>
-                                <span className="font-medium text-slate-900 dark:text-white peer-checked:text-blue-700 dark:peer-checked:text-blue-400">Light</span>
-                              </div>
-                            </label>
-                            <label className="cursor-pointer">
-                              <input type="radio" name="theme" value="dark" checked={theme === 'dark'} onChange={() => handleThemeChange('dark')} className="peer sr-only" />
-                              <div className="p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 peer-checked:border-blue-600 dark:peer-checked:border-blue-500 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
-                                <div className="w-full h-20 bg-slate-800 rounded-lg mb-3 border border-slate-700 flex flex-col gap-2 p-2 overflow-hidden">
-                                  <div className="h-2 w-full bg-slate-700 rounded-full"></div>
-                                  <div className="h-2 w-2/3 bg-slate-700 rounded-full"></div>
-                                </div>
-                                <span className="font-medium text-slate-900 dark:text-white peer-checked:text-blue-700 dark:peer-checked:text-blue-400">Dark</span>
-                              </div>
-                            </label>
-                            <label className="cursor-pointer">
-                              <input type="radio" name="theme" value="system" checked={theme === 'system'} onChange={() => handleThemeChange('system')} className="peer sr-only" />
-                              <div className="p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 peer-checked:border-blue-600 dark:peer-checked:border-blue-500 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20 transition-all text-center">
-                                <div className="w-full h-20 bg-gradient-to-br from-slate-100 to-slate-800 rounded-lg mb-3 border border-slate-200 overflow-hidden relative">
-                                  <div className="absolute inset-y-0 left-0 w-1/2 bg-slate-100"></div>
-                                </div>
-                                <span className="font-medium text-slate-900 dark:text-white peer-checked:text-blue-700 dark:peer-checked:text-blue-400">System</span>
-                              </div>
-                            </label>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Notifications */}
-                      <div className="p-6 border-b border-slate-100 dark:border-slate-800">
-                        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                            <Bell className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                          </div>
-                          Notification Preferences
-                        </h3>
-                        <div className="pl-10 grid gap-4">
-                          {['Offer Expiry Reminders'].map(item => {
-                            const isOn = notifications[item] !== false
-                            return (
-                              <div key={item} className="flex items-center justify-between">
-                                <span className="text-slate-700 dark:text-slate-300">{item}</span>
-                                <button
-                                  type="button"
-                                  role="switch"
-                                  aria-checked={isOn}
-                                  onClick={() => handleNotificationChange(item, !isOn)}
-                                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                                    isOn ? 'bg-blue-600' : 'bg-slate-200 dark:bg-slate-700'
-                                  }`}
-                                >
-                                  <span
-                                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                                      isOn ? 'translate-x-[22px]' : 'translate-x-[2px]'
-                                    }`}
-                                  />
-                                </button>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Security */}
-                      <div className="p-6">
-                        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                            <Shield className="h-5 w-5 text-red-600 dark:text-red-400" />
-                          </div>
-                          Security & Account
-                        </h3>
-                        <div className="pl-10 space-y-4">
-                          <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                            <div className="flex items-center gap-3">
-                              <Lock className="h-5 w-5 text-slate-500" />
-                              <div>
-                                <p className="font-medium text-slate-900 dark:text-white">Password</p>
-                                <p className="text-xs text-slate-500">Last changed 3 months ago</p>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => setIsChangingPassword(true)}
-                              className="text-sm px-3 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                            >
-                              Change
-                            </button>
-                          </div>
-                          </div>
-                      </div>
-
-                    </div>
-                  </TabsContent>
-                </Tabs>
-              </div>
-            )
-          }
+          {activeTab === "settings" && (
+            <SettingsView
+              role="builder"
+              currentUser={currentUser}
+              profile={profile}
+              setProfile={setProfile}
+              propertiesCount={properties.length}
+              activeSettingsTab={activeSettingsTab}
+              setActiveSettingsTab={setActiveSettingsTab}
+              onSaveProfile={handleSaveProfile}
+              isSavingProfile={isSavingProfile}
+              theme={theme}
+              onThemeChange={handleThemeChange}
+              notifications={notifications}
+              onNotificationChange={handleNotificationChange}
+              isChangingPassword={isChangingPassword}
+              setIsChangingPassword={setIsChangingPassword}
+              passwordData={passwordData}
+              setPasswordData={setPasswordData}
+              handleSendOtp={handleSendOtp}
+              sendingOtp={sendingOtp}
+              otpSent={otpSent}
+              handlePasswordChange={handlePasswordChange}
+            />
+          )}
         </div>
       </main>
 
-
-      {/* Password Change Modal */}
-      {isChangingPassword && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
-              <h3 className="text-xl font-bold text-slate-900 dark:text-white">Change Password</h3>
-              <button
-                onClick={() => {
-                  setIsChangingPassword(false);
-                  setOtpSent(false);
-                  setPasswordData({ otp: "", newPassword: "", confirmPassword: "" });
-                }}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            
-            {!otpSent ? (
-              <div className="p-6 text-center space-y-4">
-                <div className="mx-auto w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4">
-                  <Mail className="h-8 w-8 text-blue-600 dark:text-blue-400" />
-                </div>
-                <h4 className="text-lg font-semibold text-slate-900 dark:text-white">Verify Your Identity</h4>
-                <p className="text-slate-500 dark:text-slate-400 text-sm">
-                  We'll send a 6-digit OTP to your registered email address to verify it's you before changing your password.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleSendOtp}
-                  disabled={sendingOtp}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-xl transition-all shadow-sm shadow-blue-500/20 disabled:opacity-70 flex justify-center items-center gap-2 mt-4"
-                >
-                  {sendingOtp ? (
-                    <>
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                      Sending OTP...
-                    </>
-                  ) : (
-                    "Send OTP to Email"
-                  )}
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handlePasswordChange} className="p-6 space-y-5">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Enter 6-digit OTP</label>
-                  <input
-                    type="text"
-                    required
-                    maxLength={6}
-                    value={passwordData.otp}
-                    onChange={(e) => setPasswordData({ ...passwordData, otp: e.target.value })}
-                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all tracking-widest"
-                    placeholder="123456"
-                  />
-                </div>
-                <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">New Password</label>
-                  <input
-                    type="password"
-                    required
-                    value={passwordData.newPassword}
-                    onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                    placeholder="Min 8 characters"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Confirm New Password</label>
-                  <input
-                    type="password"
-                    required
-                    value={passwordData.confirmPassword}
-                    onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                    placeholder="••••••••"
-                  />
-                </div>
-                <div className="pt-4 flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsChangingPassword(false);
-                      setOtpSent(false);
-                    }}
-                    className="flex-1 px-4 py-2.5 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors font-medium"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSavingProfile}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 px-4 rounded-xl transition-all shadow-sm shadow-blue-500/20 font-medium disabled:opacity-70 flex justify-center items-center gap-2"
-                  >
-                    {isSavingProfile ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Updating...
-                      </>
-                    ) : (
-                      "Update Password"
-                    )}
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Property Hierarchy View Modal */}
       <PropertyHierarchyModal
         isOpen={!!selectedPropertyForHierarchy}
         onClose={() => setSelectedPropertyForHierarchy(null)}
         property={selectedPropertyForHierarchy}
       />
 
-      {/* Native Mobile Bottom Navigation (lg:hidden) */}
       <MobileBottomNav
         activeTab={activeTab}
         onTabChange={handleTabChange}
@@ -2268,9 +926,16 @@ function DashboardContent() {
     </div>
   )
 }
+
 export default function BuilderDashboard() {
   return (
-    <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading Dashboard...</div>}>
+    <Suspense
+      fallback={
+        <div className="flex h-screen items-center justify-center">
+          Loading Dashboard...
+        </div>
+      }
+    >
       <DashboardContent />
     </Suspense>
   )

@@ -32,6 +32,9 @@ import { ProjectFlowForm } from "@/components/builder/forms/project-flow-form"
 import { TowerFlowForm } from "@/components/builder/forms/tower-flow-form"
 import { useAutoDraft } from "@/lib/algorithms/use-auto-draft"
 import { DraftResumeBanner } from "@/components/builder/shared/DraftResumeBanner"
+import { calculateUpwardPricingAndCounts } from "@/lib/services/pricing-rollup"
+import { generateTowers, generateUnits } from "@/lib/services/entity-generator"
+import { submitPropertyHierarchy } from "@/lib/services/property-submission"
 
 const ALL_STEPS = [
   { id: 1, name: "Township", description: "Basic details & location" },
@@ -312,226 +315,19 @@ function BuilderContent() {
   const { unitTemplate, towers, towerUnitConfigs } = state
 
   const generatedTowers = useMemo<GeneratedTower[]>(() => {
-    return (towers || []).filter(Boolean).map((tower) => {
-      const towerConfig = towerUnitConfigs?.find((c) => c.towerId === tower.id)
-      const floorGroups = towerConfig?.floorGroups || unitTemplate?.floorGroups || []
-      
-      let floors = Number.parseInt(String(tower.totalFloors || "").replace(/\D/g, ""))
-      let unitsPerFloor = Number.parseInt(String(tower.unitsPerFloor || ""))
-
-      if (!floors && floorGroups.length > 0) {
-        const allFloors = floorGroups.flatMap((g: any) => g.floors || [])
-        floors = allFloors.length > 0 ? Math.max(...allFloors) : 0
-      }
-      if (!floors) floors = 20
-
-      if (!unitsPerFloor && floorGroups.length > 0) {
-        const allLayouts = floorGroups.map((g: any) => (g.layout || []).length)
-        unitsPerFloor = allLayouts.length > 0 ? Math.max(...allLayouts) : 0
-      }
-      if (!unitsPerFloor) unitsPerFloor = 4
-
-      return {
-        id: tower.id,
-        projectId: tower.projectId,
-        name: tower.name || `Tower ${tower.id?.split("-").pop()?.toUpperCase() || "N/A"}`,
-        reraNumber: tower.reraNumber,
-        totalFloors: floors,
-        unitsPerFloor,
-        totalUnits: tower.totalUnits !== undefined ? tower.totalUnits : (floors * unitsPerFloor), // Use the true synced count if available
-      }
+    return generateTowers({
+      towers: state.towers,
+      towerUnitConfigs,
+      unitTemplate,
     })
   }, [state.towers, towerUnitConfigs, unitTemplate])
 
   const generatedUnits = useMemo<GeneratedUnit[]>(() => {
-    const units: GeneratedUnit[] = []
-    const facings = ["north", "south", "east", "west", "north-east", "north-west", "south-east", "south-west"]
-
-    if (!generatedTowers || !Array.isArray(generatedTowers)) return []
-
-    generatedTowers.forEach((tower) => {
-      const towerConfig = towerUnitConfigs?.find((c) => c.towerId === tower.id)
-      const floorGroups = (towerConfig?.floorGroups && towerConfig.floorGroups.length > 0) 
-        ? towerConfig.floorGroups 
-        : (unitTemplate?.floorGroups || [])
-      const configs = (towerConfig?.configurations && towerConfig.configurations.length > 0)
-        ? towerConfig.configurations
-        : (unitTemplate?.configurations || [])
-      const basePrice = towerConfig?.basePrice
-        ? Number.parseFloat(towerConfig.basePrice)
-        : Number.parseFloat(unitTemplate?.basePrice || "0")
-      const ratePerSqft = towerConfig?.ratePerSqft
-        ? Number.parseFloat(towerConfig.ratePerSqft)
-        : Number.parseFloat(unitTemplate?.ratePerSqft || "0")
-      const facingPremiums = towerConfig?.facingPremiums || unitTemplate?.facingPremiums || {}
-
-      let unitNumber = 0
-      const totalFloors = Number(tower.totalFloors) || 0
-      
-      if (floorGroups && floorGroups.length > 0) {
-        // Collect all unique floors across all groups
-        const allFloorsSet = new Set<number>()
-        floorGroups.forEach((g: any) => (g.floors || []).forEach((f: any) => allFloorsSet.add(f)))
-        let allFloors = Array.from(allFloorsSet).sort((a, b) => a - b)
-        
-        // Do NOT filter by totalFloors limit here anymore.
-        // We want to generate units for ALL floors explicitly mapped by the user in Phase 4 (Floor Groups),
-        // ensuring the total matches the Live Tower Map perfectly.
-
-        allFloors.forEach(floor => {
-          // Find the primary group for this floor (matches Live Tower Map logic)
-          const group = floorGroups.find((g: any) => (g.floors || []).includes(floor))
-          if (!group || !group.layout) return
-
-          const slotsToUse = group.floorOverrides?.[floor.toString()] || group.layout;
-
-          slotsToUse.forEach((slot: any) => {
-            // Fix: Don't return early if config is missing (before Smart Sync).
-            // This ensures units are correctly counted based on layout slots even before configs are generated.
-            const config = configs.find((c: any) => c.id === slot.configId) || configs[0] || { 
-              type: slot.unitTypeOverride || "Pending BHK", 
-              carpetArea: slot.carpetAreaOverride || 0 
-            }
-            
-            unitNumber++
-            const facing = slot.facingOverride || facings[(unitNumber - 1) % facings.length]
-            const carpetArea = slot.carpetAreaOverride || config.carpetArea || 0
-            const builtUpArea = config?.builtUpArea || Math.round(carpetArea * 1.2)
-            const configRate = Number.parseFloat(config?.ratePerSqft || "0") || 0
-            const configBasePrice = Number.parseFloat(config?.basePrice || "0") || 0
-            const effectiveRate = Number.parseFloat(slot.rateOverride || "0") || (ratePerSqft > 0 ? ratePerSqft : configRate)
-            const effectiveBase = configBasePrice > 0 ? configBasePrice : basePrice
-            let finalPrice = slot.priceOverride || (builtUpArea * effectiveRate || effectiveBase)
-
-            const floorRiseStart = 5
-            if (floor >= floorRiseStart) {
-              const floorDiff = floor - floorRiseStart
-              const risePercent = 0.5 / 100
-              finalPrice = finalPrice * (1 + floorDiff * risePercent)
-            }
-
-            const premiumValue = facingPremiums[facing as keyof typeof facingPremiums]
-            const facingPremium = (Number.parseFloat(String(premiumValue || "0")) || 0) / 100
-            finalPrice = finalPrice * (1 + facingPremium)
-
-            units.push({
-              id: `unit-${tower.id}-${floor}-${slot.slotNumber}`,
-              towerId: tower.id,
-              projectId: tower.projectId,
-              unitNumber: `${tower.name?.replace("Tower ", "") || "T"}-${floor}${slot.slotNumber.padStart(2, "0")}`,
-              floor,
-              floorNumber: floor,
-              slotNumber: slot.slotNumber,
-              slotId: slot.id,
-              configId: slot.configId,
-              configuration: slot.typeOverride || config?.type || "1BHK",
-              carpetArea,
-              area: carpetArea,
-              price: Math.round(finalPrice),
-              basePrice: config?.basePrice || Math.round(finalPrice),
-              allInclusivePrice: config?.allInclusivePrice || Math.round(finalPrice),
-              ratePerSqft: effectiveRate > 0 ? effectiveRate : (finalPrice > 0 && carpetArea > 0 ? Math.round(finalPrice / carpetArea) : 0),
-              facing,
-              status: slot.status || "available",
-              vastuDetails: slot.vastuDetails || config?.vastuDetails || null,
-              vastuAnalysis: config?.vastuAnalysis || [],
-              roomDimensions: slot.roomDimensions || config?.roomDimensions || [],
-              flooringType: config?.flooringType || unitTemplate?.defaultFlooringType || unitTemplate?.flooringType,
-              wallFinish: config?.wallFinish || unitTemplate?.defaultWallFinish || unitTemplate?.wallFinish,
-              ceilingHeight: config?.ceilingHeight || unitTemplate?.defaultCeilingHeight || unitTemplate?.ceilingHeight,
-              furnishingStatus: config?.furnishingStatus || unitTemplate?.defaultFurnishingStatus || unitTemplate?.furnishingStatus,
-              viewType: config?.viewType || unitTemplate?.defaultViewType || unitTemplate?.viewType,
-              defaultBalconyRailing: unitTemplate?.defaultBalconyRailing,
-              defaultWindows: unitTemplate?.defaultWindows,
-              defaultMainDoor: unitTemplate?.defaultMainDoor,
-              defaultInternalDoors: unitTemplate?.defaultInternalDoors,
-              defaultKitchenPlatform: unitTemplate?.defaultKitchenPlatform,
-              defaultKitchenFittings: unitTemplate?.defaultKitchenFittings,
-              defaultBathroomCpFittings: unitTemplate?.defaultBathroomCpFittings,
-              defaultSanitaryware: unitTemplate?.defaultSanitaryware,
-              defaultWiringSwitches: unitTemplate?.defaultWiringSwitches,
-              defaultPowerBackup: unitTemplate?.defaultPowerBackup,
-              defaultSmartHomeProvisions: unitTemplate?.defaultSmartHomeProvisions,
-              defaultPlasterPaint: unitTemplate?.defaultPlasterPaint,
-              defaultFireSafety: unitTemplate?.defaultFireSafety,
-              defaultVastuCompliance: unitTemplate?.defaultVastuCompliance,
-            })
-          })
-        })
-      } else if (Array.isArray(configs)) {
-        // Fallback to basic countPerFloor logic if no floorGroups
-        for (let floor = 1; floor <= totalFloors; floor++) {
-          configs.forEach((config: any) => {
-            const countPerFloor = config?.countPerFloor || 0
-            for (let i = 0; i < countPerFloor; i++) {
-              unitNumber++
-              const facing = facings[(unitNumber - 1) % facings.length]
-
-              const carpetArea = config?.carpetArea || 0
-              const builtUpArea = config?.builtUpArea || Math.round(carpetArea * 1.2)
-              const configRate = Number.parseFloat(config?.ratePerSqft || "0") || 0
-              const configBasePrice = Number.parseFloat(config?.basePrice || "0") || 0
-              const effectiveRate = ratePerSqft > 0 ? ratePerSqft : configRate
-              const effectiveBase = configBasePrice > 0 ? configBasePrice : basePrice
-              let finalPrice = builtUpArea * effectiveRate || effectiveBase
-
-              const floorRiseStart = 5
-              if (floor >= floorRiseStart) {
-                const floorDiff = floor - floorRiseStart
-                const risePercent = 0.5 / 100
-                finalPrice = finalPrice * (1 + floorDiff * risePercent)
-              }
-
-              const premiumValue = facingPremiums[facing as keyof typeof facingPremiums]
-              const facingPremium = (Number.parseFloat(String(premiumValue || "0")) || 0) / 100
-              finalPrice = finalPrice * (1 + facingPremium)
-
-              units.push({
-                id: `unit-${tower.id}-${floor}-${i + 1}`,
-                towerId: tower.id,
-                projectId: tower.projectId,
-                unitNumber: `${tower.name?.replace("Tower ", "") || "T"}-${floor}${(i + 1).toString().padStart(2, "0")}`,
-                floor,
-                floorNumber: floor,
-                configuration: config?.type || "1BHK",
-                carpetArea,
-                area: carpetArea,
-                price: Math.round(finalPrice),
-                basePrice: config?.basePrice || Math.round(finalPrice),
-                allInclusivePrice: config?.allInclusivePrice || Math.round(finalPrice),
-                ratePerSqft: effectiveRate > 0 ? effectiveRate : (finalPrice > 0 && carpetArea > 0 ? Math.round(finalPrice / carpetArea) : 0),
-                facing,
-                status: "available",
-                vastuDetails: config?.vastuDetails || null,
-                vastuAnalysis: config?.vastuAnalysis || [],
-                roomDimensions: config?.roomDimensions || [],
-                flooringType: config?.flooringType || unitTemplate?.defaultFlooringType || unitTemplate?.flooringType,
-                wallFinish: config?.wallFinish || unitTemplate?.defaultWallFinish || unitTemplate?.wallFinish,
-                ceilingHeight: config?.ceilingHeight || unitTemplate?.defaultCeilingHeight || unitTemplate?.ceilingHeight,
-                furnishingStatus: config?.furnishingStatus || unitTemplate?.defaultFurnishingStatus || unitTemplate?.furnishingStatus,
-                viewType: config?.viewType || unitTemplate?.defaultViewType || unitTemplate?.viewType,
-                defaultBalconyRailing: unitTemplate?.defaultBalconyRailing,
-                defaultWindows: unitTemplate?.defaultWindows,
-                defaultMainDoor: unitTemplate?.defaultMainDoor,
-                defaultInternalDoors: unitTemplate?.defaultInternalDoors,
-                defaultKitchenPlatform: unitTemplate?.defaultKitchenPlatform,
-                defaultKitchenFittings: unitTemplate?.defaultKitchenFittings,
-                defaultBathroomCpFittings: unitTemplate?.defaultBathroomCpFittings,
-                defaultSanitaryware: unitTemplate?.defaultSanitaryware,
-                defaultWiringSwitches: unitTemplate?.defaultWiringSwitches,
-                defaultPowerBackup: unitTemplate?.defaultPowerBackup,
-                defaultSmartHomeProvisions: unitTemplate?.defaultSmartHomeProvisions,
-                defaultPlasterPaint: unitTemplate?.defaultPlasterPaint,
-                defaultFireSafety: unitTemplate?.defaultFireSafety,
-                defaultVastuCompliance: unitTemplate?.defaultVastuCompliance,
-              })
-            }
-          })
-        }
-      }
+    return generateUnits({
+      generatedTowers,
+      towerUnitConfigs,
+      unitTemplate,
     })
-
-    return units
   }, [unitTemplate, generatedTowers, towerUnitConfigs])
 
   // Auto draft hook
@@ -597,154 +393,24 @@ function BuilderContent() {
     })
   }, [])
 
-  // ── Auto-sync township counts & pricing ──────────────────────────────────
+  // ── Auto-sync township counts & pricing using modular rollup service ──────
   useEffect(() => {
-    const towersCount = (state?.towers || []).filter(Boolean).length
-    const unitsCount = (generatedUnits || []).length || 0
-    const projectsCount = (state?.projects || []).filter(Boolean).length
-    const familiesCount = unitsCount
-
-    // Helper to format price in L/Cr
-    const formatPrice = (p: number) => {
-      if (p >= 10000000) return `₹${(p / 10000000).toFixed(2)} Cr`
-      if (p >= 100000) return `₹${(p / 100000).toFixed(2)} L`
-      return `₹${p.toLocaleString()}`
-    }
-
-    const getPriceLabel = (min: number, max: number) => {
-      if (!min || !max) return ""
-      if (min === max) return formatPrice(min)
-      return `${formatPrice(min)} – ${formatPrice(max)}`
-    }
-
-    // ── UPWARD PRICING & COUNTS SYNC ──
-    // 1. Calculate Tower Prices & Counts from Unit Configs & Generated Units
-    const updatedTowers = [...(state.towers || [])].map(tower => {
-      const config = state.towerUnitConfigs?.find(c => c.towerId === tower.id)
-      let configs = (config?.configurations && config.configurations.length > 0) 
-        ? config.configurations 
-        : []
-      
-      // Fallback to global template if tower config is empty or has no prices
-      if (configs.length === 0 || !configs.some((c: any) => (c.allInclusivePrice || 0) > 0)) {
-        configs = state.unitTemplate?.configurations || []
-      }
-
-      // Fix: Use the live useMemo `generatedUnits` instead of `state.generatedUnits` which is only updated on Next step.
-      const towerUnitsCount = (generatedUnits || []).filter(u => u.towerId === tower.id).length;
-      let newTower = { ...tower };
-      if (newTower.totalUnits !== towerUnitsCount) {
-        newTower.totalUnits = towerUnitsCount;
-      }
-
-      if (configs.length > 0) {
-        const prices = configs.map((c: any) => c.allInclusivePrice || 0).filter((p: number) => p > 0)
-        if (prices.length > 0) {
-          const min = Math.min(...prices)
-          const max = Math.max(...prices)
-          const autoLabel = getPriceLabel(min, max)
-          
-          // Sync min/max always, but only sync label if it was empty or matches old auto-generated pattern
-          const shouldUpdateLabel = !tower.priceLabel || tower.priceLabel.includes("L") || tower.priceLabel.includes("Cr")
-          
-          if (tower.priceRangeMin !== min || tower.priceRangeMax !== max || (shouldUpdateLabel && tower.priceLabel !== autoLabel)) {
-            newTower.priceRangeMin = min;
-            newTower.priceRangeMax = max;
-            newTower.priceLabel = shouldUpdateLabel ? autoLabel : tower.priceLabel;
-          }
-        }
-      }
-      return newTower
-    })
-
-    // 2. Calculate Project Prices & Counts from Towers
-    const updatedProjects = [...(state.projects || [])].map(proj => {
-      const projTowers = updatedTowers.filter(t => t.projectId === proj.id)
-      
-      let newProj = { ...proj };
-      const projectTowersCount = projTowers.length;
-      const projectUnitsCount = projTowers.reduce((acc, t) => acc + (t.totalUnits || 0), 0);
-      
-      if (newProj.totalTowers !== projectTowersCount || newProj.totalUnits !== projectUnitsCount) {
-        newProj.totalTowers = projectTowersCount;
-        newProj.totalUnits = projectUnitsCount;
-      }
-
-      if (projTowers.length > 0) {
-        const mins = projTowers.map(t => t.priceRangeMin).filter(p => p > 0)
-        const maxs = projTowers.map(t => t.priceRangeMax).filter(p => p > 0)
-        if (mins.length > 0 && maxs.length > 0) {
-          const min = Math.min(...mins)
-          const max = Math.max(...maxs)
-          const autoLabel = getPriceLabel(min, max)
-          const shouldUpdateLabel = !proj.priceLabel || proj.priceLabel.includes("L") || proj.priceLabel.includes("Cr")
-          
-          if (proj.priceRangeMin !== min || proj.priceRangeMax !== max || (shouldUpdateLabel && proj.priceLabel !== autoLabel)) {
-            newProj.priceRangeMin = min;
-            newProj.priceRangeMax = max;
-            newProj.priceLabel = shouldUpdateLabel ? autoLabel : proj.priceLabel;
-          }
-        }
-      }
-      return newProj
-    })
-
-    // 3. Calculate Township Prices from Projects
-    let updatedTownship = { ...state.township }
-    if (updatedProjects.length > 0) {
-      const mins = updatedProjects.map(p => p.priceRangeMin).filter(p => p > 0)
-      const maxs = updatedProjects.map(p => p.priceRangeMax).filter(p => p > 0)
-      if (mins.length > 0 && maxs.length > 0) {
-        const min = Math.min(...mins)
-        const max = Math.max(...maxs)
-        const autoLabel = getPriceLabel(min, max)
-        const shouldUpdateLabel = !updatedTownship.priceLabel || updatedTownship.priceLabel.includes("L") || updatedTownship.priceLabel.includes("Cr")
-        
-        if (updatedTownship.priceRangeMin !== min || updatedTownship.priceRangeMax !== max || (shouldUpdateLabel && updatedTownship.priceLabel !== autoLabel)) {
-          updatedTownship.priceRangeMin = min
-          updatedTownship.priceRangeMax = max
-          updatedTownship.priceLabel = shouldUpdateLabel ? autoLabel : updatedTownship.priceLabel
-        }
-      }
-    }
-
-    // Check if any metadata or counts changed
-    const countsChanged = 
-      state.township.projectCount !== projectsCount ||
-      state.township.totalTowers !== towersCount ||
-      state.township.totalUnits !== unitsCount ||
-      state.township.totalFamilies !== familiesCount
-
-    const pricingChanged = 
-      JSON.stringify(state.towers) !== JSON.stringify(updatedTowers) ||
-      JSON.stringify(state.projects) !== JSON.stringify(updatedProjects) ||
-      state.township.priceRangeMin !== updatedTownship.priceRangeMin ||
-      state.township.priceRangeMax !== updatedTownship.priceRangeMax ||
-      state.township.priceLabel !== updatedTownship.priceLabel
-
-    if (countsChanged || pricingChanged) {
+    const rollup = calculateUpwardPricingAndCounts(state, generatedUnits)
+    if (rollup.hasChanged) {
       setState(prev => ({
         ...prev,
-        township: {
-          ...updatedTownship,
-          projectCount: projectsCount,
-          totalTowers: towersCount,
-          totalUnits: unitsCount,
-          totalFamilies: familiesCount
-        },
-        towers: updatedTowers,
-        projects: updatedProjects
+        township: rollup.updatedTownship,
+        towers: rollup.updatedTowers,
+        projects: rollup.updatedProjects
       }))
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    // Stringify complex objects to prevent infinite loops from reference changes
     JSON.stringify(state.projects), 
     JSON.stringify(state.towers), 
     JSON.stringify(state.towerUnitConfigs), 
     JSON.stringify(state.unitTemplate), 
     state.township.name, 
-    // Use the live count of generatedUnits so the UI updates instantly
     generatedUnits.length
   ])
 
@@ -925,124 +591,15 @@ function BuilderContent() {
       // Re-read draft IDs securely using the resolved variable
       const rootDraftId = currentDraftIds.townshipId || currentDraftIds.projectId || currentDraftIds.towerId;
 
-      // ── STEP 2: SUBMIT VIA OPTIMIZED API ──────────────────────────────────
-      if (rootDraftId) {
-        console.log("[handleCreate] Submitting draft hierarchy:", rootDraftId);
-        const submitRes = await fetch(`/api/properties/${rootDraftId}/submit`, { method: 'POST' });
-        
-        if (!submitRes.ok) {
-          const err = await submitRes.json();
-          // Recovery: If the draft is "not found" (maybe purged or session expired),
-          // fallback to the legacy create logic to ensure the user's current 
-          // screen data is NOT lost.
-          if (submitRes.status === 404 || err.error?.includes("not found")) {
-             console.warn("[handleCreate] Draft not found on server. Falling back to manual creation...");
-             await performLegacyCreation();
-          } else {
-             throw new Error(err.error || "Failed to submit draft hierarchy for approval");
-          }
-        }
-      } else {
-        // ── STEP 3: LEGACY FALLBACK (Brand new, unsaved content) ─────────────
-        console.warn("[handleCreate] No root draft ID could be established. Proceeding with legacy creation.");
-        await performLegacyCreation();
-      }
-
-
-      async function performLegacyCreation() {
-        console.log("[handleCreate] Performing sequential entity creation fallback...");
-        const projectIdMap: Record<string, string> = {}
-        const towerIdMap: Record<string, string> = {}
-        const rootLoc = { city: state.township?.city, state: state.township?.state }
-
-        if (flowType === "township") {
-          const rootName = state.township?.name || "Untitled Township"
-          
-          const townshipId = await createApi({
-            type: 'township',
-            name: rootName,
-            location: rootLoc,
-            details: state.township,
-            status: 'pending'
-          })
-          
-          for (const proj of state.projects) {
-             const projectId = await createApi({
-               type: 'project',
-               parentId: townshipId,
-               name: proj.name || "Untitled Project",
-               location: rootLoc,
-               details: proj,
-               status: 'pending'
-             })
-             projectIdMap[proj.id] = projectId
-  
-             const projTowers = generatedTowers.filter(t => t.projectId === proj.id)
-             for (const tow of projTowers) {
-                const towerId = await createApi({
-                  type: 'tower',
-                  parentId: projectId,
-                  name: tow.name || "Untitled Tower",
-                  details: { ...tow, unitConfig: state.towerUnitConfigs.find(c => c.towerId === tow.id) },
-                  status: 'pending'
-                })
-                towerIdMap[tow.id] = towerId
-             }
-          }
-        } else if (flowType === "project") {
-          const rootProj = state.projects[0]
-          const projectId = await createApi({
-               type: 'project',
-               name: rootProj?.name || "Untitled Project",
-               location: rootLoc,
-               details: rootProj,
-               status: 'pending'
-          })
-          projectIdMap[rootProj?.id || ""] = projectId
-          
-          for (const tow of generatedTowers) {
-              const towerId = await createApi({
-                  type: 'tower',
-                  parentId: projectId,
-                  name: tow.name || "Untitled Tower",
-                  details: { ...tow, unitConfig: state.towerUnitConfigs.find(c => c.towerId === tow.id) },
-                  status: 'pending'
-              })
-              towerIdMap[tow.id] = towerId
-          }
-        } else if (flowType === "tower") {
-           const rootTow = state.towers[0]
-           const towerId = await createApi({
-                  type: 'tower',
-                  name: rootTow?.name || "Untitled Tower",
-                  details: { ...rootTow, unitConfig: state.towerUnitConfigs[0] },
-                  status: 'pending'
-           })
-           towerIdMap[rootTow?.id || ""] = towerId
-        }
-
-        // Step: Perform Bulk Unit Creation (Legacy fallback only)
-        if (generatedUnits && generatedUnits.length > 0) {
-          // IMPORTANT: Update units with the REAL ObjectIds established during property creation
-          const mappedUnits = generatedUnits.map(unit => ({
-            ...unit,
-            towerId: towerIdMap[unit.towerId] || unit.towerId,
-            projectId: projectIdMap[unit.projectId || ""] || unit.projectId,
-            parentId: towerIdMap[unit.towerId] || unit.towerId,
-            location: rootLoc,
-            type: 'unit'
-          }))
-
-          const unitsRes = await fetch('/api/units/bulk', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ units: mappedUnits, status: 'pending' })
-          });
-          if (!unitsRes.ok) {
-            console.error("Bulk unit creation failed in fallback:", await unitsRes.json())
-          }
-        }
-      }
+      // ── STEP 2: SUBMIT VIA SUBMISSION SERVICE ──────────────────────────────────
+      await submitPropertyHierarchy({
+        rootDraftId,
+        state,
+        flowType,
+        generatedTowers,
+        generatedUnits,
+        createApi,
+      })
 
       await new Promise((resolve) => setTimeout(resolve, 1500))
       setIsCreating(false)
