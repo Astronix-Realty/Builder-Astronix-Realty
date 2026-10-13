@@ -9,6 +9,16 @@ import Mandate from '@/models/Mandate';
 // Register models for populate
 const _models = [User, Builder, Mandate];
 
+// In-memory cache for ultra-fast S2S responses to Admin Panel
+let cachedResponse: { count: number; properties: any[] } | null = null;
+let lastCacheTimestamp = 0;
+const CACHE_TTL_MS = 60 * 1000; // 60s TTL
+
+export function invalidateInternalPropertiesCache() {
+  cachedResponse = null;
+  lastCacheTimestamp = 0;
+}
+
 // GET /api/internal/v2/properties — Serve live properties queue from Builder DB to Admin Panel
 export async function GET(req: NextRequest) {
   try {
@@ -19,15 +29,22 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const forceRefresh = req.nextUrl.searchParams.get('refresh') === 'true';
+    const now = Date.now();
+    if (!forceRefresh && cachedResponse && now - lastCacheTimestamp < CACHE_TTL_MS) {
+      return NextResponse.json(cachedResponse);
+    }
+
     await dbConnect();
     const Unit = mongoose.models.Unit || (await import('@/models/Unit')).default;
 
     const allProperties = await Property.find({
       isDeleted: { $ne: true },
     })
+      .select('-details.generatedUnits -details.units')
       .populate({
         path: 'builderId',
-        populate: [{ path: 'builderId' }, { path: 'mandateId' }],
+        select: 'name companyName developerName role mandateId builderId logo profile',
       })
       .lean();
 
@@ -37,7 +54,20 @@ export async function GET(req: NextRequest) {
       return dateB - dateA;
     });
       
-    const allUnits = await Unit.find({}).lean();
+    let allUnits: any[] = [];
+    try {
+      const propIds = allProperties.map((p: any) => p._id);
+      if (propIds.length > 0) {
+        allUnits = await Unit.find({
+          parentId: { $in: propIds }
+        })
+          .select('_id towerId parentId unitNumber floorNumber floor status configuration price allInclusivePrice area carpetArea builtUpArea ratePerSqft facing')
+          .maxTimeMS(2000)
+          .lean();
+      }
+    } catch (unitErr) {
+      console.warn('[Internal v2 Properties] Unit fetch fallback (skipping heavy unit join):', unitErr);
+    }
 
     const townships = allProperties.filter((p: any) => (!p.parentId || p.parentId === null) && p.type === 'township');
     const standaloneProjects = allProperties.filter((p: any) => (!p.parentId || p.parentId === null) && p.type === 'project');
@@ -295,10 +325,15 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    return NextResponse.json({
+    const responsePayload = {
       count: formattedProperties.length,
       properties: formattedProperties,
-    });
+    };
+
+    cachedResponse = responsePayload;
+    lastCacheTimestamp = Date.now();
+
+    return NextResponse.json(responsePayload);
   } catch (error: any) {
     console.error('[Internal v2 Properties GET Error]:', error.message);
     return NextResponse.json({ error: 'Internal Server Error', message: error.message }, { status: 500 });

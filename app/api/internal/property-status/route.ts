@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import Property from '@/models/Property';
+import { invalidateInternalPropertiesCache } from '@/app/api/internal/v2/properties/route';
 
 // POST /api/internal/property-status — Receive property approval/rejection from Admin panel
 export async function POST(req: NextRequest) {
@@ -101,6 +102,9 @@ export async function POST(req: NextRequest) {
     }
 
     console.log(`[Internal Correlation:${correlationId}] Property "${property?.name}" (${externalId}) status updated to: ${updateData.status || targetStatus}`);
+
+    // Invalidate in-memory cache so Admin immediately sees the updated state
+    invalidateInternalPropertiesCache();
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
