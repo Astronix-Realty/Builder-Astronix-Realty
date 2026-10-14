@@ -174,8 +174,13 @@ export function BlogView({ onMenuClick }: BlogViewProps) {
               </button>
             )}
             <div>
-              <h2 className="text-xl md:text-2xl font-bold text-slate-800 dark:text-white">Blog & News</h2>
-              <p className="hidden md:block text-sm text-slate-500 dark:text-slate-400">Write and publish articles for your audience</p>
+              <div className="flex items-center gap-1.5 mb-1 select-none">
+                <div className="w-2 h-2 rounded-full bg-rose-400"></div>
+                <div className="w-2 h-2 rounded-full bg-amber-400"></div>
+                <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
+                <span className="text-[10px] font-mono text-slate-400 uppercase font-bold ml-1">Astronix News & Blog Studio</span>
+              </div>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Editorial Hub</h2>
             </div>
           </div>
           
@@ -192,9 +197,10 @@ export function BlogView({ onMenuClick }: BlogViewProps) {
           </div>
 
           <div className="flex items-center gap-3">
-             <button onClick={() => setIsCategoryModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm">
-               <Plus className="h-5 w-5" />
+             <button onClick={() => setIsCategoryModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs shadow-md shadow-blue-500/20">
+               <Plus className="h-4 w-4" />
                <span className="hidden sm:inline">Add Blog</span>
+               <span className="software-kbd hidden xl:inline text-white/90 bg-white/20 border-white/30">+N</span>
              </button>
           </div>
         </div>

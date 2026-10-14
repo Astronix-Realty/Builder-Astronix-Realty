@@ -100,20 +100,22 @@ export function UnitsForm({
 
     return (
         <div className="space-y-0">
-            {/* ── TOP STATS BANNER ─────────────────────────── */}
-            <div className="flex items-center gap-4 px-5 py-3 mb-6 bg-gradient-to-r from-amber-50 via-orange-50 to-transparent dark:from-amber-900/30 dark:via-orange-900/20 dark:to-transparent rounded-2xl border border-amber-100 dark:border-amber-900/50">
-                <div className="flex items-center gap-2">
-                    <Layers className="w-5 h-5 text-amber-600 dark:text-amber-500" />
-                    <span className="font-bold text-amber-700 dark:text-amber-400 text-sm">Units Configuration</span>
+            {/* ── DESKTOP METRIC STATUS STRIP ─────────────────────────── */}
+            <div className="flex items-center justify-between px-3.5 py-2 mb-4 bg-slate-50 dark:bg-slate-900/90 rounded-lg border border-slate-200/80 dark:border-slate-800 shadow-2xs text-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                    <Layers className="w-3.5 h-3.5 text-amber-600 dark:text-amber-500 shrink-0" />
+                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200 text-xs">Unit Engine Configuration</span>
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-400 uppercase">Pricing & Inventory</span>
                 </div>
-                <div className="ml-auto flex items-center gap-6">
-                    <div className="flex items-center gap-2">
-                        <span className="text-xl font-black text-amber-700 dark:text-amber-400">{towers.length}</span>
-                        <span className="text-[10px] text-gray-400 dark:text-slate-500 font-bold uppercase tracking-tight">Towers</span>
+                <div className="flex items-center gap-4 shrink-0 font-mono">
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-slate-900 dark:text-white">{towers.length}</span>
+                        <span className="text-[10px] text-slate-400 uppercase font-bold">Towers</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-xl font-black text-emerald-600 dark:text-emerald-500 font-black">{totalConfigured}</span>
-                        <span className="text-[10px] text-gray-400 dark:text-slate-500 font-bold uppercase tracking-tight">Configured</span>
+                    <div className="h-3 w-px bg-slate-200 dark:bg-slate-700" />
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{totalConfigured}</span>
+                        <span className="text-[10px] text-slate-400 uppercase font-bold">Configured</span>
                     </div>
                 </div>
             </div>
@@ -121,18 +123,18 @@ export function UnitsForm({
             {/* Entity Tabs are now handled in the Main Sticky Header in page.tsx */}
 
             {/* ── FORM CONTENT ─────────────────────────────── */}
-            <div className="pt-16">
+            <div className="pt-1">
                 {activeTowerId === "global" ? (
                     <>
                         {/* Header */}
-                        <div className="flex items-center gap-3 mb-4 px-1">
-                            <div className="w-8 h-8 rounded-xl bg-amber-500 flex items-center justify-center text-white shrink-0">
-                                <Layers className="w-4 h-4" />
+                        <div className="flex items-center gap-2.5 mb-3 px-1 py-1 border-b border-slate-100 dark:border-slate-800 pb-2.5">
+                            <div className="w-6 h-6 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25 flex items-center justify-center shrink-0">
+                                <Layers className="w-3.5 h-3.5" />
                             </div>
-                            <div>
-                                <p className="font-bold text-gray-900 dark:text-white text-base leading-none">Global Configuration</p>
-                                <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">
-                                    Yeh settings sabhi towers pe apply hongi jab tak override na karo
+                            <div className="min-w-0">
+                                <p className="font-bold text-slate-900 dark:text-white text-sm leading-none">Global Unit Blueprint Defaults</p>
+                                <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400 mt-1">
+                                    Base rates, pricing formulas, and specifications inherited across all project towers unless overridden.
                                 </p>
                             </div>
                         </div>
@@ -200,24 +202,22 @@ export function UnitsForm({
                         return (
                             <>
                                 {/* Tower header */}
-                                <div className="flex items-center gap-3 mb-4 px-1">
-                                    <div className="w-8 h-8 rounded-xl bg-[#1A3C8C] flex items-center justify-center text-white shrink-0">
-                                        <Building2 className="w-4 h-4" />
+                                <div className="flex items-center gap-2.5 mb-3 px-1 py-1 border-b border-slate-100 dark:border-slate-800 pb-2.5">
+                                    <div className="w-6 h-6 rounded-md bg-blue-600/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 flex items-center justify-center shrink-0">
+                                        <Building2 className="w-3.5 h-3.5" />
                                     </div>
-                                    <div>
-                                        <p className="font-bold text-gray-900 dark:text-white text-base leading-none">
+                                    <div className="min-w-0">
+                                        <p className="font-bold text-slate-900 dark:text-white text-sm leading-none truncate">
                                             {tower.name}
                                         </p>
-                                        <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">
-                                            {getProjectLabel(tower.projectId || "")} ·{" "}
-                                            {tower.totalFloors} Floors · {tower.unitsPerFloor} Units/Floor ·{" "}
-                                            Total {tower.totalUnits} units
-                                            {" · "}{configured ? "✅ Configured" : "⚠️ Using Global Configuration"}
+                                        <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400 mt-1">
+                                            {getProjectLabel(tower.projectId || "")} · {tower.totalFloors} Flrs · {tower.unitsPerFloor} Units/Flr · Total {tower.totalUnits} Units
+                                            {" · "}{configured ? "Tower-Specific Overrides Active" : "Inheriting Global Specifications"}
                                         </p>
                                     </div>
                                     {configured
-                                        ? <CheckCircle2 className="w-5 h-5 text-emerald-500 ml-auto" />
-                                        : <AlertCircle className="w-5 h-5 text-orange-400 ml-auto" />
+                                        ? <CheckCircle2 className="w-4 h-4 text-emerald-500 ml-auto shrink-0" />
+                                        : <AlertCircle className="w-4 h-4 text-amber-500 ml-auto shrink-0" />
                                     }
                                 </div>
 

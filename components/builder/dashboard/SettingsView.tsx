@@ -81,24 +81,24 @@ export function SettingsView({
   handlePasswordChange,
 }: SettingsViewProps) {
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto space-y-6">
       <Tabs
         value={activeSettingsTab}
         onValueChange={(val: any) => setActiveSettingsTab(val)}
         className="space-y-6"
       >
-        <TabsList className="bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-full md:w-auto inline-flex">
+        <TabsList className="bg-slate-100/80 dark:bg-slate-800/80 p-1 rounded-xl w-full md:w-auto inline-flex border border-slate-200/60 dark:border-slate-700/60 shadow-sm">
           <TabsTrigger
             value="profile"
             className="flex-1 md:w-48 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-950 data-[state=active]:shadow-sm px-4 py-2"
           >
-            {role === "mandate" ? "Mandate Profile" : "Builder Profile"}
+            {role === "mandate" ? "👤 Mandate Profile" : "🏢 Builder Profile"}
           </TabsTrigger>
           <TabsTrigger
             value="preferences"
             className="flex-1 md:w-48 rounded-lg data-[state=active]:bg-white dark:data-[state=active]:bg-slate-950 data-[state=active]:shadow-sm px-4 py-2"
           >
-            System Preferences
+            ⚙️ System Preferences
           </TabsTrigger>
         </TabsList>
 

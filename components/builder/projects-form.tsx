@@ -50,22 +50,24 @@ export function ProjectsForm({ township, projects, onChange, onCloneProject, act
 
     return (
         <div className="space-y-0">
-            {/* ── TOP STATS BANNER ─────────────────────────── */}
-            <div className="flex items-center gap-4 px-5 py-3 mb-6 bg-gradient-to-r from-[#1A3C8C]/5 via-blue-50 to-transparent dark:from-slate-800 dark:via-slate-800/50 dark:to-transparent rounded-2xl border border-blue-100 dark:border-slate-700">
-                <div className="flex items-center gap-2">
-                    <Building2 className="w-5 h-5 text-[#1A3C8C] dark:text-blue-400" />
-                    <span className="font-bold text-[#1A3C8C] dark:text-blue-400 text-sm">{township.name || "Your Township"}</span>
+            {/* ── DESKTOP METRIC STATUS STRIP ─────────────────────────── */}
+            <div className="flex items-center justify-between px-3.5 py-2 mb-4 bg-slate-50 dark:bg-slate-900/90 rounded-lg border border-slate-200/80 dark:border-slate-800 shadow-2xs text-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                    <Building2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200 text-xs truncate">{township.name || "Your Township"}</span>
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-400 uppercase">Township Spec</span>
                 </div>
-                <div className="ml-auto flex items-center gap-6">
-                    <div className="flex items-center gap-2">
-                        <span className="text-xl font-black text-[#1A3C8C] dark:text-blue-400">{safeProjects.length}</span>
-                        <span className="text-[10px] text-gray-400 dark:text-slate-500 font-bold uppercase tracking-tight">Projects</span>
+                <div className="flex items-center gap-4 shrink-0 font-mono">
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-slate-900 dark:text-white">{safeProjects.length}</span>
+                        <span className="text-[10px] text-slate-400 uppercase font-bold">Projects</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-xl font-black text-emerald-600">
+                    <div className="h-3 w-px bg-slate-200 dark:bg-slate-700" />
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
                             {safeProjects.filter(isComplete).length}
                         </span>
-                        <span className="text-[10px] text-gray-400 dark:text-slate-500 font-bold uppercase tracking-tight">Complete</span>
+                        <span className="text-[10px] text-slate-400 uppercase font-bold">Complete</span>
                     </div>
                 </div>
             </div>
@@ -74,23 +76,23 @@ export function ProjectsForm({ township, projects, onChange, onCloneProject, act
 
             {/* ── ACTIVE PROJECT FORM ───────────────────────── */}
             {activeProject ? (
-                <div className="pt-4">
+                <div className="pt-1">
                     {/* Project header */}
-                    <div className="flex items-center gap-3 mb-4 px-1">
-                        <div className="w-8 h-8 rounded-xl bg-[#1A3C8C] flex items-center justify-center text-white font-black text-sm shrink-0">
+                    <div className="flex items-center gap-2.5 mb-3 px-1 py-1 border-b border-slate-100 dark:border-slate-800 pb-2.5">
+                        <div className="w-6 h-6 rounded-md bg-blue-600/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 flex items-center justify-center font-mono font-bold text-xs shrink-0">
                             {activeIdx + 1}
                         </div>
-                        <div>
-                            <p className="font-bold text-gray-900 dark:text-white text-base leading-none">
+                        <div className="min-w-0">
+                            <p className="font-bold text-slate-900 dark:text-white text-sm leading-none truncate">
                                 {activeProject.name || `Project ${activeIdx + 1}`}
                             </p>
-                            <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">
-                                {activeIdx + 1} of {projects.length} projects · {isComplete(activeProject) ? "✅ Complete" : "⚠️ Incomplete — Name, RERA, Possession Date required"}
+                            <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400 mt-1">
+                                Index {activeIdx + 1}/{projects.length} · {isComplete(activeProject) ? "Ready / Complete" : "Incomplete — Name, RERA, Possession Date required"}
                             </p>
                         </div>
                         {isComplete(activeProject)
-                            ? <CheckCircle2 className="w-5 h-5 text-emerald-500 ml-auto" />
-                            : <AlertCircle className="w-5 h-5 text-orange-400 ml-auto" />
+                            ? <CheckCircle2 className="w-4 h-4 text-emerald-500 ml-auto shrink-0" />
+                            : <AlertCircle className="w-4 h-4 text-amber-500 ml-auto shrink-0" />
                         }
                     </div>
 
@@ -107,37 +109,37 @@ export function ProjectsForm({ township, projects, onChange, onCloneProject, act
                     />
 
                     {/* Navigate prev / next project */}
-                    <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100 dark:border-slate-800">
+                    <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-200/80 dark:border-slate-800">
                         <button
                             type="button"
                             onClick={() => setActiveIdx(Math.max(0, activeIdx - 1))}
                             disabled={activeIdx === 0}
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 dark:border-slate-700 text-sm font-medium text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                            className="flex items-center gap-1.5 h-8 px-3 rounded-md border border-slate-200 dark:border-slate-700 text-xs font-mono font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                         >
-                            ← Previous
+                            ← Prev
                         </button>
 
                         <div className="flex items-center gap-2">
                             <button
                                 type="button"
                                 onClick={handleClone}
-                                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 text-sm font-medium hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-all"
+                                className="flex items-center gap-1.5 h-8 px-3 rounded-md border border-blue-200 dark:border-blue-800/80 bg-blue-50/60 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 text-xs font-mono font-bold hover:bg-blue-100 transition-all"
                                 title="Duplicate this project (including all its towers and units)"
                             >
-                                <Copy className="w-4 h-4" /> Clone Project
+                                <Copy className="w-3.5 h-3.5" /> Clone
                             </button>
 
                             <button
                                 type="button"
                                 onClick={() => handleRemove(activeIdx)}
-                                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-red-200 dark:border-red-800/50 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm font-medium hover:bg-red-100 dark:hover:bg-red-900/40 transition-all"
+                                className="flex items-center gap-1.5 h-8 px-3 rounded-md border border-rose-200 dark:border-rose-900/60 bg-rose-50/60 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 text-xs font-mono font-bold hover:bg-rose-100 transition-all"
                                 title="Delete this project"
                             >
-                                <Trash2 className="w-4 h-4" /> Delete
+                                <Trash2 className="w-3.5 h-3.5" /> Delete
                             </button>
 
-                            <span className="text-[10px] text-gray-400 dark:text-slate-500 font-bold uppercase mx-2 whitespace-nowrap">
-                                Project {activeIdx + 1} / {projects.length}
+                            <span className="text-[10px] text-slate-400 font-mono font-bold uppercase mx-1.5 whitespace-nowrap">
+                                {activeIdx + 1} / {projects.length}
                             </span>
                         </div>
 
@@ -145,7 +147,7 @@ export function ProjectsForm({ township, projects, onChange, onCloneProject, act
                             <button
                                 type="button"
                                 onClick={() => setActiveIdx(Math.min(projects.length - 1, activeIdx + 1))}
-                                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#1A3C8C] text-sm font-medium text-[#1A3C8C] dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all font-bold"
+                                className="flex items-center gap-1.5 h-8 px-3.5 rounded-md border border-blue-600 bg-blue-600/10 text-xs font-mono font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-600/20 transition-all"
                             >
                                 Next Project →
                             </button>
@@ -153,9 +155,9 @@ export function ProjectsForm({ township, projects, onChange, onCloneProject, act
                             <button
                                 type="button"
                                 onClick={handleAdd}
-                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-all font-bold"
+                                className="flex items-center gap-1.5 h-8 px-3.5 rounded-md bg-emerald-600 text-white text-xs font-mono font-bold hover:bg-emerald-700 transition-all shadow-2xs"
                             >
-                                <Plus className="w-4 h-4" /> Add Project
+                                <Plus className="w-3.5 h-3.5" /> Add Project
                             </button>
                         )}
                     </div>

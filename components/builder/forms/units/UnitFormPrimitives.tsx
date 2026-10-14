@@ -21,7 +21,7 @@ export function Section({
 }) {
   const isOpen = openIds.includes(id);
   return (
-    <div className="rounded-2xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
+    <div className="rounded-xl border border-slate-200/90 dark:border-slate-800/90 bg-white dark:bg-slate-900 shadow-2xs overflow-hidden mb-3">
       <button
         type="button"
         onClick={() =>
@@ -29,31 +29,31 @@ export function Section({
             prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
           )
         }
-        className="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-gray-50 dark:bg-slate-800/50 transition-colors"
+        className="w-full px-4 py-2.5 flex items-center justify-between text-left hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors group"
       >
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-orange-50 flex items-center justify-center shrink-0">
-            <Icon className="w-4 h-4 text-orange-600" />
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20 flex items-center justify-center shrink-0">
+            <Icon className="w-3.5 h-3.5" />
           </div>
           <div>
-            <span className="font-semibold text-gray-900 dark:text-white text-sm">
+            <span className="font-bold text-slate-900 dark:text-white text-xs tracking-tight">
               {title}
             </span>
             {description && (
-              <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
+              <p className="text-[10.5px] text-slate-500 dark:text-slate-400 font-normal">
                 {description}
               </p>
             )}
           </div>
         </div>
         {isOpen ? (
-          <ChevronUp className="w-4 h-4 text-gray-400 dark:text-slate-500 shrink-0" />
+          <ChevronUp className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
         ) : (
-          <ChevronDown className="w-4 h-4 text-gray-400 dark:text-slate-500 shrink-0" />
+          <ChevronDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
         )}
       </button>
       {isOpen && (
-        <div className="px-5 pb-5 pt-1 border-t border-gray-100 dark:border-slate-800">
+        <div className="px-4 pb-4 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/30 dark:bg-slate-950/20">
           {children}
         </div>
       )}
@@ -73,14 +73,14 @@ export function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <Label className="text-xs font-semibold text-gray-700 dark:text-slate-300 uppercase tracking-wide">
+    <div className="flex flex-col gap-1">
+      <Label className="text-[10.5px] font-mono font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
         {label}
-        {required && <span className="text-red-500 ml-0.5">*</span>}
+        {required && <span className="text-rose-500 ml-0.5 font-bold">*</span>}
       </Label>
       {children}
       {hint && (
-        <p className="text-[11px] text-gray-400 dark:text-slate-500">{hint}</p>
+        <p className="text-[10px] font-mono text-slate-400 dark:text-slate-500">{hint}</p>
       )}
     </div>
   );

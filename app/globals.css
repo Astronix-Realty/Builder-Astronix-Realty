@@ -89,6 +89,57 @@
   .animate-backdrop-fade {
     animation: sheetBackdropFade 0.2s ease-out forwards;
   }
+  /* Desktop Software UI Tokens */
+  .software-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .software-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .software-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.35);
+    border-radius: 9999px;
+  }
+  .software-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(100, 116, 139, 0.6);
+  }
+  .dark .software-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(71, 85, 105, 0.45);
+  }
+  .dark .software-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.6);
+  }
+
+  .software-glass {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    background: rgba(255, 255, 255, 0.85);
+  }
+  .dark .software-glass {
+    background: rgba(15, 23, 42, 0.85);
+  }
+
+  .software-kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.125rem 0.375rem;
+    font-size: 0.6875rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-weight: 600;
+    line-height: 1;
+    border-radius: 0.25rem;
+    border: 1px solid rgba(203, 213, 225, 0.8);
+    background: rgba(241, 245, 249, 0.9);
+    color: rgb(71, 85, 105);
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
+  }
+  .dark .software-kbd {
+    border-color: rgba(51, 65, 85, 0.9);
+    background: rgba(30, 41, 59, 0.9);
+    color: rgb(148, 163, 184);
+  }
 }
 
 /* Native Android/Mobile Touch Optimizations */
@@ -112,4 +163,4 @@ button, a, input, select, textarea {
 @keyframes sheetBackdropFade {
   from { opacity: 0; }
   to { opacity: 1; }
-}
+}

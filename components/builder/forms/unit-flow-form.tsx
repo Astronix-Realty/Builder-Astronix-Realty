@@ -499,32 +499,23 @@ data, onChange, towerName, projectName, townshipName,
     return (
         <div className="space-y-4">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid grid-cols-3 w-full h-14 bg-gray-100 dark:bg-slate-800/50 p-1.5 rounded-2xl mb-8">
-                    <TabsTrigger value="pricing" className="rounded-2xl data-[state=active]:bg-white dark:bg-slate-900 data-[state=active]:shadow-md data-[state=active]:text-[#1A3C8C] dark:text-blue-400 gap-2">
-                        <Settings2 className="w-4 h-4" />
-                        <div className="flex flex-col items-start leading-none">
-                            <span className="text-[10px] uppercase font-black opacity-50">Section 1</span>
-                            <span className="text-xs font-bold">Global Configuration</span>
-                        </div>
+                <TabsList className="grid grid-cols-3 w-full h-9 bg-slate-100/90 dark:bg-slate-900/90 p-1 rounded-lg border border-slate-200/90 dark:border-slate-800/90 mb-3 shadow-2xs">
+                    <TabsTrigger value="pricing" className="rounded-md h-7 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-2xs text-slate-700 dark:text-slate-300 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400 font-mono text-xs gap-1.5 transition-all">
+                        <Settings2 className="w-3.5 h-3.5" />
+                        <span className="font-bold">1. Global Pricing & Specs</span>
                     </TabsTrigger>
-                    <TabsTrigger value="inventory" className="rounded-2xl data-[state=active]:bg-white dark:bg-slate-900 data-[state=active]:shadow-md data-[state=active]:text-[#1A3C8C] dark:text-blue-400 gap-2">
-                        <Grid3X3 className="w-4 h-4" />
-                        <div className="flex flex-col items-start leading-none">
-                            <span className="text-[10px] uppercase font-black opacity-50">Section 2</span>
-                            <span className="text-xs font-bold">Tower Skeleton</span>
-                        </div>
+                    <TabsTrigger value="inventory" className="rounded-md h-7 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-2xs text-slate-700 dark:text-slate-300 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400 font-mono text-xs gap-1.5 transition-all">
+                        <Grid3X3 className="w-3.5 h-3.5" />
+                        <span className="font-bold">2. Tower Skeleton & Floors</span>
                     </TabsTrigger>
-                    <TabsTrigger value="configs" className="rounded-2xl data-[state=active]:bg-white dark:bg-slate-900 data-[state=active]:shadow-md data-[state=active]:text-[#1A3C8C] dark:text-blue-400 gap-2">
-                        <Layout className="w-4 h-4" />
-                        <div className="flex flex-col items-start leading-none">
-                            <span className="text-[10px] uppercase font-black opacity-50">Section 3</span>
-                            <span className="text-xs font-bold">Group Blueprints</span>
-                        </div>
+                    <TabsTrigger value="configs" className="rounded-md h-7 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800 data-[state=active]:shadow-2xs text-slate-700 dark:text-slate-300 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400 font-mono text-xs gap-1.5 transition-all">
+                        <Layout className="w-3.5 h-3.5" />
+                        <span className="font-bold">3. BHK Unit Blueprints</span>
                     </TabsTrigger>
                 </TabsList>
 
                 {/* ── PART A: GLOBAL STANDARDS ── */}
-                <TabsContent value="pricing" className="space-y-16 focus-visible:outline-none">
+                <TabsContent value="pricing" className="space-y-3 focus-visible:outline-none">
                     <Section id="pricing-rules" title="Pricing & Tax Logic" description="Global rules inherited by all units in this tower" icon={DollarSign} openIds={openIds} setOpenIds={setOpenIds}>
                         <Grid cols={3}>
                             <Field label="Base Rate (₹/sqft)"><Input type="number" value={data.baseRatePerSqft ?? ""} onChange={e => updateData({ baseRatePerSqft: e.target.value })} placeholder="5500" /></Field>
@@ -641,13 +632,13 @@ data, onChange, towerName, projectName, townshipName,
                 </TabsContent>
 
                 {/* ── PART B: TOWER SKELETON & INVENTORY ── */}
-                <TabsContent value="inventory" className="space-y-16 focus-visible:outline-none">
-                    <div className="flex items-center justify-between p-6 bg-orange-50/50 rounded-2xl border border-orange-100 border-dashed mb-16">
+                <TabsContent value="inventory" className="space-y-3 focus-visible:outline-none">
+                    <div className="flex items-center justify-between px-3.5 py-2.5 bg-orange-50/40 dark:bg-orange-950/20 rounded-lg border border-orange-200/60 dark:border-orange-900/40 mb-3">
                         <div>
                             <h3 className="text-sm font-bold text-orange-900">Tower Skeleton Planner</h3>
                             <p className="text-xs text-orange-700/70 mt-1">Define floors (Basement, Ground, Typical) first. Map BHKs later.</p>
                         </div>
-                        <Button onClick={addGroup} className="bg-orange-600 hover:bg-orange-700 text-white text-xs gap-2 rounded-xl h-10 px-4 border-0">
+                        <Button onClick={addGroup} className="bg-orange-600 hover:bg-orange-700 text-white text-xs gap-2 rounded-md h-8 px-3 border-0 font-mono font-bold">
                             <Plus className="w-4 h-4" /> Add Floor Group
                         </Button>
                     </div>
@@ -988,7 +979,7 @@ data, onChange, towerName, projectName, townshipName,
                 </TabsContent>
 
                 {/* ── PART C: BHK MASTER BLUEPRINTS ── */}
-                <TabsContent value="configs" className="space-y-16 focus-visible:outline-none">
+                <TabsContent value="configs" className="space-y-3 focus-visible:outline-none">
                     {(() => {
                         const validSlots = (data.floorGroups || []).flatMap(g =>
                             (g.layout || []).map(s => ({ ...s, groupId: g.id }))

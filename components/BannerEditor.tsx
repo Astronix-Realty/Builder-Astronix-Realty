@@ -741,11 +741,19 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
             {/* Top Bar */}
             <div className="h-14 bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 border-b border-purple-500/30 flex items-center justify-between px-4">
                 <div className="flex items-center gap-4">
+                    <div className="hidden sm:flex items-center gap-1.5 mr-2 select-none">
+                        <div className="w-2.5 h-2.5 rounded-full bg-rose-500/80"></div>
+                        <div className="w-2.5 h-2.5 rounded-full bg-amber-500/80"></div>
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/80"></div>
+                    </div>
                     <div className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
                             <Wand2 className="h-4 w-4 text-white" />
                         </div>
-                        <span className="text-white font-bold text-sm sm:text-base truncate max-w-[130px] sm:max-w-none">Banner Studio</span>
+                        <div>
+                            <span className="text-white font-bold text-sm sm:text-base tracking-tight truncate max-w-[130px] sm:max-w-none block">Banner Studio Pro</span>
+                            <span className="text-[9px] font-mono text-purple-300 font-extrabold uppercase tracking-widest hidden md:block">Creative Canvas Suite</span>
+                        </div>
                     </div>
 
                     <div className="h-6 w-px bg-slate-700 hidden md:block" />
@@ -780,15 +788,15 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
                         className="px-3 sm:px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-medium flex items-center gap-1.5 sm:gap-2 transition-colors text-xs sm:text-sm"
                     >
                         <Download className="h-4 w-4" />
-                        <span className="hidden sm:inline">Download</span>
+                        <span className="hidden sm:inline">Export PNG</span>
                     </button>
                     <button
                         onClick={handleSave}
                         className="px-3 sm:px-5 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-lg font-bold flex items-center gap-1.5 sm:gap-2 transition-all shadow-lg text-xs sm:text-sm"
                     >
                         <Sparkles className="h-4 w-4" />
-                        <span>Save</span>
-                        <span className="hidden sm:inline">& Use</span>
+                        <span>Apply to Offer</span>
+                        <span className="hidden sm:inline">Now</span>
                     </button>
                     <button onClick={onClose} className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-all">
                         <X className="h-5 w-5" />

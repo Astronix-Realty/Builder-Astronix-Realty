@@ -822,18 +822,25 @@ export function DocumentsView() {
             <div className={`w-full lg:w-[420px] flex-col gap-4 pr-1 shrink-0 h-full max-h-full print:hidden overflow-y-auto pb-6 ${mobileDocTab === 'editor' ? 'flex' : 'hidden lg:flex'}`}>
                 
                 {/* Selector Header */}
-                <Card className="border-slate-200 dark:border-slate-800 shadow-sm shrink-0">
-                    <CardHeader className="p-4 pb-2">
+                <Card className="border-slate-200/90 dark:border-slate-800/90 shadow-2xs shrink-0 rounded-lg overflow-hidden">
+                    <CardHeader className="px-3 py-2 bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800">
                         <div className="flex justify-between items-center">
-                            <CardTitle className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Document Center</CardTitle>
+                            <div className="flex items-center gap-2">
+                                <div className="hidden sm:flex items-center gap-1 select-none mr-1">
+                                    <div className="w-2 h-2 rounded-full bg-rose-400"></div>
+                                    <div className="w-2 h-2 rounded-full bg-amber-400"></div>
+                                    <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
+                                </div>
+                                <CardTitle className="text-xs font-mono font-bold text-slate-500 uppercase tracking-wider">Document Studio Pro</CardTitle>
+                            </div>
                             {loadingData && <RefreshCw className="h-4 w-4 animate-spin text-emerald-500" />}
                         </div>
                     </CardHeader>
-                    <CardContent className="p-4 pt-0 space-y-3">
+                    <CardContent className="p-3 space-y-2.5">
                         <div className="space-y-1">
-                            <label className="text-xs font-semibold text-slate-500">Active Template</label>
+                            <label className="text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Active Template</label>
                             <Select value={activeDoc} onValueChange={(val) => setActiveDoc(val as DocType)}>
-                                <SelectTrigger className="w-full bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+                                <SelectTrigger className="w-full h-8 text-xs font-mono bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -850,9 +857,9 @@ export function DocumentsView() {
                         {activeDoc !== "repository" && (
                             <div className="flex flex-col space-y-3 mt-3">
                                 <div className="space-y-1">
-                                    <label className="text-xs font-semibold text-slate-500">Select Customer</label>
+                                    <label className="text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Select Customer</label>
                                     <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
-                                        <SelectTrigger className="w-full bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+                                        <SelectTrigger className="w-full h-8 text-xs font-mono bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -865,9 +872,9 @@ export function DocumentsView() {
                                     </Select>
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-xs font-semibold text-slate-500">Select Unit</label>
+                                    <label className="text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Select Unit</label>
                                     <Select value={selectedUnitId} onValueChange={setSelectedUnitId}>
-                                        <SelectTrigger className="w-full bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+                                        <SelectTrigger className="w-full h-8 text-xs font-mono bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -1630,24 +1637,23 @@ export function DocumentsView() {
                     </div>
                 )}
             </div>
-
-            {/* Float Action Toolbar Buttons (Print Hidden) */}
+            {/* Float Action Toolbar Buttons (Print Hidden) */}
             {activeDoc !== "repository" && (
-                <div className="fixed bottom-6 right-6 flex gap-2 z-50 print:hidden">
+                <div className="fixed bottom-4 right-6 flex items-center gap-1.5 z-50 print:hidden p-1 rounded-lg bg-slate-900/95 dark:bg-slate-950/95 backdrop-blur-md border border-slate-700/80 shadow-2xl font-mono">
                     {(activeDoc === "booking-form" || activeDoc === "receipt") && (
-                        <Button size="lg" className="rounded-full shadow-lg bg-rose-600 hover:bg-rose-700 gap-2 text-white font-semibold" onClick={handleMarkAsBooked}>
-                            <CheckCircle2 className="h-4 w-4" /> Mark Unit Booked
+                        <Button size="sm" className="rounded-md h-7 px-2.5 shadow-2xs bg-rose-600 hover:bg-rose-700 gap-1.5 text-white font-mono font-bold text-[11px]" onClick={handleMarkAsBooked}>
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Book Unit
                         </Button>
                     )}
-                    <Button size="lg" className="rounded-full shadow-lg bg-amber-600 hover:bg-amber-700 gap-2 text-white font-semibold disabled:opacity-70" onClick={handleAttachToCRM} disabled={isAttaching}>
-                        {isAttaching ? <RefreshCw className="h-4 w-4 animate-spin" /> : <FileCheck className="h-4 w-4" />} 
-                        {isAttaching ? "Attaching..." : "Attach to CRM Timeline"}
+                    <Button size="sm" className="rounded-md h-7 px-2.5 shadow-2xs bg-amber-600 hover:bg-amber-700 gap-1.5 text-white font-mono font-bold text-[11px] disabled:opacity-70" onClick={handleAttachToCRM} disabled={isAttaching}>
+                        {isAttaching ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <FileCheck className="h-3.5 w-3.5" />} 
+                        {isAttaching ? "Attaching..." : "Attach CRM"}
                     </Button>
-                    <Button size="lg" className="rounded-full shadow-lg bg-green-600 hover:bg-green-700 gap-2 text-white font-semibold" onClick={handleShare}>
-                        <Share2 className="h-4 w-4" /> Share Summary
+                    <Button size="sm" className="rounded-md h-7 px-2.5 shadow-2xs bg-emerald-600 hover:bg-emerald-700 gap-1.5 text-white font-mono font-bold text-[11px]" onClick={handleShare}>
+                        <Share2 className="h-3.5 w-3.5" /> Share
                     </Button>
-                    <Button size="lg" className="rounded-full shadow-lg bg-blue-600 hover:bg-blue-700 gap-2 text-white font-semibold" onClick={handlePrint}>
-                        <Printer className="h-4 w-4" /> Print / Save PDF
+                    <Button size="sm" className="rounded-md h-7 px-3 shadow-2xs bg-blue-600 hover:bg-blue-700 gap-1.5 text-white font-mono font-bold text-[11px]" onClick={handlePrint}>
+                        <Printer className="h-3.5 w-3.5" /> <span>Print / PDF</span><span className="software-kbd hidden sm:inline ml-1 text-[9px] text-white/90 bg-white/20 border-white/30">Ctrl+P</span>
                     </Button>
                 </div>
             )}

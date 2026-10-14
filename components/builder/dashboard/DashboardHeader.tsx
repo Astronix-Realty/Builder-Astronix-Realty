@@ -1,7 +1,7 @@
 "use client"
 
 import React from "react"
-import { Plus, Save, Loader2 } from "lucide-react"
+import { Plus, Save, Loader2, PanelLeft, PanelLeftOpen } from "lucide-react"
 import {
   DashboardTab,
   PropertyFilter,
@@ -25,6 +25,8 @@ interface DashboardHeaderProps {
     draft: number
     rejected: number
   }
+  isSidebarCollapsed?: boolean
+  onToggleSidebar?: () => void
 }
 
 export function DashboardHeader({
@@ -39,6 +41,8 @@ export function DashboardHeader({
   propertyFilter,
   onFilterChange,
   propertyCounts,
+  isSidebarCollapsed = false,
+  onToggleSidebar,
 }: DashboardHeaderProps) {
   if (activeTab === "blog") return null
 
@@ -186,88 +190,146 @@ export function DashboardHeader({
       </div>
 
       {/* DESKTOP TOP BAR (lg:flex) */}
-      <div className="hidden lg:flex items-center justify-between">
-        {/* LEFT */}
-        <div className="flex items-center gap-4">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-800 dark:text-white">
-              {getDesktopTitle()}
-            </h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              {getDesktopDescription()}
-            </p>
+      <div className="hidden lg:flex items-center justify-between gap-4">
+        {/* LEFT: Software Breadcrumbs & Titles */}
+        <div className="flex items-center gap-3 min-w-0">
+          {onToggleSidebar && (
+            <button
+              type="button"
+              onClick={onToggleSidebar}
+              title={isSidebarCollapsed ? "Expand Sidebar (Ctrl+B)" : "Collapse Sidebar (Ctrl+B)"}
+              aria-label="Toggle Sidebar"
+              className={`p-1.5 rounded-lg border transition-all shadow-2xs active:scale-95 shrink-0 ${
+                isSidebarCollapsed
+                  ? "bg-blue-50 dark:bg-blue-950/60 border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50"
+                  : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700/80"
+              }`}
+            >
+              {isSidebarCollapsed ? (
+                <PanelLeftOpen className="w-4 h-4" />
+              ) : (
+                <PanelLeft className="w-4 h-4" />
+              )}
+            </button>
+          )}
+
+          <div className="flex flex-col">
+            {/* Breadcrumb Trail */}
+            <div className="flex items-center gap-1.5 text-[11px] font-mono text-slate-400 dark:text-slate-500 mb-0.5">
+              <span>Astronix OS</span>
+              <span>/</span>
+              <span className="text-slate-600 dark:text-slate-400 font-semibold">
+                {role === "mandate" ? "Mandate Agency" : "Builder Studio"}
+              </span>
+              <span>/</span>
+              <span className="text-blue-600 dark:text-blue-400 font-bold uppercase tracking-wider">
+                {activeTab}
+              </span>
+              <div className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800/60 text-emerald-600 dark:text-emerald-400 text-[9px] font-mono font-medium ml-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>SYNCED</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+                {getDesktopTitle()}
+              </h2>
+              <span className="text-xs text-slate-400 dark:text-slate-500">
+                • {getDesktopDescription()}
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* CENTER – PROPERTIES FILTER TABS (DESKTOP) */}
+        {/* CENTER – PROPERTIES FILTER TABS (DESKTOP SOFTWARE SEGMENTED CONTROL) */}
         {activeTab === "properties" && (
-          <div className="flex items-center gap-6 text-sm font-medium absolute left-1/2 -translate-x-1/2">
+          <div className="flex items-center p-1 bg-slate-100/90 dark:bg-slate-800/90 rounded-lg border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
             <button
               onClick={() => onFilterChange("published")}
-              className={`pb-1 transition-colors ${
+              className={`px-3 py-1 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${
                 propertyFilter === "published"
-                  ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
-                  : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                  ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
-              Published ({propertyCounts.published})
+              <span>Published</span>
+              <span className="px-1.5 py-0.2 text-[10px] font-mono rounded bg-slate-100 dark:bg-slate-800 font-bold">
+                {propertyCounts.published}
+              </span>
             </button>
+
             <button
               onClick={() => onFilterChange("pending")}
-              className={`pb-1 transition-colors ${
+              className={`px-3 py-1 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${
                 propertyFilter === "pending"
-                  ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
-                  : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                  ? "bg-white dark:bg-slate-900 text-amber-600 dark:text-amber-400 shadow-xs"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
-              Pending ({propertyCounts.pending})
+              <span>Pending</span>
+              <span className="px-1.5 py-0.2 text-[10px] font-mono rounded bg-slate-100 dark:bg-slate-800 font-bold">
+                {propertyCounts.pending}
+              </span>
             </button>
+
             <button
               onClick={() => onFilterChange("draft")}
-              className={`pb-1 transition-colors ${
+              className={`px-3 py-1 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${
                 propertyFilter === "draft"
-                  ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
-                  : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                  ? "bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 shadow-xs"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
-              Drafts ({propertyCounts.draft})
+              <span>Drafts</span>
+              <span className="px-1.5 py-0.2 text-[10px] font-mono rounded bg-slate-100 dark:bg-slate-800 font-bold">
+                {propertyCounts.draft}
+              </span>
             </button>
+
             <button
               onClick={() => onFilterChange("rejected")}
-              className={`pb-1 transition-colors ${
+              className={`px-3 py-1 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${
                 propertyFilter === "rejected"
-                  ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600"
-                  : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                  ? "bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 shadow-xs"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
-              Rejected ({propertyCounts.rejected})
+              <span>Rejected</span>
+              <span className="px-1.5 py-0.2 text-[10px] font-mono rounded bg-slate-100 dark:bg-slate-800 font-bold">
+                {propertyCounts.rejected}
+              </span>
             </button>
           </div>
         )}
 
-        {/* RIGHT */}
-        <div className="flex items-center gap-3">
+        {/* RIGHT: Quick Command Indicator & Primary Software Actions */}
+        <div className="flex items-center gap-2.5 shrink-0">
           {activeTab === "properties" && (
             <button
               onClick={() => setShowAddProperty((prev) => !prev)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm transition-all"
+              className="flex items-center gap-2 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 active:scale-98 text-white rounded-lg text-xs font-bold shadow-sm shadow-blue-500/25 transition-all"
             >
-              <Plus className="h-5 w-5" />
+              <Plus className="h-4 w-4" />
               <span>Add Property</span>
+              <span className="software-kbd bg-blue-700/60 text-white border-blue-500/60 ml-0.5">
+                +N
+              </span>
             </button>
           )}
+
           {activeTab === "settings" && activeSettingsTab === "profile" && (
             <button
               onClick={onSaveProfile}
               disabled={isSavingProfile}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-sm disabled:opacity-50 transition-all"
+              className="flex items-center gap-2 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 active:scale-98 text-white rounded-lg text-xs font-bold shadow-sm disabled:opacity-50 transition-all"
             >
               {isSavingProfile ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Save className="h-5 w-5" />
+                <Save className="h-4 w-4" />
               )}
-              <span>Save Profile</span>
+              <span>Save Changes</span>
             </button>
           )}
         </div>

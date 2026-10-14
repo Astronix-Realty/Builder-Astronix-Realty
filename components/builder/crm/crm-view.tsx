@@ -1420,25 +1420,27 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                         {allColumns.map(col => (
                             <div
                                 key={col}
-                                className="w-72 flex-shrink-0 flex flex-col bg-slate-100 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800"
+                                className="w-72 flex-shrink-0 flex flex-col bg-slate-100/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/90 dark:border-slate-800/90 shadow-2xs overflow-hidden"
                                 onDragOver={(e) => e.preventDefault()}
                                 onDrop={(e) => handleDrop(e, col)}
                             >
-                                {/* Column Header */}
-                                <div className={`p-3 border-b flex justify-between items-center rounded-t-xl
-                                    ${col === "Token VIP" ? "bg-amber-100 dark:bg-amber-900/40 border-amber-200" : "bg-white dark:bg-slate-900"}
+                                {/* Column Header (Desktop Software Header) */}
+                                <div className={`px-3 py-2 border-b flex justify-between items-center
+                                    ${col === "Token VIP" ? "bg-amber-100/90 dark:bg-amber-950/60 border-amber-200 dark:border-amber-900/50" : "bg-white/90 dark:bg-slate-900/90 border-slate-200/80 dark:border-slate-800/80"}
                                 `}>
                                     <div className="flex items-center gap-2 flex-shrink-0">
-                                        <span className="font-semibold text-sm">{col === 'Junk' ? 'Not Interested' : col}</span>
-                                        <Badge variant="secondary" className="text-[10px] h-5 px-1.5">
+                                        <span className="font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300 font-mono">
+                                            {col === 'Junk' ? 'Not Interested' : col}
+                                        </span>
+                                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60">
                                             {filteredLeads.filter(l => l.status === col).length}
-                                        </Badge>
+                                        </span>
                                     </div>
-                                    {col === "Token VIP" && <Crown className="h-4 w-4 text-amber-600 animate-pulse" />}
+                                    {col === "Token VIP" && <Crown className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 animate-pulse" />}
                                 </div>
 
                                 {/* Cards Area */}
-                                <div className="p-2 flex-1 overflow-y-auto space-y-2 min-h-[100px]">
+                                <div className="p-2 flex-1 overflow-y-auto space-y-1.5 min-h-[120px] software-scrollbar">
                                     {filteredLeads.filter(l => l.status === col).map((lead, idx) => {
                                         const hasRepeated = Boolean(lead.hasRepeatedEnquiry || (lead.attemptsCount && lead.attemptsCount > 1));
                                         const isSpecificDoubt = lead.source?.includes('doubt') || lead.leadType === 'specific-doubt' || lead.requirement?.includes('Specific Doubt') || (Array.isArray(lead.leadTypes) && lead.leadTypes.some(t => t.includes('doubt')));
@@ -1458,98 +1460,87 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                                                 }}
                                                 onClick={() => openProfile(toId(lead.id || lead._id))}
                                                 className={`
-                                                    p-3 rounded-lg shadow-sm border cursor-pointer hover:shadow-md transition-all relative group
+                                                    p-2.5 rounded-lg shadow-2xs border cursor-pointer hover:shadow-xs transition-all relative group
                                                     ${lead.isGroup 
-                                                        ? "bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800" 
+                                                        ? "bg-purple-50/80 dark:bg-purple-950/30 border-purple-200/80 dark:border-purple-800/60" 
                                                         : isTokenHold
-                                                        ? "bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-300 dark:from-amber-900/20 dark:to-yellow-900/20 dark:border-amber-700"
-                                                        : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"}
+                                                        ? "bg-gradient-to-r from-amber-50 to-yellow-50/80 border-amber-300 dark:from-amber-950/30 dark:to-yellow-950/30 dark:border-amber-800/60"
+                                                        : "bg-white dark:bg-slate-900 border-slate-200/90 dark:border-slate-800/90 hover:border-blue-400 dark:hover:border-blue-600"}
                                                 `}
                                             >
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <h4 className="font-bold text-sm text-slate-900 dark:text-gray-100">{lead.name}</h4>
-                                                    <div className="flex items-center gap-1 flex-wrap justify-end">
+                                                <div className="flex justify-between items-start gap-1 mb-1.5">
+                                                    <h4 className="font-bold text-xs text-slate-900 dark:text-slate-100 truncate flex-1 leading-snug">
+                                                        {lead.name}
+                                                    </h4>
+                                                    <div className="flex items-center gap-1 flex-wrap justify-end shrink-0">
                                                         {hasRepeated && (
-                                                            <span className="bg-orange-100 text-orange-800 border border-orange-300 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800 text-[9px] font-black px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-sm animate-pulse">
-                                                                🔁 Re-Enquiry ({lead.attemptsCount || 2}x)
+                                                            <span className="bg-orange-100 text-orange-800 border border-orange-300 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800 text-[8px] font-black px-1 py-0.2 rounded-full flex items-center gap-0.5 animate-pulse">
+                                                                🔁 2x
                                                             </span>
                                                         )}
                                                         {isTokenHold && (
-                                                            <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[9px] font-black px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                                                                <Crown className="h-3 w-3 text-amber-600" /> ₹111
+                                                            <span className="bg-amber-100 text-amber-900 border border-amber-300 text-[8.5px] font-black px-1.5 py-0.2 rounded flex items-center gap-0.5">
+                                                                <Crown className="h-2.5 w-2.5 text-amber-600" /> ₹111
                                                             </span>
                                                         )}
                                                         {lead.isGroup && (
-                                                            <span className="bg-purple-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1">
-                                                                <Users className="h-2.5 w-2.5"/> GROUP ({lead.groupSize || 1})
+                                                            <span className="bg-purple-600 text-white text-[8.5px] font-bold px-1.5 py-0.2 rounded-full flex items-center gap-1">
+                                                                <Users className="h-2 w-2"/> G({lead.groupSize || 1})
                                                             </span>
                                                         )}
                                                         {isSpecificDoubt && (
-                                                            <span className="bg-blue-100 text-blue-800 text-[9px] font-bold px-1.5 py-0.5 rounded">
-                                                                Specific Doubt
+                                                            <span className="bg-blue-100 text-blue-800 text-[8.5px] font-bold px-1 py-0.2 rounded">
+                                                                Doubt
                                                             </span>
                                                         )}
                                                         {isOfferLead && (
-                                                            <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[9px] font-black px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                                                            <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[8.5px] font-black px-1 py-0.2 rounded flex items-center gap-0.5">
                                                                 🎁 Offer
                                                             </span>
                                                         )}
                                                     </div>
                                                 </div>
 
-                                                <div className="text-xs text-muted-foreground space-y-1 mb-2">
+                                                <div className="text-[11px] text-muted-foreground space-y-1 mb-1.5">
                                                     {lead.isGroup ? (
-                                                        <p className="flex items-center gap-1 font-medium text-purple-700 dark:text-purple-300 text-[11px]">
-                                                            <Users className="h-3 w-3 shrink-0" />
-                                                            <span>{lead.groupSize || lead.mergedMembers?.length || 1} Registered Buyers in Pool</span>
+                                                        <p className="flex items-center gap-1 font-medium text-purple-700 dark:text-purple-300 text-[10.5px]">
+                                                            <Users className="h-2.5 w-2.5 shrink-0" />
+                                                            <span>{lead.groupSize || lead.mergedMembers?.length || 1} Buyers Pool</span>
                                                         </p>
                                                     ) : (
-                                                        lead.phone && <p className="flex items-center gap-1 font-medium text-slate-600 dark:text-slate-300">{lead.phone}</p>
+                                                        lead.phone && <p className="font-mono text-[10.5px] text-slate-500 dark:text-slate-400">{lead.phone}</p>
                                                     )}
-                                                    {lead.requirement && <p className="flex items-center gap-1 text-[11px]"><User className="h-3 w-3 shrink-0" /> <span className="line-clamp-1">{lead.requirement}</span></p>}
-                                                    {lead.isGroup && lead.groupDiscount && (
-                                                        <p className="text-purple-600 dark:text-purple-400 font-semibold text-[10px] flex items-center gap-1">
-                                                            🔥 {lead.groupDiscount}
-                                                        </p>
+                                                    {lead.requirement && (
+                                                        <div className="flex items-center justify-between text-[10.5px] font-medium bg-slate-50 dark:bg-slate-800/40 px-1.5 py-0.5 rounded border border-slate-100 dark:border-slate-800">
+                                                            <span className="truncate">{lead.requirement}</span>
+                                                            {lead.budget && <span className="font-mono text-slate-400 font-bold shrink-0">{lead.budget}</span>}
+                                                        </div>
                                                     )}
-                                                    <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                                                        {lead.source && (
-                                                            <span className="inline-block text-[9px] px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border border-blue-100">
-                                                                {lead.source}
-                                                            </span>
-                                                        )}
-                                                        {lead.loginStatus === 'authenticated' ? (
-                                                            <span className="inline-block text-[9px] font-semibold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                                                ✓ Logged In
-                                                            </span>
-                                                        ) : (
-                                                            <span className="inline-block text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-                                                                Guest
-                                                            </span>
-                                                        )}
-                                                        {lead.holdId && (
-                                                            <span className="inline-block text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
-                                                                {lead.holdId}
-                                                            </span>
-                                                        )}
-                                                    </div>
                                                     {(Boolean(lead.interestedUnit || lead.unitNumber || lead.isUnitHeld || lead.status === 'Token VIP')) && (
-                                                        <div className="flex items-center justify-between text-[11px] font-bold px-2 py-1 rounded bg-amber-100/90 dark:bg-amber-900/40 text-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-700 shadow-2xs">
-                                                            <span className="flex items-center gap-1 truncate">
-                                                                <Lock className="h-3 w-3 text-amber-600 shrink-0" />
-                                                                <span className="font-extrabold">{lead.interestedUnit || lead.unitNumber || "VIP Held"}</span>
+                                                        <div className="flex items-center justify-between text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100/90 dark:bg-amber-900/40 text-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-700">
+                                                            <span className="flex items-center gap-1 truncate font-mono">
+                                                                <Lock className="h-2.5 w-2.5 text-amber-600 shrink-0" />
+                                                                <span>Flat {lead.interestedUnit || lead.unitNumber || "VIP"}</span>
                                                             </span>
                                                             <span className="text-[9px] font-mono text-amber-800 dark:text-amber-300 shrink-0">
                                                                 ⏳ {calculateRemainingHoldTime(lead.holdExpiresAt, lead.createdAt).remainingText.split(',')[0]}
                                                             </span>
                                                         </div>
                                                     )}
-                                                    {lead.assignee && <p className="text-slate-400 text-[10px] pt-0.5">👤 {lead.assignee}</p>}
                                                 </div>
 
-                                                {/* Hover Actions */}
-                                                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 flex flex-col items-center gap-1 z-10">
-                                                    <GripVertical className="h-4 w-4 text-slate-400" />
+                                                <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800 text-[9.5px]">
+                                                    <span className="text-slate-400 truncate">
+                                                        👤 {lead.assignee || 'Unassigned'}
+                                                    </span>
+                                                    <span className="font-mono text-slate-400">
+                                                        {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : ""}
+                                                    </span>
+                                                </div>
+
+                                                {/* Hover Grip Handle */}
+                                                <div className="absolute top-2 right-1 opacity-0 group-hover:opacity-100 flex flex-col items-center gap-1 z-10 pointer-events-none">
+                                                    <GripVertical className="h-3.5 w-3.5 text-slate-400" />
                                                 </div>
                                             </div>
                                         );
@@ -4155,48 +4146,189 @@ export function CRMView({ userRole = "builder" }: CRMViewProps) {
                 })}
             </div>
 
-            {/* DESKTOP (lg+) TABLE VIEW - 100% UNCHANGED */}
+            {/* DESKTOP (lg+) TABLE VIEW - ENTERPRISE SOFTWARE DATAGRID */}
             <div className="hidden lg:block">
-                <Card>
-                    <Table>
-                        <TableHeader className="bg-white dark:bg-slate-900 sticky top-0 z-10 shadow-sm">
-                            <TableRow>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Assignee</TableHead>
-                                <TableHead>Last Activity</TableHead>
-                                <TableHead className="text-right">Action</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {filteredLeads.map((lead, idx) => (
-                                <TableRow key={lead.id || lead._id || `lead-row-${idx}`} className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900" onClick={() => openProfile(lead.id || lead._id)}>
-                                    <TableCell className="font-medium">
-                                        <div className="flex items-center gap-2">
-                                            {lead.name}
-                                            {lead.isGroup ? (
-                                                <Badge className="bg-purple-600 text-[9px] px-1.5 rounded-sm hover:bg-purple-700">GROUP</Badge>
-                                            ) : lead.status === "Token VIP" ? (
-                                                <Badge className="bg-amber-100 text-amber-800 text-[9px] px-1.5 rounded-sm border-amber-200"><Crown className="h-2.5 w-2.5 mr-1 inline" /> VIP</Badge>
-                                            ) : (
-                                                <Badge variant="outline" className="text-[9px] px-1.5 rounded-sm text-slate-500">NORMAL</Badge>
-                                            )}
-                                        </div>
-                                        <div className="text-xs text-muted-foreground">{lead.phone}</div>
-                                    </TableCell>
-                                    <TableCell><Badge variant="outline">{lead.status}</Badge></TableCell>
-                                    <TableCell>{lead.assignee || "Unassigned"}</TableCell>
-                                    <TableCell>{lead.createdAt ? new Date(lead.createdAt).toLocaleDateString() : "N/A"}</TableCell>
-                                    <TableCell className="text-right">
-                                        <div className="flex justify-end gap-2">
-                                            <Button size="sm" variant="ghost" onClick={() => openProfile(lead.id || lead._id)}>View</Button>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </Card>
+                <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-xl border border-slate-200/90 dark:border-slate-800/90 shadow-2xs overflow-hidden">
+                    <div className="overflow-x-auto software-scrollbar max-h-[640px]">
+                        <table className="w-full text-left text-xs border-collapse font-sans">
+                            <thead className="sticky top-0 z-10">
+                                <tr className="bg-slate-100/90 dark:bg-slate-800/90 backdrop-blur-sm border-b border-slate-200/90 dark:border-slate-700/80 text-[10px] font-mono text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                                    <th className="py-2 px-3.5 font-bold">Lead Contact</th>
+                                    <th className="py-2 px-3 font-bold">Pipeline Stage</th>
+                                    <th className="py-2 px-3 font-bold">Preferred Unit / Project</th>
+                                    <th className="py-2 px-3 font-bold">Requirement &amp; Budget</th>
+                                    <th className="py-2 px-3 font-bold">Assigned Executive</th>
+                                    <th className="py-2 px-3 font-bold font-mono">Registered</th>
+                                    <th className="py-2 px-3.5 font-bold text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-sans">
+                                {filteredLeads.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={7} className="py-12 px-4 text-center text-slate-400 font-mono text-xs">
+                                            No leads found matching your criteria.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    filteredLeads.map((lead, idx) => {
+                                        const cleanPhone = (lead.phone || '').replace(/[^0-9]/g, '');
+                                        const isTokenHold = lead.status === 'Token VIP' || lead.isTokenPaid || lead.leadType === 'token-hold';
+                                        const hasRepeated = Boolean(lead.hasRepeatedEnquiry || (lead.attemptsCount && lead.attemptsCount > 1));
+
+                                        return (
+                                            <tr
+                                                key={lead.id || lead._id || `lead-row-${idx}`}
+                                                className="hover:bg-blue-50/40 dark:hover:bg-slate-800/60 transition-colors group cursor-pointer text-xs"
+                                                onClick={() => openProfile(lead.id || lead._id)}
+                                            >
+                                                {/* Lead Contact */}
+                                                <td className="py-2 px-3.5">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-[11px] font-bold shrink-0 shadow-2xs">
+                                                            {lead.name.charAt(0).toUpperCase()}
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                                <span className="font-bold text-slate-900 dark:text-white truncate">
+                                                                    {lead.name}
+                                                                </span>
+                                                                {lead.isGroup ? (
+                                                                    <Badge className="bg-purple-600 text-white text-[8.5px] px-1 py-0 rounded-xs">GROUP ({lead.groupSize || 1})</Badge>
+                                                                ) : isTokenHold ? (
+                                                                    <Badge className="bg-amber-100 text-amber-900 border-amber-300 text-[8.5px] font-black px-1 py-0 rounded-xs"><Crown className="h-2 w-2 mr-0.5 inline" /> VIP</Badge>
+                                                                ) : null}
+                                                                {hasRepeated && (
+                                                                    <span className="bg-orange-100 text-orange-800 text-[8px] font-black px-1 py-0 rounded-xs animate-pulse">2x</span>
+                                                                )}
+                                                            </div>
+                                                            {lead.phone && (
+                                                                <p className="font-mono text-[10.5px] text-slate-400 dark:text-slate-500 mt-0.5">
+                                                                    {lead.phone}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </td>
+
+                                                {/* Pipeline Stage */}
+                                                <td className="py-2 px-3">
+                                                    <span
+                                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-mono font-bold uppercase tracking-wider ${
+                                                            lead.status === "Booked"
+                                                                ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60"
+                                                                : lead.status === "Token VIP"
+                                                                ? "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/60"
+                                                                : lead.status === "Site Visit"
+                                                                ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border border-blue-200/60 dark:border-blue-800/60"
+                                                                : lead.status === "Junk"
+                                                                ? "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200/60 dark:border-slate-700/60"
+                                                                : "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60"
+                                                        }`}
+                                                    >
+                                                        <span
+                                                            className={`w-1.5 h-1.5 rounded-full ${
+                                                                lead.status === "Booked"
+                                                                    ? "bg-emerald-500 shadow-2xs shadow-emerald-500/50"
+                                                                    : lead.status === "Token VIP"
+                                                                    ? "bg-amber-500"
+                                                                    : lead.status === "Site Visit"
+                                                                    ? "bg-blue-500"
+                                                                    : "bg-indigo-400"
+                                                            }`}
+                                                        />
+                                                        {lead.status === "Junk" ? "Not Interested" : lead.status}
+                                                    </span>
+                                                </td>
+
+                                                {/* Preferred Unit / Project */}
+                                                <td className="py-2 px-3">
+                                                    {lead.interestedUnit || lead.unitNumber ? (
+                                                        <div className="flex items-center gap-1 font-mono font-bold text-slate-800 dark:text-slate-200 text-[11px]">
+                                                            <Lock className="h-3 w-3 text-amber-500 shrink-0" />
+                                                            <span>Flat {lead.interestedUnit || lead.unitNumber}</span>
+                                                        </div>
+                                                    ) : lead.topPropertyName ? (
+                                                        <span className="text-slate-600 dark:text-slate-300 font-medium truncate block max-w-[140px]" title={lead.topPropertyName}>
+                                                            {lead.topPropertyName}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-slate-400 text-[11px] italic">Not selected</span>
+                                                    )}
+                                                </td>
+
+                                                {/* Requirement & Budget */}
+                                                <td className="py-2 px-3">
+                                                    <div className="flex flex-col">
+                                                        <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs">
+                                                            {lead.requirement || "2BHK / 3BHK"}
+                                                        </span>
+                                                        <span className="font-mono text-[10.5px] text-slate-500 dark:text-slate-400">
+                                                            {lead.budget || "Budget TBD"}
+                                                        </span>
+                                                    </div>
+                                                </td>
+
+                                                {/* Assigned Executive */}
+                                                <td className="py-2 px-3">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <div className="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-600 dark:text-slate-300">
+                                                            {lead.assignee ? lead.assignee.charAt(0).toUpperCase() : "?"}
+                                                        </div>
+                                                        <span className="font-medium text-slate-700 dark:text-slate-300 text-xs">
+                                                            {lead.assignee || "Unassigned"}
+                                                        </span>
+                                                    </div>
+                                                </td>
+
+                                                {/* Registered Date */}
+                                                <td className="py-2 px-3 font-mono text-[10.5px] text-slate-500 dark:text-slate-400">
+                                                    {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString("en-IN", {
+                                                        day: "2-digit",
+                                                        month: "short"
+                                                    }) : "—"}
+                                                </td>
+
+                                                {/* Quick Actions */}
+                                                <td className="py-2 px-3.5 text-right" onClick={(e) => e.stopPropagation()}>
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        {lead.phone && (
+                                                            <a
+                                                                href={`tel:${cleanPhone}`}
+                                                                className="h-7 w-7 flex items-center justify-center rounded border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 transition-colors shadow-2xs"
+                                                                title={`Call ${lead.name}`}
+                                                            >
+                                                                <Phone className="h-3 w-3" />
+                                                            </a>
+                                                        )}
+                                                        {lead.phone && (
+                                                            <a
+                                                                href={`https://wa.me/${cleanPhone.startsWith('91') ? cleanPhone : '91' + cleanPhone}?text=Hello%20${encodeURIComponent(lead.name)},%20thank%20you%20for%20your%20interest.`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="h-7 w-7 flex items-center justify-center rounded border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-400 hover:bg-green-100 transition-colors shadow-2xs"
+                                                                title={`WhatsApp ${lead.name}`}
+                                                            >
+                                                                <MessageSquare className="h-3 w-3" />
+                                                            </a>
+                                                        )}
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            className="h-7 px-2 text-[11px] font-semibold border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 shadow-2xs"
+                                                            onClick={() => openProfile(lead.id || lead._id)}
+                                                        >
+                                                            Profile
+                                                        </Button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     )

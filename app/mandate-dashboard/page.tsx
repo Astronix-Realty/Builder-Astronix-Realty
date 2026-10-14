@@ -102,6 +102,43 @@ function DashboardContent() {
     }
   }
 
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("astronix_sidebar_collapsed")
+      if (stored === "true") {
+        setIsSidebarCollapsed(true)
+      }
+    } catch (e) {}
+  }, [])
+
+  const handleToggleSidebar = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev
+      try {
+        localStorage.setItem("astronix_sidebar_collapsed", String(next))
+      } catch (e) {}
+      return next
+    })
+  }
+
+  // Desktop keyboard shortcut Ctrl+B or Cmd+B to toggle sidebar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "b" || e.key === "B")) {
+        const target = e.target as HTMLElement
+        if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
+          return
+        }
+        e.preventDefault()
+        handleToggleSidebar()
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [])
+
   const [isLoading, setIsLoading] = useState(true)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
   const [isChangingPassword, setIsChangingPassword] = useState(false)
@@ -801,9 +838,11 @@ function DashboardContent() {
         role="mandate"
         currentUser={currentUser}
         profile={profile}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={handleToggleSidebar}
       />
 
-      <main className="flex-1 flex flex-col overflow-hidden bg-slate-50/50 dark:bg-slate-950 relative transition-colors duration-300">
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-50/50 dark:bg-slate-950 relative transition-colors duration-300">
         <DashboardHeader
           activeTab={activeTab}
           role="mandate"
@@ -816,6 +855,8 @@ function DashboardContent() {
           propertyFilter={propertyFilter}
           onFilterChange={handleFilterChange}
           propertyCounts={propertyCounts}
+          isSidebarCollapsed={isSidebarCollapsed}
+          onToggleSidebar={handleToggleSidebar}
         />
 
         <div
@@ -897,6 +938,45 @@ function DashboardContent() {
             />
           )}
         </div>
+
+        {/* Desktop Software Bottom Telemetry & Status Bar */}
+        <footer className="hidden lg:flex h-7 px-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/90 dark:border-slate-800/90 items-center justify-between text-[11px] font-mono text-slate-500 dark:text-slate-400 select-none z-10 shrink-0">
+          {/* Left: System Status & Workspace Context */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="font-semibold text-slate-700 dark:text-slate-300">Live Engine</span>
+            </div>
+            <span className="text-slate-300 dark:text-slate-700">|</span>
+            <span>Workspace: <strong className="text-slate-700 dark:text-slate-300 font-semibold">Mandate Agency</strong></span>
+            <span className="text-slate-300 dark:text-slate-700">|</span>
+            <span>Properties: <strong className="text-blue-600 dark:text-blue-400 font-semibold">{properties.length}</strong></span>
+          </div>
+
+          {/* Center: Desktop Shortcuts & Navigation Guide */}
+          <div className="flex items-center gap-2">
+            <span className="software-kbd">Ctrl+B</span>
+            <span className="text-[10px] text-slate-400">Sidebar</span>
+            <span className="text-slate-300 dark:text-slate-700 mx-1">•</span>
+            <span className="software-kbd">Ctrl+K</span>
+            <span className="text-[10px] text-slate-400">Command</span>
+            <span className="text-slate-300 dark:text-slate-700 mx-1">•</span>
+            <span className="software-kbd">/</span>
+            <span className="text-[10px] text-slate-400">Search</span>
+            <span className="text-slate-300 dark:text-slate-700 mx-1">•</span>
+            <span className="software-kbd">Esc</span>
+            <span className="text-[10px] text-slate-400">Close</span>
+          </div>
+
+          {/* Right: Telemetry & Version */}
+          <div className="flex items-center gap-3">
+            <span>Theme: <strong className="text-slate-700 dark:text-slate-300 font-semibold uppercase">{theme}</strong></span>
+            <span className="text-slate-300 dark:text-slate-700">|</span>
+            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">24ms Latency</span>
+            <span className="text-slate-300 dark:text-slate-700">|</span>
+            <span className="font-bold text-slate-700 dark:text-slate-300">Astronix OS v2.4</span>
+          </div>
+        </footer>
       </main>
 
       <PropertyHierarchyModal

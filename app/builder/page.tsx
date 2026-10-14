@@ -630,6 +630,26 @@ function BuilderContent() {
     }
   }
 
+  // Desktop keyboard shortcuts: Ctrl+S to save draft, Ctrl+Enter to proceed
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault()
+        saveNow()
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault()
+        if ((state?.currentStep || 1) > maxStep) {
+          handleCreate()
+        } else {
+          nextStep()
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [saveNow, nextStep, state?.currentStep, maxStep])
+
   const totalEntities = 1 + (state?.projects?.length || 0) + (generatedTowers?.length || 0) + (generatedUnits?.length || 0)
   const displayStepIndex = (state?.currentStep || 1) - 1 - stepOffset
   const isReviewStep = (state?.currentStep || 1) > maxStep
@@ -694,19 +714,25 @@ function BuilderContent() {
         1. Reduced padding (px-4 for mobile).
         2. Included ProgressBar inside this sticky header so it's always visible.
       */}
-      <header className="sticky top-0 z-50 border-b bg-white dark:bg-slate-900 shadow-sm">
-        <div className="container max-w-7xl mx-auto px-4 md:px-6 py-3">
+      <header className="sticky top-0 z-50 border-b bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-slate-200/80 dark:border-slate-800 shadow-sm transition-all">
+        <div className="container max-w-7xl mx-auto px-4 md:px-6 py-2.5">
           {/* Row 1: Primary Wizard Control */}
           <div className="flex flex-col md:flex-row md:items-center gap-4 justify-between">
             <div className="flex items-center gap-3">
+              {/* Desktop Window Controls */}
+              <div className="hidden xl:flex items-center gap-1.5 mr-1 select-none">
+                <div className="w-2.5 h-2.5 rounded-full bg-rose-400/90 hover:opacity-100 transition-opacity"></div>
+                <div className="w-2.5 h-2.5 rounded-full bg-amber-400/90 hover:opacity-100 transition-opacity"></div>
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-400/90 hover:opacity-100 transition-opacity"></div>
+              </div>
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center shadow-lg shadow-blue-500/10 text-white shrink-0">
                 <Building2 className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <h1 className="font-bold text-base md:text-lg text-slate-900 dark:text-white truncate">
+                <h1 className="font-bold text-base md:text-lg text-slate-900 dark:text-white truncate tracking-tight">
                   {getFlowTitle()}
                 </h1>
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-extrabold leading-none">
+                <p className="text-[10px] uppercase tracking-widest text-slate-400 font-extrabold leading-none">
                   {flowType === "township" ? "Mega Township" : "Standalone Property"}
                 </p>
               </div>
@@ -728,7 +754,7 @@ function BuilderContent() {
               </div>
 
               {/* Auto-save status indicator */}
-              <div className="hidden md:flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg border">
+              <div className="hidden md:flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-lg border bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 select-none">
                 {isSaving ? (
                   <><Loader2 className="w-3 h-3 animate-spin text-blue-500" /><span className="text-blue-500">Saving...</span></>
                 ) : draftError ? (
@@ -743,10 +769,10 @@ function BuilderContent() {
               <button
                 onClick={handleSaveDraft}
                 disabled={isSaving}
-                className="p-2.5 rounded-xl bg-slate-100/50 border border-slate-200 text-slate-600 hover:bg-white hover:text-blue-600 hover:border-blue-200 hover:shadow-sm transition-all group"
+                className="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-white hover:text-blue-600 hover:border-blue-300 dark:hover:bg-slate-700 transition-all flex items-center gap-1.5 text-xs font-bold group shadow-sm disabled:opacity-50"
                 title="Save Draft Now"
               >
-                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 group-hover:scale-110 transition-transform" />}
+                {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />}<span className="hidden sm:inline">Save Draft</span><span className="software-kbd hidden xl:inline">Ctrl+S</span>
               </button>
               <button
                 onClick={() => {
@@ -755,17 +781,17 @@ function BuilderContent() {
                   }
                 }}
                 disabled={isCreating}
-                className="p-2.5 rounded-xl bg-slate-100/50 border border-slate-200 text-slate-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 hover:shadow-sm transition-all group"
+                className="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 transition-all flex items-center gap-1 text-xs font-bold group shadow-sm"
                 title="Cancel / Close"
               >
-                <X className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                <X className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" /><span className="hidden sm:inline">Close</span><span className="software-kbd hidden xl:inline">Esc</span>
               </button>
             </div>
           </div>
 
           {/* Row 2: Merged Entity Tabs (Visible only on Step 2, 3, 4) */}
           {(state?.currentStep >= 2 && state?.currentStep <= 4) && (
-            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 overflow-x-auto scrollbar-hide">
+            <div className="mt-3 pt-2.5 border-t border-slate-200/70 dark:border-slate-800 flex items-center gap-2 overflow-x-auto software-scrollbar">
               {/* Step 2: Projects Navigation */}
               {state?.currentStep === 2 && flowType === "township" && (
                 <Fragment key="step2-projects">
@@ -1121,7 +1147,7 @@ function BuilderContent() {
       <button
         onClick={prevStep}
         disabled={state.currentStep === minStep}
-        className="fixed left-4 md:left-8 top-1/2 -translate-y-1/2 z-40 p-3 md:p-4 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-[0_8px_30px_rgb(0,0,0,0.12)] text-slate-600 hover:text-[#1A3C8C] hover:border-blue-300 transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 disabled:opacity-0 disabled:pointer-events-none group hidden sm:flex"
+        className="fixed left-4 md:left-8 top-1/2 -translate-y-1/2 z-40 p-3 md:p-3.5 rounded-2xl bg-white/90 dark:bg-slate-800/90 backdrop-blur-md border border-slate-200/80 dark:border-slate-700/80 shadow-[0_8px_30px_rgb(0,0,0,0.12)] text-slate-600 dark:text-slate-300 hover:text-[#1A3C8C] dark:hover:text-blue-400 hover:border-blue-300 dark:hover:border-blue-700 hover:scale-105 transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/20 disabled:opacity-0 disabled:pointer-events-none group hidden sm:flex items-center justify-center"
       >
         <ChevronLeft className="w-6 h-6 md:w-8 md:h-8 group-hover:-translate-x-1 transition-transform" />
       </button>
@@ -1129,7 +1155,7 @@ function BuilderContent() {
       {!isReviewStep ? (
         <button
           onClick={nextStep}
-          className="fixed right-4 md:right-8 top-1/2 -translate-y-1/2 z-40 p-3 md:p-4 rounded-full bg-[#1A3C8C] text-white shadow-[0_8px_30px_rgba(26,60,140,0.4)] hover:bg-blue-700 hover:scale-105 transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/40 group hidden sm:flex"
+          className="fixed right-4 md:right-8 top-1/2 -translate-y-1/2 z-40 p-3 md:p-3.5 rounded-2xl bg-gradient-to-br from-[#1A3C8C] to-blue-700 text-white shadow-[0_8px_30px_rgba(26,60,140,0.4)] hover:shadow-blue-500/30 hover:scale-105 transition-all focus:outline-none focus:ring-4 focus:ring-blue-500/40 group hidden sm:flex items-center justify-center"
         >
           <ChevronRight className="w-6 h-6 md:w-8 md:h-8 group-hover:translate-x-1 transition-transform" />
         </button>
@@ -1137,7 +1163,7 @@ function BuilderContent() {
         <button
           onClick={handleCreate}
           disabled={isCreating}
-          className="fixed right-4 md:right-8 top-1/2 -translate-y-1/2 z-40 p-3 md:p-4 rounded-full bg-[#2BB673] text-white shadow-[0_8px_30px_rgba(43,182,115,0.4)] hover:bg-emerald-600 hover:scale-105 transition-all focus:outline-none focus:ring-4 focus:ring-emerald-500/40 disabled:opacity-50 disabled:scale-100 flex items-center justify-center group hidden sm:flex"
+          className="fixed right-4 md:right-8 top-1/2 -translate-y-1/2 z-40 p-3 md:p-3.5 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-[0_8px_30px_rgba(16,185,129,0.4)] hover:shadow-emerald-500/30 hover:scale-105 transition-all focus:outline-none focus:ring-4 focus:ring-emerald-500/40 disabled:opacity-50 disabled:scale-100 flex items-center justify-center group hidden sm:flex"
           title="Create All"
         >
           {isCreating ? (

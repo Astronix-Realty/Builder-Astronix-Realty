@@ -64,28 +64,28 @@ function Section({
 }) {
   const isOpen = openIds.includes(id)
   return (
-    <div className="rounded-2xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
+    <div className="rounded-xl border border-slate-200/90 dark:border-slate-800/90 bg-white dark:bg-slate-900 shadow-2xs overflow-hidden mb-3">
       <button
         type="button"
         onClick={() => setOpenIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])}
-        className="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-gray-50 dark:bg-slate-800/50 transition-colors group"
+        className="w-full px-4 py-2.5 flex items-center justify-between text-left hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors group"
       >
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-xl bg-[#1A3C8C] dark:bg-blue-900/30 flex items-center justify-center shrink-0">
-            <Icon className="w-4 h-4 text-white dark:text-blue-300" />
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 flex items-center justify-center shrink-0">
+            <Icon className="w-3.5 h-3.5" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-gray-900 dark:text-white text-sm">{title}</span>
-              {badge && <Badge className="bg-[#2BB673]/10 text-[#2BB673] dark:text-emerald-400 border-0 text-[10px] font-bold">{badge}</Badge>}
+              <span className="font-bold text-slate-900 dark:text-white text-xs tracking-tight">{title}</span>
+              {badge && <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[9px] font-mono font-bold uppercase">{badge}</Badge>}
             </div>
-            {description && <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5 line-clamp-1">{description}</p>}
+            {description && <p className="text-[10.5px] text-slate-500 dark:text-slate-400 font-normal truncate mt-0.5">{description}</p>}
           </div>
         </div>
-        {isOpen ? <ChevronUp className="w-4 h-4 text-gray-400 dark:text-slate-500 shrink-0" /> : <ChevronDown className="w-4 h-4 text-gray-400 dark:text-slate-500 shrink-0" />}
+        {isOpen ? <ChevronUp className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />}
       </button>
       {isOpen && (
-        <div className="px-5 pb-5 pt-1 border-t border-gray-100 dark:border-slate-800">
+        <div className="px-4 pb-4 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/30 dark:bg-slate-950/20">
           {children}
         </div>
       )}
@@ -95,12 +95,12 @@ function Section({
 
 function Field({ label, required, hint, className, children }: { label: string; required?: boolean; hint?: string; className?: string; children: React.ReactNode }) {
   return (
-    <div className={`flex flex-col gap-1.5 ${className || ""}`}>
-      <Label className="text-xs font-semibold text-gray-700 dark:text-slate-300 uppercase tracking-wide">
-        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+    <div className={`flex flex-col gap-1 ${className || ""}`}>
+      <Label className="text-[10.5px] font-mono font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+        {label}{required && <span className="text-rose-500 ml-0.5 font-bold">*</span>}
       </Label>
       {children}
-      {hint && <p className="text-[11px] text-gray-400 dark:text-slate-500">{hint}</p>}
+      {hint && <p className="text-[10px] font-mono text-slate-400 dark:text-slate-500">{hint}</p>}
     </div>
   )
 }

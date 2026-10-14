@@ -204,7 +204,7 @@ export function OffersView({ userRole }: { userRole: string }) {
             <button
               key={`filter-${status}`}
               onClick={() => setStatusFilter(status)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition-all ${
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold capitalize transition-all ${
                 statusFilter === status
                   ? "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm"
                   : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
@@ -234,7 +234,7 @@ export function OffersView({ userRole }: { userRole: string }) {
             className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-semibold transition-all shadow-lg shadow-blue-500/30 whitespace-nowrap"
           >
             <Plus className="w-4 h-4" />
-            New Offer
+            <span>New Offer</span><span className="software-kbd hidden xl:inline text-white/90 bg-white/20 border-white/30">+N</span>
           </button>
         </div>
       </div>
