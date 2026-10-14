@@ -12,7 +12,7 @@ const _models = [User, Builder, Mandate];
 // In-memory cache for ultra-fast S2S responses to Admin Panel
 let cachedResponse: { count: number; properties: any[] } | null = null;
 let lastCacheTimestamp = 0;
-const CACHE_TTL_MS = 60 * 1000; // 60s TTL
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min TTL
 
 export function invalidateInternalPropertiesCache() {
   cachedResponse = null;
@@ -36,17 +36,28 @@ export async function GET(req: NextRequest) {
     }
 
     await dbConnect();
-    const Unit = mongoose.models.Unit || (await import('@/models/Unit')).default;
 
-    const allProperties = await Property.find({
-      isDeleted: { $ne: true },
-    })
-      .select('-details.generatedUnits -details.units')
-      .populate({
-        path: 'builderId',
-        select: 'name companyName developerName role mandateId builderId logo profile',
+    // Query 4 root townships/projects with full details (excluding heavy PDFs), and child projects/towers with lightweight projection
+    const [rootProperties, childProperties] = await Promise.all([
+      Property.find({
+        parentId: null,
+        isDeleted: { $ne: true },
       })
-      .lean();
+        .select('-details.brochure -details.rawBrochure -details.pdfBuffer -details.brochurePdf')
+        .populate({
+          path: 'builderId',
+          select: 'name companyName developerName role mandateId builderId logo profile',
+        })
+        .lean(),
+      Property.find({
+        parentId: { $ne: null },
+        isDeleted: { $ne: true },
+      })
+        .select('name type status parentId details.tag details.tagType details.priceRangeMin details.priceRangeMax')
+        .lean(),
+    ]);
+
+    const allProperties = [...rootProperties, ...childProperties];
 
     allProperties.sort((a: any, b: any) => {
       const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -54,20 +65,7 @@ export async function GET(req: NextRequest) {
       return dateB - dateA;
     });
       
-    let allUnits: any[] = [];
-    try {
-      const propIds = allProperties.map((p: any) => p._id);
-      if (propIds.length > 0) {
-        allUnits = await Unit.find({
-          parentId: { $in: propIds }
-        })
-          .select('_id towerId parentId unitNumber floorNumber floor status configuration price allInclusivePrice area carpetArea builtUpArea ratePerSqft facing')
-          .maxTimeMS(2000)
-          .lean();
-      }
-    } catch (unitErr) {
-      console.warn('[Internal v2 Properties] Unit fetch fallback (skipping heavy unit join):', unitErr);
-    }
+    const allUnits: any[] = [];
 
     const townships = allProperties.filter((p: any) => (!p.parentId || p.parentId === null) && p.type === 'township');
     const standaloneProjects = allProperties.filter((p: any) => (!p.parentId || p.parentId === null) && p.type === 'project');
@@ -134,15 +132,19 @@ export async function GET(req: NextRequest) {
         id: isEmbedded ? (u.id || u.unitNumber) : u._id.toString(),
         unitNumber: u.unitNumber || '',
         floorNum: u.floorNumber || u.floor || 1,
+        floor: `${u.floorNumber || u.floor || 1} Floor`,
         status: (u.status || 'available').toLowerCase(),
-        config: u.configuration || '',
+        config: u.configuration || u.type || '',
         price: u.price || 'N/A',
         priceValue,
         priceLabel: priceValue ? fmtPrice(priceValue) : '',
-        area: u.area || 'N/A',
-        carpet: u.carpetArea || 'N/A',
+        allInclusivePrice: u.allInclusivePrice || priceValue,
+        area: u.area || u.carpetArea || 'N/A',
+        carpet: u.carpetArea || u.area || 'N/A',
         balcony: u.builtUpArea || 'N/A',
         facing: u.facing || 'N/A',
+        vastuDetails: u.vastuDetails || null,
+        roomDimensions: u.roomDimensions || [],
       };
     };
 
@@ -152,11 +154,12 @@ export async function GET(req: NextRequest) {
         .map((u: any) => mapUnit(u));
     };
 
-    const getEmbeddedUnits = (embeddedTowerId: string | undefined, ...sources: any[]) => {
-      if (!embeddedTowerId) return [];
+    const getEmbeddedUnits = (candidateIds: (string | undefined)[], ...sources: any[]) => {
+      const validIds = candidateIds.filter(Boolean).map(String);
+      if (validIds.length === 0) return [];
       const src = sources.find((s) => Array.isArray(s?.generatedUnits) && s.generatedUnits.length > 0);
       return (src?.generatedUnits || [])
-        .filter((u: any) => String(u.towerId || '') === embeddedTowerId)
+        .filter((u: any) => validIds.includes(String(u.towerId || '')) || validIds.includes(String(u.tower || '')))
         .map((u: any) => mapUnit(u, true));
     };
 
@@ -164,14 +167,20 @@ export async function GET(req: NextRequest) {
       const own = t.details || {};
       const wiz = pickWizard('towers', rootDetails, own);
       const towerList: any[] = wiz?.towers || [];
+      const genTowerList: any[] = rootDetails?.generatedTowers || own.generatedTowers || [];
+      const allPossibleTowers = [...towerList, ...genTowerList];
+
       const emb =
-        (embeddedProjectId && towerList.find((x: any) => sameName(x.name || x.towerName, t.name) && x.projectId === embeddedProjectId)) ||
-        towerList.find((x: any) => sameName(x.name || x.towerName, t.name)) ||
+        (embeddedProjectId && allPossibleTowers.find((x: any) => sameName(x.name || x.towerName, t.name) && x.projectId === embeddedProjectId)) ||
+        allPossibleTowers.find((x: any) => x.id === t.id || x.id === t._id?.toString()) ||
+        allPossibleTowers.find((x: any) => sameName(x.name || x.towerName, t.name)) ||
         null;
       const embId: string | undefined = emb?.id;
 
-      let units = getUnitsForTower(t._id.toString());
-      if (units.length === 0) units = getEmbeddedUnits(embId, rootDetails, own);
+      let units = getUnitsForTower(t._id ? t._id.toString() : (t.id || ''));
+      if (units.length === 0) {
+        units = getEmbeddedUnits([embId, t.id, t._id ? t._id.toString() : undefined], rootDetails, own);
+      }
 
       const tuc = embId ? (wiz?.towerUnitConfigs || []).find((c: any) => c.towerId === embId) : null;
 
@@ -181,13 +190,17 @@ export async function GET(req: NextRequest) {
         mkRange(own.priceRangeMin, own.priceRangeMax) ||
         rangeFromPrices(units.map((u: any) => u.priceValue));
 
+      const rawName = t.name || t.towerName || emb?.name || emb?.towerName || '';
+      const resolvedName = rawName && !rawName.toLowerCase().startsWith('untitled') ? rawName : (emb?.name || 'Tower ' + (t.id?.slice(-1) || '1'));
+
       return {
-        id: t._id.toString(),
-        name: t.name,
-        desc: own.description || 'Tower details',
-        status: t.status,
+        id: t._id ? t._id.toString() : (t.id || embId || 'tower-node'),
+        name: resolvedName,
+        desc: own.description || t.description || `${t.totalFloors || 20} Floors Building`,
+        status: t.status || 'active',
+        totalFloors: t.totalFloors || t.totalFloorsNum || 20,
         ...withLabel(range),
-        propertyUnits: units, // the admin UI sometimes looks for units on towers
+        propertyUnits: units,
         units,
       };
     };
@@ -207,7 +220,7 @@ export async function GET(req: NextRequest) {
       return {
         id: p._id.toString(),
         name: p.name,
-        tag: own.tag || 'Phase',
+        tag: own.tag || own.tagType || 'Phase',
         status: p.status,
         ...withLabel(range),
         towers,
@@ -255,13 +268,75 @@ export async function GET(req: NextRequest) {
       let rootRange: PriceRange = null;
 
       if (p.type === 'township') {
-        projects = childProjects
-          .filter((cp: any) => cp.parentId?.toString() === p._id.toString())
-          .map((cp: any) => formatProject(cp, docDetails));
+        const wizardProjects: any[] = docDetails.projects || [];
+        if (wizardProjects.length > 0) {
+          // Resolve canonical projects from docDetails.projects (Deduplicated single source of truth)
+          projects = wizardProjects.map((wp: any) => {
+            const allTowersSource = [
+              ...(docDetails.towers || []),
+              ...(docDetails.generatedTowers || [])
+            ];
+            const matchedTowers = allTowersSource.filter(
+              (tw: any) => tw.projectId === wp.id || tw.parentProjectId === wp.id || tw.projectId === wp.name
+            );
+
+            // Deduplicate towers by name
+            const seenTowerNames = new Set<string>();
+            const uniqueTowers: any[] = [];
+            for (const tw of (matchedTowers.length > 0 ? matchedTowers : (wp.towers || []))) {
+              const rawName = tw.name || tw.towerName || 'Tower';
+              const normName = rawName.trim().toLowerCase();
+              if (!seenTowerNames.has(normName) && !normName.startsWith('untitled')) {
+                seenTowerNames.add(normName);
+                uniqueTowers.push(tw);
+              }
+            }
+
+            const formattedTowers = uniqueTowers.map((tw: any) => {
+              const rawName = tw.name || tw.towerName || 'Tower';
+              const candidateIds = [tw.id, tw._id?.toString(), ...(docDetails.generatedTowers || []).filter((gt: any) => gt.name === rawName).map((gt: any) => gt.id)];
+              const units = getEmbeddedUnits(candidateIds, docDetails);
+              const range = mkRange(tw.priceRangeMin, tw.priceRangeMax) || rangeFromPrices(units.map((u: any) => u.priceValue));
+              return {
+                id: tw.id || tw._id?.toString() || `tower-${Math.random().toString(36).substring(2, 7)}`,
+                name: rawName,
+                desc: tw.description || `${tw.totalFloors || 20} Floors Building`,
+                status: tw.status || 'active',
+                totalFloors: tw.totalFloors || tw.totalFloorsNum || 20,
+                ...withLabel(range),
+                propertyUnits: units,
+                units,
+              };
+            });
+
+            const projRange = mkRange(wp.priceRangeMin, wp.priceRangeMax) || mergeRanges(formattedTowers);
+            return {
+              id: wp.id || wp._id?.toString() || `proj-${Math.random().toString(36).substring(2, 7)}`,
+              name: wp.name || wp.projectName || 'Project Phase',
+              tag: wp.tagType || wp.tag || 'Phase',
+              status: wp.approvalStatus || wp.status || 'active',
+              ...withLabel(projRange),
+              towers: formattedTowers,
+            };
+          });
+        } else {
+          // Fallback to deduplicated childProjects
+          const seenNames = new Set<string>();
+          projects = childProjects
+            .filter((cp: any) => {
+              if (cp.parentId?.toString() !== p._id.toString()) return false;
+              const n = (cp.name || '').trim().toLowerCase();
+              if (seenNames.has(n)) return false;
+              seenNames.add(n);
+              return true;
+            })
+            .map((cp: any) => formatProject(cp, docDetails));
+        }
+
         rootRange =
           mkRange(docDetails.township?.priceRangeMin, docDetails.township?.priceRangeMax) ||
           mkRange(docDetails.priceRangeMin, docDetails.priceRangeMax) ||
-          mergeRanges(projects);
+          mergeRanges(projects || []);
       } else if (p.type === 'project') {
         towers = childTowers
           .filter((ct: any) => ct.parentId?.toString() === p._id.toString())

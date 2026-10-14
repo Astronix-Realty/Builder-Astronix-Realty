@@ -37,9 +37,9 @@ async function dbConnect() {
   if (!cached.promise) {
     const opts: mongoose.ConnectOptions = {
       bufferCommands: false,
-      serverSelectionTimeoutMS: 30000,
-      connectTimeoutMS: 30000,
-      socketTimeoutMS: 45000,
+      serverSelectionTimeoutMS: 45000,
+      connectTimeoutMS: 45000,
+      socketTimeoutMS: 90000,
       maxPoolSize: 10,
       family: 4,
     };
