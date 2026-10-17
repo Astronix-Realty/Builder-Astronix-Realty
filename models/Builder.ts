@@ -13,6 +13,7 @@ const BuilderSchema = new mongoose.Schema(
     description: { type: String },
     developerDescription: { type: String },
     reraNumber: { type: String },
+    gstNumber: { type: String, trim: true, uppercase: true },
     website: { type: String },
     projectsCompleted: { type: String },
     establishedYear: { type: String },

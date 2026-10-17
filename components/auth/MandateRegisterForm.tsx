@@ -4,7 +4,7 @@ import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { 
   User, Eye, EyeOff, Mail, Lock, ArrowRight, Phone, Building2,
-  Briefcase, CheckCircle2, BadgeCheck, UploadCloud, FileText, X, RefreshCw
+  Briefcase, CheckCircle2, BadgeCheck, UploadCloud, FileText, X, RefreshCw, AlertCircle
 } from "lucide-react"
 import { IRegisterMandatePayload } from "@/types/auth"
 
@@ -54,7 +54,13 @@ export default function MandateRegisterForm() {
 
   const uploadFile = async (file: File) => {
     if (!file.type.startsWith("image/")) {
-      return setError("Please upload a valid image file.")
+      return setError("Please upload a valid image file (PNG, JPG, SVG, WebP).")
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      return setError("Photo file size is too large. Please select an image under 5MB.")
+    }
+    if (typeof window !== "undefined" && !navigator.onLine) {
+      return setError("No internet connection detected. Please check your network and try again.")
     }
     setIsUploadingLogo(true)
     setError("")
@@ -62,14 +68,18 @@ export default function MandateRegisterForm() {
     formData.append("file", file)
     try {
       const res = await fetch("/api/upload?public=true", { method: "POST", body: formData })
-      const data = await res.json()
-      if (data.url) {
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && data.url) {
         setMandateForm(prev => ({ ...prev, logo: data.url }))
       } else {
-        setError(data.error || "Profile upload failed")
+        setError(data.error || "Unable to upload profile photo. Please check your internet connection and try again.")
       }
     } catch {
-      setError("Failed to upload profile image")
+      if (typeof window !== "undefined" && !navigator.onLine) {
+        setError("Network error: You are offline. Please reconnect to the internet and try again.")
+      } else {
+        setError("Network error: Could not reach the upload server. Please check your internet connection.")
+      }
     } finally {
       setIsUploadingLogo(false)
     }
@@ -143,6 +153,11 @@ export default function MandateRegisterForm() {
     setError("")
     setSuccess("")
     
+    if (typeof window !== "undefined" && !navigator.onLine) {
+      setIsLoading(false)
+      return setError("No internet connection. Please reconnect to the internet to complete registration.")
+    }
+    
     try {
       const payload: IRegisterMandatePayload = { 
         userType: "mandate",
@@ -153,16 +168,20 @@ export default function MandateRegisterForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       })
-      const data = await res.json()
+      const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setError(data.error || "Registration failed")
+        setError(data.error || "Registration could not be completed. Please try again.")
         setIsLoading(false)
         return
       }
-      setSuccess(data.message)
+      setSuccess(data.message || "Registration successful! Redirecting to login...")
       setTimeout(() => router.push("/login"), 2000)
     } catch {
-      setError("Something went wrong. Please try again.")
+      if (typeof window !== "undefined" && !navigator.onLine) {
+        setError("Network disconnected: Please check your internet connection and try again.")
+      } else {
+        setError("Network error: Server did not respond. Please verify your connection and try again.")
+      }
       setIsLoading(false)
     }
   }
@@ -189,8 +208,20 @@ export default function MandateRegisterForm() {
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-xl py-3 px-4 text-red-400 text-sm text-center mb-6 flex items-center justify-center gap-2">
-          <CheckCircle2 className="h-4 w-4 opacity-50" /> {error}
+        <div className="bg-red-500/15 border border-red-500/30 rounded-xl py-3 px-4 text-red-200 text-sm mb-6 flex items-start gap-3 backdrop-blur-md shadow-lg animate-in fade-in duration-300">
+          <AlertCircle className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
+          <div className="flex-1 text-left">
+            <span className="font-semibold text-red-300 block text-xs uppercase tracking-wide mb-0.5">Notice</span>
+            <p className="text-red-200 text-sm leading-relaxed">{error}</p>
+          </div>
+          <button 
+            type="button" 
+            onClick={() => setError("")} 
+            className="text-red-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10"
+            title="Dismiss message"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
 

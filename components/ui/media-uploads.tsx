@@ -8,16 +8,31 @@ import { compressImage } from "@/lib/utils/compressor"
 
 // ── Shared upload helper ─────────────────────────────────────
 export async function uploadFileToServer(file: File): Promise<string> {
+  if (typeof window !== "undefined" && !navigator.onLine) {
+    throw new Error("No internet connection detected. Please check your network and try again.")
+  }
+
   const compressedFile = await compressImage(file)
   const formData = new FormData()
   formData.append("file", compressedFile)
-  const res = await fetch("/api/upload", { method: "POST", body: formData })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.error || `Upload failed (${res.status})`)
+
+  try {
+    const res = await fetch("/api/upload", { method: "POST", body: formData })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.error || `Upload failed (${res.status}). Please try again.`)
+    }
+    const data = await res.json()
+    return data.url as string
+  } catch (err: any) {
+    if (typeof window !== "undefined" && !navigator.onLine) {
+      throw new Error("No internet connection. Please reconnect and try again.")
+    }
+    if (err.name === "TypeError" && err.message?.includes("fetch")) {
+      throw new Error("Network error: Could not reach upload server. Please check your internet connection.")
+    }
+    throw err
   }
-  const data = await res.json()
-  return data.url as string
 }
 
 // ── Cloudinary cleanup helper ─────────────────────────────────

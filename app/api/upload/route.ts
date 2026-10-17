@@ -105,14 +105,40 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     const actualError = error?.error || error;
-    console.error("[Upload] Cloudinary upload error:", actualError?.message || actualError)
+    const rawMsg = (actualError?.message || (typeof actualError === "string" ? actualError : "") || "").toLowerCase();
+    console.error("[Upload] Cloudinary upload error:", actualError?.message || actualError);
     
-    const isTimeout = actualError?.http_code === 499 || actualError?.name === 'TimeoutError' || actualError?.message === 'Request Timeout';
-    
-    const userMessage = isTimeout
-      ? "Upload timed out. Please try a smaller image or check your internet connection."
-      : `Upload failed: ${actualError?.message || "Unknown error"}`
-      
+    // Check for network/DNS/connectivity errors
+    const isNetworkError = 
+      rawMsg.includes("enotfound") ||
+      rawMsg.includes("econnrefused") ||
+      rawMsg.includes("econnreset") ||
+      rawMsg.includes("eai_again") ||
+      rawMsg.includes("enetunreach") ||
+      rawMsg.includes("fetch failed") ||
+      rawMsg.includes("network error");
+
+    // Check for timeout
+    const isTimeout = 
+      actualError?.http_code === 499 || 
+      actualError?.name === 'TimeoutError' || 
+      rawMsg.includes("timeout") ||
+      rawMsg.includes("timed out");
+
+    let userMessage = "Unable to upload image. Please check your internet connection and try again.";
+
+    if (isNetworkError) {
+      userMessage = "Network error: Unable to connect to storage server. Please check your internet connection and try again.";
+    } else if (isTimeout) {
+      userMessage = "Upload timed out. Please check your internet connection or try with a smaller file.";
+    } else if (actualError?.http_code === 400 || rawMsg.includes("invalid image") || rawMsg.includes("unsupported")) {
+      userMessage = "Unsupported or invalid file format. Please upload a valid image (PNG, JPG, SVG, WebP).";
+    } else if (rawMsg.includes("file size") || rawMsg.includes("too large")) {
+      userMessage = "File size is too large. Please select a smaller file.";
+    } else if (rawMsg.includes("must supply api_key") || rawMsg.includes("invalid api key") || rawMsg.includes("disabled account")) {
+      userMessage = "Storage service is temporarily unavailable. Please contact support.";
+    }
+
     return NextResponse.json(
       { error: userMessage },
       { status: 500 }

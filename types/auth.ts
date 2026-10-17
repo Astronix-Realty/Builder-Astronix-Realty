@@ -20,6 +20,7 @@ export interface IRegisterBuilderPayload {
   companyName?: string;
   developerName?: string;
   phone?: string;
+  gstNumber?: string;
   address?: string;
   city?: string;
   state?: string;

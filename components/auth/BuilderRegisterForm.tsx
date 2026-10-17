@@ -4,7 +4,7 @@ import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { 
   Building2, User, Eye, EyeOff, Mail, Lock, ArrowRight, Phone,
-  MapPin, Globe, FileText, CheckCircle2, BadgeCheck, UploadCloud, Image as ImageIcon, X, RefreshCw
+  MapPin, Globe, FileText, CheckCircle2, BadgeCheck, UploadCloud, Image as ImageIcon, X, RefreshCw, AlertCircle
 } from "lucide-react"
 import { IRegisterBuilderPayload } from "@/types/auth"
 
@@ -19,6 +19,7 @@ export default function BuilderRegisterForm() {
   // Validation state
   const [emailError, setEmailError] = useState("")
   const [phoneError, setPhoneError] = useState("")
+  const [gstError, setGstError] = useState("")
   
   // Logo upload state
   const [isUploadingLogo, setIsUploadingLogo] = useState(false)
@@ -27,7 +28,7 @@ export default function BuilderRegisterForm() {
 
   const [builderForm, setBuilderForm] = useState({
     companyName: "", developerName: "", email: "", phone: "",
-    password: "", confirmPassword: "",
+    password: "", confirmPassword: "", gstNumber: "",
     address: "", city: "", state: "", website: "", experience: "", logo: ""
   })
 
@@ -52,9 +53,27 @@ export default function BuilderRegisterForm() {
     return isValid
   }
 
+  const validateGst = (gst: string) => {
+    if (!gst.trim()) {
+      setGstError("Builder GST Number is required")
+      return false
+    }
+    const cleanGst = gst.trim().toUpperCase().replace(/\s/g, '')
+    const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/
+    const isValid = gstRegex.test(cleanGst)
+    setGstError(isValid ? "" : "Invalid GST format (e.g. 27ABCDE1234F1Z5)")
+    return isValid
+  }
+
   const uploadFile = async (file: File) => {
     if (!file.type.startsWith("image/")) {
-      return setError("Please upload a valid image file.")
+      return setError("Please upload a valid image file (PNG, JPG, SVG, WebP).")
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      return setError("Logo file size is too large. Please select an image under 5MB.")
+    }
+    if (typeof window !== "undefined" && !navigator.onLine) {
+      return setError("No internet connection detected. Please check your network and try again.")
     }
     setIsUploadingLogo(true)
     setError("")
@@ -62,14 +81,18 @@ export default function BuilderRegisterForm() {
     formData.append("file", file)
     try {
       const res = await fetch("/api/upload?public=true", { method: "POST", body: formData })
-      const data = await res.json()
-      if (data.url) {
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && data.url) {
         setBuilderForm(prev => ({ ...prev, logo: data.url }))
       } else {
-        setError(data.error || "Logo upload failed")
+        setError(data.error || "Unable to upload logo. Please check your internet connection and try again.")
       }
     } catch {
-      setError("Failed to upload logo")
+      if (typeof window !== "undefined" && !navigator.onLine) {
+        setError("Network error: You are offline. Please reconnect to the internet and try again.")
+      } else {
+        setError("Network error: Could not reach the upload server. Please check your internet connection.")
+      }
     } finally {
       setIsUploadingLogo(false)
     }
@@ -120,11 +143,14 @@ export default function BuilderRegisterForm() {
       }
     }
     if (step === 2) {
-      if (!builderForm.password || !builderForm.confirmPassword) {
-        return setError("Please fill all required fields in Step 2")
+      if (!builderForm.password || !builderForm.confirmPassword || !builderForm.gstNumber) {
+        return setError("Please fill all required fields in Step 2 (Password and Builder GST Number)")
       }
       if (builderForm.password !== builderForm.confirmPassword) {
         return setError("Passwords do not match")
+      }
+      if (!validateGst(builderForm.gstNumber)) {
+        return setError("Please enter a valid 15-character Builder GST Number")
       }
     }
     setStep(step + 1)
@@ -143,6 +169,11 @@ export default function BuilderRegisterForm() {
     setError("")
     setSuccess("")
     
+    if (typeof window !== "undefined" && !navigator.onLine) {
+      setIsLoading(false)
+      return setError("No internet connection. Please reconnect to the internet to complete registration.")
+    }
+    
     try {
       const payload: IRegisterBuilderPayload = { 
         userType: "builder",
@@ -153,16 +184,20 @@ export default function BuilderRegisterForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       })
-      const data = await res.json()
+      const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setError(data.error || "Registration failed")
+        setError(data.error || "Registration could not be completed. Please try again.")
         setIsLoading(false)
         return
       }
-      setSuccess(data.message)
+      setSuccess(data.message || "Registration successful! Redirecting to login...")
       setTimeout(() => router.push("/login"), 2000)
     } catch {
-      setError("Something went wrong. Please try again.")
+      if (typeof window !== "undefined" && !navigator.onLine) {
+        setError("Network disconnected: Please check your internet connection and try again.")
+      } else {
+        setError("Network error: Server did not respond. Please verify your connection and try again.")
+      }
       setIsLoading(false)
     }
   }
@@ -189,8 +224,20 @@ export default function BuilderRegisterForm() {
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-xl py-3 px-4 text-red-400 text-sm text-center mb-6 flex items-center justify-center gap-2">
-          <CheckCircle2 className="h-4 w-4 opacity-50" /> {error}
+        <div className="bg-red-500/15 border border-red-500/30 rounded-xl py-3 px-4 text-red-200 text-sm mb-6 flex items-start gap-3 backdrop-blur-md shadow-lg animate-in fade-in duration-300">
+          <AlertCircle className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
+          <div className="flex-1 text-left">
+            <span className="font-semibold text-red-300 block text-xs uppercase tracking-wide mb-0.5">Notice</span>
+            <p className="text-red-200 text-sm leading-relaxed">{error}</p>
+          </div>
+          <button 
+            type="button" 
+            onClick={() => setError("")} 
+            className="text-red-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10"
+            title="Dismiss message"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
 
@@ -387,6 +434,33 @@ export default function BuilderRegisterForm() {
                   />
                 </div>
               </div>
+            </div>
+
+            {/* Builder GST Field */}
+            <div className="pt-2">
+              <label className={labelClass}>
+                Builder GST Number (GSTIN) *
+                <span className="text-xs text-slate-400 font-normal ml-2">(15 characters)</span>
+              </label>
+              <div className="relative">
+                <FileText className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                <input
+                  type="text" required maxLength={15}
+                  value={builderForm.gstNumber}
+                  onChange={e => {
+                    const val = e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, '')
+                    setBuilderForm({ ...builderForm, gstNumber: val })
+                    if (gstError) validateGst(val)
+                  }}
+                  onBlur={e => validateGst(e.target.value)}
+                  placeholder="e.g. 27ABCDE1234F1Z5"
+                  className={`${inputWithIconClass} uppercase font-mono tracking-wider ${gstError ? 'border-red-500/50 focus:ring-red-500' : ''}`}
+                />
+              </div>
+              {gstError && <p className="text-red-400 text-xs mt-1.5 ml-1">{gstError}</p>}
+              <p className="text-slate-400 text-xs mt-1.5 ml-1">
+                Required for business verification and legal entity governance.
+              </p>
             </div>
           </div>
         )}

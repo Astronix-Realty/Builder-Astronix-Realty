@@ -44,12 +44,19 @@ export async function GET(req: NextRequest) {
         company: companyName,
         phone: bProfile.phone || mProfile.phone || u.profile?.phone || '',
         logo: bProfile.logo || mProfile.logo || u.profile?.logo || '',
+        gstNumber: bProfile.gstNumber || u.profile?.gstNumber || '',
+        reraNumber: bProfile.reraNumber || u.profile?.reraNumber || '',
         type: u.role,
         userType: u.role,
         status: status, // 'pending' | 'approved' | 'rejected'
         approvalStatus: status,
         verified: status === 'approved',
         rejectionMessage: u.approvalMessage || '',
+        profile: {
+          ...(u.profile || {}),
+          ...(typeof bProfile === 'object' && bProfile._doc ? bProfile._doc : bProfile),
+          gstNumber: bProfile.gstNumber || u.profile?.gstNumber || '',
+        },
         createdAt: u.createdAt,
       };
     });

@@ -35,6 +35,20 @@ export async function registerUser(payload: IRegisterPayload): Promise<IAuthResp
     profileFields.phone = cleanPhone;
   }
 
+  // GST validation for builder
+  if (userType === 'builder') {
+    const rawGst = (profileFields as any).gstNumber;
+    if (!rawGst || !rawGst.trim()) {
+      throw new Error("Builder GST Number is required");
+    }
+    const cleanGst = rawGst.trim().toUpperCase().replace(/\s/g, '');
+    const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+    if (!gstRegex.test(cleanGst)) {
+      throw new Error("Invalid GST Number format. Must be a valid 15-character GSTIN (e.g. 27ABCDE1234F1Z5).");
+    }
+    (profileFields as any).gstNumber = cleanGst;
+  }
+
   // Check if email already exists globally
   const existingUser = await User.findOne({ email: email.toLowerCase() });
   if (existingUser) {
@@ -88,6 +102,7 @@ export async function registerUser(payload: IRegisterPayload): Promise<IAuthResp
         company: profileFields.companyName || '',
         phone: profileFields.phone || '',
         logo: profileFields.logo || '',
+        gstNumber: (profileFields as any).gstNumber || '',
         type: userType, // 'builder' | 'mandate'
       }),
     }).catch((err: any) => console.error('[Sync] Admin builder sync failed:', err.message));
