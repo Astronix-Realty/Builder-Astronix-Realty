@@ -1,12 +1,13 @@
 import React from "react";
 import { Label } from "@/components/ui/label";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { CollapsibleSection } from "@/components/builder/shared/atomic-forms/CollapsibleSection";
 
 export function Section({
   id,
   title,
   description,
   icon: Icon,
+  badge,
   openIds,
   setOpenIds,
   children,
@@ -15,49 +16,24 @@ export function Section({
   title: string;
   description?: string;
   icon: React.ComponentType<{ className?: string }>;
+  badge?: string;
   openIds: string[];
   setOpenIds: React.Dispatch<React.SetStateAction<string[]>>;
   children: React.ReactNode;
 }) {
-  const isOpen = openIds.includes(id);
   return (
-    <div className="rounded-xl border border-slate-200/90 dark:border-slate-800/90 bg-white dark:bg-slate-900 shadow-2xs overflow-hidden mb-3">
-      <button
-        type="button"
-        onClick={() =>
-          setOpenIds((prev) =>
-            prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-          )
-        }
-        className="w-full px-4 py-2.5 flex items-center justify-between text-left hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors group"
-      >
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20 flex items-center justify-center shrink-0">
-            <Icon className="w-3.5 h-3.5" />
-          </div>
-          <div>
-            <span className="font-bold text-slate-900 dark:text-white text-xs tracking-tight">
-              {title}
-            </span>
-            {description && (
-              <p className="text-[10.5px] text-slate-500 dark:text-slate-400 font-normal">
-                {description}
-              </p>
-            )}
-          </div>
-        </div>
-        {isOpen ? (
-          <ChevronUp className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
-        ) : (
-          <ChevronDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
-        )}
-      </button>
-      {isOpen && (
-        <div className="px-4 pb-4 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/30 dark:bg-slate-950/20">
-          {children}
-        </div>
-      )}
-    </div>
+    <CollapsibleSection
+      id={id}
+      title={title}
+      description={description}
+      icon={Icon}
+      badge={badge}
+      openIds={openIds}
+      setOpenIds={setOpenIds}
+      variant="compact"
+    >
+      {children}
+    </CollapsibleSection>
   );
 }
 

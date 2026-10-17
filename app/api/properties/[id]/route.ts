@@ -4,6 +4,7 @@ import Property from "@/models/Property";
 import Unit from "@/models/Unit";
 import { checkRBAC, getOwnershipQuery } from "@/lib/rbac";
 import { secureDeleteProperty } from "@/services/property-service";
+import { invalidateInternalPropertiesCache } from "@/app/api/internal/v2/properties/route";
 
 export const dynamic = "force-dynamic";
 
@@ -324,6 +325,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       }).catch((err: any) => console.error('[Sync] Admin property sync failed:', err.message));
     }
 
+    // Invalidate internal S2S cache so Admin sees updated property details immediately
+    invalidateInternalPropertiesCache();
+
     return NextResponse.json({ property }, { status: 200 });
   } catch (error: any) {
     return NextResponse.json({ error: "Failed to update property" }, { status: 500 });
@@ -378,6 +382,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       } catch (e) {}
     }
 
+    // Invalidate internal S2S cache so Admin sees updated status immediately
+    invalidateInternalPropertiesCache();
+
     return NextResponse.json({ property }, { status: 200 });
   } catch (error: any) {
     return NextResponse.json({ error: "Failed to apply PATCH update" }, { status: 500 });
@@ -416,6 +423,31 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       _id: { $in: allPropIds },
       ...getOwnershipQuery(context!)
     });
+
+    // Invalidate internal S2S cache so Admin panel instantly sees the removal
+    invalidateInternalPropertiesCache();
+
+    // Invalidate Visitor panel discovery cache via S2S API so deleted properties disappear immediately
+    const visitorPanelUrl = process.env.VISITOR_PANEL_URL || 'http://localhost:3002';
+    const internalSecret = process.env.INTERNAL_API_SECRET;
+    if (visitorPanelUrl && internalSecret) {
+      try {
+        fetch(`${visitorPanelUrl.replace(/\/$/, '')}/api/internal/cache-invalidate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-internal-secret': internalSecret,
+          },
+          body: JSON.stringify({
+            eventId: `del_${id}_${Date.now()}`,
+            propertyId: id,
+            status: 'deleted',
+            action: 'PROPERTY_DELETED',
+          }),
+          signal: AbortSignal.timeout(3000),
+        }).catch((err: any) => console.warn('[DELETE property] Visitor cache invalidation notice:', err.message));
+      } catch (s2sErr) {}
+    }
 
     return NextResponse.json(
       { success: true, message: "Property permanently deleted from DB", deletedCount: deleteResult.deletedCount },

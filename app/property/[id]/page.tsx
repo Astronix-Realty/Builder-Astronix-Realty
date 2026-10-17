@@ -219,7 +219,7 @@ export default function PropertyView() {
                                    </div>
                                    <div className="bg-slate-50 rounded-lg p-3 text-sm text-slate-600 border border-slate-100 mb-4">
                                      <div className="flex justify-between mb-1"><span>Units Generated:</span> <span className="font-semibold text-slate-900">{matchedUnits.length}</span></div>
-                                     <div className="flex justify-between"><span>RERA:</span> <span className="font-semibold text-slate-900">{tower.reraNumber || "N/A"}</span></div>
+                                     <div className="flex justify-between"><span>RERA:</span> <span className="font-semibold text-slate-900">{tower.reraNumber || proj.reraNumber || "Pending / Applied"}</span></div>
                                    </div>
                                  </div>
                                )
@@ -252,7 +252,7 @@ export default function PropertyView() {
                               </div>
                               <div className="bg-slate-50 rounded-lg p-3 text-sm text-slate-600 border border-slate-100 mb-4">
                                 <div className="flex justify-between mb-1"><span>Units Generated:</span> <span className="font-semibold text-slate-900">{matchedUnits.length}</span></div>
-                                <div className="flex justify-between"><span>RERA:</span> <span className="font-semibold text-slate-900">{tower.reraNumber || "N/A"}</span></div>
+                                <div className="flex justify-between"><span>RERA:</span> <span className="font-semibold text-slate-900">{tower.reraNumber || "Pending / Applied"}</span></div>
                               </div>
                             </div>
                           )

@@ -12,7 +12,7 @@ const _models = [User, Builder, Mandate];
 // In-memory cache for ultra-fast S2S responses to Admin Panel
 let cachedResponse: { count: number; properties: any[] } | null = null;
 let lastCacheTimestamp = 0;
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min TTL
+const CACHE_TTL_MS = 30 * 1000; // 30 sec TTL for live sync
 
 export function invalidateInternalPropertiesCache() {
   cachedResponse = null;
@@ -145,6 +145,15 @@ export async function GET(req: NextRequest) {
         facing: u.facing || 'N/A',
         vastuDetails: u.vastuDetails || null,
         roomDimensions: u.roomDimensions || [],
+        customerName: u.customerName || null,
+        customerPhone: u.customerPhone || null,
+        customerEmail: u.customerEmail || null,
+        bookingAmount: u.bookingAmount || u.tokenAmount || null,
+        bookingDate: u.bookingDate || null,
+        holdExpiresAt: u.holdExpiresAt || null,
+        holdId: u.holdId || null,
+        paymentMethod: u.paymentMethod || null,
+        parking: u.parking || '1 Reserved',
       };
     };
 

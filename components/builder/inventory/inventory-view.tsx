@@ -1037,7 +1037,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
             <div className="grid grid-cols-12 gap-5 flex-1 min-h-0">
 
                 {/* ── Left Sidebar: Deep Filters Only ── */}
-                <div className="col-span-12 md:col-span-3 space-y-4">
+                <div className="col-span-12 md:col-span-3 space-y-4 md:sticky md:top-4 self-start">
                     <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
                         <CardHeader className="pb-3">
                             <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-700 dark:text-slate-300">
@@ -1300,7 +1300,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                             style={{ contentVisibility: 'auto', containIntrinsicSize: '0 120px' }}
                                         >
                                             {/* Floor label */}
-                                            <div className="flex items-center gap-3">
+                                            <div className="flex items-center gap-3 sticky top-0 z-10 py-1.5 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-xs">
                                                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-white dark:bg-slate-950 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-800 whitespace-nowrap shadow-sm">
                                                     {floorLabel(floor)}
                                                 </span>
@@ -1410,7 +1410,7 @@ export function InventoryView({ userRole = "builder" }: InventoryViewProps) {
                                                                             style={{ contentVisibility: 'auto', containIntrinsicSize: '0 120px' }}
                                                                         >
                                                                             {/* Floor label */}
-                                                                            <div className="flex items-center gap-3">
+                                                                            <div className="flex items-center gap-3 sticky top-0 z-10 py-1.5 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-xs">
                                                                                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-white dark:bg-slate-950 px-3 py-1 rounded-full border border-slate-200 dark:border-slate-800 whitespace-nowrap shadow-sm">
                                                                                     {floorLabel(floor)}
                                                                                 </span>

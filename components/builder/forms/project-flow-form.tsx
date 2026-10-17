@@ -1,4 +1,7 @@
 "use client"
+import { BrochureUploadCard } from "@/components/builder/shared/atomic-forms/BrochureUploadCard"
+import { LegalDocumentsUploader } from "@/components/builder/shared/atomic-forms/LegalDocumentsUploader"
+import { CommonPropertySections } from "@/components/builder/shared/CommonPropertySections"
 
 import { useState, useEffect, memo } from "react"
 import { v4 as uuidv4 } from "uuid"
@@ -47,9 +50,8 @@ interface ProjectFlowFormProps {
   user?: any
 }
 
-// ─────────────────────────────────────────
-// REUSABLE SECTION
-// ─────────────────────────────────────────
+import { CollapsibleSection, type SectionId } from "@/components/builder/shared/atomic-forms/CollapsibleSection"
+
 function Section({
   id, title, description, icon: Icon, badge, openIds, setOpenIds, children,
 }: {
@@ -59,34 +61,19 @@ function Section({
   openIds: string[]; setOpenIds: React.Dispatch<React.SetStateAction<string[]>>
   children: React.ReactNode
 }) {
-  const isOpen = openIds.includes(id)
   return (
-    <div className="rounded-xl border border-slate-200/90 dark:border-slate-800/90 bg-white dark:bg-slate-900 shadow-2xs overflow-hidden mb-3">
-      <button
-        type="button"
-        onClick={() => setOpenIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])}
-        className="w-full px-4 py-2.5 flex items-center justify-between text-left hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors group"
-      >
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 flex items-center justify-center shrink-0">
-            <Icon className="w-3.5 h-3.5" />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-bold text-slate-900 dark:text-white text-xs tracking-tight">{title}</span>
-              {badge && <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[9px] font-mono font-bold uppercase">{badge}</Badge>}
-            </div>
-            {description && <p className="text-[10.5px] text-slate-500 dark:text-slate-400 font-normal truncate mt-0.5">{description}</p>}
-          </div>
-        </div>
-        {isOpen ? <ChevronUp className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />}
-      </button>
-      {isOpen && (
-        <div className="px-4 pb-4 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/30 dark:bg-slate-950/20">
-          {children}
-        </div>
-      )}
-    </div>
+    <CollapsibleSection
+      id={id}
+      title={title}
+      description={description}
+      icon={Icon}
+      badge={badge}
+      openIds={openIds}
+      setOpenIds={setOpenIds}
+      variant="compact"
+    >
+      {children}
+    </CollapsibleSection>
   )
 }
 
@@ -601,22 +588,12 @@ function ProjectFlowFormBase({ data, onChange, townshipName, townshipData, onTow
               <Textarea value={data.masterPlanDescription || ""} onChange={e => update("masterPlanDescription", e.target.value)} rows={3} placeholder="Brief description for listings..." className="bg-white dark:bg-slate-900/50" />
             </Field>
 
-            <div className="pt-2">
-              {/* Project Master Brochure heading */}
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-9 h-9 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
-                  <FileText className="w-4 h-4 text-red-500" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">Project Master Brochure</p>
-                  <p className="text-xs text-[#2BB673] dark:text-emerald-400">Upload your comprehensive project brochure</p>
-                </div>
-              </div>
-              <DocumentUpload
-                value={data.brochureLink || ""}
-                onChange={v => update("brochureLink", v)}
-              />
-            </div>
+            <BrochureUploadCard
+              title="Project Master Brochure"
+              subtitle="Upload your comprehensive project brochure"
+              value={data.brochureLink || ""}
+              onChange={v => update("brochureLink", v)}
+            />
 
             <div className="pt-6 border-t border-gray-100 dark:border-slate-800 mt-6">
               <SectionTitle title="Master Plan Legend / Highlights" />
@@ -689,82 +666,19 @@ function ProjectFlowFormBase({ data, onChange, townshipName, townshipData, onTow
             <SectionTitle title="Legal Documents" />
             <p className="text-xs text-gray-400 dark:text-slate-500 mb-4 mt-[-8px]">Official certificates and approvals in PDF format.</p>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* 1. RERA Certificate */}
-              <div className="bg-gray-50 dark:bg-slate-800/50/50 rounded-2xl p-5 border border-gray-100 dark:border-slate-800 hover:border-gray-200 dark:border-slate-700 transition-colors shadow-sm flex flex-col h-full">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-7 h-7 bg-blue-100/50 rounded-lg flex items-center justify-center">
-                    <ShieldCheck className="w-4 h-4 text-[#1A3C8C] dark:text-blue-400" />
-                  </div>
-                  <Label className="text-[11px] font-bold uppercase tracking-wider text-[#1A3C8C] dark:text-blue-400">RERA Certificate</Label>
-                  <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">Required</span>
-                </div>
-
-                <div className="flex-1">
-                  <DocumentUpload
-                    value={data.reraCertificateUrl || ""}
-                    onChange={v => update("reraCertificateUrl", v)}
-                    title="RERA Certificate"
-                    description="Official registration document."
-                    buttonLabel="View RERA"
-                  />
-                </div>
-              </div>
-
-              {/* 2. CC Certificate (Visible for UC) */}
-              {data.constructionStatus === "under-construction" && (
-                <div className="bg-blue-50/20 rounded-2xl p-5 border border-blue-100/50 hover:border-blue-200 transition-colors shadow-sm flex flex-col h-full">
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <FileText className="w-4 h-4 text-[#1A3C8C] dark:text-blue-400" />
-                    </div>
-                    <Label className="text-[11px] font-bold uppercase tracking-wider text-[#1A3C8C] dark:text-blue-400">Commencement (CC)</Label>
-                    <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">Required</span>
-                  </div>
-
-                  <div className="mb-4">
-                    <Input value={data.ccNumber || ""} onChange={e => update("ccNumber", e.target.value)} placeholder="CC Number (e.g. CC/2023/102)" className="text-xs bg-white dark:bg-slate-900/50" />
-                  </div>
-
-                  <div className="flex-1">
-                    <DocumentUpload
-                      value={data.ccCertificateUrl || ""}
-                      onChange={v => update("ccCertificateUrl", v)}
-                      title="CC Certificate"
-                      description="Official Commencement Certificate PDF."
-                      buttonLabel="View CC"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* 3. OC Certificate (Visible if Ready to Move) */}
-              {data.constructionStatus === "ready-to-move" && (
-                <div className="bg-green-50/10 rounded-2xl p-5 border border-green-100/50 hover:border-green-200 transition-colors shadow-sm flex flex-col h-full">
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="w-7 h-7 bg-green-100/50 rounded-lg flex items-center justify-center">
-                      <FileText className="w-4 h-4 text-green-600" />
-                    </div>
-                    <Label className="text-[11px] font-bold uppercase tracking-wider text-green-700">Occupancy (OC)</Label>
-                    <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">Required</span>
-                  </div>
-
-                  <div className="mb-4">
-                    <Input value={data.ocNumber || ""} onChange={e => update("ocNumber", e.target.value)} placeholder="OC Number (e.g. OC/2024/099)" className="text-xs bg-white dark:bg-slate-900/50" />
-                  </div>
-
-                  <div className="flex-1">
-                    <DocumentUpload
-                      value={data.ocCertificateUrl || ""}
-                      onChange={v => update("ocCertificateUrl", v)}
-                      title="OC Certificate"
-                      description="Official Occupancy Certificate PDF."
-                      buttonLabel="View OC"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
+            <LegalDocumentsUploader
+              constructionStatus={data.constructionStatus}
+              reraCertificateUrl={data.reraCertificateUrl}
+              onReraCertificateChange={v => update("reraCertificateUrl", v)}
+              ccNumber={data.ccNumber}
+              onCcNumberChange={val => update("ccNumber", val)}
+              ccCertificateUrl={data.ccCertificateUrl}
+              onCcCertificateChange={url => update("ccCertificateUrl", url)}
+              ocNumber={data.ocNumber}
+              onOcNumberChange={val => update("ocNumber", val)}
+              ocCertificateUrl={data.ocCertificateUrl}
+              onOcCertificateChange={url => update("ocCertificateUrl", url)}
+            />
           </>
         )}
         
@@ -789,216 +703,15 @@ function ProjectFlowFormBase({ data, onChange, townshipName, townshipData, onTow
         <>
           <PartCollapse id="part-b" title="Common Inherited Data" icon={Home} openParts={openParts} setOpenParts={setOpenParts}>
 
-          {!isBuilder && (
-          <Section id="builder" title="Developer / Builder Info" description="Builder name, logo, contact — Hero pe dikhta hai" icon={Building2} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-             <div className="bg-gray-50 dark:bg-slate-800/50/50 p-4 sm:p-5 rounded-2xl border border-gray-100 dark:border-slate-800 flex flex-col gap-5">
-               <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8">
-                 <div className="shrink-0">
-                   <div className="mb-2 text-center sm:text-left">
-                     <Label className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Company Logo</Label>
-                   </div>
-                   <ImageUpload value={townshipData.builderLogo} onChange={v => updateCommon("builderLogo", v)} />
-                 </div>
-                 <div className="flex-1 w-full">
-                   <Field label="Builder / Company Name" required hint="Registered company name (auto-filled for builders)">
-                     <Input value={townshipData.builderName} onChange={e => updateCommon("builderName", e.target.value)} placeholder="Astronix Realty" className="h-11 border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm focus-visible:ring-blue-500 rounded-xl" />
-                   </Field>
-                 </div>
-               </div>
-             </div>
-          </Section>
-          )}
-
-          <Section id="location" title="Location & Google Maps Details" description="City, district, pincode & Google Maps Integration — Auto-filled from Google Places" icon={MapPin} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-            <div className="mb-5">
-              <GooglePlacesSearch
-                initialSearchText={townshipData?.nearbyLandmark || ""}
-                onLocationSelected={(loc) => {
-                  if (loc.areaOptions && loc.areaOptions.length > 0) {
-                    setDetectedAreas(loc.areaOptions);
-                  }
-                  if (onTownshipChange) {
-                    onTownshipChange((prev) => {
-                      const next = { ...prev };
-                      if (loc.city) next.city = loc.city;
-                      if (loc.district) next.district = loc.district;
-                      if (loc.subCity) next.subCity = loc.subCity;
-                      if (loc.village) next.village = loc.village;
-                      if (loc.state) next.state = loc.state;
-                      if (loc.country) next.country = loc.country;
-                      if (loc.pincode) next.pincode = loc.pincode;
-                      if (loc.nearbyLandmark) next.nearbyLandmark = loc.nearbyLandmark;
-                      if (loc.googleMapLink) next.googleMapLink = loc.googleMapLink;
-                      if (loc.googlePlusCode) next.googlePlusCode = loc.googlePlusCode;
-                      if (loc.coordinates) next.coordinates = { lat: String(loc.coordinates.lat || ''), lng: String(loc.coordinates.lng || '') };
-                      if (loc.gmbReviews && loc.gmbReviews.length > 0) {
-                        next.allGmbReviews = loc.gmbReviews;
-                        if (!prev.gmbReviews || prev.gmbReviews.length === 0) {
-                          next.gmbReviews = loc.gmbReviews.slice(0, 3);
-                        }
-                      }
-                      return next;
-                    });
-                  }
-                }}
-              />
-            </div>
-
-            <Grid cols={3}>
-              <Field label="City" required>
-                <Input value={townshipData.city ?? ""} onChange={e => updateCommon("city", e.target.value)} placeholder="Thane" />
-              </Field>
-              <Field label="District" required>
-                <Input value={townshipData.district ?? ""} onChange={e => updateCommon("district", e.target.value)} placeholder="Thane" />
-              </Field>
-              <Field label="Sub City" required>
-                <Input value={townshipData.subCity ?? ""} onChange={e => updateCommon("subCity", e.target.value)} placeholder="Dombivali East" />
-              </Field>
-              <Field label="Area" required hint="Choose from map suggestions / gaon list or type custom">
-                <AreaSelectInput
-                  value={townshipData.village ?? ""}
-                  onChange={val => updateCommon("village", val)}
-                  subCity={townshipData.subCity ?? ""}
-                  city={townshipData.city ?? ""}
-                  detectedOptions={detectedAreas}
-                  placeholder="Select or type area/gaon (e.g. MIDC, Sonarpada)"
-                />
-              </Field>
-              <Field label="State" required>
-                <Input value={townshipData.state ?? ""} onChange={e => updateCommon("state", e.target.value)} placeholder="Maharashtra" />
-              </Field>
-              <Field label="Country" required>
-                <Input value={townshipData.country ?? ""} onChange={e => updateCommon("country", e.target.value)} placeholder="India" />
-              </Field>
-              <Field label="Pincode" required>
-                <Input value={townshipData.pincode ?? ""} onChange={e => updateCommon("pincode", e.target.value)} placeholder="421204" />
-              </Field>
-            </Grid>
-
-            <SectionTitle title="Nearby Landmark" />
-            <Field label="Nearest Landmark" required hint="Eg: Near KATTAMAI Mandir, Manpada-Kattamai Road, Dombivali East">
-              <Input value={townshipData.nearbyLandmark ?? ""} onChange={e => updateCommon("nearbyLandmark", e.target.value)} placeholder="Near KATTAMAI Mandir, Manpada-Kattamai Road, Dombivali East" />
-            </Field>
-
-            <SectionTitle title="Google Maps Integration" />
-            <Grid cols={2}>
-              <Field label="Google Maps Full URL" required hint="Auto-filled from search or paste share link">
-                <Input value={townshipData.googleMapLink ?? ""} onChange={e => updateCommon("googleMapLink", e.target.value)} placeholder="https://goo.gl/maps/..." />
-              </Field>
-              <Field label="Google Plus Code" hint='Eg: "+QR5, Thane, Maharashtra"'>
-                <Input value={townshipData.googlePlusCode ?? ""} onChange={e => updateCommon("googlePlusCode", e.target.value)} placeholder="+QR5, Thane, Maharashtra" />
-              </Field>
-              <Field label="Latitude" hint="Auto-filled from map search">
-                <Input value={townshipData.coordinates?.lat ?? ""} onChange={e => updateCommon("coordinates", { ...(townshipData.coordinates || {lat: "", lng: ""}), lat: e.target.value })} placeholder="19.2183" />
-              </Field>
-              <Field label="Longitude" hint="Auto-filled from map search">
-                <Input value={townshipData.coordinates?.lng ?? ""} onChange={e => updateCommon("coordinates", { ...(townshipData.coordinates || {lat: "", lng: ""}), lng: e.target.value })} placeholder="73.0867" />
-              </Field>
-            </Grid>
-
-            {/* GMB Pin Map Preview */}
-            <div className="mt-4">
-              <GmbMapPreview
-                googleMapLink={townshipData.googleMapLink}
-                coordinates={townshipData.coordinates}
-                locationName={townshipData.village || townshipData.subCity}
-                city={townshipData.city}
-                district={townshipData.district}
-                nearbyLandmark={townshipData.nearbyLandmark}
-              />
-            </div>
-
-            {/* GMB Reviews Selection */}
-            <div className="mt-6">
-              <GmbReviewsSelector
-                allReviews={townshipData.allGmbReviews || townshipData.gmbReviews || []}
-                selectedReviews={townshipData.gmbReviews || []}
-                onChange={(selected, all) => {
-                  updateCommon("gmbReviews", selected);
-                  if (all) updateCommon("allGmbReviews", all);
-                }}
-              />
-            </div>
-          </Section>
-
-          <Section id="connectivity" title="Connectivity" description="Airport, Railway, Metro, Hospital, Schools distance" icon={Wifi} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-            <ConnectivityManager
-              items={townshipData?.connectivity || []}
-              onAdd={addConnectivity}
-              onUpdate={updateConnectivity}
-              onRemove={removeConnectivity}
-            />
-          </Section>
-
-          <Section id="eco-common" title="Sustainability & Eco Features" description="Solar, Rainwater, Green Cover — Sustainability section" icon={Leaf} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-            <EcoFeaturesManager
-              items={townshipData?.ecoFeatures || []}
-              onAdd={addEcoCommon}
-              onUpdate={updateEcoCommon}
-              onRemove={removeEcoCommon}
-              videoUrl={townshipData?.landscapeVideoUrl}
-              onVideoUrlChange={(url) => updateCommon("landscapeVideoUrl", url)}
-            />
-          </Section>
-
-
-
-          <Section id="common-amenities" title="Amenities" description="Clubhouse, Pool, Gym, Security — All shared amenities" icon={Users} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-            <div className="pt-1">
-              <AmenitiesManager
-                amenities={townshipData?.amenities || []}
-                onChange={amenities => updateCommon("amenities", amenities)}
-                title="Property Amenities"
-                description="Add all amenities available at this property — inherited by all projects and towers."
-              />
-            </div>
-          </Section>
-
-
-
-          <Section id="common-legal" title="Bank APF Approvals" description="List of pre-approved banks for loans" icon={ShieldCheck} badge="Common" openIds={openIds} setOpenIds={setOpenIds}>
-            <div className="mb-6">
-              <Label className="text-[10px] font-black uppercase text-gray-400 dark:text-slate-500 mb-3 block tracking-widest">Select Active Banks</Label>
-              <BankSelector
-                banks={townshipData?.approvedBanks || []}
-                onChange={banks => updateCommon("approvedBanks", banks)}
-              />
-            </div>
-            <SectionTitle title="Legal Trust & Score" />
-            <Grid cols={2}>
-              <Field label="Trust Score" hint="Out of 100">
-                <Input value={townshipData?.legalTrustScore} onChange={e => updateCommon("legalTrustScore", e.target.value)} placeholder="100" />
-              </Field>
-              <Field label="Approvals" hint="Eg: PMRDA / Municipal Corporation Approved">
-                <Input value={townshipData?.approvals} onChange={e => updateCommon("approvals", e.target.value)} placeholder="Local Authority Approved" />
-              </Field>
-            </Grid>
-            <Field label="Trust Description" hint="Eg: Clear Marketable Title with OC Received">
-              <Textarea value={townshipData?.legalTrustDescription} onChange={e => updateCommon("legalTrustDescription", e.target.value)} rows={2} placeholder="This project has clear marketable titles and all necessary permissions." />
-            </Field>
-            <SectionTitle title="Bank APF Certificates" />
-            <div className="space-y-3">
-              {(townshipData?.apfDetails || []).map(apf => (
-                <div key={apf.id} className="grid grid-cols-2 gap-3 p-3 bg-gray-50 rounded-xl relative group border border-gray-100">
-                  <Field label="Bank Name">
-                    <Input value={apf.bankName} onChange={e => updateApfCommon(apf.id, { bankName: e.target.value })} placeholder="HDFC Bank" className="h-8 text-xs bg-white" />
-                  </Field>
-                  <Field label="APF Number">
-                    <Input value={apf.apfNumber} onChange={e => updateApfCommon(apf.id, { apfNumber: e.target.value })} placeholder="APF-123456" className="h-8 text-xs bg-white" />
-                  </Field>
-                  <Field label="Certificate URL" className="col-span-2">
-                    <UrlUploadInput value={apf.certificateUrl ?? ""} onChange={(url) => updateApfCommon(apf.id, { certificateUrl: url })} placeholder="Upload or paste URL" />
-                  </Field>
-                  <button onClick={() => removeApfCommon(apf.id)} className="absolute -top-1 -right-1 bg-white border shadow-sm p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                    <X className="w-3 h-3 text-red-500" />
-                  </button>
-                </div>
-              ))}
-              <Button type="button" variant="outline" size="sm" onClick={addApfCommon} className="w-full text-xs h-9 border-dashed">
-                <Plus className="w-4 h-4 mr-1 text-indigo-600" /> Add APF Certificate Info
-              </Button>
-            </div>
-          </Section>
+          <CommonPropertySections
+            data={townshipData}
+            onChange={onTownshipChange!}
+            openIds={openIds}
+            setOpenIds={setOpenIds}
+            isBuilder={isBuilder}
+            variant="compact"
+            useAlternativeIds
+          />
 
           {/* Group Buying is now managed exclusively from Published property cards via Quick Edit */}
 

@@ -99,11 +99,14 @@ export function TeamView() {
   const fetchProperties = async () => {
     setIsLoading(true)
     try {
-      const res = await fetch("/api/properties")
+      const res = await fetch("/api/properties?status=published")
       if (res.ok) {
         const data = await res.json()
         if (data.properties) {
-          const mapped = data.properties.map((p: any) => ({
+          const publishedOnly = data.properties.filter(
+            (p: any) => p.status === "published" || p.status === "active"
+          )
+          const mapped = publishedOnly.map((p: any) => ({
             id: p._id || p.id,
             townshipName: p.name || p.townshipName || "Untitled",
             location: p.location || "Location not set",
@@ -112,7 +115,7 @@ export function TeamView() {
             towers:
               p.calculatedCounts?.towersCount || p.details?.towers?.length || 0,
             units: p.calculatedCounts?.unitsCount || 0,
-            status: p.status || "draft",
+            status: p.status || "published",
             flowType: p.flowType || p.type,
             thumbnail:
               p.thumbnail ||

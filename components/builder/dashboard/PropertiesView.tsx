@@ -447,7 +447,9 @@ export function PropertiesView({
 
                       {/* Valuation */}
                       <td className="py-1.5 px-3 text-right font-mono font-black text-slate-900 dark:text-white text-xs">
-                        {formatCurrency(property.totalValue || 0)}
+                        {property.totalValue && property.totalValue > 0
+                          ? formatCurrency(property.totalValue)
+                          : "Price on Request"}
                       </td>
 
                       {/* Status */}
@@ -662,7 +664,9 @@ export function PropertiesView({
                     <div className="bg-slate-950/85 backdrop-blur-md px-2 py-0.5 rounded border border-white/10 shadow-xs flex items-center gap-1">
                       <span className="text-[9px] text-slate-400 font-mono uppercase">Inv:</span>
                       <span className="text-xs font-black text-blue-400 font-mono tracking-tight">
-                        {formatCurrency(property.totalValue || 0)}
+                        {property.totalValue && property.totalValue > 0
+                          ? formatCurrency(property.totalValue)
+                          : "Price on Request"}
                       </span>
                     </div>
                   </div>
@@ -706,7 +710,7 @@ export function PropertiesView({
                       className="font-mono font-bold text-emerald-900 dark:text-emerald-300 truncate max-w-[140px]"
                       title={property.reraNumber}
                     >
-                      {property.reraNumber || "P51700012345"}
+                      {property.reraNumber || "Pending / Applied"}
                     </span>
                   </div>
                 </div>
@@ -803,7 +807,7 @@ export function PropertiesView({
                       ) : (
                         <Edit2 className="h-3 w-3" />
                       )}
-                      <span>Draft</span>
+                      <span>Edit</span>
                     </button>
                   )}
 

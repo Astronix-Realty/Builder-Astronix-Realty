@@ -37,6 +37,11 @@ export async function POST(req: NextRequest) {
 
     await dbConnect();
 
+    // Sanitize builderId to prevent Mongoose CastError on invalid strings
+    const validBuilderObjectId = (builderId && mongoose.isValidObjectId(builderId))
+      ? new mongoose.Types.ObjectId(builderId)
+      : undefined;
+
     // Idempotency check
     if (eventId) {
       const ProcessedEvent = (await import('@/models/ProcessedEvent')).default;
@@ -121,7 +126,7 @@ export async function POST(req: NextRequest) {
           name: `${poolRootPropertyName} — Group Buying Pool`,
           phone,
           email: email || '',
-          builderId: builderId || undefined,
+          builderId: validBuilderObjectId,
           source: source || 'Group Buying',
           status: 'Fresh',
           requirement: requirement || `Group Buying: ${groupDiscount || 'Bulk Discount'} on ${poolRootPropertyName}`,
@@ -185,7 +190,7 @@ export async function POST(req: NextRequest) {
             leadId: finalLeadId,
             leadName: `${poolRootPropertyName} — Group Buying Pool`,
             leadPhone: phone,
-            builderId: builderId || undefined,
+            builderId: validBuilderObjectId,
             assignee: 'Team',
             participants: [
               newPart,
@@ -257,12 +262,13 @@ export async function POST(req: NextRequest) {
       { $or: identityOrConditions }
     ];
 
-    if (builderId) {
-      const bIdConds: any[] = [{ builderId }, { accountId: builderId }];
-      if (mongoose.isValidObjectId(builderId)) {
-        bIdConds.push({ builderId: new mongoose.Types.ObjectId(builderId) }, { accountId: new mongoose.Types.ObjectId(builderId) });
-      }
-      duplicateConditions.push({ $or: bIdConds });
+    if (validBuilderObjectId) {
+      duplicateConditions.push({
+        $or: [
+          { builderId: validBuilderObjectId },
+          { accountId: validBuilderObjectId },
+        ]
+      });
     }
 
     const existingLead = await Lead.findOne({ $and: duplicateConditions });
@@ -365,7 +371,7 @@ export async function POST(req: NextRequest) {
       name,
       phone,
       email: email || '',
-      builderId: builderId || undefined,
+      builderId: validBuilderObjectId,
       source: resolvedSource,
       status: initialStatus,
       requirement: requirement || '',

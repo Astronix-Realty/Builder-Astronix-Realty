@@ -35,6 +35,8 @@ import { DraftResumeBanner } from "@/components/builder/shared/DraftResumeBanner
 import { calculateUpwardPricingAndCounts } from "@/lib/services/pricing-rollup"
 import { generateTowers, generateUnits } from "@/lib/services/entity-generator"
 import { submitPropertyHierarchy } from "@/lib/services/property-submission"
+import { toast } from "sonner"
+import { townshipStepSchema } from "@/lib/schemas/builder"
 
 const ALL_STEPS = [
   { id: 1, name: "Township", description: "Basic details & location" },
@@ -512,19 +514,19 @@ function BuilderContent() {
   const validateStep = useCallback(() => {
     if (state.currentStep === 1) {
       if (!state.township.name) {
-        alert("Please enter a Township Name.")
+        toast.error("Please enter a valid Township Name (at least 2 characters).")
         return false
       }
     }
     if (state.currentStep === 2 && flowType === "township") {
       if (state.projects.length === 0) {
-        alert("Please add at least one Project.")
+        toast.error("Please add at least one Project to proceed.")
         return false
       }
     }
     if (state.currentStep === 3 && (flowType === "township" || flowType === "project")) {
       if (state.towers.length === 0) {
-         alert("Please add at least one Tower.")
+        toast.error("Please add at least one Tower to proceed.")
          return false
       }
     }
@@ -622,10 +624,10 @@ function BuilderContent() {
       
       const msg = error.message || "";
       if (msg.includes("unauthorized") || msg.includes("authenticated")) {
-         alert("Your session has expired. Please log in again to save your work.")
+         toast.error("Your session has expired. Please log in again to save your work.")
          window.location.href = "/login?redirect=" + encodeURIComponent(window.location.pathname + window.location.search)
       } else {
-         alert(msg || "Failed to create property structure. Please ensure all required fields are filled.")
+         toast.error(msg || "Failed to create property structure. Please ensure all required fields are filled.")
       }
     }
   }

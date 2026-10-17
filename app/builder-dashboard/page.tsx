@@ -339,13 +339,17 @@ function DashboardContent() {
       : Array.isArray(p.projects)
       ? p.projects
       : []
-    let projectsCount = Math.max(
-      p.calculatedCounts?.projectsCount || 0,
-      snapshotProjects.length,
-      flowType === "township" ? 1 : 0
-    )
-    if (flowType === "project") projectsCount = 1
-    if (flowType === "tower") projectsCount = 0
+    // Count calculations: prioritize real calculated counts if available
+    let projectsCount = 0
+    if (flowType === "township") {
+      projectsCount = (p.calculatedCounts?.projectsCount && p.calculatedCounts.projectsCount > 0)
+        ? p.calculatedCounts.projectsCount
+        : (snapshotProjects.length > 0 ? snapshotProjects.length : 1)
+    } else if (flowType === "project") {
+      projectsCount = 1
+    } else {
+      projectsCount = 0
+    }
 
     const directTowers = Array.isArray(details?.towers)
       ? details.towers
@@ -356,11 +360,14 @@ function DashboardContent() {
       (acc: number, proj: any) => acc + (Array.isArray(proj?.towers) ? proj.towers.length : 0),
       0
     )
-    const towersCount = Math.max(
-      p.calculatedCounts?.towersCount || 0,
-      directTowers.length + projectEmbeddedTowers,
-      flowType === "tower" ? 1 : 0
-    )
+    
+    let towersCount = 0
+    if (p.calculatedCounts?.towersCount !== undefined && p.calculatedCounts.towersCount !== null && p.calculatedCounts.towersCount > 0) {
+      towersCount = p.calculatedCounts.towersCount
+    } else {
+      const derivedTowers = directTowers.length + projectEmbeddedTowers
+      towersCount = derivedTowers > 0 ? derivedTowers : (flowType === "tower" ? 1 : 0)
+    }
 
     const snapshotUnits = Array.isArray(details?.generatedUnits)
       ? details.generatedUnits
@@ -394,16 +401,22 @@ function DashboardContent() {
       }, 0)
     }
 
-    const unitsCount = Math.max(
-      p.calculatedCounts?.unitsCount || 0,
-      snapshotUnits.length,
-      calculatedTowerUnits,
-      Number(p.units) ||
+    let unitsCount = 0
+    if (p.calculatedCounts?.unitsCount !== undefined && p.calculatedCounts.unitsCount !== null && p.calculatedCounts.unitsCount > 0) {
+      unitsCount = p.calculatedCounts.unitsCount
+    } else if (snapshotUnits.length > 0) {
+      unitsCount = snapshotUnits.length
+    } else if (calculatedTowerUnits > 0) {
+      unitsCount = calculatedTowerUnits
+    } else {
+      unitsCount =
+        Number(p.units) ||
         Number(p.totalUnits) ||
         Number(details?.township?.totalUnits) ||
         Number(details?.totalUnits) ||
         0
-    )
+    }
+
     let thumbnail = p.thumbnail || undefined
 
     if (!thumbnail) {
@@ -414,10 +427,17 @@ function DashboardContent() {
         details?.heroImage
     }
 
-    const totalValue =
-      p.totalValue ||
-      details.generatedUnits?.reduce((sum: number, u: any) => sum + (Number(u.price) || 0), 0) ||
-      (unitsCount > 0 ? unitsCount * 5000000 : 0)
+    // Calculate real valuation from actual unit prices if available
+    let totalValue = Number(p.totalValue) || 0
+    if (!totalValue && details.generatedUnits && Array.isArray(details.generatedUnits)) {
+      totalValue = details.generatedUnits.reduce((sum: number, u: any) => {
+        const uPrice = Number(u.price) || 0
+        if (uPrice > 0) return sum + uPrice
+        const rate = Number(u.ratePerSqft) || 0
+        const area = Number(u.carpetArea || u.area || u.builtUpArea) || 0
+        return sum + (rate * area)
+      }, 0)
+    }
 
     let finalStatus: Property["status"] = p.status || defaultStatus
     if (p.status === "published" || p.status === "active") finalStatus = "published"
@@ -471,15 +491,12 @@ function DashboardContent() {
       reraNumber = details.towers[0].reraNumber
     else if (Array.isArray(p.reraPhases) && p.reraPhases[0]?.reraNumber)
       reraNumber = p.reraPhases[0].reraNumber
+    else if (Array.isArray(details.township?.reraPhases) && details.township.reraPhases[0]?.reraNumber)
+      reraNumber = details.township.reraPhases[0].reraNumber
+    else if (Array.isArray(details.reraPhases) && details.reraPhases[0]?.reraNumber)
+      reraNumber = details.reraPhases[0].reraNumber
     else {
-      const rawId = String(p._id || p.id || "").replace(/[^a-zA-Z0-9]/g, "")
-      const numPart =
-        rawId
-          .split("")
-          .filter((c: string) => !isNaN(Number(c)))
-          .join("")
-          .slice(-5) || "12345"
-      reraNumber = `P517000${numPart.padStart(5, "0")}`
+      reraNumber = "Pending / Applied"
     }
 
     const groupBuyingRaw =

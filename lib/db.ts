@@ -39,8 +39,8 @@ async function dbConnect() {
       bufferCommands: false,
       serverSelectionTimeoutMS: 45000,
       connectTimeoutMS: 45000,
-      socketTimeoutMS: 90000,
-      maxPoolSize: 10,
+      socketTimeoutMS: 120000,
+      maxPoolSize: 25,
       family: 4,
     };
 
@@ -68,7 +68,11 @@ if (!cachedVisitor) {
 }
 
 export async function connectVisitorDB() {
-  const VISITOR_URI = process.env.VISITOR_MONGODB_URI || "mongodb+srv://visitor-astronix-realty:visitorAstronixKrealty2026@customerdata.gs4hwqo.mongodb.net/alldataset?retryWrites=true&w=majority&appName=customerdata";
+  const VISITOR_URI = process.env.VISITOR_MONGODB_URI;
+
+  if (!VISITOR_URI) {
+    throw new Error("Please define the VISITOR_MONGODB_URI environment variable inside .env.local");
+  }
 
   if (cachedVisitor.conn) {
     return cachedVisitor.conn;
@@ -106,7 +110,11 @@ if (!cachedAdmin) {
 }
 
 export async function connectAdminDB() {
-  const ADMIN_URI = process.env.ADMIN_MONGODB_URI || "mongodb+srv://admin-astronix-realty:AdminAstronixRealty2026@admin-astronix-realty.joa7qub.mongodb.net/saveAdminData?retryWrites=true&w=majority&appName=admin-astronix-realty";
+  const ADMIN_URI = process.env.ADMIN_MONGODB_URI;
+
+  if (!ADMIN_URI) {
+    throw new Error("Please define the ADMIN_MONGODB_URI environment variable inside .env.local");
+  }
 
   if (cachedAdmin.conn) {
     return cachedAdmin.conn;

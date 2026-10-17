@@ -4,6 +4,7 @@ import Property from "@/models/Property";
 import Unit from "@/models/Unit";
 import { checkRBAC, getOwnershipQuery } from "@/lib/rbac";
 import { slugify, generateRandomSlug } from "@/lib/utils/slug";
+import { invalidateInternalPropertiesCache } from "@/app/api/internal/v2/properties/route";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
       console.log("[GET /api/properties] query:", JSON.stringify(query));
     }
 
-    const allRawProperties = await Property.find(query).select('-details.generatedUnits -details.units').sort({ updatedAt: -1 }).lean();
+    const allRawProperties = await Property.find(query).select('-details.units').sort({ updatedAt: -1 }).lean();
 
     // Deduplicate: If a property has a pending, published, or active version, exclude any duplicate draft version of the same property
     // Also deduplicate multiple properties with the exact same name (keep the most recently updated one).
@@ -96,14 +97,14 @@ export async function GET(req: NextRequest) {
     const townshipIds = rootTownships.map((p: any) => p._id);
     
     // Fetch ALL projects for root townships
-    const allChildProjects = await Property.find({ parentId: { $in: townshipIds }, isDeleted: { $ne: true } }, '_id parentId details.heroImage details.heroImages').lean();
+    const allChildProjects = await Property.find({ parentId: { $in: townshipIds }, isDeleted: { $ne: true } }, '_id name parentId details.name details.heroImage details.heroImages').lean();
     const allChildProjectIds = allChildProjects.map((p: any) => p._id);
     
     // Combine root project IDs and child project IDs
     const combinedProjectIds = [...rootProjects.map((p: any) => p._id), ...allChildProjectIds];
     
     // Fetch ALL towers for all projects
-    const allChildTowers = await Property.find({ parentId: { $in: combinedProjectIds }, isDeleted: { $ne: true } }, '_id parentId details.heroImage details.id').lean();
+    const allChildTowers = await Property.find({ parentId: { $in: combinedProjectIds }, isDeleted: { $ne: true } }, '_id name parentId details.name details.heroImage details.id').lean();
     const allChildTowerIds = allChildTowers.map((t: any) => t._id);
     
     // Combine root tower IDs and child tower IDs
@@ -144,15 +145,47 @@ export async function GET(req: NextRequest) {
         let projectsCount = 0, towersCount = 0, unitsCount = 0;
         let thumbnail = p.details?.heroImage || p.details?.township?.heroImage || p.details?.project?.heroImage || p.details?.tower?.heroImage || p.heroImage || null;
 
+        let totalValue = Number(p.totalValue) || Number(p.details?.totalValue) || Number(p.details?.township?.totalValue) || 0;
+        if (!totalValue && Array.isArray(p.details?.generatedUnits) && p.details.generatedUnits.length > 0) {
+          totalValue = p.details.generatedUnits.reduce((sum: number, u: any) => {
+            const uPrice = Number(u.price || u.basePrice) || 0;
+            if (uPrice > 0) return sum + uPrice;
+            const rate = Number(u.ratePerSqft) || 0;
+            const area = Number(u.carpetArea || u.area || u.builtUpArea) || 0;
+            return sum + (rate * area);
+          }, 0);
+        }
+
         if (p.type === 'township') {
           const projects = allChildProjects.filter((proj: any) => proj.parentId?.toString() === p._id.toString());
-          projectsCount = projects.length;
+          const uniqueProjectNames = new Set(projects.map((pr: any) => (pr.name || pr.details?.name || '').trim().toLowerCase()).filter(Boolean));
+          projectsCount = Array.isArray(p.details?.projects) && p.details.projects.length > 0
+            ? p.details.projects.length
+            : (uniqueProjectNames.size > 0 ? uniqueProjectNames.size : projects.length);
 
           const projectIds = projects.map((proj: any) => proj._id.toString());
           const towers = allChildTowers.filter((tow: any) => projectIds.includes(tow.parentId?.toString()));
-          towersCount = towers.length;
+          const uniqueTowerNames = new Set(towers.map((tw: any) => (tw.name || tw.details?.name || '').trim().toLowerCase()).filter(Boolean));
+          towersCount = Array.isArray(p.details?.towers) && p.details.towers.length > 0
+            ? p.details.towers.length
+            : (uniqueTowerNames.size > 0 ? uniqueTowerNames.size : towers.length);
 
-          unitsCount = towers.reduce((sum: number, tow: any) => sum + (unitCountsMap[tow._id.toString()] || 0), 0);
+          let aggUnits = towers.reduce((sum: number, tow: any) => sum + (unitCountsMap[tow._id.toString()] || 0), 0);
+          if (aggUnits === 0 && Array.isArray(p.details?.generatedUnits) && p.details.generatedUnits.length > 0) {
+            aggUnits = p.details.generatedUnits.length;
+          }
+          if (aggUnits === 0 && Array.isArray(p.details?.towers) && p.details.towers.length > 0) {
+            aggUnits = p.details.towers.reduce((sum: number, t: any) => {
+              const directU = Array.isArray(t.units) ? t.units.length : 0;
+              if (directU > 0) return sum + directU;
+              const totU = parseInt(t.totalUnits) || 0;
+              if (totU > 0) return sum + totU;
+              const floors = t.totalFloorsNum || parseInt((String(t.totalFloors || '').match(/\d+/g) || []).at(-1) || '0') || 0;
+              const perFloor = parseInt(t.unitsPerFloor) || 0;
+              return sum + (floors * perFloor);
+            }, 0);
+          }
+          unitsCount = aggUnits;
 
           // Deep thumbnail resolution for Township
           if (!thumbnail) {
@@ -167,9 +200,16 @@ export async function GET(req: NextRequest) {
         } else if (p.type === 'project') {
           projectsCount = 1;
           const towers = allChildTowers.filter((tow: any) => tow.parentId?.toString() === p._id.toString());
-          towersCount = towers.length;
+          const uniqueTowerNames = new Set(towers.map((tw: any) => (tw.name || tw.details?.name || '').trim().toLowerCase()).filter(Boolean));
+          towersCount = Array.isArray(p.details?.towers) && p.details.towers.length > 0
+            ? p.details.towers.length
+            : (uniqueTowerNames.size > 0 ? uniqueTowerNames.size : towers.length);
 
-          unitsCount = towers.reduce((sum: number, tow: any) => sum + (unitCountsMap[tow._id.toString()] || 0), 0);
+          let aggUnits = towers.reduce((sum: number, tow: any) => sum + (unitCountsMap[tow._id.toString()] || 0), 0);
+          if (aggUnits === 0 && Array.isArray(p.details?.generatedUnits) && p.details.generatedUnits.length > 0) {
+            aggUnits = p.details.generatedUnits.length;
+          }
+          unitsCount = aggUnits;
 
           // Deep thumbnail resolution for Project
           if (!thumbnail) {
@@ -179,14 +219,14 @@ export async function GET(req: NextRequest) {
         } else if (p.type === 'tower') {
           projectsCount = 0;
           towersCount = 1;
-          unitsCount = unitCountsMap[p._id.toString()] || 0;
+          unitsCount = unitCountsMap[p._id.toString()] || (Array.isArray(p.details?.generatedUnits) ? p.details.generatedUnits.length : 0);
         }
 
         return {
           ...p,
           calculatedCounts: { projectsCount, towersCount, unitsCount },
           thumbnail: thumbnail || null,
-          totalValue: p.details?.totalValue || 0,
+          totalValue: totalValue || 0,
           location: p.location?.city || p.location?.address || 'Location N/A',
           rejectionReason: p.rejectionReason || null,
           updatedAt: p.updatedAt
@@ -328,6 +368,9 @@ export async function POST(req: NextRequest) {
     if (!newProperty) {
       throw lastError || new Error("Failed to create property after max attempts");
     }
+
+    // Bust S2S cache so Admin panel instantly sees the new property
+    invalidateInternalPropertiesCache();
 
     return NextResponse.json({ success: true, property: newProperty }, { status: 201 });
   } catch (error: any) {

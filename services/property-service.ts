@@ -1035,134 +1035,118 @@ export async function clonePropertyToDraft(publishedId: string, context: RBACCon
  * Submits a draft property for approval.
  */
 export async function submitPropertyForApproval(draftId: string, context: RBACContext) {
-  const session = await mongoose.startSession();
   try {
-    const result = await session.withTransaction(async () => {
-      const rootDraft = await Property.findOne({ _id: draftId, ...getOwnershipQuery(context), status: { $in: ['draft', 'pending'] } }).session(session);
-      if (!rootDraft) {
-          const exists = await Property.findById(draftId).session(session).lean();
-          if (!exists) throw new Error("DRAFT_NOT_FOUND: The draft you are trying to publish no longer exists.");
-          if ((exists as any).builderId.toString() !== context.userId.toString() && context.role !== 'mandate') throw new Error("UNAUTHORIZED_ACCESS: You do not have permission to publish this draft.");
-          if ((exists as any).status !== 'draft' && (exists as any).status !== 'pending') throw new Error(`INVALID_STATUS: This property is already ${(exists as any).status}.`);
+    const rootDraft = await Property.findOne({ 
+      _id: draftId, 
+      ...getOwnershipQuery(context), 
+      status: { $in: ['draft', 'pending'] } 
+    }).lean() as any;
 
-          throw new Error("Draft not found or unauthorized");
+    if (!rootDraft) {
+      const exists = await Property.findById(draftId).lean();
+      if (!exists) throw new Error("DRAFT_NOT_FOUND: The draft you are trying to publish no longer exists.");
+      if ((exists as any).builderId.toString() !== context.userId.toString() && context.role !== 'mandate') {
+        throw new Error("UNAUTHORIZED_ACCESS: You do not have permission to publish this draft.");
       }
-
-      // Get all drafts in hierarchy
-      let allDrafts: any[] = [rootDraft];
-      let idsToSearch = [draftId];
-      while (idsToSearch.length > 0) {
-        const children = await Property.find({ parentId: { $in: idsToSearch }, status: { $in: ['draft', 'pending'] } }).session(session);
-        if (children.length === 0) break;
-        allDrafts.push(...children);
-        idsToSearch = children.map(c => c._id.toString());
+      if ((exists as any).status !== 'draft' && (exists as any).status !== 'pending') {
+        throw new Error(`INVALID_STATUS: This property is already ${(exists as any).status}.`);
       }
-
-      const draftIds = allDrafts.map(d => d._id);
-
-      // Update Properties to pending
-      await Property.updateMany(
-        { _id: { $in: draftIds } },
-        {
-          $set: {
-            status: 'pending',
-            submittedAt: new Date(),
-            rejectionReason: null
-          }
-        },
-        { session }
-      );
-
-      // Update Units to pending
-      await Unit.updateMany(
-        {
-          status: { $in: ['draft', 'pending'] },
-          $or: [{ towerId: { $in: draftIds } }, { projectId: { $in: draftIds } }]
-        },
-        {
-          $set: {
-            status: 'pending',
-            submittedAt: new Date(),
-            rejectionReason: null
-          }
-        },
-        { session }
-      );
-
-      return { success: true, rootDraft };
-    });
-
-    if (result.success && result.rootDraft) {
-      // Sync submitted root property to Admin Panel asynchronously
-      const rootDraft = result.rootDraft;
-      if (process.env.ADMIN_PANEL_URL && process.env.INTERNAL_API_SECRET) {
-        const details = rootDraft.details || {};
-        const township = details.township || {};
-        let builderName = rootDraft.builderName || details.builderName || township.builderName || township.developerName || '';
-
-        if (!builderName) {
-          try {
-            const Builder = (await import('@/models/Builder')).default;
-            const builderDoc = await Builder.findById(rootDraft.builderId);
-            if (builderDoc) {
-              builderName = builderDoc.companyName || builderDoc.fullName || builderDoc.email || 'Unknown Builder';
-            } else {
-              const User = (await import('@/models/User')).default;
-              const userDoc = await User.findById(rootDraft.builderId);
-              if (userDoc) {
-                builderName = (userDoc as any).profile?.companyName || (userDoc as any).profile?.fullName || (userDoc as any).profile?.developerName || (userDoc as any).email || 'Unknown Builder';
-              }
-            }
-          } catch (e) {}
-        }
-        if (!builderName) builderName = 'Unknown Builder';
-        const locationStr = `${township.city || rootDraft.location?.city || ''}, ${township.state || rootDraft.location?.state || ''}`.replace(/^, |, $/g, '') || township.address || rootDraft.location?.address || 'Location N/A';
-
-        const eventId = `submit_${rootDraft._id}_${Date.now()}`;
-        const adminEndpoint = `${process.env.ADMIN_PANEL_URL}/api/internal/properties`;
-        const payload = {
-          eventId,
-          externalId: rootDraft._id.toString(),
-          title: rootDraft.name || township.name || 'Untitled Property',
-          builder: builderName,
-          builderId: rootDraft.builderId?.toString() || '',
-          builderExternalId: rootDraft.builderId?.toString() || '',
-          location: locationStr,
-          price: township.totalValue ? `₹${township.totalValue}` : (rootDraft.details?.totalValue ? `₹${rootDraft.details.totalValue}` : 'Price on Request'),
-          type: rootDraft.type || 'township',
-          units: details.generatedUnits?.length || 0,
-          area: township.totalArea || '',
-          status: 'pending',
-          snapshot: details,
-        };
-
-        try {
-          const res = await fetch(adminEndpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-internal-secret': process.env.INTERNAL_API_SECRET,
-            },
-            body: JSON.stringify(payload),
-          });
-          if (res.ok) {
-            console.log(`[Submit Sync] Property ${rootDraft.name} (${rootDraft._id}) synced to Admin panel.`);
-          } else {
-            console.error(`[Submit Sync] Admin property submission HTTP ${res.status}`);
-            await writeSyncQueueEntry(eventId, 'admin', adminEndpoint, payload, `HTTP ${res.status}`);
-          }
-        } catch (err: any) {
-          console.error(`[Submit Sync] Admin property submission sync failed:`, err.message);
-          await writeSyncQueueEntry(eventId, 'admin', adminEndpoint, payload, err.message);
-        }
-      }
+      throw new Error("Draft not found or unauthorized");
     }
 
-    return { success: true };
+    // Get all drafts in hierarchy
+    const allDrafts: any[] = [rootDraft];
+    let idsToSearch = [draftId];
+    while (idsToSearch.length > 0) {
+      const searchObjIds = idsToSearch.map(id => {
+        try { return new mongoose.Types.ObjectId(id); } catch (e) { return null; }
+      }).filter(Boolean);
+
+      const children = await Property.find({ 
+        parentId: { $in: searchObjIds }, 
+        status: { $in: ['draft', 'pending'] } 
+      }).select('_id name type').lean();
+
+      if (children.length === 0) break;
+      allDrafts.push(...children);
+      idsToSearch = children.map((c: any) => c._id.toString());
+    }
+
+    const draftIds = allDrafts.map(d => d._id);
+
+    // Atomic update Properties to pending
+    await Property.updateMany(
+      { _id: { $in: draftIds } },
+      {
+        $set: {
+          status: 'pending',
+          submittedAt: new Date(),
+          rejectionReason: null
+        }
+      }
+    );
+
+    // Atomic update Units to pending
+    await Unit.updateMany(
+      {
+        status: { $in: ['draft', 'pending'] },
+        $or: [{ towerId: { $in: draftIds } }, { projectId: { $in: draftIds } }]
+      },
+      {
+        $set: {
+          status: 'pending',
+          submittedAt: new Date(),
+          rejectionReason: null
+        }
+      }
+    );
+
+    // Sync submitted root property to Admin Panel asynchronously (non-blocking)
+    if (process.env.ADMIN_PANEL_URL && process.env.INTERNAL_API_SECRET) {
+      const details = rootDraft.details || {};
+      const township = details.township || {};
+      let builderName = rootDraft.builderName || details.builderName || township.builderName || township.developerName || 'Verified Builder';
+      const locationStr = `${township.city || rootDraft.location?.city || ''}, ${township.state || rootDraft.location?.state || ''}`.replace(/^, |, $/g, '') || township.address || rootDraft.location?.address || 'Location N/A';
+
+      const eventId = `submit_${rootDraft._id}_${Date.now()}`;
+      const adminEndpoint = `${process.env.ADMIN_PANEL_URL}/api/internal/properties`;
+      const payload = {
+        eventId,
+        externalId: rootDraft._id.toString(),
+        title: rootDraft.name || township.name || 'Untitled Property',
+        builder: builderName,
+        builderId: rootDraft.builderId?.toString() || '',
+        builderExternalId: rootDraft.builderId?.toString() || '',
+        location: locationStr,
+        price: township.totalValue ? `₹${township.totalValue}` : (rootDraft.details?.totalValue ? `₹${rootDraft.details.totalValue}` : 'Price on Request'),
+        type: rootDraft.type || 'township',
+        units: details.generatedUnits?.length || 0,
+        area: township.totalArea || '',
+        status: 'pending',
+        snapshot: details,
+      };
+
+      fetch(adminEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-internal-secret': process.env.INTERNAL_API_SECRET,
+        },
+        body: JSON.stringify(payload),
+      }).then(res => {
+        if (res.ok) {
+          console.log(`[Submit Sync] Property ${rootDraft.name} (${rootDraft._id}) synced to Admin panel.`);
+        } else {
+          writeSyncQueueEntry(eventId, 'admin', adminEndpoint, payload, `HTTP ${res.status}`).catch(() => {});
+        }
+      }).catch(err => {
+        writeSyncQueueEntry(eventId, 'admin', adminEndpoint, payload, err.message).catch(() => {});
+      });
+    }
+
+    return { success: true, rootDraft };
   } catch (error) {
     throw error;
-  } finally {
-    session.endSession();
   }
 }
 

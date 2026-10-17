@@ -41,6 +41,4 @@ UnitSchema.index({ builderId: 1 });
 UnitSchema.index({ accountId: 1 });
 UnitSchema.index({ mandateId: 1 });
 UnitSchema.index({ role: 1 });
-
-delete mongoose.models.Unit;
-export default mongoose.model("Unit", UnitSchema);
+export default mongoose.models.Unit || mongoose.model("Unit", UnitSchema);
