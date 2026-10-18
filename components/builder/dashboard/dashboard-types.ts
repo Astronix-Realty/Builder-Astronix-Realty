@@ -24,6 +24,7 @@ export interface Property {
     startDate?: string
     endDate?: string
   }
+  downPaymentPercent?: number
 }
 
 export interface DashboardProfile {

@@ -25,6 +25,7 @@ import {
   Sparkles,
 } from "lucide-react"
 import GroupBuyingQuickEdit from "@/components/builder/group-buying-quick-edit"
+import DownPaymentQuickEdit from "@/components/builder/down-payment-quick-edit"
 import { Property, PropertyFilter } from "./dashboard-types"
 
 interface PropertiesViewProps {
@@ -50,6 +51,7 @@ interface PropertiesViewProps {
   onDeleteProperty: (id: string) => Promise<void>
   deletingPropertyId: string | null
   onUpdateGroupBuying: (propertyId: string, data: any) => void
+  onUpdateDownPayment?: (propertyId: string, percent: number) => void
 }
 
 export function PropertiesView({
@@ -70,6 +72,7 @@ export function PropertiesView({
   onDeleteProperty,
   deletingPropertyId,
   onUpdateGroupBuying,
+  onUpdateDownPayment,
 }: PropertiesViewProps) {
   // Desktop View Mode: 'grid' vs 'table' (Spreadsheet Master View)
   const [viewMode, setViewMode] = useState<"grid" | "table">(() => {
@@ -445,11 +448,16 @@ export function PropertiesView({
                         {property.units || 0}
                       </td>
 
-                      {/* Valuation */}
-                      <td className="py-1.5 px-3 text-right font-mono font-black text-slate-900 dark:text-white text-xs">
-                        {property.totalValue && property.totalValue > 0
-                          ? formatCurrency(property.totalValue)
-                          : "Price on Request"}
+                      {/* Valuation & Down Payment */}
+                      <td className="py-1.5 px-3 text-right">
+                        <div className="font-mono font-black text-slate-900 dark:text-white text-xs">
+                          {property.totalValue && property.totalValue > 0
+                            ? formatCurrency(property.totalValue)
+                            : "Price on Request"}
+                        </div>
+                        <div className="text-[9.5px] font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                          {property.downPaymentPercent ?? 20}% DP
+                        </div>
                       </td>
 
                       {/* Status */}
@@ -721,6 +729,15 @@ export function PropertiesView({
                     propertyId={property.id}
                     initialData={property.groupBuying || { enabled: false }}
                     onUpdate={onUpdateGroupBuying}
+                  />
+                </div>
+
+                {/* Down Payment Dynamic Quick Edit Strip */}
+                <div className="px-3 pb-1.5 pt-0.5">
+                  <DownPaymentQuickEdit
+                    propertyId={property.id}
+                    initialPercent={property.downPaymentPercent ?? 20}
+                    onUpdate={onUpdateDownPayment}
                   />
                 </div>
 

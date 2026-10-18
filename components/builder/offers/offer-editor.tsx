@@ -77,7 +77,12 @@ export function OfferEditor({ offer, onSave, onClose, properties }: OfferEditorP
         termsAndConditions: offer.termsAndConditions || "",
         offerType: offer.offerType || "Flat Discount",
         visibility: offer.visibility || "Public",
-        priorityBadge: offer.priorityBadge || "None",
+        priorityBadge: (
+          offer.priorityBadge === "Hot Deal" ? "Hot Deal Offer" :
+          offer.priorityBadge === "Limited Time" ? "Limited Period Offer" :
+          offer.priorityBadge === "Builder Exclusive" ? "Builder Exclusive Offer" :
+          (offer.priorityBadge || "None")
+        ),
         status: offer.status || "draft",
         startDate: offer.startDate ? new Date(offer.startDate).toISOString().slice(0, 10) : "",
         endDate: offer.endDate ? new Date(offer.endDate).toISOString().slice(0, 10) : "",
@@ -218,7 +223,17 @@ export function OfferEditor({ offer, onSave, onClose, properties }: OfferEditorP
 
     setIsSaving(true);
     try {
-      await onSave({ ...formData, status: targetStatus });
+      const payload: any = {
+        ...formData,
+        status: targetStatus,
+        startDate: formData.startDate || undefined,
+        endDate: formData.endDate || undefined,
+        townshipId: formData.townshipId || undefined,
+        projectId: formData.projectId || undefined,
+        towerId: formData.towerId || undefined,
+        unitId: formData.unitId || undefined,
+      };
+      await onSave(payload);
     } finally {
       setIsSaving(false);
     }
@@ -289,12 +304,36 @@ export function OfferEditor({ offer, onSave, onClose, properties }: OfferEditorP
     "EMI/Subvention Plans",
   ];
   const visibilities = ["Public", "Private", "CRM Only", "Mandate Only"];
-  const priorityBadges = ["None", "Hot Deal", "Limited Time", "Festive Offer", "Builder Exclusive"];
+  const priorityBadges = [
+    "None",
+    "Festive Offer",
+    "Limited Period Offer",
+    "Hot Deal Offer",
+    "Builder Exclusive Offer",
+    "Early Bird Offer",
+    "Launch Offer",
+    "Spot Booking Offer",
+    "Zero Stamp Duty Offer",
+    "Pre-Launch Offer",
+    "Flash Deal Offer",
+    "Mega Discount Offer"
+  ];
 
   const badgeGradients: Record<string, string> = {
+    "Festive Offer": "bg-gradient-to-r from-pink-500 to-rose-500 text-white",
+    "Limited Period Offer": "bg-gradient-to-r from-blue-500 to-indigo-500 text-white",
+    "Hot Deal Offer": "bg-gradient-to-r from-orange-500 to-red-500 text-white",
+    "Builder Exclusive Offer": "bg-gradient-to-r from-amber-400 to-amber-600 text-white",
+    "Early Bird Offer": "bg-gradient-to-r from-emerald-500 to-teal-600 text-white",
+    "Launch Offer": "bg-gradient-to-r from-violet-500 to-purple-600 text-white",
+    "Spot Booking Offer": "bg-gradient-to-r from-cyan-500 to-blue-600 text-white",
+    "Zero Stamp Duty Offer": "bg-gradient-to-r from-emerald-600 to-green-700 text-white",
+    "Pre-Launch Offer": "bg-gradient-to-r from-fuchsia-500 to-pink-600 text-white",
+    "Flash Deal Offer": "bg-gradient-to-r from-red-500 to-rose-600 text-white",
+    "Mega Discount Offer": "bg-gradient-to-r from-purple-500 to-indigo-600 text-white",
+    // Compatibility fallbacks
     "Hot Deal": "bg-gradient-to-r from-orange-500 to-red-500 text-white",
     "Limited Time": "bg-gradient-to-r from-blue-500 to-indigo-500 text-white",
-    "Festive Offer": "bg-gradient-to-r from-pink-500 to-rose-500 text-white",
     "Builder Exclusive": "bg-gradient-to-r from-amber-400 to-amber-600 text-white",
     "None": "hidden",
   };

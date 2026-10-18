@@ -528,6 +528,14 @@ function DashboardContent() {
       searchBlob,
       reraNumber,
       groupBuying: groupBuying || undefined,
+      downPaymentPercent:
+        typeof p.downPaymentPercent === "number"
+          ? p.downPaymentPercent
+          : typeof details?.downPaymentPercent === "number"
+          ? details.downPaymentPercent
+          : typeof details?.township?.downPaymentPercent === "number"
+          ? details.township.downPaymentPercent
+          : 20,
     }
   }
 
@@ -828,6 +836,14 @@ function DashboardContent() {
     )
   }
 
+  const handleUpdateDownPayment = (propertyId: string, newPercent: number) => {
+    setProperties((prev) =>
+      prev.map((p) =>
+        p.id === propertyId ? { ...p, downPaymentPercent: newPercent } : p
+      )
+    )
+  }
+
   if (isLoading || !currentUser) {
     return (
       <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex items-center justify-center">
@@ -927,6 +943,7 @@ function DashboardContent() {
               onDeleteProperty={deleteProperty}
               deletingPropertyId={deletingPropertyId}
               onUpdateGroupBuying={handleUpdateGroupBuying}
+              onUpdateDownPayment={handleUpdateDownPayment}
             />
           )}
           {activeTab === "settings" && (

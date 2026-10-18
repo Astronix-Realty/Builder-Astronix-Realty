@@ -345,13 +345,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     await dbConnect();
 
-    // Only allow specific safe PATCH updates, primarily status transitions like "Move to Draft" and quick inline updates like "groupBuying"
-    const allowedFields = ["status", "groupBuying"];
+    // Only allow specific safe PATCH updates, primarily status transitions like "Move to Draft" and quick inline updates like "groupBuying" & "downPaymentPercent"
+    const allowedFields = ["status", "groupBuying", "downPaymentPercent"];
     const updateData: any = { updatedBy: context!.userId };
     
     for (const key of Object.keys(body)) {
       if (allowedFields.includes(key)) {
-        updateData[key] = body[key];
+        if (key === "downPaymentPercent") {
+          const num = Number(body[key]);
+          const val = !isNaN(num) && num > 0 && num <= 99 ? Math.round(num) : 20;
+          updateData["downPaymentPercent"] = val;
+          updateData["details.downPaymentPercent"] = val;
+          updateData["details.township.downPaymentPercent"] = val;
+          updateData["details.project.downPaymentPercent"] = val;
+        } else {
+          updateData[key] = body[key];
+        }
       }
     }
 
@@ -362,6 +371,51 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     );
     if (!property) {
       return NextResponse.json({ error: "Property not found or unauthorized" }, { status: 404 });
+    }
+
+    // Sync downPaymentPercent and groupBuying to linked published/draft twin document and child properties if present
+    if (updateData.downPaymentPercent !== undefined || updateData.groupBuying !== undefined) {
+      const syncUpdate: any = {};
+      if (updateData.downPaymentPercent !== undefined) {
+        syncUpdate.downPaymentPercent = updateData.downPaymentPercent;
+        syncUpdate["details.downPaymentPercent"] = updateData.downPaymentPercent;
+        syncUpdate["details.township.downPaymentPercent"] = updateData.downPaymentPercent;
+        syncUpdate["details.project.downPaymentPercent"] = updateData.downPaymentPercent;
+      }
+      if (updateData.groupBuying !== undefined) syncUpdate.groupBuying = updateData.groupBuying;
+
+      const twinId = property.publishedId || property.draftId;
+      if (twinId) {
+        await Property.updateOne(
+          { _id: twinId },
+          { $set: syncUpdate }
+        ).catch(() => {});
+      }
+
+      // If updating a township/parent, sync downPaymentPercent down to child properties (projects, towers)
+      if (updateData.downPaymentPercent !== undefined) {
+        await Property.updateMany(
+          { parentId: property._id, isDeleted: { $ne: true } },
+          { 
+            $set: { 
+              downPaymentPercent: updateData.downPaymentPercent,
+              "details.downPaymentPercent": updateData.downPaymentPercent
+            } 
+          }
+        ).catch(() => {});
+
+        if (twinId) {
+          await Property.updateMany(
+            { parentId: twinId, isDeleted: { $ne: true } },
+            { 
+              $set: { 
+                downPaymentPercent: updateData.downPaymentPercent,
+                "details.downPaymentPercent": updateData.downPaymentPercent
+              } 
+            }
+          ).catch(() => {});
+        }
+      }
     }
 
     if (updateData.status === 'draft' && process.env.ADMIN_PANEL_URL && process.env.INTERNAL_API_SECRET) {

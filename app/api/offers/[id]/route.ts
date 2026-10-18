@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Offer from "@/models/Offer";
 import { checkRBAC, getOwnershipQuery } from "@/lib/rbac";
@@ -38,12 +39,26 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const body = await req.json();
 
-    // Prevent overwriting ownership
+    // Prevent modifying immutable / internal / ownership fields
+    delete body._id;
+    delete body.__v;
     delete body.builderId;
     delete body.accountId;
     delete body.mandateId;
     delete body.role;
     delete body.createdBy;
+    delete body.createdAt;
+    delete body.updatedAt;
+
+    // Sanitize optional ObjectIds (empty string must be null)
+    body.townshipId = body.townshipId && mongoose.Types.ObjectId.isValid(body.townshipId) ? body.townshipId : null;
+    body.projectId = body.projectId && mongoose.Types.ObjectId.isValid(body.projectId) ? body.projectId : null;
+    body.towerId = body.towerId && mongoose.Types.ObjectId.isValid(body.towerId) ? body.towerId : null;
+    body.unitId = body.unitId && mongoose.Types.ObjectId.isValid(body.unitId) ? body.unitId : null;
+
+    // Sanitize dates (empty string must be null)
+    if (body.startDate === "" || !body.startDate) body.startDate = null;
+    if (body.endDate === "" || !body.endDate) body.endDate = null;
 
     body.updatedBy = context!.userId;
     const { id } = await params;
@@ -55,13 +70,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     );
 
     if (!offer) {
-      return NextResponse.json({ error: "Offer not found" }, { status: 404 });
+      return NextResponse.json({ error: "Offer not found or unauthorized" }, { status: 404 });
     }
 
     return NextResponse.json({ success: true, offer }, { status: 200 });
   } catch (error: any) {
     console.error("Update offer error:", error);
-    return NextResponse.json({ error: "Failed to update offer" }, { status: 500 });
+    return NextResponse.json({ error: error.message || "Failed to update offer" }, { status: 500 });
   }
 }
 

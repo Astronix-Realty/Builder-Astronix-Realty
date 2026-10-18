@@ -8,7 +8,22 @@ export interface IOffer extends Document {
   termsAndConditions?: string;
   offerType: "Flat Discount" | "Percentage Discount" | "Cashback" | "Free Amenities" | "Floor-rise Waiver" | "Parking Offers" | "EMI/Subvention Plans";
   visibility: "Public" | "Private" | "CRM Only" | "Mandate Only";
-  priorityBadge: "Hot Deal" | "Limited Time" | "Festive Offer" | "Builder Exclusive" | "None";
+  priorityBadge: 
+    | "None"
+    | "Festive Offer"
+    | "Limited Period Offer"
+    | "Hot Deal Offer"
+    | "Builder Exclusive Offer"
+    | "Early Bird Offer"
+    | "Launch Offer"
+    | "Spot Booking Offer"
+    | "Zero Stamp Duty Offer"
+    | "Pre-Launch Offer"
+    | "Flash Deal Offer"
+    | "Mega Discount Offer"
+    | "Hot Deal"
+    | "Limited Time"
+    | "Builder Exclusive";
   status: "active" | "draft" | "paused" | "expired";
   startDate?: Date;
   endDate?: Date;
@@ -57,7 +72,23 @@ const OfferSchema = new Schema<IOffer>({
   },
   priorityBadge: { 
     type: String, 
-    enum: ["Hot Deal", "Limited Time", "Festive Offer", "Builder Exclusive", "None"],
+    enum: [
+      "None",
+      "Festive Offer",
+      "Limited Period Offer",
+      "Hot Deal Offer",
+      "Builder Exclusive Offer",
+      "Early Bird Offer",
+      "Launch Offer",
+      "Spot Booking Offer",
+      "Zero Stamp Duty Offer",
+      "Pre-Launch Offer",
+      "Flash Deal Offer",
+      "Mega Discount Offer",
+      "Hot Deal",
+      "Limited Time",
+      "Builder Exclusive"
+    ],
     default: "None"
   },
   status: { 

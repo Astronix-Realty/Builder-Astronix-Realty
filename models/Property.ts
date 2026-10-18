@@ -19,6 +19,7 @@ export interface IProperty extends Document {
   approvedBy: mongoose.Types.ObjectId | null;
   details: Record<string, any>;
   groupBuying?: Record<string, any>;
+  downPaymentPercent?: number;
   isDeleted: boolean;
   lastSavedStep: number;        // Last wizard step user was on
   autoSaveVersion: number;      // Increments on each auto-save
@@ -58,6 +59,7 @@ const PropertySchema = new Schema<IProperty>({
   approvedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
   details: { type: Schema.Types.Mixed, default: {} },
   groupBuying: { type: Schema.Types.Mixed, default: null },
+  downPaymentPercent: { type: Number, default: 20 },
   isDeleted: { type: Boolean, default: false },
   lastSavedStep: { type: Number, default: 1 },
   autoSaveVersion: { type: Number, default: 0 },

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import Offer from "@/models/Offer";
 import { checkRBAC, getOwnershipQuery } from "@/lib/rbac";
@@ -71,17 +72,17 @@ export async function POST(req: NextRequest) {
       visibility,
       priorityBadge,
       status: status || "draft",
-      startDate,
-      endDate,
+      startDate: startDate || null,
+      endDate: endDate || null,
       autoExpire: autoExpire || false,
       bannerImage,
       propertyId,
       propertyLevel: propertyLevel || "tower",
       targetScope: targetScope || "cascade",
-      townshipId: townshipId || null,
-      projectId: projectId || null,
-      towerId: towerId || null,
-      unitId: unitId || null,
+      townshipId: townshipId && mongoose.Types.ObjectId.isValid(townshipId) ? townshipId : null,
+      projectId: projectId && mongoose.Types.ObjectId.isValid(projectId) ? projectId : null,
+      towerId: towerId && mongoose.Types.ObjectId.isValid(towerId) ? towerId : null,
+      unitId: unitId && mongoose.Types.ObjectId.isValid(unitId) ? unitId : null,
       builderId: context!.userId,
       accountId: context!.userId,
       mandateId: context!.mandateId || null,
@@ -93,6 +94,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, offer: newOffer }, { status: 201 });
   } catch (error: any) {
     console.error("Create offer error:", error);
-    return NextResponse.json({ error: "Failed to create offer" }, { status: 500 });
+    return NextResponse.json({ error: error.message || "Failed to create offer" }, { status: 500 });
   }
 }
