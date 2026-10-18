@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { v2 as cloudinary } from "cloudinary"
 import { deleteCloudinaryFile } from "@/lib/utils/cloudinary"
 import { checkRBAC } from "@/lib/rbac"
+import { rateLimit, getClientIp } from "@/lib/rate-limit"
 
 // Configure Cloudinary
 cloudinary.config({
@@ -15,7 +16,17 @@ export async function POST(req: NextRequest) {
   try {
     const isPublic = req.nextUrl.searchParams.get("public") === "true"
 
-    if (!isPublic) {
+    if (isPublic) {
+      // Public upload protection: rate limit max 5 uploads per 10 mins per IP
+      const ip = getClientIp(req);
+      const { allowed } = rateLimit(`public-upload:${ip}`, 5, 10 * 60_000);
+      if (!allowed) {
+        return NextResponse.json(
+          { error: "Too many upload attempts. Please wait a few minutes." },
+          { status: 429 }
+        );
+      }
+    } else {
       const { errorResponse } = await checkRBAC(req, ['builder', 'mandate']);
       if (errorResponse) return errorResponse;
     }
@@ -39,25 +50,45 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
     }
 
-    // Validate file type
-    const isImage = file.type.startsWith("image/")
-    const isVideo = file.type.startsWith("video/")
-    const isPdf = file.type === "application/pdf"
+    // Detect file categories
+    const isImage = file.type.startsWith("image/");
+    const isVideo = file.type.startsWith("video/");
+    const isPdf = file.type === "application/pdf";
 
-    if (!isImage && !isVideo && !isPdf) {
-      return NextResponse.json(
-        { error: "Only image, video, and PDF files are allowed" },
-        { status: 400 }
-      )
-    }
+    // Public uploads strictly restricted to images only under 5MB (for registration logos/photos)
+    if (isPublic) {
+      const allowedPublicMimes = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
+      const fileType = (file.type || "").toLowerCase();
+      if (!isImage || !allowedPublicMimes.includes(fileType)) {
+        return NextResponse.json(
+          { error: "Public uploads only permit images (JPG, PNG, WebP)." },
+          { status: 400 }
+        );
+      }
+      const maxPublicSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxPublicSize) {
+        return NextResponse.json(
+          { error: "Public upload file size exceeds limit (max 5MB)." },
+          { status: 400 }
+        );
+      }
+    } else {
+      // Authenticated uploads: Validate file type
+      if (!isImage && !isVideo && !isPdf) {
+        return NextResponse.json(
+          { error: "Only image, video, and PDF files are allowed" },
+          { status: 400 }
+        );
+      }
 
-    // Validate file size: 1GB for videos, 100MB for images/PDFs
-    const maxSize = isVideo ? 1024 * 1024 * 1024 : 100 * 1024 * 1024
-    if (file.size > maxSize) {
-      return NextResponse.json(
-        { error: `File too large. Max size: ${isVideo ? "1GB" : "100MB"}` },
-        { status: 400 }
-      )
+      // Validate file size: 1GB for videos, 100MB for images/PDFs
+      const maxSize = isVideo ? 1024 * 1024 * 1024 : 100 * 1024 * 1024;
+      if (file.size > maxSize) {
+        return NextResponse.json(
+          { error: `File too large. Max size: ${isVideo ? "1GB" : "100MB"}` },
+          { status: 400 }
+        );
+      }
     }
 
     // Convert File to Buffer

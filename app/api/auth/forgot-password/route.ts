@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import dbConnect from "@/lib/db"
 import User from "@/models/User"
 import { sendForgotPasswordEmail } from "@/lib/email"
+import { rateLimit, getClientIp } from "@/lib/rate-limit"
 
 const RESET_MAX_PER_WINDOW = 3
 const RESET_WINDOW_MS = 10 * 60 * 1000 // 10 minute window
@@ -9,6 +10,15 @@ const RESET_RESEND_COOLDOWN_MS = 60 * 1000 // 60 second cooldown
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIp(req);
+    const { allowed } = rateLimit(`forgot-password:${ip}`, 5, 10 * 60_000);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "Too many password reset requests from this network. Please wait a few minutes." },
+        { status: 429 }
+      );
+    }
+
     const { email } = await req.json()
 
     if (!email || typeof email !== "string") {

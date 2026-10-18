@@ -1,10 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { registerUser } from "@/services/authService";
 import { IRegisterPayload } from "@/types/auth";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 // POST /api/auth/register — Clean Controller Pattern
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIp(req);
+    const { allowed } = rateLimit(`register:${ip}`, 5, 60_000);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "Too many registration attempts. Please wait a minute and try again." },
+        { status: 429 }
+      );
+    }
+
     const payload: IRegisterPayload = await req.json();
     const result = await registerUser(payload);
     

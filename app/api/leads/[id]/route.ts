@@ -356,7 +356,11 @@ export async function PATCH(
           if (Object.keys(updateDoc).length > 0) mongoOps.$set = updateDoc;
           if (Object.keys(pushDoc).length > 0) mongoOps.$push = pushDoc;
 
-          lead = await Lead.findByIdAndUpdate(id, mongoOps, { new: true });
+          lead = await Lead.findOneAndUpdate(
+            { _id: id, ...getOwnershipQuery(context!) },
+            mongoOps,
+            { new: true }
+          );
         } else {
           throw saveErr;
         }
@@ -422,7 +426,7 @@ export async function DELETE(
       console.warn("[DELETE /api/leads/[id]] Error deleting associated conversations:", convDelErr);
     }
 
-    await Lead.deleteOne({ _id: id });
+    await Lead.deleteOne({ _id: id, ...getOwnershipQuery(context!) });
 
     broadcastEvent({
       type: "LEAD_DELETED",

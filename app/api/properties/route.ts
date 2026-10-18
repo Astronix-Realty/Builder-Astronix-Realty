@@ -347,7 +347,7 @@ export async function POST(req: NextRequest) {
           name,
           slug: finalSlug,
           location: location || {},
-          status: status || "draft",
+          status: status === "pending" ? "pending" : "draft",
           details: details || {},
           createdBy: context!.userId,
           updatedBy: context!.userId

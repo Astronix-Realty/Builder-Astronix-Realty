@@ -139,9 +139,6 @@ export async function checkRBAC(
     return { context };
   } catch (error: any) {
     console.error("[RBAC Guard Error]:", error);
-    try {
-      require("fs").writeFileSync("rbac-error.log", error.stack || error.message || String(error));
-    } catch(e) {}
     
     // Identify database connection errors (network drops, MongoServerSelectionError, DNS timeouts)
     const isDbError = error.name?.includes("Mongo") || error.message?.includes("getaddrinfo") || error.message?.includes("connection") || error.message?.includes("Mongoose");

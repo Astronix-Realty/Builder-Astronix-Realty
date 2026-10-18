@@ -19,8 +19,8 @@ export const config = {
   },
 
   secrets: {
-    internal: process.env.INTERNAL_API_SECRET || 'astronix-internal-2026-xK9mN3pQ',
-    jwt: process.env.JWT_SECRET || '!99f9aK2!lPq91@xZ!mN8vR5$uT3cH6bW0eY',
+    internal: process.env.INTERNAL_API_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'astronix-internal-2026-xK9mN3pQ'),
+    jwt: process.env.JWT_SECRET || (process.env.NODE_ENV === 'production' ? '' : '!99f9aK2!lPq91@xZ!mN8vR5$uT3cH6bW0eY'),
   },
 
   email: {

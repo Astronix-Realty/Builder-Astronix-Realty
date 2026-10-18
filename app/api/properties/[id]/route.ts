@@ -458,13 +458,25 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     await dbConnect();
 
-    // Find target property and all direct children (projects/towers)
-    const childProps = await Property.find({ parentId: id }, { _id: 1 }).lean();
+    // First verify target property exists and is owned by authenticated tenant
+    const targetProperty = await Property.findOne({
+      _id: id,
+      ...getOwnershipQuery(context!),
+      isDeleted: { $ne: true }
+    });
+
+    if (!targetProperty) {
+      return NextResponse.json({ error: "Property not found or unauthorized" }, { status: 404 });
+    }
+
+    // Find direct children (projects/towers) owned by tenant
+    const childProps = await Property.find({ parentId: id, ...getOwnershipQuery(context!) }, { _id: 1 }).lean();
     const childIds = childProps.map((c: any) => c._id.toString());
     const allPropIds = [id, ...childIds];
 
-    // 1. Hard delete all units associated with this property hierarchy
+    // 1. Hard delete all units associated with this property hierarchy owned by tenant
     await Unit.deleteMany({
+      ...getOwnershipQuery(context!),
       $or: [
         { propertyId: { $in: allPropIds } },
         { towerId: { $in: allPropIds } },

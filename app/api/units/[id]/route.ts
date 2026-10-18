@@ -73,11 +73,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         ...ownershipQuery
       });
 
-      // Fallback: if not found by strict ownership, attempt findById for authenticated builder/mandate
-      if (!property && mongoose.isValidObjectId(propertyId)) {
-        property = await Property.findById(propertyId);
-      }
-
       if (property && property.details?.generatedUnits) {
         const units = property.details.generatedUnits;
         console.log(`[API] Searching embedded units in property ${propertyId}. Count: ${units.length} for ID: ${id}`);

@@ -2,17 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { authenticateUser } from "@/services/authService";
 import { ILoginPayload } from "@/types/auth";
 import { AUTH_COOKIE, TOKEN_MAX_AGE } from "@/lib/auth";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 // POST /api/auth/login — Clean Controller Pattern
 export async function POST(req: NextRequest) {
   try {
-    const payload: ILoginPayload = await req.json();
+    const clientIp = getClientIp(req);
 
-    // Extract client IP for login tracking
-    const clientIp =
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      req.headers.get("x-real-ip") ||
-      "unknown";
+    // Rate limiting: max 10 attempts per minute per IP
+    const { allowed } = rateLimit(`login:${clientIp}`, 10, 60_000);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "Too many login attempts from this network. Please wait a minute and try again." },
+        { status: 429 }
+      );
+    }
+
+    const payload: ILoginPayload = await req.json();
 
     const { token, user, message } = await authenticateUser(payload, clientIp);
 

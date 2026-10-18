@@ -157,13 +157,17 @@ export async function GET(req: NextRequest) {
         ];
 
         if (status) andConditions.push({ status });
-        if (assignee && assignee !== "all") andConditions.push({ assignee: { $regex: assignee, $options: "i" } });
+        if (assignee && assignee !== "all") {
+            const escapedAssignee = assignee.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            andConditions.push({ assignee: { $regex: escapedAssignee, $options: "i" } });
+        }
         if (search) {
+            const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             andConditions.push({
                 $or: [
-                    { name: { $regex: search, $options: "i" } },
-                    { phone: { $regex: search, $options: "i" } },
-                    { email: { $regex: search, $options: "i" } }
+                    { name: { $regex: escapedSearch, $options: "i" } },
+                    { phone: { $regex: escapedSearch, $options: "i" } },
+                    { email: { $regex: escapedSearch, $options: "i" } }
                 ]
             });
         }
