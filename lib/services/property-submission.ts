@@ -45,7 +45,20 @@ export async function submitPropertyHierarchy({
     console.log("[submitPropertyHierarchy] Performing sequential entity creation fallback...")
     const projectIdMap: Record<string, string> = {}
     const towerIdMap: Record<string, string> = {}
-    const rootLoc = { city: state.township?.city, state: state.township?.state }
+    const rootLoc = {
+      city: state.township?.city,
+      district: state.township?.district,
+      subCity: state.township?.subCity,
+      village: state.township?.village,
+      area: (state.township as any)?.area || state.township?.village,
+      state: state.township?.state,
+      country: state.township?.country,
+      pincode: state.township?.pincode,
+      nearbyLandmark: state.township?.nearbyLandmark,
+      googleMapLink: state.township?.googleMapLink,
+      googlePlusCode: state.township?.googlePlusCode,
+      coordinates: state.township?.coordinates,
+    }
 
     if (flowType === "township") {
       const rootName = state.township?.name || "Untitled Township"

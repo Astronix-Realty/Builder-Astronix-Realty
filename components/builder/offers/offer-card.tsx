@@ -24,9 +24,20 @@ export function OfferCard({ offer, onEdit, onDuplicate, onToggleStatus, onDelete
   };
 
   const badgeColors: Record<string, string> = {
+    "Festive Offer": "bg-gradient-to-r from-pink-500 to-rose-500 text-white",
+    "Limited Period Offer": "bg-gradient-to-r from-blue-500 to-indigo-500 text-white",
+    "Hot Deal Offer": "bg-gradient-to-r from-orange-500 to-red-500 text-white",
+    "Builder Exclusive Offer": "bg-gradient-to-r from-amber-400 to-amber-600 text-white",
+    "Early Bird Offer": "bg-gradient-to-r from-emerald-500 to-teal-600 text-white",
+    "Launch Offer": "bg-gradient-to-r from-violet-500 to-purple-600 text-white",
+    "Spot Booking Offer": "bg-gradient-to-r from-cyan-500 to-blue-600 text-white",
+    "Zero Stamp Duty Offer": "bg-gradient-to-r from-emerald-600 to-green-700 text-white",
+    "Pre-Launch Offer": "bg-gradient-to-r from-fuchsia-500 to-pink-600 text-white",
+    "Flash Deal Offer": "bg-gradient-to-r from-red-500 to-rose-600 text-white",
+    "Mega Discount Offer": "bg-gradient-to-r from-purple-500 to-indigo-600 text-white",
+    // Compatibility fallbacks
     "Hot Deal": "bg-gradient-to-r from-orange-500 to-red-500 text-white",
     "Limited Time": "bg-gradient-to-r from-blue-500 to-indigo-500 text-white",
-    "Festive Offer": "bg-gradient-to-r from-pink-500 to-rose-500 text-white",
     "Builder Exclusive": "bg-gradient-to-r from-amber-400 to-amber-600 text-white",
     "None": "hidden",
   };

@@ -315,9 +315,23 @@ export function useAutoDraft({
 
         if (flowType === "township") {
           const tp = state.township
+          const townshipLocation = {
+            city: tp?.city,
+            district: tp?.district,
+            subCity: tp?.subCity,
+            village: tp?.village,
+            area: tp?.area || tp?.village,
+            state: tp?.state,
+            country: tp?.country,
+            pincode: tp?.pincode,
+            nearbyLandmark: tp?.nearbyLandmark,
+            googleMapLink: tp?.googleMapLink,
+            googlePlusCode: tp?.googlePlusCode,
+            coordinates: tp?.coordinates,
+          }
           const townshipId = await saveEntity("township", newIds.townshipId, {
             name: tp?.name,
-            location: { city: tp?.city, state: tp?.state, coordinates: tp?.coordinates } as any,
+            location: townshipLocation as any,
             details: fullStateSnapshot,
           })
           newIds.townshipId = townshipId
@@ -328,7 +342,16 @@ export function useAutoDraft({
           for (const proj of state.projects || []) {
             const projectLocation = {
               city: proj.city || tp?.city,
+              district: proj.district || tp?.district,
+              subCity: proj.subCity || tp?.subCity,
+              village: proj.village || tp?.village,
+              area: proj.area || proj.village || tp?.area || tp?.village,
               state: proj.state || tp?.state,
+              country: proj.country || tp?.country,
+              pincode: proj.pincode || tp?.pincode,
+              nearbyLandmark: proj.nearbyLandmark || tp?.nearbyLandmark,
+              googleMapLink: proj.googleMapLink || tp?.googleMapLink,
+              googlePlusCode: proj.googlePlusCode || tp?.googlePlusCode,
               coordinates: proj.coordinates || tp?.coordinates
             }
             const mappedProjectId = currentProjectMap[proj.id]
@@ -364,7 +387,20 @@ export function useAutoDraft({
           const currentTowerMap = newIds.towerMap || {}
 
           for (const proj of state.projects || []) {
-            const projectLocation = { city: proj.city, state: proj.state, coordinates: proj.coordinates }
+            const projectLocation = {
+              city: proj.city,
+              district: proj.district,
+              subCity: proj.subCity,
+              village: proj.village,
+              area: proj.area || proj.village,
+              state: proj.state,
+              country: proj.country,
+              pincode: proj.pincode,
+              nearbyLandmark: proj.nearbyLandmark,
+              googleMapLink: proj.googleMapLink,
+              googlePlusCode: proj.googlePlusCode,
+              coordinates: proj.coordinates
+            }
             const mappedProjectId = currentProjectMap[proj.id]
             const projectId = await saveEntity("project", mappedProjectId, {
               name: proj.name,
@@ -400,7 +436,16 @@ export function useAutoDraft({
           for (const tower of state.towers || []) {
             const towerLocation = {
               city: (tower as any).city || state.township?.city,
+              district: (tower as any).district || state.township?.district,
+              subCity: (tower as any).subCity || state.township?.subCity,
+              village: (tower as any).village || state.township?.village,
+              area: (tower as any).area || (tower as any).village || state.township?.area || state.township?.village,
               state: (tower as any).state || state.township?.state,
+              country: (tower as any).country || state.township?.country,
+              pincode: (tower as any).pincode || state.township?.pincode,
+              nearbyLandmark: (tower as any).nearbyLandmark || state.township?.nearbyLandmark,
+              googleMapLink: (tower as any).googleMapLink || state.township?.googleMapLink,
+              googlePlusCode: (tower as any).googlePlusCode || state.township?.googlePlusCode,
               coordinates: (tower as any).coordinates || state.township?.coordinates,
             }
             const mappedTowerId = currentTowerMap[tower.id]
