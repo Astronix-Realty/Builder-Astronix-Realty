@@ -31,6 +31,7 @@ import {
   Check,
   Save,
   Wallet,
+  Megaphone,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -1054,34 +1055,41 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
   });
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-6 lg:p-8">
+    <div className="space-y-6 text-slate-900 dark:text-slate-100">
       {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 border-b border-slate-800 pb-5">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="p-2 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-xl text-white shadow-lg shadow-blue-500/20">
-              <Sparkles className="w-6 h-6 animate-pulse" />
-            </span>
-            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
-              Meta Ads & Boost Studio
-            </h1>
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white/80 dark:bg-slate-900/80 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-xs backdrop-blur-md">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="w-10 h-10 rounded-xl bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-500/20 shadow-xs shrink-0">
+              <Megaphone className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                  Meta Ads & Boost Studio
+                </h1>
+                <span className="px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 flex items-center gap-1">
+                  <Megaphone className="w-3 h-3" /> Meta Marketing API v21.0
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                Run hyper-targeted Facebook & Instagram Reel Ads for your published properties, towers & deck configurations with automated escrow.
+              </p>
+            </div>
           </div>
-          <p className="text-sm text-slate-400 mt-1">
-            Run hyper-targeted Facebook & Instagram Reel Ads for your published properties, towers & deck configurations with automated 3-tier escrow.
-          </p>
         </div>
 
         {/* Live Wallet Chip */}
-        <div className="flex items-center gap-3 bg-slate-900 border border-slate-800/80 rounded-2xl p-2.5 px-4 shadow-inner">
+        <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-2.5 px-4 shadow-inner">
           <div className="flex flex-col">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Available Ad Credits</span>
-            <span className="text-lg font-bold text-emerald-400">
+            <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Available Ad Credits</span>
+            <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">
               ₹{(wallet.available_balance || 0).toLocaleString("en-IN")}
             </span>
           </div>
           <button
             onClick={() => setActiveTab("wallet")}
-            className="ml-2 px-3 py-1.5 text-xs font-semibold bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-xl transition-all"
+            className="ml-2 px-3 py-1.5 text-xs font-semibold bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 rounded-xl transition-all shadow-xs"
           >
             + Recharge
           </button>
@@ -1089,46 +1097,60 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-800/60 mb-6">
+      <div className="flex items-center gap-1.5 p-1.5 bg-slate-100 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-x-auto no-scrollbar shadow-xs">
         <button
           onClick={() => setActiveTab("create")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all whitespace-nowrap ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap ${
             activeTab === "create"
-              ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30 font-semibold"
-              : "text-slate-400 hover:text-white hover:bg-slate-900"
+              ? "bg-blue-600 text-white shadow-xs"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60"
           }`}
         >
-          <Plus className="w-4 h-4" /> ➕ Create New Ad (Smart Wizard)
+          <Plus className="w-4 h-4" />
+          <span>Create New Ad (Smart Wizard)</span>
         </button>
         <button
           onClick={() => setActiveTab("campaigns")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all whitespace-nowrap ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap ${
             activeTab === "campaigns"
-              ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30 font-semibold"
-              : "text-slate-400 hover:text-white hover:bg-slate-900"
+              ? "bg-blue-600 text-white shadow-xs"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60"
           }`}
         >
-          <TrendingUp className="w-4 h-4" /> 📊 My Campaigns & Live Stats ({campaigns.length})
+          <TrendingUp className="w-4 h-4" />
+          <span>My Campaigns & Live Stats</span>
+          <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold ${
+            activeTab === "campaigns" ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+          }`}>
+            {campaigns.length}
+          </span>
         </button>
         <button
           onClick={() => setActiveTab("crm")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all whitespace-nowrap ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap ${
             activeTab === "crm"
-              ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30 font-semibold"
-              : "text-slate-400 hover:text-white hover:bg-slate-900"
+              ? "bg-blue-600 text-white shadow-xs"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60"
           }`}
         >
-          <Users className="w-4 h-4" /> 👥 Ad Leads CRM ({leads.length})
+          <Users className="w-4 h-4" />
+          <span>Ad Leads CRM</span>
+          <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold ${
+            activeTab === "crm" ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+          }`}>
+            {leads.length}
+          </span>
         </button>
         <button
           onClick={() => setActiveTab("wallet")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all whitespace-nowrap ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap ${
             activeTab === "wallet"
-              ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30 font-semibold"
-              : "text-slate-400 hover:text-white hover:bg-slate-900"
+              ? "bg-blue-600 text-white shadow-xs"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60"
           }`}
         >
-          <CreditCard className="w-4 h-4" /> 💳 Ad Wallet & GST Invoices
+          <CreditCard className="w-4 h-4" />
+          <span>Ad Wallet & GST Invoices</span>
         </button>
       </div>
 
@@ -1136,11 +1158,11 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
       {/* TAB 1: CREATE NEW AD (SPLIT SCREEN WIZARD + REAL-TIME PREVIEW)            */}
       {/* ========================================================================= */}
       {activeTab === "create" && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
           {/* Left Column: 4-Step Interactive Wizard Form (65% width) */}
-          <div className="lg:col-span-8 bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-2xl backdrop-blur-md">
+          <div className="lg:col-span-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs backdrop-blur-md">
             {/* Step Progress Pill Indicator */}
-            <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-800">
+            <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-200 dark:border-slate-800">
               {[
                 { s: 1, title: "Property & Hierarchy" },
                 { s: 2, title: "Media & AI Text" },
@@ -1152,10 +1174,10 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                   onClick={() => setStep(item.s)}
                   className={`flex items-center gap-2 cursor-pointer transition-all ${
                     step === item.s
-                      ? "text-blue-400 font-bold"
+                      ? "text-blue-600 dark:text-blue-400 font-bold"
                       : step > item.s
-                      ? "text-emerald-400 font-medium"
-                      : "text-slate-500"
+                      ? "text-emerald-600 dark:text-emerald-400 font-medium"
+                      : "text-slate-400 dark:text-slate-500"
                   }`}
                 >
                   <span
@@ -1164,7 +1186,7 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                         ? "bg-blue-600 text-white shadow-md shadow-blue-500/30"
                         : step > item.s
                         ? "bg-emerald-600 text-white"
-                        : "bg-slate-800 text-slate-400"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700"
                     }`}
                   >
                     {step > item.s ? "✓" : item.s}
@@ -1178,16 +1200,16 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
             {step === 1 && (
               <div className="space-y-6">
                 {/* Beginner Guide Note */}
-                <div className="p-4 rounded-2xl bg-blue-950/40 border border-blue-800/40 text-blue-200 text-sm flex gap-3 items-start">
+                <div className="p-4 rounded-2xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/40 text-blue-950 dark:text-blue-200 text-sm flex gap-3 items-start shadow-2xs">
                   <span className="text-xl">💡</span>
                   <div>
-                    <strong className="text-blue-100">Step 1 Guide:</strong> Yahan apni Published Property chunein. Aap chahein toh poore Project/Township ka ad ek sath chala sakte hain, ya kisi khas Phase, Tower, ya 1 BHK / 2 BHK flat ka alag se targeted ad chala sakte hain!
+                    <strong className="text-blue-900 dark:text-blue-100">Step 1 Guide:</strong> Yahan apni Published Property chunein. Aap chahein toh poore Project/Township ka ad ek sath chala sakte hain, ya kisi khas Phase, Tower, ya 1 BHK / 2 BHK flat ka alag se targeted ad chala sakte hain!
                   </div>
                 </div>
 
                 {/* Property Dropdown */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
                     Select Published Property *
                   </label>
                   <select
@@ -1198,7 +1220,7 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                       setSelectedTowerId("");
                       setSelectedUnitId("");
                     }}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500 shadow-xs"
                   >
                     <option value="">-- Choose from your registered properties --</option>
                     {properties.map((p) => (
@@ -1206,7 +1228,7 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                         key={p.id}
                         value={p.id}
                         disabled={!p.isEligibleForAds}
-                        className={!p.isEligibleForAds ? "text-slate-600 bg-slate-900" : "text-white"}
+                        className={!p.isEligibleForAds ? "text-slate-400" : "text-slate-900 dark:text-slate-100"}
                       >
                         {p.isEligibleForAds ? `🟢 ${p.name} (Published & Live)` : `🔒 ${p.name} (${p.status} - Not Published)`}
                       </option>
@@ -1223,11 +1245,11 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                 {selectedProperty && selectedProperty.isEligibleForAds && (
                   <div className="space-y-4 pt-2">
                     {/* Offer-Editor Style Unified Hierarchy Selector */}
-                    <div className="p-4 rounded-2xl bg-slate-950/90 border border-slate-800 space-y-3">
+                    <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-950/90 border border-slate-200 dark:border-slate-800 space-y-3">
                       <div className="flex items-center justify-between">
-                        <label className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                        <label className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
                           <span>🎯 Select Target Scope (Project / Tower / Unit)</span>
-                          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-300 border border-blue-500/20">
                             Offer-Editor Style
                           </span>
                         </label>
@@ -1240,14 +1262,14 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                               setSelectedUnitId("");
                               setHierarchyLevel("WHOLE_PROPERTY");
                             }}
-                            className="text-[11px] text-blue-400 hover:text-blue-300 underline font-medium"
+                            className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline font-semibold"
                           >
                             Reset to Whole Township
                           </button>
                         )}
                       </div>
 
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
                         Jaise Offer create karte waqt aap kisi bhi project ya unke andar ke kisi bhi tower ko select kar sakte hain, yahan dropdown se direct select karein:
                       </p>
 
@@ -1293,18 +1315,18 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                             setHierarchyLevel("UNIT_OR_CONFIG");
                           }
                         }}
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-slate-100 font-semibold focus:outline-none focus:border-blue-500 shadow-inner"
+                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-sm text-slate-900 dark:text-slate-100 font-semibold focus:outline-none focus:border-blue-500 shadow-xs"
                       >
                         <option value={`property:${selectedProperty.id}`}>
                           🏘️ Entire Property / Township: {selectedProperty.name} (All Projects &amp; Towers)
                         </option>
                         {currentPhases.map((phase: any) => (
                           <React.Fragment key={phase.id}>
-                            <option value={`phase:${phase.id}`} className="font-bold text-amber-300 bg-slate-900">
+                            <option value={`phase:${phase.id}`} className="font-bold text-amber-600 dark:text-amber-300">
                               {"\u00A0\u00A0\u00A0"}📁 Project / Phase: {phase.name} {phase.towers?.length ? `(${phase.towers.length} Towers)` : ""}
                             </option>
                             {(phase.towers || []).map((tower: any) => (
-                              <option key={tower.id} value={`tower:${tower.id}`} className="text-slate-100 bg-slate-900">
+                              <option key={tower.id} value={`tower:${tower.id}`}>
                                 {"\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0"}🏢 Tower: {tower.name} ({phase.name}) {tower.units?.length ? `• ${tower.units.length} Units` : ""}
                               </option>
                             ))}
@@ -1313,21 +1335,21 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                         {/* Direct towers not under mapped phases */}
                         {currentPhases.length === 0 &&
                           allPropertyTowers.map((tower: any) => (
-                            <option key={tower.id} value={`tower:${tower.id}`} className="text-slate-100 bg-slate-900">
+                            <option key={tower.id} value={`tower:${tower.id}`}>
                               {"\u00A0\u00A0\u00A0"}🏢 Tower: {tower.name} {tower.units?.length ? `• ${tower.units.length} Units` : ""}
                             </option>
                           ))}
                       </select>
 
                       {/* Cascading 3-Column Selectors */}
-                      <div className="pt-2 border-t border-slate-800/80">
-                        <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                      <div className="pt-2 border-t border-slate-200 dark:border-slate-800/80">
+                        <label className="block text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
                           Or Step-by-Step Cascading Filters:
                         </label>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                           {/* 1. Project / Phase */}
-                          <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-                            <label className="block text-[11px] font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                          <div className="bg-white dark:bg-slate-900/60 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs">
+                            <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
                               <span>📁 Project / Phase</span>
                               {currentPhases.length > 0 && (
                                 <span className="text-[10px] text-slate-400">{currentPhases.length} Available</span>
@@ -1347,7 +1369,7 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                                 }
                               }}
                               disabled={currentPhases.length === 0}
-                              className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-slate-100 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500 disabled:opacity-50"
                             >
                               <option value="">-- All Projects / Entire Township --</option>
                               {currentPhases.map((ph: any) => (
@@ -1359,8 +1381,8 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                           </div>
 
                           {/* 2. Tower / Building */}
-                          <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-                            <label className="block text-[11px] font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                          <div className="bg-white dark:bg-slate-900/60 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs">
+                            <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
                               <span>🏢 Tower / Wing</span>
                               {currentTowers.length > 0 && (
                                 <span className="text-[10px] text-slate-400">{currentTowers.length} Available</span>
@@ -1388,7 +1410,7 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                                 }
                               }}
                               disabled={currentTowers.length === 0}
-                              className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-slate-100 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500 disabled:opacity-50"
                             >
                               <option value="">-- All Towers in Project --</option>
                               {currentTowers.map((tw: any) => {
@@ -1406,8 +1428,8 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                           </div>
 
                           {/* 3. Unit / Config */}
-                          <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800">
-                            <label className="block text-[11px] font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                          <div className="bg-white dark:bg-slate-900/60 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs">
+                            <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
                               <span>🚪 Unit / Flat (Optional)</span>
                               {currentUnits.length > 0 && (
                                 <span className="text-[10px] text-slate-400">{currentUnits.length} Units</span>
@@ -1440,7 +1462,7 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                                 }
                               }}
                               disabled={currentUnits.length === 0}
-                              className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-slate-100 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+                              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg p-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500 disabled:opacity-50"
                             >
                               <option value="">-- All Units / General Ad --</option>
                               {currentUnits.slice(0, 100).map((u: any) => (
@@ -1456,7 +1478,7 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
 
                     {/* Promotion Level Shortcut Cards (4 Cards) */}
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
                         Active Promotion Level
                       </label>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
@@ -1520,29 +1542,29 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                             }}
                             className={`p-3 rounded-xl border transition-all cursor-pointer ${
                               item.disabled
-                                ? "opacity-40 border-slate-800 bg-slate-950 cursor-not-allowed"
+                                ? "opacity-40 border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950 cursor-not-allowed"
                                 : hierarchyLevel === item.lvl
-                                ? "border-blue-500 bg-blue-950/40 shadow-md shadow-blue-500/20"
-                                : "border-slate-800 bg-slate-950/60 hover:border-slate-700"
+                                ? "border-blue-500 bg-blue-50/80 dark:bg-blue-950/40 text-blue-900 dark:text-blue-200 shadow-xs font-semibold"
+                                : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/60 hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300"
                             }`}
                           >
                             <div className="flex items-center gap-2">
                               <span className="text-lg">{item.icon}</span>
-                              <span className="text-xs font-bold text-slate-100">{item.title}</span>
+                              <span className="text-xs font-bold">{item.title}</span>
                             </div>
-                            <p className="text-[11px] text-slate-400 mt-1 pl-6">{item.desc}</p>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 pl-6">{item.desc}</p>
                           </div>
                         ))}
                       </div>
                     </div>
 
                     {/* Auto-Bound Hierarchy Verification Card */}
-                    <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-950/40 via-emerald-950/20 to-slate-900/40 border border-emerald-700/40 text-emerald-200 shadow-lg shadow-emerald-950/20">
-                      <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-emerald-800/30">
-                        <div className="flex items-center gap-2 text-emerald-300 font-semibold text-sm">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <div className="p-4 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 text-emerald-900 dark:text-emerald-200 shadow-2xs">
+                      <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-emerald-200 dark:border-emerald-800/30">
+                        <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-semibold text-sm">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                           <span>Active Promotion Target Verified</span>
-                          <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 text-[10px] font-medium border border-emerald-500/20">
+                          <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 text-[10px] font-medium border border-emerald-500/25">
                             <span className="relative flex h-2 w-2">
                               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
@@ -1550,51 +1572,51 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                             Live on Visitor Panel
                           </span>
                         </div>
-                        <span className="text-[10px] uppercase font-black px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        <span className="text-[10px] uppercase font-black px-2.5 py-0.5 rounded-full bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/30">
                           Level: {hierarchyLevel}
                         </span>
                       </div>
 
-                      <div className="text-xs space-y-2.5 mt-3 text-slate-300">
+                      <div className="text-xs space-y-2.5 mt-3 text-slate-700 dark:text-slate-300">
                         <div className="flex items-center gap-2">
-                          <span className="text-slate-400 font-semibold">📍 Target Path:</span>
-                          <span className="text-emerald-300 font-bold bg-emerald-950/80 px-2.5 py-1 rounded border border-emerald-700/50">
+                          <span className="text-slate-500 dark:text-slate-400 font-semibold">📍 Target Path:</span>
+                          <span className="text-emerald-800 dark:text-emerald-300 font-bold bg-emerald-100/80 dark:bg-emerald-950/80 px-2.5 py-1 rounded border border-emerald-300 dark:border-emerald-700/50">
                             {hierarchyBreadcrumb}
                           </span>
                         </div>
 
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/60 text-slate-300">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 bg-white dark:bg-slate-900/60 p-2.5 rounded-xl border border-emerald-200/80 dark:border-slate-800/60 text-slate-700 dark:text-slate-300 shadow-2xs">
                           <div>
-                            <span className="block text-[10px] uppercase font-semibold text-slate-400">Starting Price</span>
-                            <span className="text-sm font-bold text-white">
+                            <span className="block text-[10px] uppercase font-semibold text-slate-500 dark:text-slate-400">Starting Price</span>
+                            <span className="text-sm font-bold text-slate-900 dark:text-white">
                               {autoPrice > 0 ? `₹${(autoPrice / 100000).toFixed(2)} Lakhs` : "On Request"}
                             </span>
                           </div>
                           <div>
-                            <span className="block text-[10px] uppercase font-semibold text-slate-400">Carpet Area</span>
-                            <span className="text-sm font-semibold text-white">
+                            <span className="block text-[10px] uppercase font-semibold text-slate-500 dark:text-slate-400">Carpet Area</span>
+                            <span className="text-sm font-semibold text-slate-900 dark:text-white">
                               {autoCarpet || "Township Blend"}
                             </span>
                           </div>
                           <div className="col-span-2 sm:col-span-1">
-                            <span className="block text-[10px] uppercase font-semibold text-slate-400">RERA Registration</span>
-                            <span className="text-xs font-mono font-bold text-emerald-400">
+                            <span className="block text-[10px] uppercase font-semibold text-slate-500 dark:text-slate-400">RERA Registration</span>
+                            <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
                               {autoRera && !autoRera.includes("XXXX") && !autoRera.toLowerCase().includes("pending") ? autoRera : "P51700010238"}
                             </span>
                           </div>
                         </div>
 
                         {/* Interactive Landing Page URL Card with Direct Click & Copy */}
-                        <div className="p-3 rounded-xl bg-slate-900/90 border border-emerald-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-inner">
+                        <div className="p-3 rounded-xl bg-white dark:bg-slate-900/90 border border-emerald-200 dark:border-emerald-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-medium mb-1">
+                            <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 font-medium mb-1">
                               <span>🌐 Landing Page (Live Visitor Panel URL):</span>
                             </div>
                             <a
                               href={deepLinkUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-xs font-mono text-cyan-400 hover:text-cyan-300 underline underline-offset-2 break-all flex items-center gap-1 transition-colors"
+                              className="text-xs font-mono text-blue-600 dark:text-cyan-400 hover:text-blue-700 dark:hover:text-cyan-300 underline underline-offset-2 break-all flex items-center gap-1 transition-colors"
                               title="Click to open page in new tab"
                             >
                               <span>{deepLinkUrl}</span>
@@ -1613,12 +1635,12 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                                   setTimeout(() => setCopiedLink(false), 2000);
                                 }
                               }}
-                              className="flex-1 sm:flex-initial flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition-colors"
+                              className="flex-1 sm:flex-initial flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-medium border border-slate-200 dark:border-slate-700 transition-colors"
                             >
                               {copiedLink ? (
                                 <>
-                                  <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                  <span className="text-emerald-400 font-semibold">Copied!</span>
+                                  <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Copied!</span>
                                 </>
                               ) : (
                                 <>
@@ -1631,7 +1653,7 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                               href={deepLinkUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-950/50 transition-all hover:scale-105"
+                              className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all hover:scale-105"
                             >
                               <span>Open Live</span>
                               <ExternalLink className="w-3.5 h-3.5" />
@@ -1643,7 +1665,7 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
 
                     {/* Select Ad Goal */}
                     <div className="mt-6">
-                      <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
                         Select Campaign Ad Goal
                       </label>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -1675,18 +1697,18 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                             onClick={() => setAdGoal(g.goal)}
                             className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${
                               adGoal === g.goal
-                                ? "border-blue-500 bg-blue-950/40 shadow-lg shadow-blue-500/20"
-                                : "border-slate-800 bg-slate-950 hover:border-slate-700"
+                                ? "border-blue-500 bg-blue-50/80 dark:bg-blue-950/40 text-blue-900 dark:text-blue-100 shadow-xs"
+                                : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:border-slate-300 dark:hover:border-slate-700 shadow-2xs"
                             }`}
                           >
                             <div className="flex items-center justify-between">
                               <span className="text-xl">{g.icon}</span>
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300">
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/20">
                                 {g.badge}
                               </span>
                             </div>
-                            <div className="text-sm font-bold text-slate-100 mt-2">{g.title}</div>
-                            <p className="text-xs text-slate-400 mt-1">{g.desc}</p>
+                            <div className="text-sm font-bold text-slate-900 dark:text-slate-100 mt-2">{g.title}</div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{g.desc}</p>
                           </div>
                         ))}
                       </div>
@@ -1713,20 +1735,22 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
             {step === 2 && (
               <div className="space-y-6">
                 {/* Guide Note */}
-                <div className="p-4 rounded-2xl bg-blue-950/40 border border-blue-800/40 text-blue-200 text-sm flex gap-3 items-start">
+                <div className="p-4 rounded-2xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/40 text-blue-950 dark:text-blue-200 text-sm flex gap-3 items-start shadow-2xs">
                   <span className="text-xl">💡</span>
                   <div>
-                    <strong className="text-blue-100">Step 2 Guide:</strong> Real estate mein 15 se 45 second ka Sample Flat Walkthrough Video ya Drone Reel sabse sasti aur genuine leads lata hai. Niche <strong>✨ 1-Click Auto-Write</strong> dabayein taaki AI aapki property details ke mutabiq best ad caption likh sake!
+                    <strong className="text-blue-900 dark:text-blue-100">Step 2 Guide:</strong> Real estate mein 15 se 45 second ka Sample Flat Walkthrough Video ya Drone Reel sabse sasti aur genuine leads lata hai. Niche <strong>✨ 1-Click Auto-Write</strong> dabayein taaki AI aapki property details ke mutabiq best ad caption likh sake!
                   </div>
                 </div>
 
                 {/* Media Selector Tabs */}
                 <div>
-                  <div className="flex items-center gap-3 border-b border-slate-800 pb-2 mb-3">
+                  <div className="flex items-center gap-3 border-b border-slate-200 dark:border-slate-800 pb-2 mb-3">
                     <button
                       onClick={() => setMediaSourceTab("gallery")}
                       className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-all ${
-                        mediaSourceTab === "gallery" ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white"
+                        mediaSourceTab === "gallery"
+                          ? "bg-blue-600 text-white shadow-xs"
+                          : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                       }`}
                     >
                       📂 Pick from Selected Property Gallery
@@ -1734,7 +1758,9 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                     <button
                       onClick={() => setMediaSourceTab("upload")}
                       className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-all ${
-                        mediaSourceTab === "upload" ? "bg-blue-600 text-white" : "text-slate-400 hover:text-white"
+                        mediaSourceTab === "upload"
+                          ? "bg-blue-600 text-white shadow-xs"
+                          : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                       }`}
                     >
                       ⬆️ Upload Custom Ad Reel / Banner
@@ -1743,7 +1769,7 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
 
                   {mediaSourceTab === "gallery" ? (
                     <div>
-                      <p className="text-xs text-slate-400 mb-2">Click to select media from uploaded assets:</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">Click to select media from uploaded assets:</p>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-h-56 overflow-y-auto p-1">
                         {availableMedia.length > 0 ? (
                           availableMedia.map((m: any, i: number) => (
@@ -1753,14 +1779,14 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                                 setSelectedMediaUrl(m.url);
                                 setSelectedMediaType(m.type?.toLowerCase().includes("video") ? "video" : "image");
                               }}
-                              className={`relative rounded-xl overflow-hidden border cursor-pointer aspect-video bg-slate-950 transition-all ${
+                              className={`relative rounded-xl overflow-hidden border cursor-pointer aspect-video bg-slate-100 dark:bg-slate-950 transition-all ${
                                 selectedMediaUrl === m.url
                                   ? "border-blue-500 ring-2 ring-blue-500/50 shadow-md shadow-blue-500/20"
-                                  : "border-slate-800 opacity-75 hover:opacity-100"
+                                  : "border-slate-200 dark:border-slate-800 opacity-80 hover:opacity-100"
                               }`}
                             >
                               <img src={m.url} alt="Media" className="w-full h-full object-cover" />
-                              <span className="absolute top-1 left-1 text-[9px] px-1.5 py-0.5 rounded bg-slate-900/90 text-blue-300 border border-slate-700/80 font-medium truncate max-w-[85%]">
+                              <span className="absolute top-1 left-1 text-[9px] px-1.5 py-0.5 rounded bg-black/70 text-white border border-white/20 font-medium truncate max-w-[85%]">
                                 {m.label || "Asset"}
                               </span>
                               <span className="absolute bottom-1 right-1 text-[9px] px-1.5 py-0.5 rounded bg-black/80 text-white uppercase font-bold">
@@ -1776,9 +1802,9 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                       </div>
                     </div>
                   ) : (
-                    <div className="p-6 border-2 border-dashed border-slate-800 rounded-2xl text-center bg-slate-950/50">
-                      <Upload className="w-8 h-8 text-slate-500 mx-auto mb-2" />
-                      <p className="text-xs text-slate-300 font-semibold">Upload 9:16 Vertical Reel (.mp4) or 1:1 Square Banner (.png, .jpg)</p>
+                    <div className="p-6 border-2 border-dashed border-slate-300 dark:border-slate-800 rounded-2xl text-center bg-slate-50/50 dark:bg-slate-950/50">
+                      <Upload className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                      <p className="text-xs text-slate-700 dark:text-slate-300 font-semibold">Upload 9:16 Vertical Reel (.mp4) or 1:1 Square Banner (.png, .jpg)</p>
                       <p className="text-[11px] text-slate-500 mt-1">Recommended size: 1080x1920 or 1080x1080. Max file size: 50MB.</p>
                       <input
                         type="text"
@@ -1792,31 +1818,33 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                             setSelectedMediaType("image");
                           }
                         }}
-                        className="mt-3 w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-100"
+                        className="mt-3 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs text-slate-900 dark:text-slate-100 shadow-2xs"
                       />
                     </div>
                   )}
                 </div>
 
                 {/* AI / Template Ad Copy Generator */}
-                <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-950/40 via-purple-950/30 to-slate-900 border border-indigo-800/40">
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-50/70 via-purple-50/50 to-white dark:from-indigo-950/40 dark:via-purple-950/30 dark:to-slate-900 border border-indigo-200 dark:border-indigo-800/40 shadow-xs">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
                     <div className="flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-indigo-400" />
-                      <span className="text-xs font-bold uppercase tracking-wider text-indigo-200">
+                      <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-indigo-950 dark:text-indigo-200">
                         AI High-Converting Ad Copy Writer
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-400">Language:</span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">Language:</span>
                       {(["Hinglish", "English", "Hindi", "Marathi"] as const).map((lang) => (
                         <button
                           key={lang}
                           onClick={() => {
                             setAiLang(lang);
                           }}
-                          className={`text-xs px-2 py-1 rounded-lg ${
-                            aiLang === lang ? "bg-indigo-600 text-white font-bold" : "bg-slate-800 text-slate-300"
+                          className={`text-xs px-2 py-1 rounded-lg transition-all ${
+                            aiLang === lang
+                              ? "bg-indigo-600 text-white font-bold shadow-xs"
+                              : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
                           }`}
                         >
                           {lang}
@@ -1833,7 +1861,7 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
 
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                      <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                         Primary Text (Main Ad Caption above Reel/Post) *
                       </label>
                       <textarea
@@ -1841,13 +1869,13 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                         value={primaryText}
                         onChange={(e) => setPrimaryText(e.target.value)}
                         placeholder="Click 'Auto-Write Text' above to generate..."
-                        className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-slate-100 font-mono"
+                        className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs text-slate-900 dark:text-slate-100 font-mono shadow-2xs"
                       />
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                        <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                           Ad Headline (Bold text below Video) *
                         </label>
                         <input
@@ -1855,11 +1883,11 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                           value={headline}
                           onChange={(e) => setHeadline(e.target.value)}
                           placeholder="e.g. 2 BHK Homes @ ₹58L | Zero Stamp Duty*"
-                          className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-100 font-bold"
+                          className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs text-slate-900 dark:text-slate-100 font-bold shadow-2xs"
                         />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                        <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                           Short Description (Optional sub-text)
                         </label>
                         <input
@@ -1867,19 +1895,19 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                           value={shortDescription}
                           onChange={(e) => setShortDescription(e.target.value)}
                           placeholder="e.g. Limited Units Left in Tower B. Book Site Visit!"
-                          className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-100"
+                          className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs text-slate-900 dark:text-slate-100 shadow-2xs"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                      <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                         Call-To-Action (CTA) Button
                       </label>
                       <select
                         value={ctaButton}
                         onChange={(e) => setCtaButton(e.target.value)}
-                        className="w-full sm:w-60 bg-slate-950 border border-slate-700 rounded-xl p-2 text-xs font-semibold text-slate-100"
+                        className="w-full sm:w-60 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl p-2 text-xs font-semibold text-slate-900 dark:text-slate-100 shadow-2xs"
                       >
                         <option value="DOWNLOAD">Download (Best for Brochure / Cost Sheet)</option>
                         <option value="LEARN_MORE">Learn More</option>
@@ -1893,10 +1921,10 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                 </div>
 
                 {/* Back / Next Buttons */}
-                <div className="flex items-center justify-between pt-4 border-t border-slate-800">
+                <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-800">
                   <button
                     onClick={() => setStep(1)}
-                    className="px-5 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white"
+                    className="px-5 py-2 rounded-xl text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                   >
                     ← Back to Step 1
                   </button>
@@ -1914,16 +1942,16 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
             {step === 3 && (
               <div className="space-y-6">
                 {/* Guide Note */}
-                <div className="p-4 rounded-2xl bg-blue-950/40 border border-blue-800/40 text-blue-200 text-sm flex gap-3 items-start">
+                <div className="p-4 rounded-2xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/40 text-blue-950 dark:text-blue-200 text-sm flex gap-3 items-start shadow-2xs">
                   <span className="text-xl">💡</span>
                   <div>
-                    <strong className="text-blue-100">Step 3 Guide:</strong> Aapka ad budget galat logon par waste na ho, isliye humne Real Estate ke 4 Pre-Tested Buyer Presets banaye hain. Bas woh card chunein jo aapke project ke kharidaron se match karta hai!
+                    <strong className="text-blue-900 dark:text-blue-100">Step 3 Guide:</strong> Aapka ad budget galat logon par waste na ho, isliye humne Real Estate ke 4 Pre-Tested Buyer Presets banaye hain. Bas woh card chunein jo aapke project ke kharidaron se match karta hai!
                   </div>
                 </div>
 
                 {/* 4 Audience Preset Cards */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-3">
                     Choose Pre-Tested Buyer Audience Preset
                   </label>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1939,18 +1967,18 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                         }}
                         className={`p-4 rounded-2xl border cursor-pointer transition-all ${
                           selectedPresetId === p._id
-                            ? "border-blue-500 bg-blue-950/30 shadow-lg shadow-blue-500/20"
-                            : "border-slate-800 bg-slate-950 hover:border-slate-700"
+                            ? "border-blue-500 bg-blue-50/80 dark:bg-blue-950/30 text-blue-900 dark:text-blue-100 shadow-xs"
+                            : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 hover:border-slate-300 dark:hover:border-slate-700 shadow-2xs"
                         }`}
                       >
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-bold text-slate-100">{p.preset_title}</span>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">
+                          <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{p.preset_title}</span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
                             {p.buyer_segment}
                           </span>
                         </div>
-                        <p className="text-xs text-slate-400 mt-2">{p.guide_description_hinglish}</p>
-                        <div className="flex items-center gap-4 mt-3 text-[11px] text-slate-500">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">{p.guide_description_hinglish}</p>
+                        <div className="flex items-center gap-4 mt-3 text-[11px] text-slate-400 dark:text-slate-500">
                           <span>Radius: {p.default_radius_km} KM</span>
                           <span>Age: {p.age_min} - {p.age_max} yrs</span>
                         </div>
@@ -1960,15 +1988,15 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                 </div>
 
                 {/* Fine-Tuning Targeting Slider */}
-                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
-                  <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-                    <Sliders className="w-3.5 h-3.5 text-blue-400" /> Fine-Tune Location Radius & Demographics
+                <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xs">
+                  <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                    <Sliders className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Fine-Tune Location Radius & Demographics
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <div className="flex justify-between text-xs text-slate-400 mb-1">
+                      <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400 mb-1">
                         <span>Targeting Radius Around Property</span>
-                        <strong className="text-blue-400">{customRadius} KM</strong>
+                        <strong className="text-blue-600 dark:text-blue-400">{customRadius} KM</strong>
                       </div>
                       <input
                         type="range"
@@ -1976,13 +2004,13 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                         max={50}
                         value={customRadius}
                         onChange={(e) => setCustomRadius(Number(e.target.value))}
-                        className="w-full accent-blue-500"
+                        className="w-full accent-blue-600"
                       />
                     </div>
                     <div>
-                      <div className="flex justify-between text-xs text-slate-400 mb-1">
+                      <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400 mb-1">
                         <span>Target Buyer Age Group</span>
-                        <strong className="text-blue-400">{ageMin} - {ageMax} Years</strong>
+                        <strong className="text-blue-600 dark:text-blue-400">{ageMin} - {ageMax} Years</strong>
                       </div>
                       <div className="flex items-center gap-2">
                         <input
@@ -1991,7 +2019,7 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                           max={65}
                           value={ageMin}
                           onChange={(e) => setAgeMin(Number(e.target.value))}
-                          className="w-20 bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-xs text-center"
+                          className="w-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-1.5 text-xs text-center text-slate-900 dark:text-slate-100 shadow-2xs"
                         />
                         <span className="text-xs text-slate-500">to</span>
                         <input
@@ -2000,7 +2028,7 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                           max={70}
                           value={ageMax}
                           onChange={(e) => setAgeMax(Number(e.target.value))}
-                          className="w-20 bg-slate-900 border border-slate-700 rounded-lg p-1.5 text-xs text-center"
+                          className="w-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-1.5 text-xs text-center text-slate-900 dark:text-slate-100 shadow-2xs"
                         />
                       </div>
                     </div>
@@ -2008,10 +2036,10 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                 </div>
 
                 {/* Navigation Buttons */}
-                <div className="flex items-center justify-between pt-4 border-t border-slate-800">
+                <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-800">
                   <button
                     onClick={() => setStep(2)}
-                    className="px-5 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white"
+                    className="px-5 py-2 rounded-xl text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                   >
                     ← Back to Step 2
                   </button>
@@ -2029,65 +2057,65 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
             {step === 4 && (
               <div className="space-y-6">
                 {/* Guide Note */}
-                <div className="p-4 rounded-2xl bg-blue-950/40 border border-blue-800/40 text-blue-200 text-sm flex gap-3 items-start">
+                <div className="p-4 rounded-2xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/40 text-blue-950 dark:text-blue-200 text-sm flex gap-3 items-start shadow-2xs">
                   <span className="text-xl">💡</span>
                   <div>
-                    <strong className="text-blue-100">Step 4 Guide:</strong> Grahak ka Name aur Verified Mobile Number Facebook automatic bhar dega. Niche woh filter sawal tick karein jo grahak se puchhne hain taaki aapko sirf genuine buyers ki inquiries milein!
+                    <strong className="text-blue-900 dark:text-blue-100">Step 4 Guide:</strong> Grahak ka Name aur Verified Mobile Number Facebook automatic bhar dega. Niche woh filter sawal tick karein jo grahak se puchhne hain taaki aapko sirf genuine buyers ki inquiries milein!
                   </div>
                 </div>
 
                 {/* Filter Questions */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
                     Instant Lead Form Qualification Questions
                   </label>
-                  <div className="space-y-2 bg-slate-950 border border-slate-800 rounded-2xl p-4">
+                  <div className="space-y-2 bg-slate-50/80 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-2xs">
                     <label className="flex items-start gap-3 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={qConfig}
                         onChange={(e) => setQConfig(e.target.checked)}
-                        className="mt-1 accent-blue-500 rounded"
+                        className="mt-1 accent-blue-600 rounded"
                       />
                       <div>
-                        <div className="text-xs font-bold text-slate-200">
+                        <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
                           Question 1: "Aap kis Configuration mein interested hain?"
                         </div>
-                        <div className="text-[11px] text-slate-400">
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
                           Auto-populated options: 1 BHK, 2 BHK Luxury, 3 BHK Deck Flat, Commercial Shop.
                         </div>
                       </div>
                     </label>
 
-                    <label className="flex items-start gap-3 cursor-pointer pt-2 border-t border-slate-900">
+                    <label className="flex items-start gap-3 cursor-pointer pt-2 border-t border-slate-200 dark:border-slate-800">
                       <input
                         type="checkbox"
                         checked={qTimeline}
                         onChange={(e) => setQTimeline(e.target.checked)}
-                        className="mt-1 accent-blue-500 rounded"
+                        className="mt-1 accent-blue-600 rounded"
                       />
                       <div>
-                        <div className="text-xs font-bold text-slate-200">
+                        <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
                           Question 2: "Aap kab tak property book karne ka plan kar rahe hain?"
                         </div>
-                        <div className="text-[11px] text-slate-400">
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
                           Options: Immediate (This Month), Within 1-3 Months, Just Exploring.
                         </div>
                       </div>
                     </label>
 
-                    <label className="flex items-start gap-3 cursor-pointer pt-2 border-t border-slate-900">
+                    <label className="flex items-start gap-3 cursor-pointer pt-2 border-t border-slate-200 dark:border-slate-800">
                       <input
                         type="checkbox"
                         checked={qSiteVisit}
                         onChange={(e) => setQSiteVisit(e.target.checked)}
-                        className="mt-1 accent-blue-500 rounded"
+                        className="mt-1 accent-blue-600 rounded"
                       />
                       <div>
-                        <div className="text-xs font-bold text-slate-200">
+                        <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
                           Question 3: "Kya aap is weekend Free Cab Pick-up ke sath Site Visit karna chahenge?"
                         </div>
-                        <div className="text-[11px] text-slate-400">
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
                           Options: Yes - Please Call for Site Visit, Send Cost Sheet on WhatsApp First.
                         </div>
                       </div>
@@ -2096,14 +2124,14 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                 </div>
 
                 {/* Campaign Budget & Duration */}
-                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-4">
+                <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-4 shadow-2xs">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
-                      <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Total Ad Budget (INR)</span>
-                      <p className="text-[11px] text-slate-500">Platform fee (10%) + Net Meta Ad Spend (90%)</p>
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Total Ad Budget (INR)</span>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">Platform fee (10%) + Net Meta Ad Spend (90%)</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-slate-400 text-sm">₹</span>
+                      <span className="text-slate-500 text-sm">₹</span>
                       <input
                         type="number"
                         step={500}
@@ -2111,7 +2139,7 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                         max={200000}
                         value={totalBudget}
                         onChange={(e) => setTotalBudget(Number(e.target.value))}
-                        className="w-32 bg-slate-900 border border-slate-700 rounded-xl p-2 text-sm font-bold text-emerald-400 text-center"
+                        className="w-32 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-2 text-sm font-bold text-emerald-600 dark:text-emerald-400 text-center shadow-2xs"
                       />
                     </div>
                   </div>
@@ -2124,13 +2152,13 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                       step={1000}
                       value={totalBudget}
                       onChange={(e) => setTotalBudget(Number(e.target.value))}
-                      className="w-full accent-blue-500"
+                      className="w-full accent-blue-600"
                     />
                   </div>
 
                   {/* Duration Pills */}
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-2">
                       Campaign Duration
                     </label>
                     <div className="flex items-center gap-2 flex-wrap">
@@ -2141,7 +2169,7 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                           className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
                             durationDays === d
                               ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
-                              : "bg-slate-900 text-slate-400 hover:text-white"
+                              : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:text-white"
                           }`}
                         >
                           {d} Days {d === 7 ? "✨ Recommended" : ""}
@@ -2151,20 +2179,20 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                   </div>
 
                   {/* Daily Breakdown & Estimated ROI Card */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-900">
-                    <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
-                      <span className="text-[10px] text-slate-400 uppercase">Daily Run Rate</span>
-                      <div className="text-sm font-bold text-slate-200">₹{Math.round(totalBudget / durationDays)} / day</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-200 dark:border-slate-800">
+                    <div className="p-3 rounded-xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 shadow-2xs">
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Daily Run Rate</span>
+                      <div className="text-sm font-bold text-slate-900 dark:text-slate-200">₹{Math.round(totalBudget / durationDays)} / day</div>
                     </div>
-                    <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
-                      <span className="text-[10px] text-slate-400 uppercase">Est. Targeted Buyers Reached</span>
-                      <div className="text-sm font-bold text-blue-400">
+                    <div className="p-3 rounded-xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 shadow-2xs">
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Est. Targeted Buyers Reached</span>
+                      <div className="text-sm font-bold text-blue-600 dark:text-blue-400">
                         {Math.round(totalBudget * 2.2).toLocaleString()} – {Math.round(totalBudget * 4.5).toLocaleString()}
                       </div>
                     </div>
-                    <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
-                      <span className="text-[10px] text-slate-400 uppercase">Est. Verified Buyer Leads</span>
-                      <div className="text-sm font-bold text-emerald-400">
+                    <div className="p-3 rounded-xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 shadow-2xs">
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-semibold">Est. Verified Buyer Leads</span>
+                      <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
                         {Math.round(totalBudget / 280)} – {Math.round(totalBudget / 120)} Genuine Leads
                       </div>
                     </div>
@@ -2172,14 +2200,14 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                 </div>
 
                 {/* Escrow Lock & Submit Action */}
-                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800">
+                <div className="p-4 rounded-2xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-2xs">
                   <div className="flex items-center justify-between text-xs mb-2">
-                    <span className="text-slate-400">Your Available Ad Credits:</span>
-                    <strong className="text-emerald-400">₹{(wallet.available_balance || 0).toLocaleString("en-IN")}</strong>
+                    <span className="text-slate-600 dark:text-slate-400">Your Available Ad Credits:</span>
+                    <strong className="text-emerald-600 dark:text-emerald-400 font-bold">₹{(wallet.available_balance || 0).toLocaleString("en-IN")}</strong>
                   </div>
                   <div className="flex items-center justify-between text-xs mb-4">
-                    <span className="text-slate-400">Total Budget to Lock in Escrow:</span>
-                    <strong className="text-blue-400">₹{totalBudget.toLocaleString("en-IN")}</strong>
+                    <span className="text-slate-600 dark:text-slate-400">Total Budget to Lock in Escrow:</span>
+                    <strong className="text-blue-600 dark:text-blue-400 font-bold">₹{totalBudget.toLocaleString("en-IN")}</strong>
                   </div>
 
                   {wallet.available_balance >= totalBudget ? (
@@ -2187,7 +2215,7 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                       <button
                         onClick={() => handleSubmitCampaign(false)}
                         disabled={loading}
-                        className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-2xl shadow-xl shadow-emerald-600/20 text-sm flex items-center justify-center gap-2"
+                        className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-2xl shadow-xl shadow-emerald-600/20 text-sm flex items-center justify-center gap-2 cursor-pointer transition-all"
                       >
                         {loading ? (
                           <RefreshCw className="w-4 h-4 animate-spin" />
@@ -2201,15 +2229,15 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                       <button
                         onClick={() => handleSubmitCampaign(true)}
                         disabled={loading}
-                        className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-slate-300 hover:text-white font-semibold rounded-2xl text-xs flex items-center justify-center gap-2 transition-all"
+                        className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/80 text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white font-semibold rounded-2xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
                       >
-                        <Save className="w-3.5 h-3.5 text-slate-400" /> 💾 Save as Draft (Launch Later without spending now)
+                        <Save className="w-3.5 h-3.5 text-slate-500" /> 💾 Save as Draft (Launch Later without spending now)
                       </button>
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      <div className="p-3 rounded-xl bg-amber-950/40 border border-amber-800/40 text-amber-200 text-xs flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
+                      <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/40 text-amber-900 dark:text-amber-200 text-xs flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
                         <span>
                           Wallet balance kam hai (Shortfall: ₹{(totalBudget - wallet.available_balance).toLocaleString("en-IN")}). Aap ad ko abhi <strong>Draft save</strong> kar sakte hain aur budget baad me add karke activate kar sakte hain.
                         </span>
@@ -2219,7 +2247,7 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                       <button
                         onClick={() => handleSubmitCampaign(true)}
                         disabled={loading}
-                        className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-2 shadow-xl shadow-blue-600/20 transition-all"
+                        className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-2 shadow-xl shadow-blue-600/20 transition-all cursor-pointer"
                       >
                         {loading ? (
                           <RefreshCw className="w-4 h-4 animate-spin" />
@@ -2234,12 +2262,12 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                       <button
                         onClick={handleRechargeAndLaunch}
                         disabled={loading}
-                        className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 border border-amber-500/40 text-amber-300 hover:text-amber-200 font-bold rounded-2xl text-xs flex items-center justify-center gap-2 transition-all"
+                        className="w-full py-2.5 bg-amber-50 hover:bg-amber-100 dark:bg-slate-900 dark:hover:bg-slate-800 border border-amber-300 dark:border-amber-500/40 text-amber-900 dark:text-amber-300 font-bold rounded-2xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
                       >
                         ⚡ 1-Click Add ₹{Math.max(5000, totalBudget - wallet.available_balance).toLocaleString("en-IN")} Balance & Launch Immediately
                       </button>
 
-                      <p className="text-[11px] text-slate-400 text-center">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 text-center">
                         💡 Budget bad me kabhi bhi Campaigns list ya Wallet tab se add karke ad ko activate kiya ja sakta hai.
                       </p>
                     </div>
@@ -2249,7 +2277,7 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                 <div className="pt-2">
                   <button
                     onClick={() => setStep(3)}
-                    className="text-xs text-slate-400 hover:text-white font-semibold"
+                    className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-semibold"
                   >
                     ← Back to Step 3
                   </button>
@@ -2260,33 +2288,33 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
 
           {/* Right Column: Sticky Real-Time Mobile Frame Preview (35% width) */}
           <div className="lg:col-span-4 sticky top-6">
-            <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-4 shadow-2xl backdrop-blur-md">
-              <div className="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
-                <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <Eye className="w-3.5 h-3.5 text-blue-400" /> Real-Time Live Preview
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-xs backdrop-blur-md">
+              <div className="flex items-center justify-between mb-3 border-b border-slate-200 dark:border-slate-800 pb-2">
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Eye className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> Real-Time Live Preview
                 </span>
                 {/* Platform Toggle */}
-                <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-[11px]">
+                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800 text-[11px]">
                   <button
                     onClick={() => setPreviewPlatform("REEL")}
-                    className={`px-2 py-0.5 rounded-lg font-bold flex items-center gap-1 ${
-                      previewPlatform === "REEL" ? "bg-pink-600 text-white" : "text-slate-400"
+                    className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                      previewPlatform === "REEL" ? "bg-pink-600 text-white shadow-xs" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                     }`}
                   >
                     <span>📱</span> Reel
                   </button>
                   <button
                     onClick={() => setPreviewPlatform("FEED")}
-                    className={`px-2 py-0.5 rounded-lg font-bold flex items-center gap-1 ${
-                      previewPlatform === "FEED" ? "bg-blue-600 text-white" : "text-slate-400"
+                    className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                      previewPlatform === "FEED" ? "bg-blue-600 text-white shadow-xs" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                     }`}
                   >
                     <span>📰</span> Feed
                   </button>
                   <button
                     onClick={() => setPreviewPlatform("FORM")}
-                    className={`px-2 py-0.5 rounded-lg font-bold flex items-center gap-1 ${
-                      previewPlatform === "FORM" ? "bg-emerald-600 text-white" : "text-slate-400"
+                    className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                      previewPlatform === "FORM" ? "bg-emerald-600 text-white shadow-xs" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                     }`}
                   >
                     📋 Form
@@ -2467,15 +2495,15 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
           {/* Top KPI Summary Row */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {[
-              { label: "Active Ads", val: campaigns.filter((c) => c.status === "ACTIVE_RUNNING").length, color: "text-emerald-400" },
-              { label: "Total Escrow", val: `₹${campaigns.reduce((s, c) => s + (c.total_builder_budget || 0), 0).toLocaleString()}`, color: "text-blue-400" },
-              { label: "Total Spent", val: `₹${campaigns.reduce((s, c) => s + (c.metrics_builder_spent_inr || 0), 0).toLocaleString()}`, color: "text-purple-400" },
-              { label: "Total Impressions", val: campaigns.reduce((s, c) => s + (c.metrics_impressions || 0), 0).toLocaleString(), color: "text-amber-400" },
-              { label: "Link Clicks", val: campaigns.reduce((s, c) => s + (c.metrics_clicks || 0), 0).toLocaleString(), color: "text-cyan-400" },
-              { label: "Total Leads", val: campaigns.reduce((s, c) => s + (c.metrics_leads_count || 0), 0).toLocaleString(), color: "text-emerald-300 font-black" },
+              { label: "Active Ads", val: campaigns.filter((c) => c.status === "ACTIVE_RUNNING").length, color: "text-emerald-600 dark:text-emerald-400" },
+              { label: "Total Escrow", val: `₹${campaigns.reduce((s, c) => s + (c.total_builder_budget || 0), 0).toLocaleString()}`, color: "text-blue-600 dark:text-blue-400" },
+              { label: "Total Spent", val: `₹${campaigns.reduce((s, c) => s + (c.metrics_builder_spent_inr || 0), 0).toLocaleString()}`, color: "text-purple-600 dark:text-purple-400" },
+              { label: "Total Impressions", val: campaigns.reduce((s, c) => s + (c.metrics_impressions || 0), 0).toLocaleString(), color: "text-amber-600 dark:text-amber-400" },
+              { label: "Link Clicks", val: campaigns.reduce((s, c) => s + (c.metrics_clicks || 0), 0).toLocaleString(), color: "text-cyan-600 dark:text-cyan-400" },
+              { label: "Total Leads", val: campaigns.reduce((s, c) => s + (c.metrics_leads_count || 0), 0).toLocaleString(), color: "text-emerald-600 dark:text-emerald-300 font-black" },
             ].map((k, i) => (
-              <div key={i} className="p-4 bg-slate-900 border border-slate-800 rounded-2xl">
-                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">{k.label}</span>
+              <div key={i} className="p-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{k.label}</span>
                 <div className={`text-xl font-extrabold mt-1 ${k.color}`}>{k.val}</div>
               </div>
             ))}
@@ -2483,15 +2511,15 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
 
           {/* Campaigns Cards List */}
           {campaigns.length === 0 ? (
-            <div className="p-12 text-center bg-slate-900 border border-slate-800 rounded-3xl">
-              <TrendingUp className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-              <h3 className="text-base font-bold text-slate-300">No Ad Campaigns Yet</h3>
+            <div className="p-12 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xs">
+              <TrendingUp className="w-12 h-12 text-slate-400 dark:text-slate-600 mx-auto mb-3" />
+              <h3 className="text-base font-bold text-slate-700 dark:text-slate-300">No Ad Campaigns Yet</h3>
               <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
                 Promote your towers and flats on Meta Ads with our guided 4-step wizard.
               </p>
               <button
                 onClick={() => setActiveTab("create")}
-                className="mt-4 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold"
+                className="mt-4 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 cursor-pointer"
               >
                 + Launch First Ad Now
               </button>
@@ -2504,20 +2532,20 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                 const percentSpent = Math.min(100, Math.round((spent / total) * 100));
 
                 return (
-                  <div key={camp._id} className="p-5 bg-slate-900 border border-slate-800 rounded-3xl space-y-4">
+                  <div key={camp._id} className="p-5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-4 shadow-xs">
                     {/* Top Row: Title, Breadcrumb & Status */}
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-800/80 pb-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-200 dark:border-slate-800/80 pb-3">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-mono font-bold text-blue-400 bg-blue-950/60 px-2 py-0.5 rounded border border-blue-800/40">
+                          <span className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800/40">
                             {camp.campaign_code}
                           </span>
-                          <span className="text-sm font-bold text-slate-100">{camp.headline}</span>
+                          <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{camp.headline}</span>
                         </div>
-                        <div className="text-xs text-slate-400 mt-1 flex items-center gap-1.5">
+                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1.5">
                           <span>🏙️ {camp.hierarchy_breadcrumb}</span>
-                          <span className="text-slate-600">•</span>
-                          <span className="text-[11px] text-slate-500">
+                          <span className="text-slate-300 dark:text-slate-600">•</span>
+                          <span className="text-[11px] text-slate-400 dark:text-slate-500">
                             Created on {new Date(camp.createdAt).toLocaleDateString("en-IN")}
                           </span>
                         </div>
@@ -2526,37 +2554,37 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                       {/* Status Badge */}
                       <div>
                         {camp.status === "DRAFT" && (
-                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1.5 shadow-sm">
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/40 flex items-center gap-1.5 shadow-2xs">
                             📝 Draft (Budget Pending)
                           </span>
                         )}
                         {camp.status === "PENDING_ADMIN_APPROVAL" && (
-                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
                             ⏳ Pending Admin Approval
                           </span>
                         )}
                         {camp.status === "ACTIVE_RUNNING" && (
-                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> 🟢 LIVE on FB & IG
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span> 🟢 LIVE on FB & IG
                           </span>
                         )}
                         {camp.status === "PAUSED_BY_USER" && (
-                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-700 text-slate-300 border border-slate-600">
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-600">
                             ⏸️ Paused by You
                           </span>
                         )}
                         {camp.status === "PAUSED_BY_ADMIN" && (
-                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30">
                             ⏸️ Paused by Admin
                           </span>
                         )}
                         {camp.status === "REJECTED_BY_ADMIN" && (
-                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-rose-600/30 text-rose-300 border border-rose-500/40">
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-rose-600/20 text-rose-700 dark:text-rose-300 border border-rose-500/40">
                             ❌ Rejected & 100% Refunded
                           </span>
                         )}
                         {camp.status === "COMPLETED_BUDGET_FULL" && (
-                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30">
                             ✅ Completed (100% Budget)
                           </span>
                         )}
@@ -2565,9 +2593,9 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
 
                     {/* Rejection Alert Box */}
                     {camp.status === "REJECTED_BY_ADMIN" && (
-                      <div className="p-3 bg-rose-950/40 border border-rose-800/40 rounded-xl text-xs text-rose-200">
+                      <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/40 rounded-xl text-xs text-rose-900 dark:text-rose-200">
                         <strong>Admin Rejection Note:</strong> {camp.admin_rejection_reason || "Creative did not meet platform guidelines."}
-                        <p className="mt-1 text-slate-400">
+                        <p className="mt-1 text-slate-600 dark:text-slate-400">
                           Aapka ₹{camp.total_builder_budget?.toLocaleString("en-IN")} ad budget turant aapke available wallet balance mein refund kar diya gaya hai.
                         </p>
                       </div>
@@ -2575,33 +2603,33 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
 
                     {/* Live Metrics Grid */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
-                      <div className="p-3 bg-slate-950 rounded-xl border border-slate-800/60">
-                        <span className="text-[10px] text-slate-500 uppercase">Impressions</span>
-                        <div className="text-sm font-bold text-slate-200">{(camp.metrics_impressions || 0).toLocaleString()}</div>
+                      <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800/60 shadow-2xs">
+                        <span className="text-[10px] text-slate-500 uppercase font-semibold">Impressions</span>
+                        <div className="text-sm font-bold text-slate-900 dark:text-slate-200">{(camp.metrics_impressions || 0).toLocaleString()}</div>
                       </div>
-                      <div className="p-3 bg-slate-950 rounded-xl border border-slate-800/60">
-                        <span className="text-[10px] text-slate-500 uppercase">Link Clicks</span>
-                        <div className="text-sm font-bold text-cyan-400">{(camp.metrics_clicks || 0).toLocaleString()}</div>
+                      <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800/60 shadow-2xs">
+                        <span className="text-[10px] text-slate-500 uppercase font-semibold">Link Clicks</span>
+                        <div className="text-sm font-bold text-cyan-600 dark:text-cyan-400">{(camp.metrics_clicks || 0).toLocaleString()}</div>
                       </div>
-                      <div className="p-3 bg-slate-950 rounded-xl border border-slate-800/60">
-                        <span className="text-[10px] text-slate-500 uppercase">Buyer Leads</span>
-                        <div className="text-sm font-bold text-emerald-400">{(camp.metrics_leads_count || 0).toLocaleString()}</div>
+                      <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800/60 shadow-2xs">
+                        <span className="text-[10px] text-slate-500 uppercase font-semibold">Buyer Leads</span>
+                        <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{(camp.metrics_leads_count || 0).toLocaleString()}</div>
                       </div>
-                      <div className="p-3 bg-slate-950 rounded-xl border border-slate-800/60">
-                        <span className="text-[10px] text-slate-500 uppercase">Cost Per Lead (CPL)</span>
-                        <div className="text-sm font-bold text-amber-300">
+                      <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800/60 shadow-2xs">
+                        <span className="text-[10px] text-slate-500 uppercase font-semibold">Cost Per Lead (CPL)</span>
+                        <div className="text-sm font-bold text-amber-600 dark:text-amber-300">
                           ₹{camp.metrics_leads_count > 0 ? Math.round(spent / camp.metrics_leads_count) : "—"}
                         </div>
                       </div>
-                      <div className="col-span-2 sm:col-span-4 lg:col-span-1 p-3 bg-slate-950 rounded-xl border border-slate-800/60">
-                        <div className="flex justify-between text-[10px] text-slate-400 mb-1">
+                      <div className="col-span-2 sm:col-span-4 lg:col-span-1 p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800/60 shadow-2xs">
+                        <div className="flex justify-between text-[10px] text-slate-500 dark:text-slate-400 mb-1">
                           <span>Budget Spent</span>
-                          <span>{percentSpent}%</span>
+                          <span className="font-semibold">{percentSpent}%</span>
                         </div>
-                        <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                        <div className="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
                           <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${percentSpent}%` }}></div>
                         </div>
-                        <div className="text-[11px] font-bold text-slate-200 mt-1">
+                        <div className="text-[11px] font-bold text-slate-900 dark:text-slate-200 mt-1">
                           ₹{spent.toLocaleString()} / ₹{camp.total_builder_budget.toLocaleString()}
                         </div>
                       </div>
@@ -2610,14 +2638,14 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                     {/* Self-Service Controls */}
                     <div className="flex items-center justify-between pt-2">
                       <div className="text-xs text-slate-500">
-                        Meta Ad ID: <span className="font-mono text-slate-400">{camp.meta_ad_id || "sim_pending"}</span>
+                        Meta Ad ID: <span className="font-mono text-slate-600 dark:text-slate-400">{camp.meta_ad_id || "sim_pending"}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         {camp.status === "DRAFT" && (
                           <button
                             onClick={() => handleActivateDraft(camp)}
                             disabled={loading}
-                            className="px-3.5 py-1.5 text-xs font-bold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl shadow-lg shadow-emerald-600/20 flex items-center gap-1.5 transition-all"
+                            className="px-3.5 py-1.5 text-xs font-bold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl shadow-lg shadow-emerald-600/20 flex items-center gap-1.5 transition-all cursor-pointer"
                           >
                             <Sparkles className="w-3.5 h-3.5" /> ⚡ Add Budget & Activate
                           </button>
@@ -2625,7 +2653,7 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                         {camp.status === "ACTIVE_RUNNING" && (
                           <button
                             onClick={() => handleToggleCampaign(camp._id, camp.status)}
-                            className="px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl flex items-center gap-1.5"
+                            className="px-3 py-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-transparent rounded-xl flex items-center gap-1.5 cursor-pointer"
                           >
                             <Pause className="w-3.5 h-3.5" /> Pause Ad
                           </button>
@@ -2633,7 +2661,7 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                         {camp.status === "PAUSED_BY_USER" && (
                           <button
                             onClick={() => handleToggleCampaign(camp._id, camp.status)}
-                            className="px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl flex items-center gap-1.5"
+                            className="px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl flex items-center gap-1.5 cursor-pointer"
                           >
                             <Play className="w-3.5 h-3.5" /> Resume Ad
                           </button>
@@ -2644,7 +2672,7 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                               setActiveTopupCampaignId(camp._id);
                               setShowTopupModal(true);
                             }}
-                            className="px-3 py-1.5 text-xs font-semibold bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-xl"
+                            className="px-3 py-1.5 text-xs font-semibold bg-blue-50 dark:bg-blue-600/20 hover:bg-blue-100 dark:hover:bg-blue-600/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-500/30 rounded-xl cursor-pointer"
                           >
                             💰 Top-up Budget
                           </button>
@@ -2654,7 +2682,7 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
                             setActiveTab("crm");
                             setCrmSearch(camp.campaign_code);
                           }}
-                          className="px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl"
+                          className="px-3 py-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-transparent rounded-xl cursor-pointer"
                         >
                           View Leads →
                         </button>
