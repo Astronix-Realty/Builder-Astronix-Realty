@@ -38,9 +38,8 @@ function RegisterContent() {
         <div className="bg-white/10 backdrop-blur-xl rounded-3xl border border-white/20 shadow-2xl p-8">
           {/* ── LOGO ── */}
           <div className="text-center mb-6">
-            <div className="w-24 h-24 flex items-center justify-center mx-auto mb-6 rounded-full bg-[#050b18] border-4 border-blue-600/20 shadow-[0_0_50px_rgba(37,99,235,0.2)] relative group transition-all duration-500 hover:scale-105 overflow-hidden">
-              <div className="absolute inset-0 rounded-full bg-blue-500/5 animate-pulse group-hover:bg-blue-500/10 transition-colors" />
-              <img src="/astronix-logo.png" alt="Astronix Realty Logo" className="w-full h-full object-cover rounded-full relative z-10" />
+            <div className="w-24 h-24 flex items-center justify-center mx-auto mb-6 rounded-3xl bg-white border-4 border-blue-600/20 shadow-[0_0_50px_rgba(37,99,235,0.2)] relative group transition-all duration-500 hover:scale-105 overflow-hidden p-3">
+              <img src="/astronix-logo.png" alt="Astronix Realty Logo" className="w-full h-full object-contain relative z-10" />
             </div>
             <h1 className="text-2xl font-bold text-white">
               {userType === "builder" ? "Builder Registration" : "Mandate Registration"}

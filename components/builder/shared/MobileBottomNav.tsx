@@ -32,6 +32,7 @@ export type BuilderTab =
   | "settings"
   | "team"
   | "feedback"
+  | "ads-studio"
 
 interface MobileBottomNavProps {
   activeTab: BuilderTab

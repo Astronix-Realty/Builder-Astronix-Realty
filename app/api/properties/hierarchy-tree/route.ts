@@ -60,12 +60,87 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Also fetch units if any towers exist
+    // Prepare units lookup
+    const unitsByTower = new Map<string, any[]>();
+
+    // Also check embedded projects and towers from property details
+    for (const p of propertyMap.values()) {
+      const rootId = (p as any)._id.toString();
+      const details = p.details || {};
+      const embeddedProjects: any[] = Array.isArray(details.projects) ? details.projects : [];
+      const embeddedTowers: any[] = Array.isArray(details.towers) ? details.towers : [];
+      const embeddedUnits: any[] = Array.isArray(details.generatedUnits) ? details.generatedUnits : [];
+
+      const existingChildren = childrenByParent.get(rootId) || [];
+      if (existingChildren.length === 0 && embeddedProjects.length > 0) {
+        // Map embedded projects
+        const projChildren: any[] = [];
+        for (const [pIdx, proj] of embeddedProjects.entries()) {
+          const projId = (proj.id || proj._id || `${rootId}-proj-${pIdx}`).toString();
+          const projName = proj.name || `Phase ${pIdx + 1}`;
+          const projObj = {
+            _id: projId,
+            name: projName,
+            type: "project",
+            parentId: rootId,
+            details: proj,
+          };
+          projChildren.push(projObj);
+
+          // Find towers belonging to this project
+          const projTowers = embeddedTowers.filter((t: any) => {
+            const pId = (t.projectId || t.parentProjectId || "").toString();
+            return pId === projId || pId === projName;
+          });
+
+          const towerChildren: any[] = (projTowers.length > 0 ? projTowers : (Array.isArray(proj.towers) ? proj.towers : []))
+            .map((t: any, tIdx: number) => ({
+              _id: (t.id || t._id || `${projId}-t-${tIdx}`).toString(),
+              name: t.name || `Tower ${tIdx + 1}`,
+              type: "tower",
+              parentId: projId,
+              details: t,
+            }));
+
+          if (towerChildren.length > 0) {
+            childrenByParent.set(projId, towerChildren);
+          }
+        }
+        childrenByParent.set(rootId, projChildren);
+      } else if (existingChildren.length === 0 && embeddedTowers.length > 0) {
+        // Direct towers under property
+        const towerChildren = embeddedTowers.map((t: any, tIdx: number) => ({
+          _id: (t.id || t._id || `${rootId}-t-${tIdx}`).toString(),
+          name: t.name || `Tower ${tIdx + 1}`,
+          type: "tower",
+          parentId: rootId,
+          details: t,
+        }));
+        childrenByParent.set(rootId, towerChildren);
+      }
+
+      // Group embedded units by towerId
+      if (embeddedUnits.length > 0) {
+        for (const [uIdx, u] of embeddedUnits.entries()) {
+          const tId = (u.towerId || u.parentId || "default").toString();
+          const list = unitsByTower.get(tId) || [];
+          list.push({
+            _id: (u.id || u._id || `${rootId}-u-${uIdx}`).toString(),
+            unitNumber: u.unitNumber || `U-${uIdx + 1}`,
+            configuration: u.configuration || "Standard",
+            floorNumber: u.floorNumber || u.floor || 1,
+            towerId: tId,
+          });
+          unitsByTower.set(tId, list);
+        }
+      }
+    }
+
+    // Also fetch units from DB collection if any tower documents exist
     const towerIds = Array.from(propertyMap.values())
       .filter((p: any) => p.type === "tower")
       .map((p: any) => p._id);
 
-    let unitsByTower = new Map<string, any[]>();
     if (towerIds.length > 0) {
       const rawUnits = await Unit.find({
         ...ownership,

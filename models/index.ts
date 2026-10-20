@@ -19,3 +19,8 @@ export { default as SyncQueue } from './SyncQueue';
 export { default as Tower } from './Tower';
 export { default as Unit } from './Unit';
 export { default as User } from './User';
+export { default as AdWallet } from './AdWallet';
+export { default as AdWalletTransaction } from './AdWalletTransaction';
+export { default as AdAudiencePreset } from './AdAudiencePreset';
+export { default as AdCampaign } from './AdCampaign';
+export { default as AdLeadCrm } from './AdLeadCrm';

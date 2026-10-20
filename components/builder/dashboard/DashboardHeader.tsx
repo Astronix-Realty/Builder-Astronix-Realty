@@ -144,11 +144,11 @@ export function DashboardHeader({
       {/* MOBILE & TABLET APP BAR (<lg) */}
       <div className="lg:hidden flex items-center justify-between pb-1">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-full bg-[#050b18] border border-slate-700/50 flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+          <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 dark:border-slate-700/50 flex items-center justify-center overflow-hidden shrink-0 shadow-sm p-1">
             <img
               src="/astronix-logo.png"
               alt="Astronix"
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
             />
           </div>
           <div className="min-w-0">

@@ -71,8 +71,8 @@ export default function LoginPage() {
           <div className="relative z-10 p-8 lg:p-10 flex flex-col h-full">
             <div>
               <div className="inline-flex items-center gap-3 mb-10">
-                <div className="w-10 h-10 rounded-full bg-[#050b18] border border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.3)] flex items-center justify-center overflow-hidden">
-                  <img src="/astronix-logo.png" alt="Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ Logo" className="w-full h-full object-cover" />
+                <div className="w-10 h-10 rounded-xl bg-white border border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.3)] flex items-center justify-center overflow-hidden p-1">
+                  <img src="/astronix-logo.png" alt="Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ Logo" className="w-full h-full object-contain" />
                 </div>
                 <div>
                   <h2 className="text-white text-xl font-bold leading-tight">Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ</h2>
@@ -129,8 +129,8 @@ export default function LoginPage() {
         <div className="w-full flex-1 md:w-7/12 lg:w-1/2 px-6 py-10 sm:px-10 lg:px-12 flex flex-col relative z-20 bg-slate-900/50 md:bg-transparent">
           
           <div className="md:hidden flex flex-col items-center mb-8">
-            <div className="w-16 h-16 flex items-center justify-center rounded-full bg-[#050b18] border-2 border-blue-600/30 shadow-[0_0_30px_rgba(37,99,235,0.2)] mb-4">
-              <img src="/astronix-logo.png" alt="Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ Logo" className="w-full h-full object-cover rounded-full" />
+            <div className="w-16 h-16 flex items-center justify-center rounded-2xl bg-white border-2 border-blue-600/30 shadow-[0_0_30px_rgba(37,99,235,0.2)] mb-4 p-2">
+              <img src="/astronix-logo.png" alt="Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ Logo" className="w-full h-full object-contain" />
             </div>
             <h1 className="text-2xl font-bold text-white">Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ</h1>
             <p className="text-blue-400 text-xs mt-1 uppercase tracking-wider font-bold">{content.subtitle}</p>

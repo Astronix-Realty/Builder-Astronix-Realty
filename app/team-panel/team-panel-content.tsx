@@ -417,11 +417,11 @@ export default function TeamPanelContent() {
         {/* Header */}
         <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 flex-shrink-0 flex items-center justify-center relative rounded-full bg-[#050b18] border border-slate-700/50 shadow-xl overflow-hidden group transition-all duration-300 hover:border-emerald-500/40">
+            <div className="w-12 h-12 flex-shrink-0 flex items-center justify-center relative rounded-2xl bg-white border border-slate-200 dark:border-slate-700/50 shadow-md overflow-hidden group transition-all duration-300 p-1">
               <img
                 src="/astronix-logo.png"
                 alt="Astronix Logo"
-                className="w-full h-full object-cover rounded-full transition-transform duration-500 group-hover:scale-110"
+                className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-110"
               />
             </div>
             <div>
@@ -502,7 +502,9 @@ export default function TeamPanelContent() {
             <Menu className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-2">
-            <img src="/astronix-logo.png" alt="Logo" className="w-7 h-7 rounded-full object-cover" />
+            <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 dark:border-slate-700/50 overflow-hidden flex items-center justify-center p-0.5 shadow-sm">
+              <img src="/astronix-logo.png" alt="Logo" className="w-full h-full object-contain" />
+            </div>
             <span className="font-bold text-slate-900 dark:text-white text-sm">Team Panel</span>
           </div>
         </div>

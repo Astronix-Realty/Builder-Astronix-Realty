@@ -5,6 +5,7 @@ import Unit from "@/models/Unit";
 import { checkRBAC, getOwnershipQuery } from "@/lib/rbac";
 import { secureDeleteProperty } from "@/services/property-service";
 import { invalidateInternalPropertiesCache } from "@/app/api/internal/v2/properties/route";
+import { pauseActiveAdsForHierarchyNode } from "@/services/metaAdsEngine.service";
 
 export const dynamic = "force-dynamic";
 
@@ -418,6 +419,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
     }
 
+    if (updateData.status && ['draft', 'archived', 'withdrawn', 'sold_out'].includes(updateData.status)) {
+      pauseActiveAdsForHierarchyNode(property._id.toString(), 'property').catch((err) =>
+        console.error('[PATCH status hook] Error auto-pausing Meta ads:', err)
+      );
+    }
+
     if (updateData.status === 'draft' && process.env.ADMIN_PANEL_URL && process.env.INTERNAL_API_SECRET) {
       try {
         await fetch(`${process.env.ADMIN_PANEL_URL}/api/internal/properties`, {
@@ -492,6 +499,11 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     // Invalidate internal S2S cache so Admin panel instantly sees the removal
     invalidateInternalPropertiesCache();
+
+    // Auto-Pause Watcher Hook: pause active Meta Ads for this property and refund unspent budget
+    pauseActiveAdsForHierarchyNode(id, 'property').catch((err) =>
+      console.error('[DELETE property] Auto-pause Meta ads error:', err)
+    );
 
     // Invalidate Visitor panel discovery cache via S2S API so deleted properties disappear immediately
     const visitorPanelUrl = process.env.VISITOR_PANEL_URL || 'http://localhost:3002';

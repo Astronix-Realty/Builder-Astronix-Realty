@@ -16,6 +16,7 @@ import {
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
+  Sparkles,
 } from "lucide-react"
 import { DashboardTab, DashboardProfile } from "./dashboard-types"
 
@@ -73,6 +74,13 @@ export function DashboardSidebar({
     {
       group: "PIPELINE & SALES",
       items: [
+        {
+          id: "ads-studio" as DashboardTab,
+          label: "🚀 Meta Ads & Boost Studio",
+          icon: Sparkles,
+          badge: "NEW",
+          color: "text-amber-500 dark:text-amber-400 font-bold",
+        },
         {
           id: "crm" as DashboardTab,
           label: "Astronix Leads",
@@ -166,12 +174,12 @@ export function DashboardSidebar({
               onClick={onToggleCollapse}
               title="Expand Sidebar (Ctrl+B)"
               aria-label="Expand Sidebar"
-              className="w-10 h-10 flex items-center justify-center rounded-xl bg-[#050b18] border border-slate-700/60 shadow-md overflow-hidden group cursor-pointer hover:scale-105 active:scale-95 transition-transform relative"
+              className="w-10 h-10 flex items-center justify-center shrink-0 group cursor-pointer hover:scale-105 active:scale-95 transition-transform relative"
             >
               <img
                 src="/astronix-logo.png"
                 alt="Astronix Realty Logo"
-                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-110"
               />
               <div className="absolute inset-0 bg-blue-600/70 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl">
                 <PanelLeftOpen className="w-4 h-4" />
@@ -261,11 +269,11 @@ export function DashboardSidebar({
           {/* Software Title Bar / Window Header */}
           <div className="px-5 py-4 border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 shrink-0 flex items-center justify-center rounded-xl bg-[#050b18] border border-slate-700/60 shadow-md overflow-hidden group">
+              <div className="w-10 h-10 shrink-0 flex items-center justify-center">
                 <img
                   src="/astronix-logo.png"
                   alt="Astronix Realty Logo"
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
                 />
               </div>
               <div className="min-w-0">

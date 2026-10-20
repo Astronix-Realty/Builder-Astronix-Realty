@@ -2,6 +2,7 @@ import { HierarchyPropertyInfo } from "@/components/PropertyHierarchyModal"
 
 export interface Property {
   id: string
+  slug?: string
   townshipName: string
   name?: string
   projects: number
@@ -25,6 +26,13 @@ export interface Property {
     endDate?: string
   }
   downPaymentPercent?: number
+  details?: any
+  rawProjects?: any[]
+  rawTowers?: any[]
+  rawUnits?: any[]
+  phases?: any[]
+  builderId?: any
+  developer?: { name?: string; logo?: string }
 }
 
 export interface DashboardProfile {
@@ -68,6 +76,7 @@ export type DashboardTab =
   | "settings"
   | "team"
   | "feedback"
+  | "ads-studio"
 
 export type PropertyFilter = "published" | "pending" | "draft" | "rejected"
 

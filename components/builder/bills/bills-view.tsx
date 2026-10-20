@@ -748,7 +748,7 @@ export function BillsView() {
                 {/* Header / Letterhead */}
                 <div className="border-b-4 border-indigo-700 pb-5 mb-6 flex justify-between items-center">
                   <div className="flex items-center gap-3">
-                    <div className="h-14 w-14 rounded-md overflow-hidden shadow-sm border border-slate-200 bg-black flex items-center justify-center p-1">
+                    <div className="h-14 w-14 rounded-md overflow-hidden shadow-sm border border-slate-200 bg-white flex items-center justify-center p-1">
                       <img
                         src="/astronix-logo.png"
                         alt="Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ"

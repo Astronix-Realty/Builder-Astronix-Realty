@@ -13,6 +13,7 @@ import { BlogView } from "@/components/builder/blog/blog-view"
 import { OffersView } from "@/components/builder/offers/offers-view"
 import { BillsView } from "@/components/builder/bills/bills-view"
 import { FeedbackView } from "@/components/builder/feedback/feedback-view"
+import { AdsStudioView } from "@/components/builder/ads-studio/AdsStudioView"
 import PropertyHierarchyModal, { HierarchyPropertyInfo } from "@/components/PropertyHierarchyModal"
 import { MobileBottomNav } from "@/components/builder/shared/MobileBottomNav"
 import {
@@ -48,6 +49,7 @@ function DashboardContent() {
         "team",
         "settings",
         "feedback",
+        "ads-studio",
       ]
       if (tabParam && validTabs.includes(tabParam)) return tabParam as DashboardTab
       try {
@@ -297,6 +299,7 @@ function DashboardContent() {
           "settings",
           "feedback",
           "bills",
+          "ads-studio",
         ].includes(tabParam)
       ) {
         setActiveTab(tabParam as any)
@@ -513,6 +516,7 @@ function DashboardContent() {
 
     return {
       id: p._id || p.id,
+      slug: p.slug || details?.slug || details?.township?.slug || p._id,
       townshipName: name,
       projects: projectsCount,
       towers: towersCount,
@@ -536,6 +540,47 @@ function DashboardContent() {
           : typeof details?.township?.downPaymentPercent === "number"
           ? details.township.downPaymentPercent
           : 20,
+      details,
+      rawProjects: snapshotProjects,
+      rawTowers: directTowers,
+      rawUnits: snapshotUnits,
+      builderId: p.builderId,
+      developer: {
+        name: (
+          details.builderName ||
+          details.township?.builderName ||
+          details.project?.builderName ||
+          details.townshipData?.builderName ||
+          details.developerName ||
+          details.township?.developerName ||
+          details.project?.developerName ||
+          details.brandName ||
+          details.township?.brandName ||
+          details.companyName ||
+          details.township?.companyName ||
+          details.promoterName ||
+          p.builderName ||
+          p.developerName ||
+          (typeof p.builderId === "object" ? p.builderId?.profile?.companyName || p.builderId?.profile?.developerName || p.builderId?.name : "") ||
+          name
+        ).trim(),
+        logo:
+          details.builderLogo ||
+          details.township?.builderLogo ||
+          details.project?.builderLogo ||
+          details.townshipData?.builderLogo ||
+          details.developerLogo ||
+          details.township?.developerLogo ||
+          details.project?.developerLogo ||
+          details.brandLogo ||
+          details.township?.brandLogo ||
+          details.companyLogo ||
+          details.township?.companyLogo ||
+          p.builderLogo ||
+          p.developerLogo ||
+          (typeof p.builderId === "object" ? p.builderId?.profile?.logo || p.builderId?.profile?.developerLogo : "") ||
+          "",
+      },
     }
   }
 
@@ -564,7 +609,7 @@ function DashboardContent() {
 
   useEffect(() => {
     const userId = currentUser?._id || currentUser?.id
-    if (userId && activeTab === "properties") {
+    if (userId && (activeTab === "properties" || activeTab === "ads-studio")) {
       fetchProperties()
     }
   }, [currentUser?._id, currentUser?.id, activeTab])
@@ -928,6 +973,7 @@ function DashboardContent() {
             <OffersView userRole={currentUser?.role || "builder"} />
           )}
           {activeTab === "feedback" && <FeedbackView />}
+          {activeTab === "ads-studio" && <AdsStudioView currentUser={currentUser} initialProperties={properties} />}
           {activeTab === "properties" && (
             <PropertiesView
               role="builder"
