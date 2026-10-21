@@ -17,6 +17,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Sparkles,
+  Megaphone,
 } from "lucide-react"
 import { DashboardTab, DashboardProfile } from "./dashboard-types"
 
@@ -76,10 +77,10 @@ export function DashboardSidebar({
       items: [
         {
           id: "ads-studio" as DashboardTab,
-          label: "🚀 Meta Ads & Boost Studio",
-          icon: Sparkles,
+          label: "Meta Ads & Boost Studio",
+          icon: Megaphone,
           badge: "NEW",
-          color: "text-amber-500 dark:text-amber-400 font-bold",
+          color: "text-blue-600 dark:text-blue-400 font-bold",
         },
         {
           id: "crm" as DashboardTab,

@@ -16,7 +16,8 @@ import {
   ChevronRight,
   User,
   ShieldCheck,
-  Sparkles
+  Sparkles,
+  Megaphone
 } from "lucide-react"
 
 export type BuilderTab =
@@ -87,6 +88,7 @@ export function MobileBottomNav({
     "bills",
     "team",
     "settings",
+    "ads-studio",
   ].includes(activeTab)
 
   const secondaryNavItems = [
@@ -138,6 +140,13 @@ export function MobileBottomNav({
       description: "Assign site managers",
       icon: ShieldCheck,
       color: "bg-cyan-50 text-cyan-600 dark:bg-cyan-950/50 dark:text-cyan-400",
+    },
+    {
+      id: "ads-studio" as BuilderTab,
+      label: "Meta Ads Studio",
+      description: "Promote towers & units on Meta",
+      icon: Megaphone,
+      color: "bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400",
     },
     {
       id: "settings" as BuilderTab,

@@ -70,6 +70,8 @@ export function DashboardHeader({
         return "Support"
       case "settings":
         return "Settings"
+      case "ads-studio":
+        return "Meta Ads & Boost"
       default:
         return ""
     }
@@ -99,6 +101,8 @@ export function DashboardHeader({
         return "Feedback & Support"
       case "settings":
         return "Profile & Settings"
+      case "ads-studio":
+        return "Meta Ads & Boost Studio"
       default:
         return ""
     }
@@ -123,6 +127,8 @@ export function DashboardHeader({
         return "Create and track special deals"
       case "team":
         return "Manage your team members and roles"
+      case "ads-studio":
+        return "Launch hyper-targeted Meta ad campaigns and manage escrow ad credits"
       case "feedback":
         return "Send feedback, report glitches, and get help"
       case "settings":

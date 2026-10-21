@@ -137,7 +137,9 @@ export async function middleware(req: NextRequest) {
     }
 
     // Passes all checks!
-    return NextResponse.next();
+    const response = NextResponse.next();
+    response.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
+    return response;
   }
 
   // Prevent authenticated users from visiting the login page
@@ -154,7 +156,9 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+  response.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
+  return response;
 }
 
 export const config = {
