@@ -31,6 +31,7 @@ export async function GET(req: NextRequest) {
 
     const userData = user.toObject()
     delete (userData as any).passwordHash
+    userData.metaAdsEnabled = user.metaAdsEnabled === true || (user.profile as any)?.metaAdsEnabled === true;
 
     // Fetch role-specific profile data if linked
     if (user.role === 'builder' && user.builderId) {

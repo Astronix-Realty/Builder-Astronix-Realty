@@ -35,10 +35,13 @@ export function ProjectsForm({ township, projects, onChange, onCloneProject, act
         const projectToDelete = safeProjects[idx];
         if (!confirm(`Are you sure you want to delete "${projectToDelete?.name || `Project ${idx + 1}`}"? This will also remove all related towers and units.`)) return;
         
-        try {
-            await fetch(`/api/projects/${projectToDelete.id}`, { method: 'DELETE' });
-        } catch (error) {
-            console.error("API delete failed (might be a draft):", error);
+        const targetId = (projectToDelete as any)?._dbId || projectToDelete?.id;
+        if (targetId && /^[a-f\d]{24}$/i.test(targetId)) {
+            try {
+                await fetch(`/api/properties/${targetId}`, { method: 'DELETE' });
+            } catch (error) {
+                console.error("API delete failed (might be an unsaved draft):", error);
+            }
         }
 
         const next = safeProjects.filter((_, i) => i !== idx)

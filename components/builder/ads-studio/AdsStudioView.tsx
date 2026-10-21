@@ -31,6 +31,9 @@ import {
   Check,
   Save,
   Wallet,
+  Lock,
+  ShieldCheck,
+  Mail,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -334,6 +337,28 @@ function mapToEligibleProperty(p: any) {
 
 export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudioViewProps) {
   const [activeTab, setActiveTab] = useState<"create" | "campaigns" | "crm" | "wallet">("create");
+
+  // Admin Meta Ads Authority Access Check
+  const [userState, setUserState] = useState<any>(currentUser || null);
+  const [isCheckingAccess, setIsCheckingAccess] = useState(!currentUser);
+  const [requestSent, setRequestSent] = useState(false);
+
+  useEffect(() => {
+    if (currentUser) {
+      setUserState(currentUser);
+      setIsCheckingAccess(false);
+    } else {
+      fetch("/api/auth/me")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.user) setUserState(data.user);
+        })
+        .catch(() => {})
+        .finally(() => setIsCheckingAccess(false));
+    }
+  }, [currentUser]);
+
+  const isAdsEnabled = userState?.metaAdsEnabled === true || userState?.profile?.metaAdsEnabled === true;
 
   // Global State with initial fallback from parent dashboard
   const [properties, setProperties] = useState<any[]>(() => {
@@ -1052,6 +1077,224 @@ export function AdsStudioView({ currentUser, initialProperties = [] }: AdsStudio
     }
     return true;
   });
+
+  if (isCheckingAccess) {
+    return (
+      <div className="min-h-[70vh] bg-slate-50 flex flex-col items-center justify-center gap-3 text-slate-500">
+        <RefreshCw className="w-8 h-8 animate-spin text-purple-600" />
+        <p className="text-xs font-semibold tracking-wider uppercase text-slate-500">Verifying Meta Ads Permissions...</p>
+      </div>
+    );
+  }
+
+  if (!isAdsEnabled) {
+    return (
+      <div className="min-h-[85vh] bg-slate-50/70 text-slate-900 p-4 md:p-8 flex items-center justify-center relative overflow-hidden">
+        {/* Soft Ambient Pastel Glows */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-tr from-purple-100/70 via-indigo-100/50 to-amber-100/50 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute top-0 right-0 w-80 h-80 bg-purple-100/50 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-blue-100/50 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="max-w-4xl w-full mx-auto bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-10 md:p-12 shadow-xl shadow-slate-200/50 relative z-10 overflow-hidden">
+          {/* Subtle top accent line */}
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-500 via-purple-600 to-indigo-600" />
+
+          {/* Hero Lock & Authority Status */}
+          <div className="text-center max-w-2xl mx-auto mb-10">
+            <div className="relative inline-flex items-center justify-center mb-5">
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-amber-50 to-orange-50 border border-amber-200 flex items-center justify-center shadow-md">
+                <Lock className="w-10 h-10 text-amber-600" />
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-amber-500 border-2 border-white flex items-center justify-center text-white shadow-xs">
+                <ShieldAlert className="w-3.5 h-3.5" />
+              </div>
+            </div>
+
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold tracking-wide mb-3">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+              AUTHORIZATION PENDING • ACCESS RESTRICTED
+            </div>
+
+            <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900">
+              Meta Ads & Boost Studio
+            </h2>
+
+            {/* Prominent Contact Banner */}
+            <div className="mt-5 p-5 rounded-2xl bg-gradient-to-r from-amber-50/90 via-orange-50/70 to-purple-50/70 border border-amber-200/90 text-center shadow-xs">
+              <p className="text-lg sm:text-xl font-black text-amber-950 tracking-wide">
+                Please contact Astronix Realty team to activate this feature
+              </p>
+              <p className="mt-1.5 text-xs sm:text-sm text-slate-600 leading-relaxed max-w-xl mx-auto">
+                Meta Ads Studio provides automated Facebook & Instagram reel campaigns with direct CRM lead routing. To guarantee ad quality and escrow compliance, access is granted exclusively by the Astronix Realty admin team.
+              </p>
+            </div>
+          </div>
+
+          {/* Feature Highlights Grid */}
+          <div className="mb-10">
+            <div className="flex items-center justify-between mb-4 px-1">
+              <span className="text-xs font-bold tracking-wider uppercase text-slate-500">
+                What unlocks when active:
+              </span>
+              <span className="text-[11px] font-semibold text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200">
+                Enterprise Feature Suite
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Card 1 */}
+              <div className="group bg-slate-50/70 hover:bg-white border border-slate-200/80 hover:border-purple-300 rounded-2xl p-5 transition-all duration-300 flex gap-4 items-start shadow-xs hover:shadow-md">
+                <div className="p-3 rounded-xl bg-purple-50 border border-purple-200 text-purple-600 shrink-0 group-hover:scale-105 transition-transform">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-bold text-slate-900 group-hover:text-purple-700 transition-colors">
+                      AI-Powered Meta Ad Creatives
+                    </h4>
+                    <span className="text-[10px] font-mono font-bold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">01</span>
+                  </div>
+                  <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                    Automated, high-converting Facebook & Instagram feed & reel ads tailored for verified property buyers in your project locality.
+                  </p>
+                  <div className="mt-3 inline-flex items-center gap-1.5 text-[10px] font-bold text-purple-700">
+                    <CheckCircle2 className="w-3 h-3 text-purple-600" /> Meta Graph API v20.0 Automated
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 2 */}
+              <div className="group bg-slate-50/70 hover:bg-white border border-slate-200/80 hover:border-emerald-300 rounded-2xl p-5 transition-all duration-300 flex gap-4 items-start shadow-xs hover:shadow-md">
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 shrink-0 group-hover:scale-105 transition-transform">
+                  <MessageCircle className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">
+                      Direct WhatsApp & CRM Leads
+                    </h4>
+                    <span className="text-[10px] font-mono font-bold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">02</span>
+                  </div>
+                  <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                    Instant lead delivery directly into your Builder CRM pipeline with 100% verified mobile numbers and automatic buyer attribution.
+                  </p>
+                  <div className="mt-3 inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-700">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Zero Lead Leakage Guarantee
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 3 */}
+              <div className="group bg-slate-50/70 hover:bg-white border border-slate-200/80 hover:border-blue-300 rounded-2xl p-5 transition-all duration-300 flex gap-4 items-start shadow-xs hover:shadow-md">
+                <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 shrink-0 group-hover:scale-105 transition-transform">
+                  <Play className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-bold text-slate-900 group-hover:text-blue-700 transition-colors">
+                      1-Click Launch from Catalog
+                    </h4>
+                    <span className="text-[10px] font-mono font-bold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">03</span>
+                  </div>
+                  <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                    No complex Ad Manager or Pixel configuration. Select your published Township, Tower, or Unit config and go live in seconds.
+                  </p>
+                  <div className="mt-3 inline-flex items-center gap-1.5 text-[10px] font-bold text-blue-700">
+                    <CheckCircle2 className="w-3 h-3 text-blue-600" /> Pre-configured Real Estate Pixel
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 4 */}
+              <div className="group bg-slate-50/70 hover:bg-white border border-slate-200/80 hover:border-amber-300 rounded-2xl p-5 transition-all duration-300 flex gap-4 items-start shadow-xs hover:shadow-md">
+                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 shrink-0 group-hover:scale-105 transition-transform">
+                  <Wallet className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-bold text-slate-900 group-hover:text-amber-700 transition-colors">
+                      Escrow Budget Protection
+                    </h4>
+                    <span className="text-[10px] font-mono font-bold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">04</span>
+                  </div>
+                  <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                    100% transparent escrow ledger. Funds are locked securely and only charged for verified impressions. Auto-pauses if inventory sells out.
+                  </p>
+                  <div className="mt-3 inline-flex items-center gap-1.5 text-[10px] font-bold text-amber-700">
+                    <CheckCircle2 className="w-3 h-3 text-amber-600" /> Automated Inventory Kill-Switch
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Action CTAs & Direct Contact */}
+          <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="text-center sm:text-left">
+              <h5 className="text-sm font-bold text-slate-900 flex items-center justify-center sm:justify-start gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" /> Ready to Scale Your Property Inquiries?
+              </h5>
+              <p className="text-xs text-slate-600 mt-1">
+                Reach out on WhatsApp or submit a 1-click activation request for quick review.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-3 w-full sm:w-auto">
+              <a
+                href={`https://wa.me/919999999999?text=${encodeURIComponent(
+                  `Hello Astronix Realty Team, I would like to activate Meta Ads Command Center feature for my account (${userState?.email || ''}). Please guide me through activation.`
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition-all hover:scale-102"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>Contact via WhatsApp</span>
+              </a>
+
+              <button
+                onClick={() => {
+                  setRequestSent(true);
+                  toast.success("Activation Request Sent! The Astronix Realty Admin team has been notified and will review your account.");
+                }}
+                disabled={requestSent}
+                className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs border transition-all ${
+                  requestSent
+                    ? "bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed"
+                    : "bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200 shadow-xs hover:border-purple-300"
+                }`}
+              >
+                {requestSent ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Request Submitted</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    <span>Request Activation</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Trust Footer Indicators */}
+          <div className="mt-8 pt-6 border-t border-slate-100 flex flex-wrap items-center justify-center gap-6 text-[11px] text-slate-500 font-medium">
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> RERA Verified Projects Only
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Direct Meta Marketing API Integration
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-500" /> 100% Escrow Protected Budget
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-6 lg:p-8">

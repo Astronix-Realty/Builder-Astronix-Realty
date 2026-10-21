@@ -5,7 +5,7 @@ import {
   X, Save, Gift, CheckCircle2, Loader2, Sparkles,
   Building2, Calendar, Tag, ShieldCheck, Eye, Upload,
   Percent, AlertCircle, ArrowRight, Clock, Trash2, Check,
-  Layers, ExternalLink
+  Layers, ExternalLink, Info
 } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
@@ -871,107 +871,118 @@ export function OfferEditor({ offer, onSave, onClose, properties }: OfferEditorP
                     </span>
                   </div>
 
-                  {/* ─── The Rendered Card ─── */}
-                  <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-lg overflow-hidden flex flex-col transition-all">
-                    {/* Image Area */}
-                    <div className="relative h-48 w-full bg-slate-800 overflow-hidden">
-                      {formData.bannerImage ? (
-                        <Image
-                          src={formData.bannerImage}
-                          alt="Banner Preview"
-                          fill
-                          className="object-cover"
-                          unoptimized
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-950 flex flex-col items-center justify-center text-white/50 p-4 text-center">
-                          <Tag className="w-10 h-10 mb-2 opacity-50" />
-                          <span className="text-xs font-bold uppercase tracking-widest text-purple-200">
-                            Banner Image Preview
-                          </span>
-                        </div>
-                      )}
+                  {/* ─── The Rendered Festive Ribbon Card ─── */}
+                  <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-gradient-to-b from-[#090b11] via-[#0d101a] to-[#07090f] shadow-lg overflow-hidden flex flex-col items-center justify-center p-5 relative transition-all">
+                    
+                    {/* Ambient Glow */}
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_15%,_rgba(245,158,11,0.15)_0%,_transparent_70%)] pointer-events-none" />
 
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent pointer-events-none" />
+                    {/* Top Property Indicator Chip */}
+                    {selectedPropertyName && (
+                      <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-amber-500/30 text-amber-300 text-[9px] font-black uppercase tracking-wider flex items-center gap-1 z-20">
+                        <Building2 className="w-3 h-3 text-amber-400 shrink-0" />
+                        <span className="truncate max-w-[140px]">{selectedPropertyName}</span>
+                      </div>
+                    )}
 
-                      {/* Badges Over Image */}
-                      <div className="absolute top-3 left-3 flex flex-wrap gap-2">
-                        {formData.priorityBadge && formData.priorityBadge !== "None" && (
-                          <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-md border border-white/20 ${badgeGradients[formData.priorityBadge]}`}>
-                            {formData.priorityBadge}
-                          </span>
-                        )}
-                        <span className="px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest bg-white/20 backdrop-blur-md text-white border border-white/30">
-                          {formData.offerType}
-                        </span>
+                    {/* Ribbon Preview */}
+                    <div className="relative pt-7 pb-2 transition-transform duration-300">
+                      {/* Top Hanging Cables */}
+                      <div className="relative mx-auto w-[82%] flex items-center justify-between px-3 z-10 -mb-1">
+                        <div className="w-[2.5px] h-3.5 bg-gradient-to-b from-amber-700 via-yellow-400 to-amber-600 rounded-t" />
+                        <div className="w-[2.5px] h-3.5 bg-gradient-to-b from-amber-700 via-yellow-400 to-amber-600 rounded-t" />
                       </div>
 
-                      {/* Property Badge on Image */}
-                      {selectedPropertyName && (
-                        <div className="absolute bottom-3 left-3 bg-black/75 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/20 text-white text-[11px] font-bold flex flex-col gap-0.5 max-w-[85%]">
-                          <div className="flex items-center gap-1.5 truncate">
-                            <Building2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                            <span className="truncate">{selectedPropertyName}</span>
-                          </div>
-                          <div className="flex items-center gap-1 text-[9px] font-extrabold uppercase">
-                            <span className="text-purple-300">
-                              {formData.propertyLevel}
-                            </span>
-                            {formData.propertyLevel !== "unit" && (
-                              <span className={formData.targetScope === "cascade" ? "text-emerald-400" : "text-amber-400"}>
-                                • {formData.targetScope === "cascade" ? "Cascading (All Children)" : "Exact Level Only"}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Highlight Tag */}
-                      {formData.benefitHighlight && (
-                        <div className="absolute -bottom-3 right-4 bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 font-black px-3 py-1 rounded-xl shadow-lg text-xs transform rotate-2 border border-white/40">
-                          {formData.benefitHighlight}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Content Body */}
-                    <div className="p-5 pt-6 space-y-3">
-                      <div>
-                        <h4 className="text-lg font-black text-slate-900 dark:text-white leading-tight">
-                          {formData.offerName || "Your Offer Campaign Title"}
-                        </h4>
-                        <p className="text-sm font-black text-purple-600 dark:text-purple-400 mt-1">
-                          {formData.benefitText || "Highlight the key financial discount or bonus"}
-                        </p>
-                      </div>
-
-                      {formData.description && (
-                        <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
-                          {formData.description}
-                        </p>
-                      )}
-
-                      {/* Validity Bar */}
-                      <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 font-semibold">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3 text-purple-500" />
-                          {formData.startDate ? formData.startDate : "Start Date"} - {formData.endDate ? formData.endDate : "End Date"}
-                        </span>
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 text-[10px] font-bold">
-                          {formData.visibility}
-                        </span>
-                      </div>
-
-                      {/* Mock CTA Button */}
-                      <div className="pt-2">
-                        <button
-                          type="button"
-                          className="w-full py-3 bg-[#F97316] hover:bg-orange-600 text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-md transition-all flex items-center justify-center gap-2 pointer-events-none"
+                      {/* Golden Framed Bookmark */}
+                      <div
+                        style={{ clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 50% calc(100% - 15px), 0% 100%)' }}
+                        className="w-48 sm:w-52 p-[1.5px] bg-gradient-to-b from-amber-300 via-yellow-500 to-amber-700 shadow-[0_16px_36px_rgba(0,0,0,0.8)]"
+                      >
+                        <div
+                          style={{ clipPath: 'polygon(0% 0%, 100% 0%, 100% calc(100% - 1px), 50% calc(100% - 14.5px), 0% calc(100% - 1px))' }}
+                          className="relative w-full bg-gradient-to-b from-[#11131c] via-[#0d0f17] to-[#07080d] pt-1 pb-7 px-3.5 flex flex-col items-center text-center overflow-hidden"
                         >
-                          Claim This Offer <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
+                          {/* Inner hairline gold border */}
+                          <div
+                            style={{ clipPath: 'polygon(0% 0%, 100% 0%, 100% calc(100% - 1px), 50% calc(100% - 14.5px), 0% calc(100% - 1px))' }}
+                            className="absolute inset-[3px] border border-amber-500/25 pointer-events-none z-10"
+                          />
+
+                          {/* Garland Header */}
+                          <div className="relative w-full h-9 overflow-hidden pointer-events-none select-none -mt-0.5">
+                            <div className="absolute -top-6 inset-x-0 h-16 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-400/40 via-yellow-500/15 to-transparent blur-[5px]" />
+                            <svg viewBox="0 0 200 42" fill="none" className="w-full h-full filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" preserveAspectRatio="none">
+                              <defs>
+                                <linearGradient id="goldChainGradPreview" x1="0%" y1="0%" x2="100%" y2="0%">
+                                  <stop offset="0%" stopColor="#B45309" />
+                                  <stop offset="20%" stopColor="#FDE68A" />
+                                  <stop offset="40%" stopColor="#F59E0B" />
+                                  <stop offset="60%" stopColor="#FEF08A" />
+                                  <stop offset="80%" stopColor="#D97706" />
+                                  <stop offset="100%" stopColor="#B45309" />
+                                </linearGradient>
+                                <linearGradient id="goldChainDarkPreview" x1="0%" y1="0%" x2="100%" y2="0%">
+                                  <stop offset="0%" stopColor="#78350F" />
+                                  <stop offset="30%" stopColor="#D97706" />
+                                  <stop offset="70%" stopColor="#F59E0B" />
+                                  <stop offset="100%" stopColor="#78350F" />
+                                </linearGradient>
+                              </defs>
+                              <path d="M -5 0 Q 25 20 48 4" stroke="url(#goldChainGradPreview)" strokeWidth="2.2" strokeDasharray="2.5 1.5" strokeLinecap="round" />
+                              <path d="M 152 4 Q 175 20 205 0" stroke="url(#goldChainGradPreview)" strokeWidth="2.2" strokeDasharray="2.5 1.5" strokeLinecap="round" />
+                              <path d="M 0 5 Q 50 28 100 13 Q 150 28 200 5" stroke="url(#goldChainGradPreview)" strokeWidth="2.6" strokeDasharray="3 2" strokeLinecap="round" />
+                              <path d="M 6 11 Q 50 36 100 19 Q 150 36 194 11" stroke="url(#goldChainDarkPreview)" strokeWidth="1.8" strokeDasharray="2.5 1.8" strokeLinecap="round" opacity="0.9" />
+                              <circle cx="100" cy="13" r="3" fill="#FEF08A" stroke="#B45309" strokeWidth="0.8" />
+                              <circle cx="0" cy="5" r="2.5" fill="#FDE68A" />
+                              <circle cx="200" cy="5" r="2.5" fill="#FDE68A" />
+                              <circle cx="50" cy="25" r="2" fill="#FEF08A" />
+                              <circle cx="150" cy="25" r="2" fill="#FEF08A" />
+                            </svg>
+                          </div>
+
+                          {/* Titles */}
+                          <div className="w-full flex flex-col items-center mt-0.5 mb-2.5 z-20">
+                            <span className="text-[11px] font-black tracking-[0.18em] text-white/95 uppercase drop-shadow-sm">
+                              {formData.offerName ? formData.offerName.replace(/\b(FESTIVE|OFFER|FESTIVE OFFER)\b/gi, '').trim() || 'FESTIVE' : 'NAVRATRI'}
+                            </span>
+                            <h4 className="text-[14px] font-black tracking-wider uppercase leading-tight bg-gradient-to-r from-amber-200 via-yellow-300 to-amber-400 bg-clip-text text-transparent drop-shadow-[0_2px_8px_rgba(234,179,8,0.35)] mt-0.5">
+                              {formData.priorityBadge && formData.priorityBadge !== 'None' ? formData.priorityBadge.toUpperCase() : 'FESTIVE OFFER'}
+                            </h4>
+                          </div>
+
+                          {/* Benefit Pill */}
+                          <div className="w-full px-2.5 py-1.5 rounded-lg border border-amber-500/35 bg-[#090b12]/90 text-amber-300 font-extrabold text-[11.5px] tracking-wide leading-tight mb-2.5 flex items-center justify-center shadow-inner z-20">
+                            <span className="truncate">
+                              {formData.benefitHighlight || formData.benefitText || '₹5 Lac Cashback*'}
+                            </span>
+                          </div>
+
+                          {/* Verified Subtext */}
+                          <div className="relative z-20 flex items-center gap-1.5 text-[8.5px] font-bold uppercase tracking-[0.12em] text-slate-300/80 mb-3">
+                            <Info className="w-3 h-3 text-slate-400 shrink-0" />
+                            <span>Verified Property Offer</span>
+                          </div>
+
+                          {/* Claim Button */}
+                          <div className="relative z-20 w-full py-2 px-3 bg-white text-slate-950 font-black text-[11px] uppercase tracking-wider rounded-lg shadow-md flex items-center justify-center gap-1.5 pointer-events-none">
+                            <span>Claim Offer</span>
+                            <ArrowRight className="w-3 h-3" />
+                          </div>
+                        </div>
                       </div>
                     </div>
+
+                    {/* Bottom Metadata Bar */}
+                    <div className="w-full flex items-center justify-between pt-3 border-t border-slate-800 text-[11px] text-slate-400 font-semibold z-20 mt-2">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3 text-amber-400" />
+                        {formData.startDate ? formData.startDate : "Immediate"} - {formData.endDate ? formData.endDate : "No Expiry"}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold uppercase">
+                        {formData.visibility || "Public"}
+                      </span>
+                    </div>
+
                   </div>
 
                   {/* ─── Campaign Readiness Checklist ─── */}

@@ -12,6 +12,7 @@ export interface IUser extends Document {
   // Admin approval workflow
   approvalStatus: 'pending' | 'approved' | 'rejected';
   approvalMessage: string;
+  metaAdsEnabled?: boolean;
   createdAt: Date;
   updatedAt: Date;
   // OTP for logged-in password change
@@ -45,6 +46,7 @@ const UserSchema = new Schema<IUser>({
   // Admin approval workflow
   approvalStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
   approvalMessage: { type: String, default: '' },
+  metaAdsEnabled: { type: Boolean, default: false },
   // OTP fields (logged-in password change)
   otp: { type: String },
   otpExpiry: { type: Date },

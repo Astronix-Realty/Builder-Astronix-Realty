@@ -51,6 +51,7 @@ export async function GET(req: NextRequest) {
         status: status, // 'pending' | 'approved' | 'rejected'
         approvalStatus: status,
         verified: status === 'approved',
+        metaAdsEnabled: u.metaAdsEnabled === true || u.profile?.metaAdsEnabled === true,
         rejectionMessage: u.approvalMessage || '',
         profile: {
           ...(u.profile || {}),

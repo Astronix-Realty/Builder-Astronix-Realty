@@ -12,10 +12,10 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { eventId, externalId, email, status, message } = body;
+    const { eventId, externalId, email, status, message, metaAdsEnabled } = body;
 
-    if ((!externalId && !email) || !status) {
-      return NextResponse.json({ error: 'externalId/email and status are required' }, { status: 400 });
+    if ((!externalId && !email) || (!status && metaAdsEnabled === undefined)) {
+      return NextResponse.json({ error: 'externalId/email and either status or metaAdsEnabled are required' }, { status: 400 });
     }
 
     await dbConnect();
@@ -30,16 +30,21 @@ export async function POST(req: NextRequest) {
       await ProcessedEvent.create({ eventId, sourcePanel: 'admin', eventType: 'BUILDER_STATUS_UPDATE' });
     }
 
-    const updateData: any = {
-      approvalStatus: status, // 'approved' | 'rejected'
-    };
+    const updateData: any = {};
 
-    if (status === 'approved') {
-      updateData.status = 'active';
-      updateData.approvalMessage = '';
-    } else if (status === 'rejected') {
-      updateData.status = 'active'; // Keep active so they can still see rejection message
-      updateData.approvalMessage = message || 'Your account has been rejected by admin.';
+    if (status) {
+      updateData.approvalStatus = status; // 'approved' | 'rejected'
+      if (status === 'approved') {
+        updateData.status = 'active';
+        updateData.approvalMessage = '';
+      } else if (status === 'rejected') {
+        updateData.status = 'active'; // Keep active so they can still see rejection message
+        updateData.approvalMessage = message || 'Your account has been rejected by admin.';
+      }
+    }
+
+    if (metaAdsEnabled !== undefined) {
+      updateData.metaAdsEnabled = Boolean(metaAdsEnabled);
     }
 
     // Flexible query: lookup by _id OR by email

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import Property from '@/models/Property';
 import { invalidateInternalPropertiesCache } from '@/app/api/internal/v2/properties/route';
+import mongoose from 'mongoose';
 
 // POST /api/internal/property-status — Receive property approval/rejection from Admin panel
 export async function POST(req: NextRequest) {
@@ -66,17 +67,103 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const updateResult = await Property.updateMany(
-      { $or: matchConditions, isDeleted: { $ne: true } },
-      { $set: updateData }
-    );
+    // 1. Find root property matching conditions
+    const matchedProperties = await Property.find({ $or: matchConditions, isDeleted: { $ne: true } }).lean();
 
-    const property = await Property.findOne({ $or: matchConditions, isDeleted: { $ne: true } });
-
-    if (!property && updateResult.matchedCount === 0) {
+    if (matchedProperties.length === 0) {
       console.error(`[Internal Correlation:${correlationId}] Property not found for externalId: ${externalId}`);
       return NextResponse.json({ error: 'Property not found' }, { status: 404 });
     }
+
+    // 2. Collect entire hierarchy of child & grandchild properties (projects, towers)
+    const allPropertyDocs: any[] = [...matchedProperties];
+    let idsToSearch = matchedProperties.map((p: any) => p._id);
+
+    while (idsToSearch.length > 0) {
+      const children = await Property.find({
+        parentId: { $in: idsToSearch },
+        isDeleted: { $ne: true },
+      }).select('_id name type parentId publishedId draftId').lean();
+
+      if (children.length === 0) break;
+      allPropertyDocs.push(...children);
+      idsToSearch = children.map((c: any) => c._id);
+    }
+
+    const allPropertyIds = Array.from(new Set(allPropertyDocs.map((d: any) => d._id)));
+    const allPropertyIdStrings = allPropertyIds.map(id => id.toString());
+
+    // 3. Atomically update all properties in the hierarchy (Township -> Projects -> Towers)
+    const updateResult = await Property.updateMany(
+      { _id: { $in: allPropertyIds }, isDeleted: { $ne: true } },
+      { $set: updateData }
+    );
+
+    // Also update any twin linked documents (publishedId / draftId)
+    const twinIds = allPropertyDocs
+      .flatMap((d: any) => [d.publishedId, d.draftId])
+      .filter((id: any) => id && mongoose.isValidObjectId(id));
+
+    if (twinIds.length > 0) {
+      await Property.updateMany(
+        { _id: { $in: twinIds }, isDeleted: { $ne: true } },
+        { $set: updateData }
+      ).catch(() => {});
+    }
+
+    // 4. Cascade update to all associated Unit documents
+    try {
+      const Unit = (await import('@/models/Unit')).default;
+      const unitFilter: any = {
+        $or: [
+          { parentId: { $in: allPropertyIds } },
+          { towerId: { $in: [...allPropertyIds, ...allPropertyIdStrings] } },
+          { projectId: { $in: [...allPropertyIds, ...allPropertyIdStrings] } },
+        ],
+        isDeleted: { $ne: true }
+      };
+
+      if (['approved', 'published', 'active'].includes(targetStatus)) {
+        // For published properties: advance pending/draft units to available while preserving existing bookings/sales
+        await Unit.updateMany(
+          { ...unitFilter, status: { $in: ['pending', 'draft', 'published'] } },
+          {
+            $set: {
+              status: 'available',
+              isActive: true,
+              approvedAt: updateData.approvedAt || new Date(),
+              rejectionReason: null
+            }
+          }
+        );
+      } else if (['rejected', 'revisions'].includes(targetStatus)) {
+        await Unit.updateMany(
+          unitFilter,
+          {
+            $set: {
+              status: 'rejected',
+              isActive: false,
+              rejectionReason: updateData.rejectionReason
+            }
+          }
+        );
+      } else if (['delisted', 'withdrawn'].includes(targetStatus)) {
+        await Unit.updateMany(
+          unitFilter,
+          {
+            $set: {
+              status: targetStatus === 'delisted' ? 'delisted' : 'withdrawn',
+              isActive: false,
+              rejectionReason: updateData.rejectionReason
+            }
+          }
+        );
+      }
+    } catch (unitErr: any) {
+      console.error('[Internal] Error cascading status to units:', unitErr.message);
+    }
+
+    const property = matchedProperties[0] as any;
 
     if (property && updateData.status === 'published') {
       try {
@@ -85,13 +172,13 @@ export async function POST(req: NextRequest) {
           {
             role: 'teamLeader',
             $or: [
-              { 'profile.propertyName': new RegExp(`^${property.name.trim()}$`, 'i') },
-              { 'profile.propertyId': property._id.toString() }
+              { 'profile.propertyName': new RegExp(`^${property.name?.trim() || ''}$`, 'i') },
+              { 'profile.propertyId': property._id?.toString() }
             ]
           },
           {
             $set: {
-              'profile.propertyId': property._id.toString(),
+              'profile.propertyId': property._id?.toString(),
               'profile.propertyName': property.name
             }
           }

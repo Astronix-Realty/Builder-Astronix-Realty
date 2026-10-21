@@ -46,10 +46,13 @@ export function TowersForm({
         const towerToDelete = projectTowers[idx];
         if (!confirm(`Are you sure you want to delete "${towerToDelete?.name || `Tower ${idx + 1}`}"? This will also remove all related units.`)) return;
         
-        try {
-            await fetch(`/api/towers/${towerToDelete.id}`, { method: 'DELETE' });
-        } catch (error) {
-            console.error("API delete failed (might be a draft):", error);
+        const targetId = (towerToDelete as any)?._dbId || towerToDelete?.id;
+        if (targetId && /^[a-f\d]{24}$/i.test(targetId)) {
+            try {
+                await fetch(`/api/properties/${targetId}`, { method: 'DELETE' });
+            } catch (error) {
+                console.error("API delete failed (might be an unsaved draft):", error);
+            }
         }
 
         const next = towers.filter(t => t.id !== towerToDelete.id);

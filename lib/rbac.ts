@@ -173,7 +173,9 @@ export function getOwnershipQuery(context: RBACContext): Record<string, any> {
       $or: [
         { builderId: { $in: allIds } },
         { accountId: { $in: allIds } },
-        { createdBy: { $in: allIds } }
+        { createdBy: { $in: allIds } },
+        { 'assignedBuilder.id': { $in: allIds } },
+        { 'assignedBuilder._id': { $in: allIds } }
       ]
     };
   } else if (context.role === 'teamLeader') {
@@ -217,7 +219,9 @@ export function getOwnershipQuery(context: RBACContext): Record<string, any> {
               { builderId: { $in: allBuilderIds } },
               { accountId: { $in: allBuilderIds } },
               { mandateId: { $in: allBuilderIds } },
-              { createdBy: { $in: allBuilderIds } }
+              { createdBy: { $in: allBuilderIds } },
+              { 'assignedBuilder.id': { $in: allBuilderIds } },
+              { 'assignedBuilder._id': { $in: allBuilderIds } }
             ]
           },
           { $or: propConditions }
@@ -230,7 +234,9 @@ export function getOwnershipQuery(context: RBACContext): Record<string, any> {
         { builderId: { $in: allBuilderIds } },
         { accountId: { $in: allBuilderIds } },
         { mandateId: { $in: allBuilderIds } },
-        { createdBy: { $in: allBuilderIds } }
+        { createdBy: { $in: allBuilderIds } },
+        { 'assignedBuilder.id': { $in: allBuilderIds } },
+        { 'assignedBuilder._id': { $in: allBuilderIds } }
       ]
     };
   } else if (context.role === 'mandate') {

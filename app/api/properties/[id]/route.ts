@@ -383,7 +383,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         syncUpdate["details.township.downPaymentPercent"] = updateData.downPaymentPercent;
         syncUpdate["details.project.downPaymentPercent"] = updateData.downPaymentPercent;
       }
-      if (updateData.groupBuying !== undefined) syncUpdate.groupBuying = updateData.groupBuying;
+      if (updateData.groupBuying !== undefined) {
+        syncUpdate.groupBuying = updateData.groupBuying;
+        syncUpdate["details.groupBuying"] = updateData.groupBuying;
+        syncUpdate["details.township.groupBuying"] = updateData.groupBuying;
+        syncUpdate["details.project.groupBuying"] = updateData.groupBuying;
+      }
 
       const twinId = property.publishedId || property.draftId;
       if (twinId) {
@@ -396,7 +401,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       // If updating a township/parent, sync downPaymentPercent down to child properties (projects, towers)
       if (updateData.downPaymentPercent !== undefined) {
         await Property.updateMany(
-          { parentId: property._id, isDeleted: { $ne: true } },
+          { parentId: { $in: [property._id, twinId].filter(Boolean) }, isDeleted: { $ne: true } },
           { 
             $set: { 
               downPaymentPercent: updateData.downPaymentPercent,
@@ -404,18 +409,31 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             } 
           }
         ).catch(() => {});
+      }
 
-        if (twinId) {
-          await Property.updateMany(
-            { parentId: twinId, isDeleted: { $ne: true } },
-            { 
-              $set: { 
-                downPaymentPercent: updateData.downPaymentPercent,
-                "details.downPaymentPercent": updateData.downPaymentPercent
-              } 
-            }
-          ).catch(() => {});
-        }
+      // If updating a township/parent, sync groupBuying down to child properties (projects, towers)
+      if (updateData.groupBuying !== undefined) {
+        const directChildren = await Property.find(
+          { parentId: { $in: [property._id, twinId].filter(Boolean) }, isDeleted: { $ne: true } },
+          { _id: 1 }
+        ).lean();
+        const childIds = directChildren.map((c: any) => c._id);
+
+        await Property.updateMany(
+          { 
+            $or: [
+              { parentId: { $in: [property._id, twinId].filter(Boolean) } },
+              ...(childIds.length > 0 ? [{ parentId: { $in: childIds } }] : [])
+            ],
+            isDeleted: { $ne: true } 
+          },
+          { 
+            $set: { 
+              groupBuying: updateData.groupBuying,
+              "details.groupBuying": updateData.groupBuying
+            } 
+          }
+        ).catch(() => {});
       }
     }
 
@@ -445,6 +463,28 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     // Invalidate internal S2S cache so Admin sees updated status immediately
     invalidateInternalPropertiesCache();
+
+    // Invalidate Visitor panel discovery cache via S2S API so updates reflect immediately
+    const visitorPanelUrl = process.env.VISITOR_PANEL_URL || 'http://localhost:3002';
+    const internalSecret = process.env.INTERNAL_API_SECRET;
+    if (visitorPanelUrl && internalSecret) {
+      try {
+        fetch(`${visitorPanelUrl.replace(/\/$/, '')}/api/internal/cache-invalidate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-internal-secret': internalSecret,
+          },
+          body: JSON.stringify({
+            eventId: `patch_${id}_${Date.now()}`,
+            propertyId: id,
+            status: updateData.status || property.status,
+            action: 'PROPERTY_UPDATED',
+          }),
+          signal: AbortSignal.timeout(3000),
+        }).catch(() => {});
+      } catch (s2sErr) {}
+    }
 
     return NextResponse.json({ property }, { status: 200 });
   } catch (error: any) {
