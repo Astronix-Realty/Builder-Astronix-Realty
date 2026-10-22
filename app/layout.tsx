@@ -7,14 +7,23 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ | Builder & Mandate Panel',
-  description: 'Manage real estate townships, projects, inventory, and leads on Λꜱᴛʀᴏɴɪx ʀᴇᴀʟᴛʏ.',
+  metadataBase: new URL('https://builder.astronixrealty.com'),
+  title: {
+    default: 'Astronix Realty | Builder & Mandate Portal',
+    template: '%s | Astronix Realty',
+  },
+  description: 'Official Developer & Mandate Network of Astronix Realty. Manage RERA-registered projects, inventory, real-time leads, and partner distribution across Mumbai MMR.',
   icons: {
     icon: [
-      { url: '/favicon.svg', type: 'image/svg+xml' },
-      { url: '/favicon.ico' },
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/icon-32.png', type: 'image/png', sizes: '32x32' },
     ],
     apple: '/apple-icon.png',
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'en_IN',
+    siteName: 'Astronix Realty Builder & Mandate Network',
   },
   robots: {
     index: false,

@@ -1,0 +1,34 @@
+# Astronix Realty — Builder & Mandate Partner Portal
+
+> The official developer and mandate platform of Astronix Realty, operating across Mumbai, Thane, Kalyan, and Dombivli (MMR). Enables RERA-registered real estate builders and exclusive sales mandate agencies to distribute verified inventory, access qualified homebuyer demand, and manage lead pipelines with real base-rate clarity.
+
+## Platform Overview & Capabilities
+- **Direct Developer Inventory Control**: Developers publish master layouts, tower approvals, wing progress, and carpet area cost sheets directly to the public marketplace (`https://astronixrealty.com`), eliminating duplicate listings and broker distortion.
+- **Exclusive Mandate Management**: Dedicated tools for sole-selling agencies managing developer inventory, including team leader hierarchy routing, agent conversion analytics, and offer management.
+- **₹111 Price Lock Guarantee Coordination**: Integration with the consumer ₹111 price lock guarantee, filtering casual inquiries into high-intent buyers with 72-hour price freeze commitments.
+- **MahaRERA & Legal Safeguards**: Structured verification requiring MahaRERA Project Registration, Commencement Certificates (CC), and sanctioned architectural layouts.
+
+## User Roles & Portal Access
+- **Developers / Builders**: Master project creation, tower and wing management, pricing sheets, offer configurations, and direct buyer lead pipelines.
+- **Exclusive Sales Mandates**: Assigned inventory tracking, subvention scheme coordination, team leader lead routing, and sales velocity metrics.
+- **Sales Team Leaders**: Real-time agent activity monitoring, lead routing and re-assignment, and conversion tracking.
+
+## Canonical Web Endpoints
+- [Partner Portal Home](https://builder.astronixrealty.com): Platform overview, onboarding criteria, visible FAQs, and partner sign-up.
+- [Partner Sign In](https://builder.astronixrealty.com/login): Enterprise authentication gateway for Builders, Mandates, and Team Leaders.
+- [Partner Registration](https://builder.astronixrealty.com/register): Dual onboarding flow for Builders (`?type=builder`) and Mandates (`?type=mandate`).
+- [Public Consumer Marketplace](https://astronixrealty.com): Primary buyer discovery portal for verified properties, floor plans, and price lock guarantees.
+
+## Onboarding & Verification Criteria
+1. Active MahaRERA Project Registration Number.
+2. Sanctioned architectural layout plans and Commencement Certificate (CC).
+3. Authorized signatory credentials and corporate entity documentation.
+4. Commitment to zero fake listings and real base-rate pricing transparency.
+
+## Official Entity & Partner Desk
+- **Operating Entity**: Astronix Realty Private Limited
+- **Headquarters**: Astronix Premium Hub, Sonarpada Main Road, Dombivli East, Maharashtra 421201, India
+- **Geo-Coordinates**: 19.2435° N, 73.1363° E
+- **Partner Desk Email**: contact@astronixrealty.com
+- **Partner Desk Phone**: +91 86572 25993
+- **Primary Domain**: https://builder.astronixrealty.com

@@ -154,9 +154,12 @@ export async function middleware(req: NextRequest) {
         return NextResponse.redirect(new URL(isBuilder ? "/builder-dashboard" : "/mandate-dashboard", req.url));
       }
     }
+    // Allow public access to login without noindex header
+    return NextResponse.next();
   }
 
   const response = NextResponse.next();
+  // Apply noindex only to protected routes matching middleware
   response.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
   return response;
 }
