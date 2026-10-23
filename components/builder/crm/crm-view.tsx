@@ -199,6 +199,7 @@ function sanitizeLeadRecord(lead: any): Lead {
     const isHold = Boolean(
         lead.isUnitHeld ||
         lead.status === "Token VIP" ||
+        lead.status === "Hold Expired" ||
         lead.leadType === "token-hold" ||
         lead.leadType === "vip-lead" ||
         lead.source === "visitor-unit-hold" ||
@@ -213,8 +214,19 @@ function sanitizeLeadRecord(lead: any): Lead {
         ""
     ).trim();
 
+    const validStatuses: LeadStatus[] = ["Fresh", "Token VIP", "Connected", "Site Visit", "Negotiation", "Final Negotiation", "Booked", "Junk"];
+    let normalizedStatus: LeadStatus = lead.status;
+    if (!validStatuses.includes(normalizedStatus)) {
+        if (lead.status === "Hold Expired" || lead.leadType === "token-hold" || lead.isTokenPaid || lead.source === "visitor-unit-hold") {
+            normalizedStatus = "Token VIP";
+        } else {
+            normalizedStatus = "Fresh";
+        }
+    }
+
     return {
         ...lead,
+        status: normalizedStatus,
         id: toId(lead._id || lead.id),
         _id: toId(lead._id || lead.id),
         isUnitHeld: isHold ? true : Boolean(lead.isUnitHeld),

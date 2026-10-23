@@ -50,7 +50,7 @@ export function WizardSummary({ state, flowType = "township" }: WizardSummaryPro
       if (baseRate > 0) {
         return sum + (uCount * baseRate * avgArea)
       } else {
-        return sum + (uCount * 5000000)
+        return sum
       }
     }, 0)
   }
@@ -66,10 +66,6 @@ export function WizardSummary({ state, flowType = "township" }: WizardSummaryPro
 
   const fallbackTownshipUnits = Number((state.township as any)?.totalUnits) || 0
   const displayTotalUnits = Math.max(expectedTotalUnits, generatedUnits.length, fallbackTownshipUnits)
-
-  if (calculatedTotalValue === 0 && displayTotalUnits > 0) {
-    calculatedTotalValue = displayTotalUnits * 5000000
-  }
 
   const totalValue = calculatedTotalValue
   const avgPrice = displayTotalUnits > 0 ? totalValue / displayTotalUnits : 0

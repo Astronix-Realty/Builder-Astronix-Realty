@@ -952,7 +952,7 @@ function DashboardContent() {
           className={`flex-1 pb-24 lg:pb-0 ${
             activeTab === "documents" || activeTab === "feedback"
               ? "overflow-hidden p-0"
-              : "overflow-y-auto p-4 sm:p-6 lg:p-8"
+              : "overflow-y-auto software-scrollbar p-4 sm:p-6 lg:p-8"
           }`}
         >
           {activeTab === "bills" && <BillsView />}

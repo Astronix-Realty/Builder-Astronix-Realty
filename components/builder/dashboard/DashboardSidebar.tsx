@@ -189,7 +189,7 @@ export function DashboardSidebar({
           </div>
 
           {/* Nav Icons */}
-          <nav className="flex-1 py-3 px-2 space-y-2 overflow-y-auto software-scrollbar flex flex-col items-center">
+          <nav className="flex-1 py-3 px-2 space-y-2 overflow-y-auto no-scrollbar flex flex-col items-center">
             {navSections.map((sec, secIdx) => (
               <div key={sec.group} className="w-full flex flex-col items-center space-y-1">
                 {secIdx > 0 && (
@@ -313,7 +313,7 @@ export function DashboardSidebar({
           </div>
 
           {/* Software Categorized Navigation */}
-          <nav className="flex-1 px-3 py-3 space-y-4 overflow-y-auto software-scrollbar">
+          <nav className="flex-1 px-3 py-3 space-y-4 overflow-y-auto no-scrollbar">
             {navSections.map((sec) => (
               <div key={sec.group} className="space-y-1">
                 <div className="px-3 py-1 flex items-center justify-between">

@@ -114,6 +114,9 @@ function BuilderContent() {
       const standaloneTower = createInitialTower(0, "standalone")
       standaloneTower.id = "tower-standalone-1" // Ensure unique ID
       standaloneTower.name = "Tower A"
+      standaloneTower.totalFloors = "G + 20"
+      standaloneTower.totalFloorsNum = 20
+      standaloneTower.unitsPerFloor = "4"
       baseState.towers = [standaloneTower]
     }
 
@@ -377,21 +380,39 @@ function BuilderContent() {
 
   const updateProjects = useCallback((projects: ProjectData[]) => {
     const safeProjects = (projects || []).filter(Boolean)
-    setState((prev) => ({
-      ...prev,
-      projects: safeProjects,
-      township: { ...prev.township, projectCount: safeProjects.length },
-    }))
+    const validProjectIds = new Set(safeProjects.map(p => p.id))
+    setState((prev) => {
+      // Clean up orphaned towers whose parent project was deleted
+      const remainingTowers = (prev.towers || []).filter(t => !t.projectId || validProjectIds.has(t.projectId))
+      const remainingTowerIds = new Set(remainingTowers.map(t => t.id))
+      // Clean up orphaned towerUnitConfigs
+      const remainingConfigs = (prev.towerUnitConfigs || []).filter(c => remainingTowerIds.has(c.towerId))
+
+      return {
+        ...prev,
+        projects: safeProjects,
+        towers: remainingTowers,
+        towerUnitConfigs: remainingConfigs,
+        township: { ...prev.township, projectCount: safeProjects.length },
+      }
+    })
   }, [])
 
   const updateTowers = useCallback((towers: TowerData[]) => {
     const safeTowers = (towers || []).filter(Boolean)
+    const validTowerIds = new Set(safeTowers.map(t => t.id))
     setState((prev) => {
       const updatedProjects = (prev.projects || []).filter(Boolean).map(p => ({
         ...p,
         totalTowers: safeTowers.filter(t => t.projectId === p.id).length,
       }))
-      return { ...prev, towers: safeTowers, projects: updatedProjects }
+      const remainingConfigs = (prev.towerUnitConfigs || []).filter(c => validTowerIds.has(c.towerId))
+      return {
+        ...prev,
+        towers: safeTowers,
+        projects: updatedProjects,
+        towerUnitConfigs: remainingConfigs,
+      }
     })
   }, [])
 
@@ -512,26 +533,110 @@ function BuilderContent() {
   const minStep = 1 + stepOffset // Min step based on flow
 
   const validateStep = useCallback(() => {
-    if (state.currentStep === 1) {
-      if (!state.township.name) {
+    // ── STEP 1: IDENTITY & MASTER INFORMATION ─────────────────────────────────
+    if (flowType === "township" && state.currentStep === 1) {
+      if (!state.township.name || state.township.name.trim().length < 2) {
         toast.error("Please enter a valid Township Name (at least 2 characters).")
         return false
       }
-    }
-    if (state.currentStep === 2 && flowType === "township") {
-      if (state.projects.length === 0) {
-        toast.error("Please add at least one Project to proceed.")
+      const hasLocation = state.township.city || state.township.subCity || state.township.village || state.township.nearbyLandmark
+      if (!hasLocation) {
+        toast.error("Please specify a location (city, area, or nearby landmark) for this township.")
         return false
       }
     }
-    if (state.currentStep === 3 && (flowType === "township" || flowType === "project")) {
-      if (state.towers.length === 0) {
-        toast.error("Please add at least one Tower to proceed.")
-         return false
+
+    if (flowType === "project" && state.currentStep === 2) {
+      const proj = state.projects[0]
+      if (!proj || !proj.name || proj.name.trim().length < 2) {
+        toast.error("Please enter a valid Project Name (at least 2 characters).")
+        return false
+      }
+      const hasLocation = state.township?.city || state.township?.subCity || state.township?.village || state.township?.nearbyLandmark || (proj as any)?.city
+      if (!hasLocation) {
+        toast.error("Please specify a location (city, area, or nearby landmark) for this project.")
+        return false
       }
     }
+
+    if (flowType === "tower" && state.currentStep === 3) {
+      const tower = state.towers[0]
+      if (!tower || !tower.name || tower.name.trim().length < 1) {
+        toast.error("Please enter a name for this Tower / Building.")
+        return false
+      }
+      const floors = parseInt(String(tower.totalFloors || "").replace(/\D/g, "")) || tower.totalFloorsNum || 0
+      if (floors <= 0) {
+        toast.error("Please specify total floors for this tower.")
+        return false
+      }
+      const hasLocation = state.township?.city || state.township?.village || state.township?.nearbyLandmark
+      if (!hasLocation) {
+        toast.error("Please specify a location (city, area, or nearby landmark) for this tower.")
+        return false
+      }
+    }
+
+    // ── STEP 2: PROJECTS MANAGEMENT (Township Flow) ───────────────────────────
+    if (flowType === "township" && state.currentStep === 2) {
+      if (!state.projects || state.projects.length === 0) {
+        toast.error("Please add at least one Project to proceed.")
+        return false
+      }
+      const hasUnnamedProject = state.projects.some(p => !p || !p.name || p.name.trim().length === 0)
+      if (hasUnnamedProject) {
+        toast.error("Please provide a valid name for all projects.")
+        return false
+      }
+    }
+
+    // ── STEP 3: TOWERS & STRUCTURE (Township & Project Flows) ─────────────────
+    if ((flowType === "township" || flowType === "project") && state.currentStep === 3) {
+      if (!state.towers || state.towers.length === 0) {
+        toast.error("Please add at least one Tower to proceed.")
+        return false
+      }
+      if (flowType === "township" && state.projects.length > 0) {
+        const projectWithoutTower = state.projects.find(p => !state.towers.some(t => t.projectId === p.id))
+        if (projectWithoutTower) {
+          toast.error(`Please add at least one Tower for project "${projectWithoutTower.name || 'Untitled Project'}".`)
+          return false
+        }
+      }
+      const hasUnnamedTower = state.towers.some(t => !t || !t.name || t.name.trim().length === 0)
+      if (hasUnnamedTower) {
+        toast.error("Please provide a name for all towers.")
+        return false
+      }
+    }
+
+    // ── STEP 4: UNITS MATRIX & PRICING BLUEPRINT (All Flows) ──────────────────
+    if (state.currentStep === 4) {
+      const globalConfigs = state.unitTemplate?.configurations || []
+      const hasAnyTowerConfig = (state.towerUnitConfigs || []).some(tc => (tc.configurations || []).length > 0)
+
+      if (globalConfigs.length === 0 && !hasAnyTowerConfig) {
+        toast.error("Please add at least one Unit Configuration (e.g., 1BHK, 2BHK) with carpet area.")
+        return false
+      }
+
+      if (!generatedUnits || generatedUnits.length === 0) {
+        toast.error("No units generated. Please configure floor layouts or units per floor.")
+        return false
+      }
+    }
+
     return true
-  }, [state.currentStep, state.township.name, state.projects.length, state.towers.length, flowType])
+  }, [
+    state.currentStep,
+    state.township,
+    state.projects,
+    state.towers,
+    state.towerUnitConfigs,
+    state.unitTemplate,
+    generatedUnits,
+    flowType
+  ])
 
   const nextStep = useCallback(() => {
     if (!validateStep()) return

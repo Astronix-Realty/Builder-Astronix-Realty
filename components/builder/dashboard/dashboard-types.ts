@@ -80,4 +80,4 @@ export type DashboardTab =
 
 export type PropertyFilter = "published" | "pending" | "draft" | "rejected"
 
-export type ActiveSettingsTab = "profile" | "preferences"
+export type ActiveSettingsTab = "profile" | "preferences" | "about"

@@ -157,7 +157,7 @@ export function PropertiesView({
               </span>
             </div>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              High-density property master list &amp; hierarchy controller
+              High-density property master list &amp; inventory controller
             </p>
           </div>
         </div>
@@ -243,10 +243,10 @@ export function PropertiesView({
             <div>
               <h3 className="text-sm font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
                 <Sparkles className="h-4 w-4 text-blue-600" />
-                Select New Hierarchy Flow
+                Select Property Type
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Choose the architectural scope for your new property listing
+                Choose the property type for your new property listing
               </p>
             </div>
             <button
@@ -267,7 +267,7 @@ export function PropertiesView({
                 <Home className="h-5 w-5" />
               </div>
               <h4 className="text-xs font-bold text-slate-900 dark:text-white mb-1">
-                Full Township Flow
+                Full Township
               </h4>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-3 leading-relaxed">
                 Large scale land development with multiple independent projects, towers, &amp; units
@@ -278,11 +278,15 @@ export function PropertiesView({
                 </span>
                 <ChevronRight className="h-2.5 w-2.5" />
                 <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-semibold">
-                  Project
+                  Projects
                 </span>
                 <ChevronRight className="h-2.5 w-2.5" />
                 <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-semibold">
-                  Tower
+                  Towers
+                </span>
+                <ChevronRight className="h-2.5 w-2.5" />
+                <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded font-semibold">
+                  Units
                 </span>
               </div>
             </a>

@@ -67,14 +67,64 @@
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Montserrat', sans-serif;
   }
+
+  /* Universal Modern Ultra-Sleek SaaS Scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: rgba(148, 163, 184, 0.4);
+    border-radius: 9999px;
+    border: 1px solid transparent;
+    background-clip: padding-box;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(100, 116, 139, 0.7);
+  }
+
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-button {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
+  .dark * {
+    scrollbar-color: rgba(100, 116, 139, 0.45) transparent;
+  }
+
+  .dark *::-webkit-scrollbar-thumb {
+    background-color: rgba(100, 116, 139, 0.45);
+  }
+
+  .dark *::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(148, 163, 184, 0.7);
+  }
 }
 
 @layer utilities {
   .text-shadow { text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5); }
   .hide-scrollbar::-webkit-scrollbar,
-  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide::-webkit-scrollbar,
+  .no-scrollbar::-webkit-scrollbar { display: none; }
   .hide-scrollbar,
-  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+  .scrollbar-hide,
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
   .animate-fade-in-up { animation: fadeInUp 0.8s ease-out forwards; }
   
   /* Safe Area Insets for Mobile/Android Edge-to-Edge */

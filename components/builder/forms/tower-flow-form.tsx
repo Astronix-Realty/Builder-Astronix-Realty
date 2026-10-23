@@ -642,8 +642,8 @@ function TowerFlowFormBase({ data, unitConfig, unitTemplate, onChange, projectNa
           <Field label="Lobby Details">
             <Input value={data.lobbyDetails ?? ""} onChange={e => update("lobbyDetails", e.target.value)} placeholder="Double-Height Grand Lobby with Concierge" />
           </Field>
-          <Field label="Units Per Floor" required hint="Auto-synced from unit configurations">
-            <Input type="number" value={data.unitsPerFloor ?? ""} readOnly placeholder="—" className="bg-gray-50 dark:bg-slate-800/50 cursor-not-allowed font-bold text-blue-600 dark:text-blue-400 border-gray-200 dark:border-slate-700" />
+          <Field label="Units Per Floor" hint="Auto-calculated in next step (Units)">
+            <Input type="number" value={data.unitsPerFloor ? data.unitsPerFloor : ""} readOnly placeholder="Auto in Next Step" className="bg-gray-50 dark:bg-slate-800/50 cursor-not-allowed font-bold text-blue-600 dark:text-blue-400 border-gray-200 dark:border-slate-700" />
           </Field>
         </Grid>
 
@@ -658,11 +658,14 @@ function TowerFlowFormBase({ data, unitConfig, unitTemplate, onChange, projectNa
         </Grid>
 
         <SectionTitle title="Auto-Calculated" />
-        <div className="flex items-center gap-3 px-4 py-3 bg-green-50 rounded-xl">
-          <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
-          <p className="text-xs text-green-700">
-            <span className="font-bold">Total Units: {data.totalUnits}</span>
-            {" "}({data.totalFloorsNum} floors × {parseInt(data.unitsPerFloor) || 0} units/floor)
+        <div className="flex items-center gap-3 px-4 py-3 bg-blue-50 dark:bg-blue-950/30 rounded-xl border border-blue-100 dark:border-blue-900/50">
+          <CheckCircle2 className="w-4 h-4 text-blue-500 shrink-0" />
+          <p className="text-xs text-blue-700 dark:text-blue-300">
+            <span className="font-bold">Total Units: {data.totalUnits || 0}</span>
+            {" "}
+            {data.unitsPerFloor && Number(data.unitsPerFloor) > 0
+              ? `(${data.totalFloorsNum || 0} floors × ${data.unitsPerFloor} units/floor)`
+              : `(Will be auto-calculated in the next step based on unit configurations)`}
           </p>
         </div>
       </Section>

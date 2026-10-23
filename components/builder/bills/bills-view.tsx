@@ -767,7 +767,7 @@ export function BillsView() {
                   <div className="text-right text-[10px] text-slate-600 space-y-0.5">
                     <p className="font-medium">123 Business Avenue, Sector 62</p>
                     <p className="font-medium">Gurugram, Haryana 122018</p>
-                    <p>contact@astronixrealty.com | +91 98765 43210</p>
+                    <p>contact@astronixrealty.com | +91 86572 25993</p>
                     <p className="font-bold text-slate-900 pt-0.5">GSTIN: 06AAAPC1234F1Z9</p>
                   </div>
                 </div>

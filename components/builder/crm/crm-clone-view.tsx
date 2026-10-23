@@ -260,6 +260,25 @@ const buildStageExtraNotes = (status: string | null, extra: any) => {
     return notes;
 }
 
+function sanitizeOurLeadRecord(lead: any): Lead {
+    const validStatuses: LeadStatus[] = ["Fresh", "Token VIP", "Connected", "Site Visit", "Negotiation", "Final Negotiation", "Booked", "Junk"];
+    let normalizedStatus: LeadStatus = lead.status;
+    if (!validStatuses.includes(normalizedStatus)) {
+        normalizedStatus = "Fresh";
+    }
+
+    return {
+        ...lead,
+        status: normalizedStatus,
+        id: toId(lead._id || lead.id),
+        _id: toId(lead._id || lead.id),
+        timeline: Array.isArray(lead.timeline) ? lead.timeline.map((t: any) => ({
+            ...t,
+            desc: t.desc || "No description provided"
+        })) : []
+    };
+}
+
 export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 'mandate' }) {
     const storagePrefix = userRole === "mandate" ? "mandate_" : ""
     const [viewMode, setViewMode] = useState<"pipeline" | "list" | "profile" | "analytics">("pipeline")
@@ -271,24 +290,12 @@ export function CRMCloneView({ userRole = 'builder' }: { userRole?: 'builder' | 
     const allLeadIds = store.allLeadIds[crmRole] || []
 
     const setInitialLeads = (leads: any[]) => {
-        const sanitizedLeads = leads.map(lead => ({
-            ...lead,
-            timeline: Array.isArray(lead.timeline) ? lead.timeline.map((t: any) => ({
-                ...t,
-                desc: t.desc || "No description provided"
-            })) : []
-        }))
+        const sanitizedLeads = leads.map(lead => sanitizeOurLeadRecord(lead))
         store.setInitialLeads(crmRole, sanitizedLeads)
     }
 
     const upsertLead = (lead: any) => {
-        const sanitizedLead = {
-            ...lead,
-            timeline: Array.isArray(lead.timeline) ? lead.timeline.map((t: any) => ({
-                ...t,
-                desc: t.desc || "No description provided"
-            })) : []
-        }
+        const sanitizedLead = sanitizeOurLeadRecord(lead)
         store.upsertLead(crmRole, sanitizedLead)
     }
 
