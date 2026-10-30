@@ -1602,7 +1602,6 @@ export function SettingsView({
                   {[
                     { label: "Platform", value: "Astronix OS" },
                     { label: "Version", value: "v2.4.0" },
-                    { label: "Engine", value: "Live Engine · Next.js 16" },
                     { label: "Region", value: "India (IN)" },
                     { label: "Last Updated", value: "October 2026" },
                   ].map(({ label, value }) => (
