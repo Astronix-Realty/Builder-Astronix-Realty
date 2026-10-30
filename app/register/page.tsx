@@ -25,14 +25,22 @@ export const metadata: Metadata = {
     siteName: 'Astronix Realty Builder Network',
     images: [
       {
-        url: '/astronix-logo.png',
-        width: 512,
-        height: 512,
-        alt: 'Astronix Realty Logo',
+        url: 'https://builder.astronixrealty.com/og-image.jpg',
+        secureUrl: 'https://builder.astronixrealty.com/og-image.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'Astronix Realty Partner Registration',
+        type: 'image/jpeg',
       },
     ],
     locale: 'en_IN',
     type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Register as Builder or Mandate Partner | Astronix Realty',
+    description: 'Onboard as a RERA-registered builder or exclusive sales mandate on Astronix Realty. Zero duplicate listings, real base-rate clarity, and verified buyer leads.',
+    images: ['https://builder.astronixrealty.com/og-image.jpg'],
   },
 };
 

@@ -25,14 +25,22 @@ export const metadata: Metadata = {
     siteName: 'Astronix Realty Builder Network',
     images: [
       {
-        url: '/astronix-logo.png',
-        width: 512,
-        height: 512,
-        alt: 'Astronix Realty Logo',
+        url: 'https://builder.astronixrealty.com/og-image.jpg',
+        secureUrl: 'https://builder.astronixrealty.com/og-image.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'Astronix Realty Builder Portal Login',
+        type: 'image/jpeg',
       },
     ],
     locale: 'en_IN',
     type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Builder & Mandate Portal Login | Astronix Realty',
+    description: 'Sign in to manage real estate projects, towers, inventory, and qualified buyer leads on the Astronix Realty partner network.',
+    images: ['https://builder.astronixrealty.com/og-image.jpg'],
   },
 };
 

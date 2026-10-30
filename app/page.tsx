@@ -41,14 +41,22 @@ export const metadata: Metadata = {
     siteName: 'Astronix Realty Builder Network',
     images: [
       {
-        url: '/astronix-logo.png',
-        width: 512,
-        height: 512,
-        alt: 'Astronix Realty Logo',
+        url: 'https://builder.astronixrealty.com/og-image.jpg',
+        secureUrl: 'https://builder.astronixrealty.com/og-image.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'Astronix Realty Builder & Mandate Partner Network',
+        type: 'image/jpeg',
       },
     ],
     locale: 'en_IN',
     type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Builder & Mandate Partner Network | Astronix Realty',
+    description: 'Official developer and mandate platform for real estate inventory distribution, MahaRERA compliance, and real-time buyer lead pipelines across Mumbai MMR.',
+    images: ['https://builder.astronixrealty.com/og-image.jpg'],
   },
 };
 
