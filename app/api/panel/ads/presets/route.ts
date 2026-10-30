@@ -1,3 +1,4 @@
+import { checkRBAC } from "@/lib/rbac";
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import AdAudiencePreset from "@/models/AdAudiencePreset";
@@ -11,6 +12,9 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: NextRequest) {
   try {
+    const { errorResponse } = await checkRBAC(req, ["builder", "mandate", "teamLeader", "admin"]);
+    if (errorResponse) return errorResponse;
+
     await dbConnect();
     await seedDefaultAudiencePresets();
 

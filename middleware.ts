@@ -45,6 +45,23 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Protect team panel
+  // Protect /panel routes (e.g. Ads Studio & builder tools)
+  if (pathname.startsWith("/panel")) {
+    const token = req.cookies.get(AUTH_COOKIE)?.value;
+    if (!token) {
+      const loginUrl = new URL("/login", req.url);
+      loginUrl.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+    const payload = await verifyJwtEdge(token);
+    if (!payload) {
+      const loginUrl = new URL("/login", req.url);
+      loginUrl.searchParams.set("error", "session_expired");
+      return NextResponse.redirect(loginUrl);
+    }
+    return NextResponse.next();
+  }
+
   if (pathname.startsWith("/team-panel")) {
     const token = req.cookies.get(AUTH_COOKIE)?.value;
 
@@ -165,5 +182,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/builder/:path*', '/builder-dashboard/:path*', '/mandate-dashboard/:path*', '/team-panel/:path*', '/login'],
+  matcher: ['/builder/:path*', '/builder-dashboard/:path*', '/mandate-dashboard/:path*', '/team-panel/:path*', '/panel/:path*', '/login'],
 };

@@ -1,3 +1,4 @@
+import { checkRBAC } from "@/lib/rbac";
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Blog from "@/models/Blog";
@@ -5,8 +6,11 @@ import Blog from "@/models/Blog";
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
+    const { context, errorResponse } = await checkRBAC(req, ["builder", "mandate", "admin"]);
+    if (errorResponse) return errorResponse;
     await dbConnect();
-    const { action, userId } = await req.json(); // action: 'acquire', 'release', 'ping'
+    const { action } = await req.json(); // action: 'acquire', 'release', 'ping'
+    const userId = context!.userId;
 
     if (!userId) {
       return NextResponse.json({ error: "User ID is required" }, { status: 400 });

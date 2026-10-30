@@ -76,11 +76,26 @@ export async function POST(req: NextRequest) {
       billing_address,
     } = body;
 
-    const creditAmount = Number(amount);
+        const creditAmount = Number(amount);
     if (!creditAmount || creditAmount < 500) {
       return NextResponse.json(
         { success: false, error: "Minimum recharge amount is ₹500" },
         { status: 400 }
+      );
+    }
+
+    // Security Guard: Prevent free mock recharge exploitation in production
+    if (
+      payment_mode === "LOCAL_MOCK_TEST" &&
+      process.env.NODE_ENV === "production" &&
+      process.env.ALLOW_MOCK_PAYMENTS !== "true"
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Mock recharge is disabled in production. Please use live payment gateway.",
+        },
+        { status: 403 }
       );
     }
 

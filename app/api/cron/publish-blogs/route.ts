@@ -6,9 +6,11 @@ import { revalidatePath } from "next/cache";
 export async function GET(req: NextRequest) {
   try {
     // Basic Security: Vercel Cron sends a Bearer token or we can use a custom secret header
+    // Security Guard: Strictly verify Vercel Cron Secret in production
     const authHeader = req.headers.get("authorization");
-    if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const cronSecret = process.env.CRON_SECRET;
+    if (process.env.NODE_ENV === "production" && (!cronSecret || authHeader !== `Bearer ${cronSecret}`)) {
+      return NextResponse.json({ error: "Unauthorized cron access" }, { status: 401 });
     }
 
     await dbConnect();

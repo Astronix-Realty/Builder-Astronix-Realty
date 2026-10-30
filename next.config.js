@@ -2,12 +2,25 @@
 const nextConfig = {
     typescript: { ignoreBuildErrors: true },
     serverExternalPackages: ['cloudinary'],
+    compress: true,
     experimental: {
         serverActions: {
             bodySizeLimit: '50mb',
         },
+        optimizePackageImports: [
+            'lucide-react',
+            'date-fns',
+            'recharts',
+            'framer-motion',
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-dropdown-menu',
+            '@radix-ui/react-select',
+            '@radix-ui/react-popover',
+            '@radix-ui/react-tabs',
+        ],
     },
     images: {
+        formats: ['image/avif', 'image/webp'],
         remotePatterns: [
             { protocol: 'https', hostname: 'res.cloudinary.com' },
             { protocol: 'https', hostname: '**.cloudinary.com' },

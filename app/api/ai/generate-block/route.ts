@@ -1,3 +1,4 @@
+import { checkRBAC } from "@/lib/rbac";
 import { NextRequest, NextResponse } from "next/server";
 import { HfInference } from "@huggingface/inference";
 
@@ -5,6 +6,9 @@ import { HfInference } from "@huggingface/inference";
 
 export async function POST(req: NextRequest) {
   try {
+    const { errorResponse } = await checkRBAC(req, ["builder", "mandate", "admin"]);
+    if (errorResponse) return errorResponse;
+
     const { blockType, contextText } = await req.json();
 
     const apiKey = process.env.HUGGINGFACE_API_KEY;

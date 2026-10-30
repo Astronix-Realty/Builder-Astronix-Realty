@@ -15,6 +15,13 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: NextRequest) {
   try {
+    // Security Guard: Verify Vercel Cron Secret in production
+    const authHeader = req.headers.get("authorization");
+    const cronSecret = process.env.CRON_SECRET;
+    if (process.env.NODE_ENV === "production" && (!cronSecret || authHeader !== `Bearer ${cronSecret}`)) {
+      return NextResponse.json({ error: "Unauthorized cron access" }, { status: 401 });
+    }
+
     await dbConnect();
     const config = getMetaConfig();
     const now = new Date();
