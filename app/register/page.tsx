@@ -22,25 +22,33 @@ export const metadata: Metadata = {
     title: 'Register as Builder or Mandate Partner | Astronix Realty',
     description: 'Onboard as a RERA-registered builder or exclusive sales mandate on Astronix Realty. Zero duplicate listings, real base-rate clarity, and verified buyer leads.',
     url: 'https://builder.astronixrealty.com/register',
-    siteName: 'Astronix Realty Builder Network',
+    siteName: 'Astronix Realty',
+    locale: 'en_IN',
+    type: 'website',
     images: [
+      {
+        url: 'https://builder.astronixrealty.com/og-image.png',
+        secureUrl: 'https://builder.astronixrealty.com/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'Register as Builder or Mandate Partner | Astronix Realty',
+        type: 'image/png',
+      },
       {
         url: 'https://builder.astronixrealty.com/og-image.jpg',
         secureUrl: 'https://builder.astronixrealty.com/og-image.jpg',
         width: 1200,
         height: 630,
-        alt: 'Astronix Realty Partner Registration',
+        alt: 'Register as Builder or Mandate Partner | Astronix Realty',
         type: 'image/jpeg',
       },
     ],
-    locale: 'en_IN',
-    type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Register as Builder or Mandate Partner | Astronix Realty',
     description: 'Onboard as a RERA-registered builder or exclusive sales mandate on Astronix Realty. Zero duplicate listings, real base-rate clarity, and verified buyer leads.',
-    images: ['https://builder.astronixrealty.com/og-image.jpg'],
+    images: ['https://builder.astronixrealty.com/og-image.png'],
   },
 };
 

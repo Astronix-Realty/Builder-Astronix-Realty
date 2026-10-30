@@ -35,12 +35,18 @@ const nextConfig = {
             {
                 source: '/(.*)',
                 headers: [
-                    { key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive' },
                     { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
                     { key: 'X-Content-Type-Options', value: 'nosniff' },
                     { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
                     { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
                     { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+                ],
+            },
+            {
+                // Restrict search indexing only on private dashboard and API routes
+                source: '/(builder-dashboard|mandate-dashboard|team-panel|panel|property|preview|api)/:path*',
+                headers: [
+                    { key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive' },
                 ],
             },
         ];

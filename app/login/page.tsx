@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import LoginView from '@/components/auth/LoginView';
 
 export const metadata: Metadata = {
-  title: 'Builder & Mandate Portal Login | Astronix Realty',
+  title: 'Builder & Mandate Portal Sign In | Astronix Realty',
   description: 'Sign in to the official Astronix Realty Developer & Mandate Portal. Access real-time buyer lead pipelines, tower inventory management, and marketing distribution across Mumbai MMR.',
   alternates: {
     canonical: 'https://builder.astronixrealty.com/login',
@@ -19,28 +19,36 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: 'Builder & Mandate Portal Login | Astronix Realty',
+    title: 'Builder & Mandate Portal Sign In | Astronix Realty',
     description: 'Sign in to manage real estate projects, towers, inventory, and qualified buyer leads on the Astronix Realty partner network.',
     url: 'https://builder.astronixrealty.com/login',
-    siteName: 'Astronix Realty Builder Network',
+    siteName: 'Astronix Realty',
+    locale: 'en_IN',
+    type: 'website',
     images: [
+      {
+        url: 'https://builder.astronixrealty.com/og-image.png',
+        secureUrl: 'https://builder.astronixrealty.com/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'Astronix Realty Builder & Mandate Portal Sign In',
+        type: 'image/png',
+      },
       {
         url: 'https://builder.astronixrealty.com/og-image.jpg',
         secureUrl: 'https://builder.astronixrealty.com/og-image.jpg',
         width: 1200,
         height: 630,
-        alt: 'Astronix Realty Builder Portal Login',
+        alt: 'Astronix Realty Builder & Mandate Portal Sign In',
         type: 'image/jpeg',
       },
     ],
-    locale: 'en_IN',
-    type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Builder & Mandate Portal Login | Astronix Realty',
+    title: 'Builder & Mandate Portal Sign In | Astronix Realty',
     description: 'Sign in to manage real estate projects, towers, inventory, and qualified buyer leads on the Astronix Realty partner network.',
-    images: ['https://builder.astronixrealty.com/og-image.jpg'],
+    images: ['https://builder.astronixrealty.com/og-image.png'],
   },
 };
 

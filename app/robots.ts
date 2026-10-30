@@ -13,34 +13,66 @@ export default function robots(): MetadataRoute.Robots {
 
   return {
     rules: [
+      // Social media preview crawlers (WhatsApp, Facebook, LinkedIn, Twitter, Telegram, Slack)
+      {
+        userAgent: [
+          'facebookexternalhit',
+          'Facebot',
+          'WhatsApp',
+          'Twitterbot',
+          'LinkedInBot',
+          'TelegramBot',
+          'Slackbot',
+          'Pinterestbot',
+        ],
+        allow: [
+          '/',
+          '/login',
+          '/register',
+          '/og-image.png',
+          '/og-image.jpg',
+          '/opengraph-image.png',
+          '/twitter-image.png',
+          '/astronix-logo.png',
+          '/logo.png',
+          '/favicon.ico',
+          '/apple-icon.png',
+        ],
+        disallow: privateRoutes,
+      },
       // General search engines (Google, Bing, Yahoo, etc.)
       {
         userAgent: '*',
-        allow: ['/', '/login', '/register', '/llms.txt', '/astronix-logo.png', '/favicon.ico'],
+        allow: [
+          '/',
+          '/login',
+          '/register',
+          '/llms.txt',
+          '/og-image.png',
+          '/og-image.jpg',
+          '/opengraph-image.png',
+          '/twitter-image.png',
+          '/astronix-logo.png',
+          '/logo.png',
+          '/favicon.ico',
+          '/icon-192.png',
+          '/icon-512.png',
+          '/apple-icon.png',
+        ],
         disallow: privateRoutes,
       },
       // Googlebot
       {
         userAgent: 'Googlebot',
-        allow: ['/', '/login', '/register', '/llms.txt', '/astronix-logo.png'],
-        disallow: privateRoutes,
-      },
-      // OpenAI live search crawler (ChatGPT Search)
-      {
-        userAgent: 'OAI-SearchBot',
-        allow: ['/', '/login', '/register', '/llms.txt'],
-        disallow: privateRoutes,
-      },
-      // Perplexity search crawler
-      {
-        userAgent: 'PerplexityBot',
-        allow: ['/', '/login', '/register', '/llms.txt'],
-        disallow: privateRoutes,
-      },
-      // Claude search integration
-      {
-        userAgent: 'ClaudeBot',
-        allow: ['/', '/login', '/register', '/llms.txt'],
+        allow: [
+          '/',
+          '/login',
+          '/register',
+          '/llms.txt',
+          '/og-image.png',
+          '/og-image.jpg',
+          '/astronix-logo.png',
+        ],
         disallow: privateRoutes,
       },
     ],

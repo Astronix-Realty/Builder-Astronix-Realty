@@ -18,8 +18,8 @@ import {
 } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'Builder & Mandate Partner Network | Astronix Realty',
-  description: 'Official partner portal for RERA-registered real estate builders and exclusive sales mandates in Mumbai MMR. Manage inventory, access verified buyer leads, and streamline project distribution.',
+  title: 'Astronix Realty | Real Estate Management Platform',
+  description: 'Explore the Astronix Realty platform for real estate projects, property management and builder services.',
   alternates: {
     canonical: 'https://builder.astronixrealty.com',
   },
@@ -35,28 +35,36 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: 'Builder & Mandate Partner Network | Astronix Realty',
-    description: 'Official developer and mandate platform for real estate inventory distribution, MahaRERA compliance, and real-time buyer lead pipelines across Mumbai MMR.',
+    title: 'Astronix Realty | Real Estate Management Platform',
+    description: 'Explore the Astronix Realty platform for real estate projects, property management and builder services.',
     url: 'https://builder.astronixrealty.com',
-    siteName: 'Astronix Realty Builder Network',
+    siteName: 'Astronix Realty',
+    locale: 'en_IN',
+    type: 'website',
     images: [
+      {
+        url: 'https://builder.astronixrealty.com/og-image.png',
+        secureUrl: 'https://builder.astronixrealty.com/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'Astronix Realty | Real Estate Management Platform',
+        type: 'image/png',
+      },
       {
         url: 'https://builder.astronixrealty.com/og-image.jpg',
         secureUrl: 'https://builder.astronixrealty.com/og-image.jpg',
         width: 1200,
         height: 630,
-        alt: 'Astronix Realty Builder & Mandate Partner Network',
+        alt: 'Astronix Realty | Real Estate Management Platform',
         type: 'image/jpeg',
       },
     ],
-    locale: 'en_IN',
-    type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Builder & Mandate Partner Network | Astronix Realty',
-    description: 'Official developer and mandate platform for real estate inventory distribution, MahaRERA compliance, and real-time buyer lead pipelines across Mumbai MMR.',
-    images: ['https://builder.astronixrealty.com/og-image.jpg'],
+    title: 'Astronix Realty | Real Estate Management Platform',
+    description: 'Explore the Astronix Realty platform for real estate projects, property management and builder services.',
+    images: ['https://builder.astronixrealty.com/og-image.png'],
   },
 };
 
