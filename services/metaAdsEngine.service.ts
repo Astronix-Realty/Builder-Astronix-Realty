@@ -22,8 +22,8 @@ export interface MetaEngineConfig {
 export function getMetaConfig(): MetaEngineConfig {
   return {
     executionMode: (process.env.ADS_EXECUTION_MODE as any) === 'LIVE_META_API' ? 'LIVE_META_API' : 'LOCAL_SIMULATION',
-    appId: process.env.META_APP_ID || '2555091118327453',
-    appSecret: process.env.META_APP_SECRET || '436e398da636e04355afe3e889a66ec6',
+    appId: process.env.META_APP_ID || '',
+    appSecret: process.env.META_APP_SECRET || '',
     apiVersion: process.env.META_GRAPH_API_VERSION || 'v21.0',
     systemAccessToken: process.env.META_SYSTEM_ACCESS_TOKEN || '',
     adAccountId: process.env.META_AD_ACCOUNT_ID || 'act_000000000000',

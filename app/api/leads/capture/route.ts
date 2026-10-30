@@ -1,3 +1,4 @@
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { NextRequest, NextResponse } from "next/server"; 
 import dbConnect from "@/lib/db";
 import Lead from "@/models/Lead";
@@ -11,6 +12,15 @@ export async function POST(req: NextRequest) {
         await dbConnect();
         const body = await req.json();
         
+        const clientIp = getClientIp(req);
+        const { allowed } = rateLimit(`lead_capture:${clientIp}`, 15, 60_000);
+        if (!allowed) {
+            return NextResponse.json({ 
+                success: false, 
+                error: "Too many lead submissions. Please wait a moment." 
+            }, { status: 429 });
+        }
+
         const { name, email, phone, source, requirement, budget, builderId, projectId } = body;
 
         if (!name || !phone) {

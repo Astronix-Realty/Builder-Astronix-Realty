@@ -2,10 +2,12 @@ import mongoose from "mongoose";
 import dns from "dns";
 
 // Fix querySrv ETIMEOUT on Windows Node.js environments by setting public DNS resolvers
-try {
-  dns.setServers(["8.8.8.8", "8.8.4.4", "1.1.1.1"]);
-} catch (e) {
-  // ignore if restricted
+if (process.env.NODE_ENV !== "production") {
+  try {
+    dns.setServers(["8.8.8.8", "8.8.4.4", "1.1.1.1"]);
+  } catch (e) {
+    // ignore if restricted
+  }
 }
 
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -35,12 +37,13 @@ async function dbConnect() {
   }
 
   if (!cached.promise) {
+    const isProd = process.env.NODE_ENV === "production";
     const opts: mongoose.ConnectOptions = {
       bufferCommands: false,
-      serverSelectionTimeoutMS: 45000,
-      connectTimeoutMS: 45000,
-      socketTimeoutMS: 120000,
-      maxPoolSize: 25,
+      serverSelectionTimeoutMS: isProd ? 10000 : 45000,
+      connectTimeoutMS: isProd ? 10000 : 45000,
+      socketTimeoutMS: isProd ? 30000 : 120000,
+      maxPoolSize: isProd ? 10 : 25,
       family: 4,
     };
 
