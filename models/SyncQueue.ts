@@ -16,7 +16,7 @@ export interface ISyncQueue extends Document {
 
 const SyncQueueSchema: Schema = new Schema(
   {
-    eventId: { type: String, required: true, unique: true, index: true },
+    eventId: { type: String, required: true, unique: true },
     eventType: { type: String, required: true },
     targetPanel: { type: String, required: true, enum: ['admin', 'builder', 'visitor'] },
     endpoint: { type: String, required: true },

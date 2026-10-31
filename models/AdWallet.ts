@@ -30,7 +30,6 @@ const AdWalletSchema = new Schema<IAdWallet>(
   }
 );
 
-AdWalletSchema.index({ owner_user_id: 1 });
 AdWalletSchema.index({ owner_role: 1 });
 
 export default mongoose.models.AdWallet || mongoose.model<IAdWallet>('AdWallet', AdWalletSchema);

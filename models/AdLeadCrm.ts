@@ -77,7 +77,6 @@ const AdLeadCrmSchema = new Schema<IAdLeadCrm>(
 
 AdLeadCrmSchema.index({ owner_user_id: 1, crm_status: 1 });
 AdLeadCrmSchema.index({ campaign_id: 1, createdAt: -1 });
-AdLeadCrmSchema.index({ meta_leadgen_id: 1 });
 AdLeadCrmSchema.index({ buyer_phone: 1 });
 
 export default mongoose.models.AdLeadCrm ||

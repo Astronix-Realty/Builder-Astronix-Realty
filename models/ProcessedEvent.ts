@@ -9,7 +9,7 @@ export interface IProcessedEvent extends Document {
 
 const ProcessedEventSchema: Schema = new Schema(
   {
-    eventId: { type: String, required: true, unique: true, index: true },
+    eventId: { type: String, required: true, unique: true },
     sourcePanel: { type: String, required: true },
     eventType: { type: String, required: true },
     processedAt: { type: Date, default: Date.now, expires: '30d' },

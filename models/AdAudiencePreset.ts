@@ -42,7 +42,6 @@ const AdAudiencePresetSchema = new Schema<IAdAudiencePreset>(
   }
 );
 
-AdAudiencePresetSchema.index({ preset_code: 1 });
 AdAudiencePresetSchema.index({ is_active: 1 });
 
 export default mongoose.models.AdAudiencePreset ||

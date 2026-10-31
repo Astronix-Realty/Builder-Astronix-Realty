@@ -174,7 +174,6 @@ const AdCampaignSchema = new Schema<IAdCampaign>(
   }
 );
 
-AdCampaignSchema.index({ campaign_code: 1 });
 AdCampaignSchema.index({ owner_user_id: 1, status: 1 });
 AdCampaignSchema.index({ root_property_id: 1 });
 AdCampaignSchema.index({ status: 1 });

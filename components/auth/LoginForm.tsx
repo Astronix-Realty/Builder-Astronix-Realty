@@ -30,11 +30,16 @@ function LoginFormInner({ onForgotPassword, activeUserType, onUserTypeChange }: 
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
 
-  // Auto-select teamLeader tab if redirected from /team-panel
+  // Auto-select tab and check error from searchParams
   useEffect(() => {
     const type = searchParams.get("type")
     if (type === "teamLeader" || type === "builder" || type === "mandate") {
       handleUserTypeChange(type as UserType | "teamLeader")
+    }
+
+    const err = searchParams.get("error")
+    if (err === "session_expired") {
+      setError("Your session has expired or requires authentication. Please sign in again.")
     }
   }, [searchParams])
 
@@ -57,9 +62,16 @@ function LoginFormInner({ onForgotPassword, activeUserType, onUserTypeChange }: 
         return
       }
 
-      if (userType === "builder") router.push("/builder-dashboard")
-      else if (userType === "teamLeader") router.push("/team-panel")
-      else router.push("/mandate-dashboard")
+      const userApproval = data.user?.approvalStatus || "pending"
+      const targetUrl =
+        userType === "builder"
+          ? (userApproval !== "approved" ? `/builder-dashboard/profile-settings?approval=${userApproval}` : "/builder-dashboard")
+          : userType === "teamLeader"
+            ? "/team-panel"
+            : (userApproval !== "approved" ? `/mandate-dashboard/profile-settings?approval=${userApproval}` : "/mandate-dashboard");
+
+      // Full page navigation guarantees browser cookie commit and avoids Next.js router cache race conditions
+      window.location.href = targetUrl;
     } catch {
       setError("Something went wrong. Please try again.")
       setIsLoading(false)

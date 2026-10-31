@@ -69,7 +69,6 @@ const UserSchema = new Schema<IUser>({
 });
 
 // Indexing
-UserSchema.index({ email: 1 }, { unique: true });
 UserSchema.index({ role: 1, status: 1 });
 UserSchema.index({ passwordResetToken: 1 });
 
